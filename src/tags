@@ -1,0 +1,7 @@
+!_TAG_FILE_SORTED	2	/0=unsorted, 1=sorted, 2=foldcase/
+newEBO	/Users/duwei/Documents/playground/sdl-empt/src/utils.cpp	/^void newEBO(uint* buf, size_t size) {$/;"	f	language:C++
+newShaderProgram	/Users/duwei/Documents/playground/sdl-empt/src/utils.cpp	/^uint newShaderProgram(string vertPath, string tescPath, string tesePath, string fragPath) {$/;"	f	language:C++
+newTexture	/Users/duwei/Documents/playground/sdl-empt/src/utils.cpp	/^uint newTexture(string imgPath) {$/;"	f	language:C++
+newVAO	/Users/duwei/Documents/playground/sdl-empt/src/utils.cpp	/^uint newVAO(float* vertices, size_t size) {$/;"	f	language:C++
+newVBO	/Users/duwei/Documents/playground/sdl-empt/src/utils.cpp	/^void newVBO(float* buf, size_t size) {$/;"	f	language:C++
+unifLoc	/Users/duwei/Documents/playground/sdl-empt/src/utils.cpp	/^int unifLoc(uint shaderID, string uniformName) {$/;"	f	language:C++
