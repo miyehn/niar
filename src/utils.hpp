@@ -25,4 +25,5 @@ uint newShaderProgram(string vertPath, string tescPath, string tesePath, string 
 
 //---- generic helpers ----
 
+void drawMesh(aiMesh* mesh);
 

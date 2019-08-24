@@ -210,5 +210,8 @@ uint newShaderProgram(string vertPath, string tescPath, string tesePath, string 
     glDeleteShader(fragmentShader);
     
     return newProgram;
-    
+}
+
+void drawMesh(aiMesh* mesh) {
+
 }

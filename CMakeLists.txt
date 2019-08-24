@@ -7,7 +7,8 @@ add_executable(sdl-empt
   src/main 
   src/Program 
   src/Program+Game 
-  src/utils)
+  src/utils
+  src/GameObject)
 
 target_link_libraries(sdl-empt
   ${OPENGL_gl_LIBRARY}

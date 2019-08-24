@@ -28,11 +28,7 @@ void Program::setup() {
     
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile("../media/blueCube.fbx",
-            aiProcess_GenSmoothNormals |
-            aiProcess_CalcTangentSpace |
-            aiProcess_Triangulate |
-            aiProcess_JoinIdenticalVertices |
-            aiProcess_SortByPType);
+            aiProcess_Triangulate);
     if (!scene) {
         cout << importer.GetErrorString();
     }
