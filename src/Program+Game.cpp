@@ -15,10 +15,10 @@ void Program::setup() {
     cout << "hello from SDL." << endl;
     
     shader = newShaderProgram(
-                              "./shaders/grass.vert",
-                              "./shaders/grass.tesc",
-                              "./shaders/grass.tese",
-                              "./shaders/grass.frag");
+                              "../shaders/grass.vert",
+                              "../shaders/grass.tesc",
+                              "../shaders/grass.tese",
+                              "../shaders/grass.frag");
     glUseProgram(shader);
     
     vao = newVAO(vertices, 24);
@@ -26,6 +26,17 @@ void Program::setup() {
     
     glPatchParameteri(GL_PATCH_VERTICES, 1);
     
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile("../media/blueCube.fbx",
+            aiProcess_GenSmoothNormals |
+            aiProcess_CalcTangentSpace |
+            aiProcess_Triangulate |
+            aiProcess_JoinIdenticalVertices |
+            aiProcess_SortByPType);
+    if (!scene) {
+        cout << importer.GetErrorString();
+    }
+
     cout << "done with setup." << endl;
 }
 

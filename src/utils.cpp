@@ -11,8 +11,6 @@
 using namespace std;
 using namespace glm;
 
-Assimp::Importer importer;
-
 int unifLoc(uint shaderID, string uniformName) {
     int location = glGetUniformLocation(shaderID, uniformName.c_str());
     if (location < 0) {
