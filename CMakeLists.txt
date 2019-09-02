@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
 project("sdl-empt")
+
+set(CMAKE_CXX_STANDARD 14)
 
 find_package(OpenGL)
 
@@ -8,7 +10,8 @@ add_executable(sdl-empt
   src/Program 
   src/Program+Game 
   src/utils
-  src/GameObject)
+  src/Camera
+  src/GameObject.hpp)
 
 target_link_libraries(sdl-empt
   ${OPENGL_gl_LIBRARY}

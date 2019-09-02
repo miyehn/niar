@@ -1,12 +1,7 @@
-//
-//  Program.hpp
-//  sdl-empty
-//
-//  Created by miyehn on 8/20/19.
-//  Copyright © 2019 miyehn. All rights reserved.
-//
 
-#include "utils.hpp"
+#include <vector>
+#include "Camera.hpp"
+#include "GameObject.hpp"
 
 using namespace std;
 using namespace glm;
@@ -16,6 +11,7 @@ class Program {
 public:
     
     Program(string name, int width, int height);
+    ~Program();
     void run();
     
 private:
@@ -30,11 +26,14 @@ private:
     SDL_GLContext context;
     SDL_Event windowEvent;
     mat4 getTransformation(vec3 objectPosition);
+
+    Camera camera;
+    vector<GameObject*> objects;
     
     // implementation of these decides game behavior.
     void setup();
     void draw();
-    void typedKey(SDL_Keycode key);
+    // void typedKey(SDL_Keycode key);
     void setVertexAtrribPointers();
     
     // temporary global storage - might be factored out later.

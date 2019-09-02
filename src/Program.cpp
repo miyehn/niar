@@ -52,19 +52,37 @@ Program::Program(string name, int width, int height) {
     
 }
 
+Program::~Program() {
+  for (uint i=0; i<objects.size(); i++) {
+    delete objects[i];
+  }
+}
+
 void Program::run() {
     setup();
     
     while (true) {
-        if (SDL_PollEvent(&windowEvent)) {
-            if (windowEvent.type == SDL_QUIT) break;
-            if (windowEvent.type == SDL_KEYUP) {
-                if (windowEvent.key.keysym.sym == SDLK_ESCAPE) break;
-                else typedKey(windowEvent.key.keysym.sym);
-            }
+
+      SDL_Event event;
+      bool quit = false;
+
+      while (SDL_PollEvent(&event)==1 && !quit) {
+        if (event.type == SDL_QUIT) { quit=true; break; }
+
+        else if (event.type==SDL_KEYUP && 
+            event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
+
+        else if (event.type==SDL_KEYUP || event.type==SDL_KEYDOWN) {
+          camera.handle_event(event);
+          for (uint i=0; i<objects.size(); i++) {
+            objects[i]->handle_event(event);
+          }
         }
-        draw();
-        SDL_GL_SwapWindow(window);
+      }
+      if (quit) break;
+
+      draw();
+      SDL_GL_SwapWindow(window);
     }
     
     // tear down
