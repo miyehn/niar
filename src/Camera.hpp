@@ -9,7 +9,7 @@ struct Camera : Updatable {
   Camera();
 
   // inherited
-  void update();
+  void update(float time_elapsed);
   bool handle_event(SDL_Event event);
 
   // properties, can be set by the program

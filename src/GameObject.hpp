@@ -4,7 +4,7 @@
 struct GameObject: Updatable {
 
   // inherited
-  virtual void update() = 0;
+  virtual void update(float time_elapsed) = 0;
   virtual bool handle_event(SDL_Event event) = 0;
 
   // game object can be shown on screen

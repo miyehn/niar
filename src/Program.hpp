@@ -1,10 +1,11 @@
-
 #include <vector>
+#include <chrono>
 #include "Camera.hpp"
 #include "GameObject.hpp"
 
 using namespace std;
 using namespace glm;
+typedef chrono::time_point<chrono::high_resolution_clock> TimePoint;
 
 class Program {
     
@@ -24,16 +25,15 @@ private:
     
     SDL_Window* window;
     SDL_GLContext context;
-    SDL_Event windowEvent;
-    mat4 getTransformation(vec3 objectPosition);
+    TimePoint previous_time;
 
     Camera camera;
     vector<GameObject*> objects;
     
     // implementation of these decides game behavior.
     void setup();
+    void update(float time_elapsed);
     void draw();
-    // void typedKey(SDL_Keycode key);
     void setVertexAtrribPointers();
     
     // temporary global storage - might be factored out later.

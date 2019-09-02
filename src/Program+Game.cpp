@@ -4,7 +4,7 @@
 using namespace std;
 using namespace glm;
 
-void Program::setup() {
+void Program::setup() { // TODO: should move this all into specifig game objects
   cout << "hello from SDL." << endl;
   
   shader = newShaderProgram(
@@ -34,11 +34,6 @@ void Program::setup() {
 
 void Program::draw() {
 
-  camera.update();
-  for (uint i=0; i<objects.size(); i++) {
-    objects[i]->update();
-  }
-  
   glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT);
   glClear(GL_DEPTH_BUFFER_BIT);

@@ -9,12 +9,13 @@ Camera::Camera() {
   aspect_ratio = 1.0f;
 }
 
-void Camera::update() {
+void Camera::update(float time_elapsed) {
 }
 
 bool Camera::handle_event(SDL_Event event) {
   switch (event.type) {
-    case SDL_KEYDOWN: {
+    case SDL_KEYDOWN: 
+    {
       SDL_Keycode key = event.key.keysym.sym;
       if (key == SDLK_UP) {
         position.y += 0.1f;
@@ -25,13 +26,11 @@ bool Camera::handle_event(SDL_Event event) {
       } else if (key == SDLK_RIGHT) {
         position.x += 0.1f;
       }
-      cout << "handled event." << endl;
-      break;
+      return true;
     }
-    default:
-      break;
+    default: 
+      return false;
   }
-  return true;
 }
 
 /**
