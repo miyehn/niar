@@ -1,19 +1,21 @@
 cmake_minimum_required(VERSION 3.1)
-project("sdl-empt")
+project("niar")
 
 set(CMAKE_CXX_STANDARD 14)
 
 find_package(OpenGL)
 
-add_executable(sdl-empt
+add_executable(niar
   src/main 
   src/Program 
-  src/Program+Game 
   src/utils
   src/Camera
-  src/GameObject.hpp)
+  src/GameObject.hpp
+  src/Blade
+  src/GrassField
+  )
 
-target_link_libraries(sdl-empt
+target_link_libraries(niar
   ${OPENGL_gl_LIBRARY}
   ${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
   ${CMAKE_SOURCE_DIR}/lib/SDL2.framework 

@@ -1,11 +1,9 @@
 #version 410 core
 
-layout (location = 0) in vec3 in_pos;
-layout (location = 1) in float in_gray;
+layout (location = 0) in vec4 in_data;
 
-out float v_gray;
+out vec4 v_data;
 
 void main() {
-  gl_Position = vec4(in_pos, 1.0f);
-  v_gray = in_gray;
+  v_data = in_data;
 }

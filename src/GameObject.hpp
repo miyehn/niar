@@ -10,6 +10,12 @@ struct GameObject: Updatable {
   // game object can be shown on screen
   virtual void draw() = 0;
 
-  Camera* camera = nullptr; // should cast to Camera* before use
+  Camera* camera = nullptr;
+  GameObject(Camera* cam) { this->camera = cam; }
+  ~GameObject() {
+    for (uint i=0; i<children.size(); i++) delete children[i];
+  }
+  vector<GameObject*> children = vector<GameObject*>();
+
   glm::mat4 transformation = glm::mat4(1.0f);
 };

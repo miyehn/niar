@@ -1,13 +1,6 @@
-//
-//  lib.h
-//  sdl-empty
-//
-//  Created by miyehn on 8/20/19.
-//  Copyright © 2019 miyehn. All rights reserved.
-//
-
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 #include "../include/glew/glew.h"
 

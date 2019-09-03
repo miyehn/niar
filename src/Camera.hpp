@@ -6,7 +6,7 @@ using namespace glm;
 
 struct Camera : Updatable {
 
-  Camera();
+  Camera(size_t w, size_t h);
 
   // inherited
   void update(float time_elapsed);
@@ -18,9 +18,12 @@ struct Camera : Updatable {
   float fov;
   float cutoffNear = 0.1f;
   float cutoffFar = 30.0f;
+
+  size_t width;
+  size_t height;
   float aspect_ratio;
 
   // functions
-  mat4 obj_to_screen(vec3 obj_location);
+  mat4 obj_to_screen();
 
 };

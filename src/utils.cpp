@@ -1,11 +1,3 @@
-//
-//  utils.cpp
-//  sdl-empty
-//
-//  Created by miyehn on 8/20/19.
-//  Copyright © 2019 miyehn. All rights reserved.
-//
-
 #include "utils.hpp"
 
 using namespace std;

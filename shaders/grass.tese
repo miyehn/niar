@@ -1,30 +1,30 @@
 #version 410 core
 
-layout (quads) in;
+layout (quads, ccw) in;
+in vec4 c_data[];
 uniform mat4 transformation;
-in float c_gray[]; // length of TCS's output patch size
+out vec4 col;
 
-out float e_gray;
+// unpack data from input
+vec3 root = c_data[0].xyz;
+vec3 above = c_data[1].xyz;
+vec3 ctrl = c_data[2].xyz;
+vec3 up = c_data[3].xyz; 
+float width = c_data[0].w;
+float height = c_data[1].w;
+float stiffness = c_data[2].w;
+float orientation = c_data[3].w;
+float halfWidth_root = (gl_TessCoord.x - 0.5) * width;
+float t = gl_TessCoord.y;
 
-vec4 interpolate4v(in vec4 v0, in vec4 v1, in vec4 v2, in vec4 v3) {
-  vec4 a = mix(v0, v1, gl_TessCoord.x);
-  vec4 b = mix(v3, v2, gl_TessCoord.x);
-  return mix(a, b, gl_TessCoord.y);
-}
-
-float interpolate1f(in float f0, in float f1, in float f2, in float f3) {
-  float a = mix(f0, f1, gl_TessCoord.x);
-  float b = mix(f3, f2, gl_TessCoord.x);
-  return mix(a, b, gl_TessCoord.y);
-}
+vec3 spine = root + 2*(1-t)*t*above + t*t*ctrl;
+float halfWidth = (1-t) * halfWidth_root;
+float cos_halfWidth = halfWidth * cos(orientation);
+float sin_halfWidth = halfWidth * sin(orientation);
 
 void main() {
-  gl_Position = transformation * interpolate4v(
-    gl_in[0].gl_Position,
-    gl_in[1].gl_Position,
-    gl_in[2].gl_Position,
-    gl_in[3].gl_Position
-  );
-  e_gray = (gl_TessCoord.x > 0.4 && gl_TessCoord.x < 0.6
-      && gl_TessCoord.y > 0.4 && gl_TessCoord.y < 0.6) ? 1.0 : c_gray[0];
+  gl_Position = transformation * vec4(
+     spine.x+cos_halfWidth, spine.y+sin_halfWidth, spine.z,
+  1);
+  col = vec4(0.2, 0.5, 0.1, 1);
 }
