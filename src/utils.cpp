@@ -1,8 +1,5 @@
 #include "utils.hpp"
 
-using namespace std;
-using namespace glm;
-
 int unifLoc(uint shaderID, string uniformName) {
     int location = glGetUniformLocation(shaderID, uniformName.c_str());
     if (location < 0) {
@@ -10,72 +7,6 @@ int unifLoc(uint shaderID, string uniformName) {
         exit(1);
     }
     return location;
-}
-
-void newVBO(float* buf, size_t size) {
-    // create vbo (vertex buffer object)
-    uint vbo;
-    glGenBuffers(1, &vbo);
-    // bind object (buffer)
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    // set options (buffer data)
-    glBufferData(GL_ARRAY_BUFFER, size, buf, GL_STATIC_DRAW);
-}
-
-uint newVAO(float* vertices, size_t size) {
-    uint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    
-    // create VBO for current VAO
-    newVBO(vertices, size * sizeof(float));
-    
-    return vao;
-}
-
-void newEBO(uint* buf, size_t size) {
-    // create ebo (element buffer object)
-    uint ebo;
-    glGenBuffers(1, &ebo);
-    // bind it
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    // set buffer data
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, buf, GL_STATIC_DRAW);
-}
-
-uint newTexture(string imgPath) {
-    
-    // load texture
-    int img_w, img_h, n;
-    unsigned char* data = stbi_load(imgPath.c_str(), &img_w, &img_h, &n, 0);
-    if (n != 3) exit(1);
-    if (data) { // if loading image successful, create a texture
-        cout << "successfully loaded img " << img_w << "x" << img_h << ", " << n << " bit.\n";
-        
-        // create texture
-        uint texture;
-        glGenTextures(1, &texture);
-        
-        // bind it
-        // binding texture also automatically sets the sampler2D uniform in fragment shader
-        glBindTexture(GL_TEXTURE_2D, texture);
-        
-        // texture settings
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        // generate texture and its mipmap from data
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, img_w, img_h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        
-        // after having texture, delete original data
-        stbi_image_free(data);
-        return texture;
-    } else {
-        cout << "unable to load image.\n" << endl;
-        exit(1);
-    }
 }
 
 uint newShaderProgram(string vertPath, string tescPath, string tesePath, string fragPath) {
@@ -204,6 +135,3 @@ uint newShaderProgram(string vertPath, string tescPath, string tesePath, string 
     return newProgram;
 }
 
-void drawMesh(aiMesh* mesh) {
-
-}

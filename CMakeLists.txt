@@ -14,6 +14,8 @@ add_executable(niar
   src/GrassField
   )
 
+include_directories(include)
+
 target_link_libraries(niar
   ${OPENGL_gl_LIBRARY}
   ${CMAKE_SOURCE_DIR}/lib/libGLEW.a 

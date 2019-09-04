@@ -12,7 +12,7 @@ struct GameObject: Updatable {
 
   Camera* camera = nullptr;
   GameObject(Camera* cam) { this->camera = cam; }
-  ~GameObject() {
+  virtual ~GameObject() {
     for (uint i=0; i<children.size(); i++) delete children[i];
   }
   vector<GameObject*> children = vector<GameObject*>();

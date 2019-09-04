@@ -1,17 +1,15 @@
+#define MACOS
+
 #include <iostream>
 #include <fstream>
 #include <vector>
 
-#include "../include/glew/glew.h"
+#ifdef MACOS
+#include "glew/glew.h"
+#endif
 
-#include "../include/SDL2/SDL.h"
+#include "SDL2/SDL.h"
 
-#include "../include/glm/glm.hpp"
-#include "../include/glm/gtc/matrix_transform.hpp"
-#include "../include/glm/gtc/type_ptr.hpp"
-
-#include "../include/assimp/Importer.hpp"
-#include "../include/assimp/scene.h"
-#include "../include/assimp/postprocess.h"
-
-#include "../include/stb_image/stb_image.h"
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"

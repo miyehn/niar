@@ -40,10 +40,12 @@ Program::Program(string name, int width, int height): camera(width, height) {
       exit(1);
   }
   
+  #ifdef MACOS
   // glew setup (not sure why necessary)
   // https://open.gl/context#Onemorething
   glewExperimental = GL_TRUE;
   glewInit();
+  #endif
 
   this->previous_time = chrono::high_resolution_clock::now();
 
