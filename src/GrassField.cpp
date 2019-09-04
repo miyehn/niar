@@ -9,9 +9,6 @@ GrassField::GrassField(Camera* camera, uint num_blades): GameObject(camera) {
     blades.push_back(b);
   }  
 
-  // allocate render buffer
-  render_buffer = new float[16 * num_blades];
-
   { // create vao and shaders
     // generate 1 vbo
     glGenBuffers(1, &vbo);
@@ -50,7 +47,7 @@ GrassField::GrassField(Camera* camera, uint num_blades): GameObject(camera) {
 }
 
 GrassField::~GrassField() {
-  delete(render_buffer); 
+  // delete(render_buffer); 
   glDeleteBuffers(1, &vbo);
   vbo = 0;
   glDeleteVertexArrays(1, &vao);
@@ -66,12 +63,9 @@ bool GrassField::handle_event(SDL_Event event) {
 
 void GrassField::draw() {
 
-  // assemble buffer to upload into render_buffer
-  assemble_buffer();
-
   // upload render_buffer
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, 16 * blades.size() * sizeof(float), render_buffer, GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, blades.size() * sizeof(Blade), blades.data(), GL_STREAM_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   // set shader
@@ -95,27 +89,14 @@ void GrassField::draw() {
   
 }
 
-void GrassField::assemble_buffer() {
-  size_t patch_size = 16;
-  for (size_t i=0; i<blades.size(); i++) {
-    render_buffer[i*patch_size + 0] = blades[i].root.x;
-    render_buffer[i*patch_size + 1] = blades[i].root.y;
-    render_buffer[i*patch_size + 2] = blades[i].root.z;
-    render_buffer[i*patch_size + 3] = blades[i].width;
+Blade::Blade(vec3 root) {
+  this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(65.0f));
 
-    render_buffer[i*patch_size + 4] = blades[i].above.x;
-    render_buffer[i*patch_size + 5] = blades[i].above.y;
-    render_buffer[i*patch_size + 6] = blades[i].above.z;
-    render_buffer[i*patch_size + 7] = blades[i].height;
+  this->root_w = vec4(root.x, root.y, root.z, 0.65f);
 
-    render_buffer[i*patch_size + 8] = blades[i].ctrl.x;
-    render_buffer[i*patch_size + 9] = blades[i].ctrl.y;
-    render_buffer[i*patch_size + 10] = blades[i].ctrl.z;
-    render_buffer[i*patch_size + 11] = blades[i].stiffness;
+  this->above_h = this->up_o * 4.0f;
+  this->above_h.w = 1.0f;
 
-    render_buffer[i*patch_size + 12] = blades[i].up.x;
-    render_buffer[i*patch_size + 13] = blades[i].up.y;
-    render_buffer[i*patch_size + 14] = blades[i].up.z;
-    render_buffer[i*patch_size + 15] = blades[i].orientation;
-  }
+  this->ctrl_s = above_h + vec4(-0.8f, 0.0f, 0.0f, 0.0f);
+  this->ctrl_s.w = 1.0f;
 }

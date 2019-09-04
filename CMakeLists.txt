@@ -11,7 +11,6 @@ add_executable(niar
   src/utils
   src/Camera
   src/GameObject.hpp
-  src/Blade
   src/GrassField
   )
 
