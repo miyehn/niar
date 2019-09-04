@@ -61,6 +61,7 @@ void GrassField::update(float time_elapsed) {
 }
 
 bool GrassField::handle_event(SDL_Event event) {
+  return false;
 }
 
 void GrassField::draw() {

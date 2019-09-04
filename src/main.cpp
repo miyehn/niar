@@ -3,6 +3,7 @@
 int main(int argc, const char * argv[]) {
     Program* program = new Program("my program", 800, 600);
     program->run();
+    return 0;
 }
 
 Program::Program(string name, int width, int height): camera(width, height) {
