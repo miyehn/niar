@@ -47,7 +47,6 @@ GrassField::GrassField(Camera* camera, uint num_blades): GameObject(camera) {
 }
 
 GrassField::~GrassField() {
-  // delete(render_buffer); 
   glDeleteBuffers(1, &vbo);
   vbo = 0;
   glDeleteVertexArrays(1, &vao);
