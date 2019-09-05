@@ -78,7 +78,7 @@ void GrassField::draw() {
   glBindVertexArray(vao);
 
   // draw.
-  glDrawArrays(GL_PATCHES, 0, 4 * blades.size());
+  glDrawArrays(GL_PATCHES, 0, 4 * (GLsizei)blades.size());
 
   // unbind vao
   glBindVertexArray(0);

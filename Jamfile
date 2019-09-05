@@ -74,9 +74,7 @@ GAME_NAMES =
   main
   Program
   Camera
-  GameObject
   GrassField
-  Updatable
   utils
   GL
   ;
