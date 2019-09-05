@@ -72,6 +72,12 @@ if $(OS) = NT { #Windows
 #Store the names of all the .cpp files to build into a variable:
 GAME_NAMES =
   main
+  Program
+  Camera
+  GameObject
+  GrassField
+  Updatable
+  utils
   GL
   ;
 
