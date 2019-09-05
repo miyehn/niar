@@ -16,7 +16,7 @@ uint newShaderProgram(string vertPath, string tescPath, string tesePath, string 
     std::string vContent( (std::istreambuf_iterator<char>(vIfs) ),
                          (std::istreambuf_iterator<char>()     ));
     const char* vertexShaderFile = vContent.c_str();
-    
+
     // load TCS file
     std::ifstream tcIfs(tescPath);
     std::string tcContent( (std::istreambuf_iterator<char>(tcIfs) ),

@@ -38,10 +38,10 @@ GrassField::GrassField(Camera* camera, uint num_blades): GameObject(camera) {
 
     // shaders
     shader = newShaderProgram(
-        "../shaders/grass.vert",
-        "../shaders/grass.tesc",
-        "../shaders/grass.tese",
-        "../shaders/grass.frag");
+        "shaders/grass.vert",
+        "shaders/grass.tesc",
+        "shaders/grass.tese",
+        "shaders/grass.frag");
   }
 
 }
