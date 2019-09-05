@@ -1,0 +1,82 @@
+
+#---- setup ----
+#This portion of the Jamfile sets up compiler and linker flags per-OS.
+#You shouldn't need to change it.
+
+if $(OS) = NT { #Windows
+  NEST_LIBS = ..\\nest-libs\\windows ;
+  C++FLAGS = /nologo /Z7 /c /EHsc /W3 /WX /MD
+    /I"$(NEST_LIBS)/SDL2/include"
+    /I"$(NEST_LIBS)/glm/include"
+    /I"$(NEST_LIBS)/libpng/include"
+    #disable a few warnings:
+    /wd4146 #-1U is still unsigned
+    /wd4297 #unforunately SDLmain is nothrow
+  ;
+  LINKFLAGS = /nologo /SUBSYSTEM:CONSOLE /DEBUG:FASTLINK
+    /LIBPATH:"$(NEST_LIBS)/SDL2/lib"
+    /LIBPATH:"$(NEST_LIBS)/libpng/lib"
+    /LIBPATH:"$(NEST_LIBS)/zlib/lib"
+  ;
+  LINKLIBS =
+    SDL2main.lib SDL2.lib OpenGL32.lib
+    libpng.lib zlib.lib
+  ;
+
+  File SDL2.dll : $(NEST_LIBS)\\SDL2\\dist\\SDL2.dll ;
+  File README-SDL.txt : $(NEST_LIBS)\\SDL2\\dist\\README-SDL.txt ;
+  MakeLocate SDL2.dll : dist ;
+  MakeLocate README-SDL.txt : dist ;
+} else if $(OS) = MACOSX { #MacOS
+  NEST_LIBS = ../nest-libs/macos ;
+  C++ = clang++ ;
+  C++FLAGS =
+    -std=c++14 -g -Wall -Werror
+    `'$(NEST_LIBS)/SDL2/bin/sdl2-config' --prefix='$(NEST_LIBS)/SDL2' --cflags` #SDL2
+    -I$(NEST_LIBS)/glm/include                                                  #glm
+    -I$(NEST_LIBS)/libpng/include     
+    ;
+  LINK = clang++ ;
+  LINKFLAGS = -std=c++14 -g -Wall -Werror ;
+  LINKLIBS =
+    `'$(NEST_LIBS)/SDL2/bin/sdl2-config' --prefix='$(NEST_LIBS)/SDL2' --static-libs` -framework OpenGL #SDL2
+    -L$(NEST_LIBS)/libpng/lib -lpng                                                       #libpng
+    -L$(NEST_LIBS)/zlib/lib -lz  
+    ;
+  File README-SDL.txt : $(NEST_LIBS)/SDL2/dist/README-SDL.txt ;
+  MakeLocate README-SDL.txt : dist ;
+} else if $(OS) = LINUX { #Linux
+  NEST_LIBS = ../nest-libs/linux ;
+  C++ = g++ -no-pie ;
+  C++FLAGS =
+    -std=c++11 -g -Wall -Werror
+    `'$(NEST_LIBS)/SDL2/bin/sdl2-config' --prefix='$(NEST_LIBS)/SDL2' --cflags` #SDL2
+    -I$(NEST_LIBS)/glm/include                                                  #glm
+    -I$(NEST_LIBS)/libpng/include                                               #libpng
+    ;
+  LINK = g++ -no-pie ;
+  LINKFLAGS = -std=c++11 -g -Wall -Werror ;
+  LINKLIBS =
+    `'$(NEST_LIBS)/SDL2/bin/sdl2-config' --prefix='$(NEST_LIBS)/SDL2' --static-libs` -lGL #SDL2
+    -L$(NEST_LIBS)/libpng/lib -lpng                                                       #libpng
+    -L$(NEST_LIBS)/zlib/lib -lz                                                           #zlib
+    ;
+  #`PATH=$(KIT_LIBS)/SDL2/bin:$PATH sdl2-config --static-libs` -lGL #SDL2 (old way that allows system libs to also work)
+  File dist/README-SDL.txt : $(NEST_LIBS)/SDL2/dist/README-SDL.txt ;
+  MakeLocate README-SDL.txt : dist ;
+}
+
+#---- build ----
+#This is the part of the file that tells Jam how to build your project.
+
+#Store the names of all the .cpp files to build into a variable:
+GAME_NAMES =
+  main
+  GL
+  ;
+
+LOCATE_TARGET = objs ; #put objects in 'objs' directory
+Objects $(GAME_NAMES:S=.cpp) ;
+
+LOCATE_TARGET = dist ; #put main in 'dist' directory
+MainFromObjects tet : $(GAME_NAMES:S=$(SUFOBJ)) ;
