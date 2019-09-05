@@ -4,7 +4,7 @@
 #You shouldn't need to change it.
 
 if $(OS) = NT { #Windows
-  NEST_LIBS = ..\\nest-libs\\windows ;
+  NEST_LIBS = lib ;
   C++FLAGS = /nologo /Z7 /c /EHsc /W3 /WX /MD
     /I"$(NEST_LIBS)/SDL2/include"
     /I"$(NEST_LIBS)/glm/include"

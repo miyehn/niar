@@ -1,6 +1,6 @@
 //Mode.hpp declares the "Mode::current" static member variable, which is used to decide where event-handling, updating, and drawing events go:
 //GL.hpp will include a non-namespace-polluting set of opengl prototypes:
-#include "GL/GL.hpp"
+#include "GL.hpp"
 //Includes for libSDL:
 #include <SDL.h>
 #include <glm/glm.hpp>
