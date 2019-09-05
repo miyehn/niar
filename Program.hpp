@@ -8,7 +8,7 @@ class Program {
     
 public:
     
-    Program(string name, int width, int height);
+    Program(string name, int width, int height, SDL_Window* window, SDL_GLContext context);
     ~Program();
     void run();
     
