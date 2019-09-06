@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include "GL.hpp"
+#include "gl_errors.hpp"
 #include <SDL.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

@@ -75,6 +75,7 @@ GAME_NAMES =
   Program
   Camera
   GrassField
+  Compute
   utils
   GL
   ;

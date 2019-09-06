@@ -1,0 +1,12 @@
+#version 430 core
+
+uniform image1D in_read;
+uniform image1D out_write;
+
+layout(local_size_x = 8) in;
+
+void main() {
+  int pos = gl_GlobalInvocationID.x;
+  float data = imageLoad(in_read, pos).x;
+  imageStore(out_write, pos, data);
+}
