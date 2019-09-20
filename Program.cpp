@@ -1,13 +1,13 @@
 #include "Program.hpp"
-#include "Compute.hpp"
+#include "GrassField.hpp"
 
 using namespace std;
 using namespace glm;
 
 void Program::setup() { 
 
-  GameObject* compute = new Compute(&camera);
-  objects.push_back(compute);
+  GameObject* field = new GrassField(&camera);
+  objects.push_back(field);
 
 }
 

@@ -73,40 +73,6 @@ int main(int argc, char **argv) {
   Program* program = new Program(window_name, window_w, window_h, window, context);
   program->run();
 
-
-  /*
-  //------------ main loop ------------
-
-  bool running = true;
-  //This will loop until the current mode is set to null:
-  while (running) {
-    {
-      static SDL_Event evt;
-      while (SDL_PollEvent(&evt) == 1) {
-        //handle quit signal:
-        if (evt.type == SDL_QUIT
-            || (evt.type == SDL_KEYUP && evt.key.keysym.sym == SDLK_ESCAPE)) {
-          running = false;
-          break;
-        }
-      }
-      if (!running) break;
-    }
-
-    //Wait until the recently-drawn frame is shown before doing it all again:
-    SDL_GL_SwapWindow(window);
-  }
-
-
-  //------------  teardown ------------
-
-  SDL_GL_DeleteContext(context);
-  context = 0;
-
-  SDL_DestroyWindow(window);
-  window = NULL;
-   */
-
   return 0;
 
 #ifdef _WIN32
@@ -180,7 +146,6 @@ void Program::run() {
   context = 0;
   SDL_DestroyWindow(window);
   window = NULL;
-  exit(0);
 }
 
 void Program::update(float time_elapsed) {

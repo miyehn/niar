@@ -1,0 +1,63 @@
+#version 430
+
+/* each invocation is responsible for updating 1 blade
+ * that is, update 16 float entries
+ */
+
+layout(local_size_x = 4) in;
+uniform float elapsed;
+
+layout(r32f, binding = 0) uniform readonly image1D read_i;
+layout(r32f, binding = 1) uniform writeonly image1D write_o;
+
+struct {
+  vec3 root;
+  vec3 above;
+  vec3 ctrl;
+  vec3 up;
+  float width, height, stiffness, orientation;
+} b0, b; // input blade b0, output blade b
+
+float r(int i) { return imageLoad(read_i, i).x; }
+
+void w(int i, float f) { imageStore(write_o, i, vec4(f, 0, 0, 0)); }
+
+void unpack_input(int i) {
+  b0.root = vec3(r(i), r(i+1), r(i+2));
+  b0.width = r(i+3);
+  b0.above = vec3(r(i+4), r(i+5), r(i+6));
+  b0.height = r(i+7);
+  b0.ctrl = vec3(r(i+8), r(i+9), r(i+10));
+  b0.stiffness = r(i+11);
+  b0.up = vec3(r(i+12), r(i+13), r(i+14));
+  b0.orientation = r(i+15);
+}
+
+void write_output(int i) {
+  w(i, b.root.x); w(i+1, b.root.y); w(i+2, b.root.z);
+  w(i+3, b.width);
+  w(i+4, b.above.x); w(i+5, b.above.y); w(i+6, b.above.z);
+  w(i+7, b.height);
+  w(i+8, b.ctrl.x); w(i+9, b.ctrl.y); w(i+10, b.ctrl.z);
+  w(i+11, b.stiffness);
+  w(i+12, b.up.x); w(i+13, b.up.y); w(i+14, b.up.z);
+  w(i+15, b.orientation);
+}
+
+void main() {
+  int start_index = 16 * int(gl_GlobalInvocationID.x);
+  unpack_input(start_index);
+  //---- above: get input ----
+
+  b.root = vec3(-1, -1, -1);
+  b.above = vec3(-2, -2, -2);
+  b.ctrl = vec3(-3, -3, -3);
+  b.up = vec3(-4, -4, -4);
+  b.width = 99;
+  b.height = 88;
+  b.stiffness = 77;
+  b.orientation = 66;
+
+  //---- below: write output ----
+  write_output(start_index);
+}
