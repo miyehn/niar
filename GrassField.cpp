@@ -4,7 +4,7 @@
 GrassField::GrassField(Camera* camera): GameObject(camera) {
 
   { // init data
-    for (int i=0; i<8; i++) {
+    for (int i=0; i<2; i++) {
       blades.emplace_back(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
     }
     img_buffer_pixels = (GLsizei)(blades.size() * sizeof(Blade) / 4);
@@ -71,6 +71,8 @@ GrassField::~GrassField(){
 
 void GrassField::update(float time_elapsed) {
 
+  time += time_elapsed;
+
   // swap the two textures
   uint textmp = tex_r;
   tex_r = tex_w;
@@ -80,10 +82,12 @@ void GrassField::update(float time_elapsed) {
   glBindImageTexture(0, tex_r, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
   glBindImageTexture(1, tex_w, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
 
-  // run compute shader
+  // use compute shader
   glUseProgram(comp_shader_prog);
-  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT);
+  // set time uniform
+  glUniform2f(unifLoc(comp_shader_prog, "time"), time, time_elapsed);
   // suppose want to draw 8 blades: work group size = 4, dispatch 2 work groups total to draw them.
+  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT);
   glDispatchCompute(num_workgroups, 1, 1); // arguments: X, Y, Z (how many work groups in each dimension)
   GL_ERRORS();
 
@@ -104,8 +108,6 @@ bool GrassField::handle_event(SDL_Event event) {
 }
 
 void GrassField::draw() {
-
-  /*
 
   // upload buffer data
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -133,7 +135,6 @@ void GrassField::draw() {
 
   GL_ERRORS();
 
-   */
 }
 
 Blade::Blade(vec3 root) {

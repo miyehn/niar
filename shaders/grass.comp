@@ -4,11 +4,13 @@
  * that is, update 16 float entries
  */
 
-layout(local_size_x = 4) in;
-uniform float elapsed;
+layout(local_size_x = 2) in;
+uniform vec2 time;
 
 layout(r32f, binding = 0) uniform readonly image1D read_i;
 layout(r32f, binding = 1) uniform writeonly image1D write_o;
+
+const float PI = 3.1415926535897932384626433832795;
 
 struct {
   vec3 root;
@@ -17,6 +19,8 @@ struct {
   vec3 up;
   float width, height, stiffness, orientation;
 } b0, b; // input blade b0, output blade b
+
+float t, dt;
 
 float r(int i) { return imageLoad(read_i, i).x; }
 
@@ -47,16 +51,17 @@ void write_output(int i) {
 void main() {
   int start_index = 16 * int(gl_GlobalInvocationID.x);
   unpack_input(start_index);
+  t = time.x; dt = time.y;
   //---- above: get input ----
 
-  b.root = vec3(-1, -1, -1);
-  b.above = vec3(-2, -2, -2);
-  b.ctrl = vec3(-3, -3, -3);
-  b.up = vec3(-4, -4, -4);
-  b.width = 99;
-  b.height = 88;
-  b.stiffness = 77;
-  b.orientation = 66;
+  b.root = b0.root;
+  b.above = b0.above;
+  b.ctrl = b0.ctrl;
+  b.up = b0.up;
+  b.width = b0.width;
+  b.height = b0.height;
+  b.stiffness = b0.stiffness;
+  b.orientation = sin(t);
 
   //---- below: write output ----
   write_output(start_index);

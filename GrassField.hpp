@@ -28,11 +28,12 @@ struct GrassField : GameObject {
   bool handle_event(SDL_Event event);
 
   // properties, data...
+  float time = 0.0f;
   vector<Blade> blades = vector<Blade>();
   vector<float> read_back;
 
   // a few constants
-  GLsizei work_group_size = 4; // IMPORTANT: check this with shader to make sure in sync!!!
+  GLsizei work_group_size = 2; // IMPORTANT: check this with shader to make sure in sync!!!
   GLsizei img_buffer_pixels = 0; // number of pixels in image buffer: blades.size() * pixels needed (4) for each
   GLsizei num_workgroups = 0; // number of workgroups: number of invocations (blades.size()) / work group size
   GLsizei num_vertices = 3; // just draw a triangle for demo purpose.
