@@ -9,14 +9,14 @@ int unifLoc(uint shaderID, string uniformName) {
     return location;
 }
 
-uint newTexture1D(void* data, GLsizei num_floats) {
+uint newTexture1D(void* data, GLsizei num_pxs) {
     uint texture;
     glGenTextures(1, &texture);
 
     glBindTexture(GL_TEXTURE_1D, texture);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, num_floats, 0, GL_RED, GL_FLOAT, data); // call it here or outside?
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, num_pxs, 0, GL_RED, GL_FLOAT, data); // call it here or outside?
     // unbind texture
     glBindTexture(GL_TEXTURE_1D, 0);
 

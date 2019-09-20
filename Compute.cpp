@@ -3,19 +3,20 @@
 
 Compute::Compute(Camera* camera): GameObject(camera) {
 
-  { // init for data
+  { // init data
     for (int i=0; i<8; i++) {
       blades.emplace_back(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
     }
-    img_buffer_len = (GLsizei)(blades.size() * sizeof(Blade));
+    img_buffer_pixels = (GLsizei)(blades.size() * sizeof(Blade) / 4);
+    read_back = vector<float>(img_buffer_pixels, 0.0f);
     num_workgroups = (GLsizei)(blades.size() / work_group_size);
   }
 
   { // init for gl compute shader
 
     // initialize both textures with initial blades data
-    tex_r = newTexture1D((void*)blades.data(), img_buffer_len);
-    tex_w = newTexture1D((void*)blades.data(), img_buffer_len);
+    tex_r = newTexture1D((void*)blades.data(), img_buffer_pixels);
+    tex_w = newTexture1D((void*)blades.data(), img_buffer_pixels);
 
     comp_shader_prog = newComputeShaderProgram(data_path("../shaders/test.comp"));
   }
@@ -83,9 +84,18 @@ void Compute::update(float time_elapsed) {
   // run compute shader
   glUseProgram(comp_shader_prog);
   glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT);
-  // work group size = 4, dispatch 2 work groups total to draw 8 blades.
+  // suppose want to draw 8 blades: work group size = 4, dispatch 2 work groups total to draw them.
   glDispatchCompute(num_workgroups, 1, 1); // arguments: X, Y, Z (how many work groups in each dimension)
   GL_ERRORS();
+
+  // read the results back into blades
+  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+  glBindTexture(GL_TEXTURE_1D, tex_w);
+  glGetTexImage(GL_TEXTURE_1D, 0, GL_RED, GL_FLOAT, blades.data());
+  glBindTexture(GL_TEXTURE_1D, 0);
+
+  // uncomment below to debug
+  // for (auto b : blades) { cout << b.str() << endl; }
 
 }
 
@@ -104,13 +114,12 @@ void Compute::draw() {
 
   glBindVertexArray(vao);
 
-  // what gets read in the shader is an array of length img_buffer_len == blades.size() * sizeof(Blade)
+  // what gets read in the shader is an array of length img_buffer_pixels == blades.size() * sizeof(Blade) / 4
   // each is a vec4, with only its R component contains value.
   glBindImageTexture(0, tex_w, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 
   // draw!
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
   glDrawArrays(GL_TRIANGLES, 0, num_vertices);
 
   GL_ERRORS();

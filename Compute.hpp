@@ -2,6 +2,14 @@
 
 struct Blade{
   Blade(vec3 root);
+  string str() {
+    return
+      "root_w: " + to_string(root_w) + "\n" +
+      "above_h: " + to_string(above_h) + "\n" +
+      "ctrl_s: " + to_string(ctrl_s) + "\n" +
+      "up_o: " + to_string(up_o) + "\n";
+  }
+
   vec4 root_w; // v0, width
   vec4 above_h; // v1, height
   vec4 ctrl_s; // v2, stiffness
@@ -21,10 +29,11 @@ struct Compute : GameObject {
 
   // properties, data...
   vector<Blade> blades = vector<Blade>();
+  vector<float> read_back;
 
   // a few constants
   GLsizei work_group_size = 4; // IMPORTANT: check this with shader to make sure in sync!!!
-  GLsizei img_buffer_len = 0; // number of floats in image buffer: blades.size() * floats needed (16) for each
+  GLsizei img_buffer_pixels = 0; // number of pixels in image buffer: blades.size() * pixels needed (4) for each
   GLsizei num_workgroups = 0; // number of workgroups: number of invocations (blades.size()) / work group size
   GLsizei num_vertices = 3; // just draw a triangle for demo purpose.
 
