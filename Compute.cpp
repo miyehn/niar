@@ -1,20 +1,29 @@
 #include "Compute.hpp"
+#include "data_path.hpp"
 
 Compute::Compute(Camera* camera): GameObject(camera) {
-  { // init for compute shader
-    vector<float> buf1 = vector<float>(num_floats, 0.1f);
-    vector<float> buf2 = vector<float>(num_floats, 1.0f);
 
-    tex_r = newTexture1D(buf1.data(), num_floats);
-    tex_w = newTexture1D(buf2.data(), num_floats);
-
-    comp_shader_prog = newComputeShaderProgram("shaders/test.comp");
+  { // init for data
+    for (int i=0; i<8; i++) {
+      blades.emplace_back(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
+    }
+    img_buffer_len = (GLsizei)(blades.size() * sizeof(Blade));
+    num_workgroups = (GLsizei)(blades.size() / work_group_size);
   }
 
-  { // init for draw
+  { // init for gl compute shader
+
+    // initialize both textures with initial blades data
+    tex_r = newTexture1D((void*)blades.data(), img_buffer_len);
+    tex_w = newTexture1D((void*)blades.data(), img_buffer_len);
+
+    comp_shader_prog = newComputeShaderProgram(data_path("../shaders/test.comp"));
+  }
+
+  { // init for gl draw
 
     // create shader program
-    draw_shader_prog = newVFShaderProgram("shaders/test.vert", "shaders/test.frag");
+    draw_shader_prog = newVFShaderProgram(data_path("../shaders/test.vert"), data_path("../shaders/test.frag"));
 
     // create vao and use it
     glGenVertexArrays(1, &vao);
@@ -74,7 +83,9 @@ void Compute::update(float time_elapsed) {
   // run compute shader
   glUseProgram(comp_shader_prog);
   glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT);
-  glDispatchCompute(num_floats / work_group_size, 1, 1); // arguments: X, Y, Z (how many work groups in each dimension)
+  // work group size = 4, dispatch 2 work groups total to draw 8 blades.
+  glDispatchCompute(num_workgroups, 1, 1); // arguments: X, Y, Z (how many work groups in each dimension)
+  GL_ERRORS();
 
 }
 
@@ -93,7 +104,7 @@ void Compute::draw() {
 
   glBindVertexArray(vao);
 
-  // what gets read in the shader is an array of length num_floats
+  // what gets read in the shader is an array of length img_buffer_len == blades.size() * sizeof(Blade)
   // each is a vec4, with only its R component contains value.
   glBindImageTexture(0, tex_w, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
 
@@ -103,4 +114,16 @@ void Compute::draw() {
   glDrawArrays(GL_TRIANGLES, 0, num_vertices);
 
   GL_ERRORS();
+}
+
+Blade::Blade(vec3 root) {
+  this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(65.0f));
+
+  this->root_w = vec4(root.x, root.y, root.z, 0.65f);
+
+  this->above_h = this->up_o * 4.0f;
+  this->above_h.w = 1.0f;
+
+  this->ctrl_s = above_h + vec4(-0.8f, 0.0f, 0.0f, 0.0f);
+  this->ctrl_s.w = 1.0f;
 }

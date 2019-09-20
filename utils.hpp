@@ -11,4 +11,4 @@ uint newVFShaderProgram(string vertPath, string fragPath);
 
 uint newComputeShaderProgram(string shaderPath);
 
-uint newTexture1D(float* data, GLsizei num_floats);
+uint newTexture1D(void* data, GLsizei num_floats);

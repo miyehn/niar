@@ -74,10 +74,10 @@ GAME_NAMES =
   main
   Program
   Camera
-  GrassField
   Compute
   utils
   GL
+  data_path
   ;
 
 LOCATE_TARGET = objs ; #put objects in 'objs' directory

@@ -9,7 +9,7 @@ int unifLoc(uint shaderID, string uniformName) {
     return location;
 }
 
-uint newTexture1D(float* data, GLsizei num_floats) {
+uint newTexture1D(void* data, GLsizei num_floats) {
     uint texture;
     glGenTextures(1, &texture);
 

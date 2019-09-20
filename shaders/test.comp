@@ -1,6 +1,6 @@
 #version 430
 
-layout(local_size_x = 8) in;
+layout(local_size_x = 4) in;
 
 layout(r32f, binding = 0) uniform readonly image1D read_i;
 layout(r32f, binding = 1) uniform writeonly image1D write_o;
@@ -8,12 +8,7 @@ layout(r32f, binding = 1) uniform writeonly image1D write_o;
 void main() {
   int index = int(gl_GlobalInvocationID.x);
   vec4 data = imageLoad(read_i, index);
-  // flip the brightness
-  if (data.x > 0.5) {
-    data.x = 0.1;
-  } else {
-    data.x = 1.0;
-  }
-  // then store into the other texture
-  imageStore(write_o, index, vec4(data.x, data.yzw));
+
+  // copy store into the other texture
+  imageStore(write_o, index, data);
 }
