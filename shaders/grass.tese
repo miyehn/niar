@@ -1,9 +1,10 @@
 #version 430 core
+#define PI 3.1415926535897932384626433832795
 
 layout (quads, ccw) in;
 in vec4 c_data[];
 uniform mat4 transformation;
-out vec4 col;
+out vec3 normal;
 
 // unpack data from input
 vec3 root = c_data[0].xyz;
@@ -22,9 +23,18 @@ float halfWidth = (1 - 0.8*t) * halfWidth_root;
 float cos_halfWidth = halfWidth * cos(orientation);
 float sin_halfWidth = halfWidth * sin(orientation);
 
+float norm_orientation = orientation + PI/2;
+vec3 align_n = vec3(cos(orientation), sin(orientation), 0);
+vec3 n0 = vec3(cos(norm_orientation), sin(norm_orientation), 0); // TODO: optimize this
+vec3 n1 = cross( ctrl / length(ctrl), align_n );
+vec3 above_2_ctrl = ctrl - above;
+vec3 n2 = cross( above_2_ctrl / length(above_2_ctrl), align_n );
+
 void main() {
   gl_Position = transformation * vec4(
      spine.x+cos_halfWidth, spine.y+sin_halfWidth, spine.z,
   1);
-  col = vec4(0.5231, 0.6361, 0.253, 0.92);
+  // col = vec4(0.5231, 0.6361, 0.253, 1);
+  vec3 n = n0 * (1-t)*(1-t) + n1 * 2*(1-t)*t + n2 * t*t;
+  normal = n / length(n);
 }
