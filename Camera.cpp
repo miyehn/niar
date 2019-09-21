@@ -1,9 +1,9 @@
 #include "Camera.hpp"
 
 Camera::Camera(size_t w, size_t h) {
-  position = vec3(0.0f, -20.0f, 20.0f);
+  position = vec3(0.0f, -30.0f, 12.0f);
   pitch = radians(45.0f);
-  fov = radians(55.0f);
+  fov = radians(45.0f);
   cutoffNear = 0.1f;
   cutoffFar = 300.0f;
   this->aspect_ratio = (float)w / (float)h;
@@ -17,18 +17,26 @@ bool Camera::handle_event(SDL_Event event) {
     case SDL_KEYDOWN: 
     {
       SDL_Keycode key = event.key.keysym.sym;
-      if (key == SDLK_UP) {
+      if (key == SDLK_w) {
         position.y += 0.2f;
-      } else if (key == SDLK_DOWN) {
+      } else if (key == SDLK_s) {
         position.y -= 0.2f;
-      } else if (key == SDLK_LEFT) {
+      } else if (key == SDLK_a) {
         position.x -= 0.2f;
-      } else if (key == SDLK_RIGHT) {
+      } else if (key == SDLK_d) {
         position.x += 0.2f;
       }
       return true;
     }
-    default: 
+    case SDL_MOUSEMOTION:
+    {
+      if (event.motion.state & SDL_BUTTON_LMASK) {
+        float dy = (float)event.motion.yrel;
+        pitch -= 0.5f * radians(dy);
+      }
+      return false;
+    }
+    default:
       return false;
   }
 }

@@ -5,7 +5,7 @@
  * that is, update 16 float entries
  */
 
-layout(local_size_x = 2) in;
+layout(local_size_x = 16) in;
 uniform vec2 time;
 const vec3 gravityE = vec3(0, 0, -10);
 
@@ -25,9 +25,6 @@ float t, dt;
 float r(int i) { return imageLoad(read_i, i).x; }
 
 void w(int i, float f) { imageStore(write_o, i, vec4(f, 0, 0, 0)); }
-
-// TODO: get rid of this once debug is done.
-void w_debug(int i, float f) { w(32 + int(8 * gl_GlobalInvocationID.x) + i, f); }
 
 void unpack_input(int i) {
   b0.root = vec3(r(i), r(i+1), r(i+2));
@@ -52,7 +49,7 @@ void write_output(int i) {
 }
 
 vec3 wind_func() {
-  return vec3(sin(t), 0, 0);
+  return 6 * vec3(sin(t), cos(t), 0);
 }
 
 void main() {
@@ -63,9 +60,9 @@ void main() {
 
   // gravity
   float norm_orientation = b0.orientation + PI/2;
-  vec3 facing_n = vec3(cos(norm_orientation), sin(norm_orientation), 0); // TODO: optimize
+  vec3 facing_n = vec3(cos(norm_orientation), sin(norm_orientation), 0);
   float gravityE_len = length(gravityE);
-  vec3 gravityF = 0.25 * gravityE_len * facing_n;
+  vec3 gravityF = 0.25 * gravityE_len * facing_n; // this term essentially gives each blade a blending dir tendency
   vec3 gravity = gravityE + gravityF; // magnitude decided by gravityE (gravityF relates to it)
 
   // wind
@@ -74,7 +71,7 @@ void main() {
   float fd = 1 - abs( dot(wind / length(wind), b0.ctrl / length(b0.ctrl)) );
   // how aligned is the blade direction w the wind?
   float fo = abs( dot(wind / length(wind), facing_n) );
-  fo = 0.4 + 0.4 * fo; // maybe still let it be influenced a bit even if completely not aligned
+  fo = 0.4 + 0.6 * fo; // maybe still let it be influenced a bit even if completely not aligned
   // how vertical is the current blade?
   float fr = b0.ctrl.z / b0.height; // 1: perfectly vertical, 0: perfectly on ground
   float alignFactor = fd * fo * fr;
@@ -86,7 +83,7 @@ void main() {
   vec3 recovery = b0.stiffness * (ctrl_orig - outsideForce);
 
   // displacement (all forces combined)
-  vec3 displacement = (gravity + wind + recovery) * dt;
+  vec3 displacement = (wind + gravity + recovery) * dt;
 
   // validation 1: make sure ctrl is above ground
   vec3 ctrl_new = b0.ctrl + displacement;

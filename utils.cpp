@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include <stdlib.h>
 
 int unifLoc(uint shaderID, string uniformName) {
     int location = glGetUniformLocation(shaderID, uniformName.c_str());
@@ -261,4 +262,8 @@ uint newVFShaderProgram(string vertPath, string fragPath) {
 
     return newProgram;
 
+}
+
+float rand01() {
+    return (float)(rand() % 10000) / 10000.0f;
 }

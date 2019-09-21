@@ -1,7 +1,8 @@
 #include "GameObject.hpp"
 
 struct Blade{
-  Blade(vec3 root, bool blank = false);
+  Blade(float x, float y);
+  Blade() : Blade( (rand01()-0.5f) * 40, (rand01()-0.5f) * 40 ) {}
   string str() {
     return
       "root_w: " + to_string(root_w) + "\n" +
@@ -29,15 +30,14 @@ struct GrassField : GameObject {
 
   // properties, data...
   float time = 0.0f;
-  int num_blades = 2;
+  int num_blades = 2048;
   vector<Blade> blades = vector<Blade>();
   vector<float> read_back;
 
   // a few constants
-  GLsizei work_group_size = 2; // IMPORTANT: check this with shader to make sure in sync!!!
+  GLsizei work_group_size = 16; // IMPORTANT: check this with shader to make sure in sync!!!
   GLsizei img_buffer_pixels = 0; // number of pixels in image buffer: blades.size() * pixels needed (4) for each
   GLsizei num_workgroups = 0; // number of workgroups: number of invocations (blades.size()) / work group size
-  GLsizei num_vertices = 3; // just draw a triangle for demo purpose.
 
   // buffers, properties...
   uint vao;

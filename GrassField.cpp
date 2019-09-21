@@ -5,13 +5,11 @@ GrassField::GrassField(Camera* camera): GameObject(camera) {
 
   { // init data
     for (int i=0; i<num_blades; i++) {
-      blades.emplace_back(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
+      blades.emplace_back();
     }
-    img_buffer_pixels = (GLsizei)((1+blades.size()) * sizeof(Blade) / 4);// TODO: +4 here for debug output
+    img_buffer_pixels = (GLsizei)(blades.size() * sizeof(Blade) / 4);
     read_back = vector<float>(img_buffer_pixels, 0.0f);
     num_workgroups = (GLsizei)(blades.size() / work_group_size);
-
-    blades.emplace_back(vec3(0,0,0), true);
   }
 
   { // init for gl compute shader
@@ -19,6 +17,7 @@ GrassField::GrassField(Camera* camera): GameObject(camera) {
     // initialize both textures with initial blades data
     tex_r = newTexture1D((void*)blades.data(), img_buffer_pixels);
     tex_w = newTexture1D((void*)blades.data(), img_buffer_pixels);
+    GL_ERRORS();
 
     comp_shader_prog = newComputeShaderProgram(data_path("../shaders/grass.comp"));
   }
@@ -57,8 +56,8 @@ GrassField::GrassField(Camera* camera): GameObject(camera) {
     // done referring to vbo and vao
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-
     GL_ERRORS();
+
   }
 }
 
@@ -100,12 +99,17 @@ void GrassField::update(float time_elapsed) {
   glBindTexture(GL_TEXTURE_1D, 0);
 
   // uncomment below to debug
-  for (auto b : blades) { cout << b.str() << endl; }
-  cout << "------------" << endl << endl;
+  // for (auto b : blades) { cout << b.str() << endl; }
+  // cout << "------------" << endl << endl;
 
 }
 
 bool GrassField::handle_event(SDL_Event event) {
+  if (event.type==SDL_MOUSEMOTION && (event.motion.state&SDL_BUTTON_LMASK)) {
+    float dx = (float)event.motion.xrel;
+    this->transformation = glm::rotate(this->transformation, radians(dx), vec3(0, 0, 1));
+    return true;
+  }
   return false;
 }
 
@@ -139,21 +143,21 @@ void GrassField::draw() {
 
 }
 
-Blade::Blade(vec3 root, bool blank) {
-  if (blank) {
-    this->up_o = vec4(0, 0, 0, 0);
-    this->ctrl_s = vec4(0, 0, 0, 0);
-    this->above_h = vec4(0, 0, 0, 0);
-    this->root_w = vec4(0, 0, 0, 0);
-    return;
-  }
-  this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(0.0f));
+Blade::Blade(float x, float y) {
+  vec3 root = vec3(x, y, 0);
 
-  this->root_w = vec4(root.x, root.y, root.z, 0.65f);
+  float angle = rand01() * 360;
+  this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(angle));
 
+  float width = 0.4f + rand01() * 0.35f;
+  this->root_w = vec4(root.x, root.y, root.z, width);
+
+  float height = 3.0f + rand01() * 2.0f;
   this->above_h = this->up_o * 4.0f;
-  this->above_h.w = 4.0f;
+  this->above_h.w = height;
 
-  this->ctrl_s = above_h + vec4(-0.8f, 0.0f, 0.0f, 0.0f);
-  this->ctrl_s.w = 0.86f;
+  float stiffness = 0.7f + rand01() * 0.2f;
+  this->ctrl_s = above_h + vec4(0.0f, 0.0f, 0.0f, stiffness);
+
 }
+

@@ -70,6 +70,10 @@ int main(int argc, char **argv) {
     }
   }
 
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   Program* program = new Program(window_name, window_w, window_h, window, context);
   program->run();
 
@@ -120,10 +124,12 @@ void Program::run() {
       else if (event.type==SDL_KEYUP &&
                event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-      else if (event.type==SDL_KEYUP || event.type==SDL_KEYDOWN) {
-        camera.handle_event(event);
-        for (uint i=0; i<objects.size(); i++) {
-          objects[i]->handle_event(event);
+      else if (event.type==SDL_KEYUP || event.type==SDL_KEYDOWN ||
+          (event.type==SDL_MOUSEMOTION && (event.motion.state & SDL_BUTTON_LMASK))) {
+        if (!camera.handle_event(event)) {
+          for (auto obj : objects) {
+            obj->handle_event(event);
+          }
         }
       }
     }
@@ -159,7 +165,7 @@ void Program::update(float time_elapsed) {
 
 void Program::draw() {
 
-  glClearColor(0.1f, 0.1f, 0.1f, 1);
+  glClearColor(0.9843f, 0.9843f, 0.9529f, 1);
   glClear(GL_COLOR_BUFFER_BIT);
   glClear(GL_DEPTH_BUFFER_BIT);
 
