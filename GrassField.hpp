@@ -1,7 +1,7 @@
 #include "GameObject.hpp"
 
 struct Blade{
-  Blade(vec3 root);
+  Blade(vec3 root, bool blank = false);
   string str() {
     return
       "root_w: " + to_string(root_w) + "\n" +
@@ -29,6 +29,7 @@ struct GrassField : GameObject {
 
   // properties, data...
   float time = 0.0f;
+  int num_blades = 2;
   vector<Blade> blades = vector<Blade>();
   vector<float> read_back;
 

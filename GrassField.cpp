@@ -4,12 +4,14 @@
 GrassField::GrassField(Camera* camera): GameObject(camera) {
 
   { // init data
-    for (int i=0; i<2; i++) {
+    for (int i=0; i<num_blades; i++) {
       blades.emplace_back(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
     }
-    img_buffer_pixels = (GLsizei)(blades.size() * sizeof(Blade) / 4);
+    img_buffer_pixels = (GLsizei)((1+blades.size()) * sizeof(Blade) / 4);// TODO: +4 here for debug output
     read_back = vector<float>(img_buffer_pixels, 0.0f);
     num_workgroups = (GLsizei)(blades.size() / work_group_size);
+
+    blades.emplace_back(vec3(0,0,0), true);
   }
 
   { // init for gl compute shader
@@ -99,7 +101,7 @@ void GrassField::update(float time_elapsed) {
 
   // uncomment below to debug
   for (auto b : blades) { cout << b.str() << endl; }
-  cout << "------------" << endl;
+  cout << "------------" << endl << endl;
 
 }
 
@@ -111,7 +113,7 @@ void GrassField::draw() {
 
   // upload buffer data
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, blades.size() * sizeof(Blade), blades.data(), GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, num_blades * sizeof(Blade), blades.data(), GL_STREAM_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   // set draw shader
@@ -125,7 +127,7 @@ void GrassField::draw() {
   glBindVertexArray(vao);
 
   // draw!
-  glDrawArrays(GL_PATCHES, 0, 4 * (GLsizei)blades.size());
+  glDrawArrays(GL_PATCHES, 0, 4 * (GLsizei)num_blades);
 
   // unbind vao
   glBindVertexArray(0);
@@ -137,14 +139,21 @@ void GrassField::draw() {
 
 }
 
-Blade::Blade(vec3 root) {
-  this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(65.0f));
+Blade::Blade(vec3 root, bool blank) {
+  if (blank) {
+    this->up_o = vec4(0, 0, 0, 0);
+    this->ctrl_s = vec4(0, 0, 0, 0);
+    this->above_h = vec4(0, 0, 0, 0);
+    this->root_w = vec4(0, 0, 0, 0);
+    return;
+  }
+  this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(0.0f));
 
   this->root_w = vec4(root.x, root.y, root.z, 0.65f);
 
   this->above_h = this->up_o * 4.0f;
-  this->above_h.w = 1.0f;
+  this->above_h.w = 4.0f;
 
   this->ctrl_s = above_h + vec4(-0.8f, 0.0f, 0.0f, 0.0f);
-  this->ctrl_s.w = 1.0f;
+  this->ctrl_s.w = 0.86f;
 }

@@ -1,4 +1,5 @@
 #version 430
+#define PI 3.1415926535897932384626433832795
 
 /* each invocation is responsible for updating 1 blade
  * that is, update 16 float entries
@@ -6,11 +7,10 @@
 
 layout(local_size_x = 2) in;
 uniform vec2 time;
+const vec3 gravityE = vec3(0, 0, -10);
 
 layout(r32f, binding = 0) uniform readonly image1D read_i;
 layout(r32f, binding = 1) uniform writeonly image1D write_o;
-
-const float PI = 3.1415926535897932384626433832795;
 
 struct {
   vec3 root;
@@ -25,6 +25,9 @@ float t, dt;
 float r(int i) { return imageLoad(read_i, i).x; }
 
 void w(int i, float f) { imageStore(write_o, i, vec4(f, 0, 0, 0)); }
+
+// TODO: get rid of this once debug is done.
+void w_debug(int i, float f) { w(32 + int(8 * gl_GlobalInvocationID.x) + i, f); }
 
 void unpack_input(int i) {
   b0.root = vec3(r(i), r(i+1), r(i+2));
@@ -48,20 +51,66 @@ void write_output(int i) {
   w(i+15, b.orientation);
 }
 
+vec3 wind_func() {
+  return vec3(sin(t), 0, 0);
+}
+
 void main() {
   int start_index = 16 * int(gl_GlobalInvocationID.x);
   unpack_input(start_index);
   t = time.x; dt = time.y;
   //---- above: get input ----
 
+  // gravity
+  float norm_orientation = b0.orientation + PI/2;
+  vec3 facing_n = vec3(cos(norm_orientation), sin(norm_orientation), 0); // TODO: optimize
+  float gravityE_len = length(gravityE);
+  vec3 gravityF = 0.25 * gravityE_len * facing_n;
+  vec3 gravity = gravityE + gravityF; // magnitude decided by gravityE (gravityF relates to it)
+
+  // wind
+  vec3 wind = wind_func();
+  // how aligned is the current leaning direction w the wind?
+  float fd = 1 - abs( dot(wind / length(wind), b0.ctrl / length(b0.ctrl)) );
+  // how aligned is the blade direction w the wind?
+  float fo = abs( dot(wind / length(wind), facing_n) );
+  fo = 0.4 + 0.4 * fo; // maybe still let it be influenced a bit even if completely not aligned
+  // how vertical is the current blade?
+  float fr = b0.ctrl.z / b0.height; // 1: perfectly vertical, 0: perfectly on ground
+  float alignFactor = fd * fo * fr;
+  wind = alignFactor * wind;
+
+  // recovery (currently doesn't damp)
+  vec3 outsideForce = gravity + wind;
+  vec3 ctrl_orig = vec3(0, 0, b0.height);
+  vec3 recovery = b0.stiffness * (ctrl_orig - outsideForce);
+
+  // displacement (all forces combined)
+  vec3 displacement = (gravity + wind + recovery) * dt;
+
+  // validation 1: make sure ctrl is above ground
+  vec3 ctrl_new = b0.ctrl + displacement;
+  ctrl_new = vec3(ctrl_new.xy, max(ctrl_new.z, 0));
+
+  // calculate position for above vector
+  float l_proj = length(ctrl_new.xy);
+  vec3 above_new = b0.height*b0.up * max(1-l_proj/b0.height, 0.05*max(l_proj/b0.height,1));
+
+  // validation 2: make sure the grass length is aprx constant
+  float L0 = length(ctrl_new);
+  float L1 = length(above_new) + length(ctrl_new - above_new);
+  float L = (2 * L0 + L1) / 3;
+  float correction_ratio = b0.height / L;
+
+  b.above = above_new * correction_ratio;
+  b.ctrl = ctrl_new * correction_ratio;
+
   b.root = b0.root;
-  b.above = b0.above;
-  b.ctrl = b0.ctrl;
   b.up = b0.up;
   b.width = b0.width;
   b.height = b0.height;
   b.stiffness = b0.stiffness;
-  b.orientation = sin(t);
+  b.orientation = b0.orientation;
 
   //---- below: write output ----
   write_output(start_index);
