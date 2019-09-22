@@ -34,7 +34,6 @@ void main() {
   gl_Position = transformation * vec4(
      spine.x+cos_halfWidth, spine.y+sin_halfWidth, spine.z,
   1);
-  // col = vec4(0.5231, 0.6361, 0.253, 1);
   vec3 n = n0 * (1-t)*(1-t) + n1 * 2*(1-t)*t + n2 * t*t;
   normal = n / length(n);
 }

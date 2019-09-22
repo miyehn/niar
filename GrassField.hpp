@@ -30,7 +30,7 @@ struct GrassField : GameObject {
 
   // properties, data...
   float time = 0.0f;
-  int num_blades = 2048;
+  int num_blades = 128;
   vector<Blade> blades = vector<Blade>();
   vector<float> read_back;
 
