@@ -171,7 +171,7 @@ Blade::Blade(float x, float y) {
   this->above_h = this->up_o * 4.0f;
   this->above_h.w = height;
 
-  float stiffness = 0.6f + rand01() * 0.3f;
+  float stiffness = 0.4f + rand01() * 0.3f;
   this->ctrl_s = above_h + vec4(0.0f, 0.0f, 0.0f, stiffness);
 
 }
