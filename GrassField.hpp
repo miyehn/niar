@@ -30,9 +30,14 @@ struct GrassField : GameObject {
 
   // properties, data...
   float time = 0.0f;
-  int num_blades = 2048;
+  vector<vec2> jitter_map;
+  int patch_size = 6; // how many blades on each dimension of patch
+  float patch_dimension = 4.0f; // how wide is a patch
+  int num_patches_x = 8; // how many patches on x dimension
+  int num_patches_y = 7; // how many patches on y dimension
+
+  int num_blades;
   vector<Blade> blades = vector<Blade>();
-  vector<float> read_back;
 
   // a few constants
   GLsizei work_group_size = 16; // IMPORTANT: check this with shader to make sure in sync!!!

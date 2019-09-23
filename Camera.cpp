@@ -3,7 +3,7 @@
 Camera::Camera(size_t w, size_t h) {
   position = vec3(0.0f, -30.0f, 12.0f);
   pitch = radians(45.0f);
-  fov = radians(45.0f);
+  fov = radians(40.0f);
   cutoffNear = 0.1f;
   cutoffFar = 200.0f;
   this->aspect_ratio = (float)w / (float)h;

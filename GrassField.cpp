@@ -4,11 +4,26 @@
 GrassField::GrassField(Camera* camera): GameObject(camera) {
 
   { // init data
-    for (int i=0; i<num_blades; i++) {
-      blades.emplace_back();
+    srand(123);
+    jitter_map = generate_jitter_map(patch_size);
+    float field_w = num_patches_x * patch_dimension;
+    float field_h = num_patches_y * patch_dimension;
+    for (int i=0; i<num_patches_x; i++) {
+      for (int j=0; j<num_patches_y; j++) {
+        for (int k=0; k<patch_size; k++) {
+          for (int l=0; l<patch_size; l++) {
+            vec2 patch_origin = patch_dimension * vec2(i, j);
+            vec2 blade_local_pos = patch_dimension *
+                vec2(jitter_map[l*patch_size + k].x, jitter_map[l*patch_size + k].y) -
+                vec2(field_w, field_h) * 0.5f;
+            vec2 blade_pos = patch_origin + blade_local_pos;
+            blades.emplace_back(blade_pos.x, blade_pos.y);
+          }
+        }
+      }
     }
+    num_blades = patch_size * patch_size * num_patches_y * num_patches_x;
     img_buffer_pixels = (GLsizei)(blades.size() * sizeof(Blade) / 4);
-    read_back = vector<float>(img_buffer_pixels, 0.0f);
     num_workgroups = (GLsizei)(blades.size() / work_group_size);
   }
 
@@ -152,11 +167,11 @@ Blade::Blade(float x, float y) {
   float width = 0.4f + rand01() * 0.35f;
   this->root_w = vec4(root.x, root.y, root.z, width);
 
-  float height = 3.0f + rand01() * 2.0f;
+  float height = 2.0f + rand01() * 2.0f;
   this->above_h = this->up_o * 4.0f;
   this->above_h.w = height;
 
-  float stiffness = 0.7f + rand01() * 0.2f;
+  float stiffness = 0.6f + rand01() * 0.3f;
   this->ctrl_s = above_h + vec4(0.0f, 0.0f, 0.0f, stiffness);
 
 }

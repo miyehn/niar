@@ -12,8 +12,8 @@ int main(int argc, char **argv) {
   //------------  initialization ------------
 
   string window_name = "grass tess";
-  int window_w = 540;
-  int window_h = 480;
+  int window_w = 720;
+  int window_h = 540;
 
   //Initialize SDL library:
   SDL_Init(SDL_INIT_VIDEO);

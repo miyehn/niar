@@ -14,3 +14,5 @@ uint newComputeShaderProgram(string shaderPath);
 uint newTexture1D(void* data, GLsizei num_pxs);
 
 float rand01();
+
+vector<vec2> generate_jitter_map(int size);

@@ -267,3 +267,31 @@ uint newVFShaderProgram(string vertPath, string fragPath) {
 float rand01() {
     return (float)(rand() % 10000) / 10000.0f;
 }
+
+vector<vec2> generate_jitter_map(int size) {
+  vector<vec2> jitter = vector<vec2>(size * size);
+  for (int i=0; i<size; i++) {
+      for (int j=0; j<size; j++) {
+          jitter[i*size+j] = vec2(
+              (j + (i+rand01())/size) / size,
+              (i + (j+rand01())/size) / size);
+      }
+  }
+  for (int j=0; j<size; ++j) {
+      int k = j + (int)(rand01() * (size - j));
+      for (int i=0; i<size; i++) {
+          float tmp = jitter[j*size+i].x;
+          jitter[j*size+i].x = jitter[k*size+i].x;
+          jitter[k*size+i].x = tmp;
+      }
+  }
+  for (int i=0; i<size; ++i) {
+      int k = i + (int)(rand01() * (size - i));
+      for (int j=0; j<size; j++) {
+          float tmp = jitter[j*size+i].y;
+          jitter[j*size+i].y = jitter[j*size+k].y;
+          jitter[j*size+k].y = tmp;
+      }
+  }
+  return jitter;
+}
