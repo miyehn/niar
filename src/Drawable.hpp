@@ -1,7 +1,7 @@
 #pragma once
 #include "Camera.hpp"
 
-struct GameObject: Updatable {
+struct Drawable: Updatable {
 
   // inherited
   virtual void update(float time_elapsed) = 0;
@@ -11,11 +11,11 @@ struct GameObject: Updatable {
   virtual void draw() = 0;
 
   Camera* camera = nullptr;
-  GameObject(Camera* cam) { this->camera = cam; }
-  virtual ~GameObject() {
+  Drawable(Camera* cam) { this->camera = cam; }
+  virtual ~Drawable() {
     for (uint i=0; i<children.size(); i++) delete children[i];
   }
-  vector<GameObject*> children = vector<GameObject*>();
+  std::vector<Drawable*> children = std::vector<Drawable*>();
 
-  glm::mat4 transformation = glm::mat4(1.0f);
+  mat4 transformation = glm::mat4(1.0f);
 };

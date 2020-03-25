@@ -1,4 +1,4 @@
-#include "GameObject.hpp"
+#include "Drawable.hpp"
 
 struct Blade{
   Blade(vec3 root);
@@ -9,7 +9,7 @@ struct Blade{
 };
 static_assert(sizeof(Blade) == 16 * sizeof(float), "Blade should be packed");
 
-struct GrassField : GameObject {
+struct GrassField : Drawable {
   
   GrassField(Camera* camera, uint num_blades);
   ~GrassField();
@@ -20,7 +20,7 @@ struct GrassField : GameObject {
   void draw();
 
   // properties and methods
-  vector<Blade> blades;
+  std::vector<Blade> blades;
 
   uint shader;
   uint vbo;

@@ -6,7 +6,7 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 
-Program::Program(string name, int width, int height): camera(width, height) {
+Program::Program(std::string name, int width, int height): camera(width, height) {
   
   this->name = name;
   this->width = width;
@@ -28,16 +28,16 @@ Program::Program(string name, int width, int height): camera(width, height) {
                                   SDL_WINDOW_OPENGL
                                   );
   if (!window) {
-      cerr << "Error creating SDL window: " << SDL_GetError() << endl;
-      exit(1);
+    std::cerr << "Error creating SDL window: " << SDL_GetError() << std::endl;
+    exit(1);
   }
   
   // create context
   this->context = SDL_GL_CreateContext(window);
   if (!context) {
-      SDL_DestroyWindow(window);
-      cerr << "Error creating OpenGL context: " << SDL_GetError() << endl;
-      exit(1);
+    SDL_DestroyWindow(window);
+    std::cerr << "Error creating OpenGL context: " << SDL_GetError() << std::endl;
+    exit(1);
   }
   
   #ifdef MACOS
@@ -47,7 +47,7 @@ Program::Program(string name, int width, int height): camera(width, height) {
   glewInit();
   #endif
 
-  this->previous_time = chrono::high_resolution_clock::now();
+  this->previous_time = std::chrono::high_resolution_clock::now();
 
 }
 
@@ -60,9 +60,7 @@ Program::~Program() {
 void Program::run() {
   setup();
 
-  bool running = true;
-  
-  while (running) {
+  while (true) {
 
     SDL_Event event;
     bool quit = false;
@@ -82,12 +80,12 @@ void Program::run() {
     }
     if (quit) break;
     
-    TimePoint current_time = chrono::high_resolution_clock::now();
-    float time_elapsed = chrono::duration< float >(current_time - previous_time).count();
-    time_elapsed = std::min(0.1f, time_elapsed);
+    TimePoint current_time = std::chrono::high_resolution_clock::now();
+    float elapsed = std::chrono::duration<float>(current_time - previous_time).count();
+    elapsed = std::min(0.1f, elapsed);
     previous_time = current_time;
 
-    update(time_elapsed);
+    update(elapsed);
 
     draw();
 
@@ -101,11 +99,11 @@ void Program::run() {
   exit(0);
 }
 
-void Program::update(float time_elapsed) {
+void Program::update(float elapsed) {
   
-  camera.update(time_elapsed);
+  camera.update(elapsed);
   for (uint i=0; i<objects.size(); i++) {
-    objects[i]->update(time_elapsed);
+    objects[i]->update(elapsed);
   }
   
 }

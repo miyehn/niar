@@ -1,9 +1,9 @@
 #include "GrassField.hpp"
 
-GrassField::GrassField(Camera* camera, uint num_blades): GameObject(camera) {
+GrassField::GrassField(Camera* camera, uint num_blades): Drawable(camera) {
 
   // create blades
-  blades = vector<Blade>();
+  blades = std::vector<Blade>();
   for (uint i=0; i<num_blades; i++) {
     Blade b = Blade(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
     blades.push_back(b);

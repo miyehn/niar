@@ -10,7 +10,7 @@ add_executable(niar
   src/Program 
   src/utils
   src/Camera
-  src/GameObject.hpp
+	src/Drawable.hpp
   src/GrassField
   )
 

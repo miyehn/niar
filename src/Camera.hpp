@@ -1,9 +1,6 @@
 #pragma once
 #include "Updatable.hpp"
 
-// convenience
-using namespace glm;
-
 struct Camera : Updatable {
 
   Camera(size_t w, size_t h);
