@@ -10,8 +10,9 @@ add_executable(niar
   src/Program 
   src/utils
   src/Camera
-	src/Drawable.hpp
+  src/Drawable.hpp
   src/GrassField
+  src/Cube
   )
 
 include_directories(include)
