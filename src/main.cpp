@@ -3,6 +3,7 @@
 int main(int argc, const char * argv[]) {
     Program* program = new Program("my program", 800, 600);
     program->run();
+    delete program;
     return 0;
 }
 
@@ -52,6 +53,7 @@ Program::Program(std::string name, int width, int height): camera(width, height)
 }
 
 Program::~Program() {
+  std::cout << "cleaning up..." << std::endl;
   for (uint i=0; i<objects.size(); i++) {
     delete objects[i];
   }
@@ -65,6 +67,7 @@ void Program::run() {
     SDL_Event event;
     bool quit = false;
 
+    // currently everything handles everything (except quit)
     while (SDL_PollEvent(&event)==1 && !quit) {
       if (event.type == SDL_QUIT) { quit=true; break; }
 
@@ -96,7 +99,6 @@ void Program::run() {
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(window);
   SDL_Quit();
-  exit(0);
 }
 
 void Program::update(float elapsed) {
