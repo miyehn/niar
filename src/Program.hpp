@@ -1,8 +1,11 @@
+#pragma once
 #include <chrono>
-#include "Camera.hpp"
-#include "Drawable.hpp"
+#include "lib.h"
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
+
+struct Drawable;
+struct Scene;
 
 struct Program {
   
@@ -12,7 +15,7 @@ struct Program {
     
 private:
     
-  // program properties
+  // generic program properties
   std::string name;
   size_t width;
   size_t height;
@@ -21,8 +24,7 @@ private:
   SDL_GLContext context;
   TimePoint previous_time;
 
-  Camera camera;
-  std::vector<Drawable*> objects;
+  std::vector<Scene*> scenes;
   
   // implementation of these decides game behavior.
   void setup();
@@ -30,3 +32,4 @@ private:
   void draw();
 
 };
+

@@ -1,6 +1,7 @@
 #include "Cube.hpp"
+#include "utils.hpp"
 
-Cube::Cube(Camera* camera): Drawable(camera) {
+Cube::Cube(Drawable* _parent, std::string _name): Drawable(_parent, _name) {
   Assimp::Importer importer;
   scene = importer.ReadFile("../media/longcube.fbx",
       aiProcess_GenSmoothNormals |
@@ -55,12 +56,14 @@ Cube::Cube(Camera* camera): Drawable(camera) {
 Cube::~Cube() {
 }
 
-void Cube::update(float time_elapsed) {
+void Cube::update(float elapsed) {
+  Drawable::update(elapsed);
 }
 
 bool Cube::handle_event(SDL_Event event) {
-  return false;
+  return Drawable::handle_event(event);
 }
 
 void Cube::draw() {
+  Drawable::draw();
 }

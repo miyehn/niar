@@ -3,6 +3,8 @@
 
 struct Camera : Updatable {
 
+  static Camera* Active;
+
   Camera(size_t w, size_t h);
 
   // inherited
@@ -10,7 +12,7 @@ struct Camera : Updatable {
   bool handle_event(SDL_Event event);
 
   // properties, can be set by the program
-  vec3 position;
+  glm::vec3 position;
   float pitch;
   float fov;
   float cutoffNear = 0.1f;
@@ -21,6 +23,6 @@ struct Camera : Updatable {
   float aspect_ratio;
 
   // functions
-  mat4 obj_to_screen();
+  glm::mat4 obj_to_screen();
 
 };

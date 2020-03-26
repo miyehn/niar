@@ -1,6 +1,9 @@
 #include "GrassField.hpp"
+#include "Camera.hpp"
+#include "utils.hpp"
+#include "Program.hpp"
 
-GrassField::GrassField(Camera* camera, uint num_blades): Drawable(camera) {
+GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): Drawable(_parent, _name) {
 
   // create blades
   blades = std::vector<Blade>();
@@ -53,11 +56,12 @@ GrassField::~GrassField() {
   vao = 0;
 }
 
-void GrassField::update(float time_elapsed) {
+void GrassField::update(float elapsed) {
+  Drawable::update(elapsed);
 }
 
 bool GrassField::handle_event(SDL_Event event) {
-  return false;
+  return Drawable::handle_event(event);
 }
 
 void GrassField::draw() {
@@ -71,7 +75,7 @@ void GrassField::draw() {
   glUseProgram(shader);
 
   // upload transformation to shader
-  mat4 transformation = camera->obj_to_screen() * this->transformation;
+  mat4 transformation = Camera::Active->obj_to_screen() * this->transformation;
   glUniformMatrix4fv(unifLoc(shader, "transformation"), 1, GL_FALSE, value_ptr(transformation));
 
   // use vao
@@ -85,6 +89,8 @@ void GrassField::draw() {
 
   // reset shader
   glUseProgram(0);
+
+  Drawable::draw();
   
 }
 

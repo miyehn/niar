@@ -1,12 +1,16 @@
 #include "Program.hpp"
+#include "Scene.hpp"
 #include "GrassField.hpp"
 #include "Cube.hpp"
+#include "utils.hpp"
 
 void Program::setup() { 
 
-  Drawable* grass_field = new GrassField(&camera, 6);
-  objects.push_back(grass_field);
+  //scenes.push_back(new Scene(new GrassField(6)));
 
-  objects.push_back(new Cube(&camera));
+  Drawable* cube = new Cube();
+  new GrassField(6, cube); // grassfield as child of cube
+
+  scenes.push_back(new Scene(cube));
 }
 

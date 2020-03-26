@@ -1,21 +1,45 @@
 #pragma once
-#include "Camera.hpp"
+#include "Updatable.hpp"
 
-struct Drawable: Updatable {
+#include "utils.hpp"
+
+struct Camera;
+
+struct Drawable: public Updatable {
+
+  Drawable(Drawable* _parent = nullptr, std::string _name = "[unnamed drawable]") {
+    parent = _parent; 
+    name = _name;
+    if (parent) parent->children.push_back(this);
+  }
 
   // inherited
-  virtual void update(float time_elapsed) = 0;
-  virtual bool handle_event(SDL_Event event) = 0;
+  virtual bool handle_event(SDL_Event event) {
+    bool handled = false;
+    for (uint i=0; i<children.size(); i++) {
+      handled = handled | children[i]->handle_event(event);
+    }
+    return handled;
+  }
+  virtual void update(float elapsed) {
+    for (uint i=0; i<children.size(); i++) children[i]->update(elapsed);
+  }
 
   // game object can be shown on screen
-  virtual void draw() = 0;
+  virtual void draw() {
+    for (uint i=0; i<children.size(); i++) children[i]->draw();
+  }
 
-  Camera* camera = nullptr;
-  Drawable(Camera* cam) { this->camera = cam; }
+
   virtual ~Drawable() {
     for (uint i=0; i<children.size(); i++) delete children[i];
   }
+
+  //---- hierarchy ----
+
+  Drawable* parent;
+
   std::vector<Drawable*> children = std::vector<Drawable*>();
 
-  mat4 transformation = glm::mat4(1.0f);
+  glm::mat4 transformation = glm::mat4(1.0f);
 };

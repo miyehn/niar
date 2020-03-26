@@ -1,6 +1,5 @@
+#pragma once
 #include "lib.h"
-
-using namespace glm;
 
 // for showing last path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)

@@ -1,14 +1,16 @@
+#pragma once
+
 #include "Drawable.hpp"
 
 struct Cube : Drawable {
   
-  Cube(Camera* camera);
-  ~Cube();
+  Cube(Drawable* _parent = nullptr, std::string _name = "cube");
+  virtual ~Cube();
 
   // inherited
-  void update(float time_elapsed);
-  bool handle_event(SDL_Event event);
-  void draw();
+  virtual bool handle_event(SDL_Event event);
+  virtual void update(float elapsed);
+  virtual void draw();
 
   // properties and methods
   const aiScene* scene;

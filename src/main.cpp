@@ -1,13 +1,25 @@
 #include "Program.hpp"
+#include "Drawable.hpp"
+#include "Camera.hpp"
+#include "Scene.hpp"
+
+// global program instance, attached to class
+Camera* Camera::Active = nullptr;
 
 int main(int argc, const char * argv[]) {
-    Program* program = new Program("my program", 800, 600);
-    program->run();
-    delete program;
-    return 0;
+
+  uint w = 800;
+  uint h = 600;
+
+  Camera::Active = new Camera(w, h);
+  Program* program = new Program("my program", w, h);
+  program->run();
+  delete program;
+  delete Camera::Active;
+  return 0;
 }
 
-Program::Program(std::string name, int width, int height): camera(width, height) {
+Program::Program(std::string name, int width, int height) {
   
   this->name = name;
   this->width = width;
@@ -54,8 +66,8 @@ Program::Program(std::string name, int width, int height): camera(width, height)
 
 Program::~Program() {
   std::cout << "cleaning up..." << std::endl;
-  for (uint i=0; i<objects.size(); i++) {
-    delete objects[i];
+  for (uint i=0; i<scenes.size(); i++) {
+    delete scenes[i];
   }
 }
 
@@ -75,9 +87,9 @@ void Program::run() {
           event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
       else if (event.type==SDL_KEYUP || event.type==SDL_KEYDOWN) {
-        camera.handle_event(event);
-        for (uint i=0; i<objects.size(); i++) {
-          objects[i]->handle_event(event);
+        Camera::Active->handle_event(event);
+        for (uint i=0; i<scenes.size(); i++) {
+          scenes[i]->handle_event(event);
         }
       }
     }
@@ -103,9 +115,9 @@ void Program::run() {
 
 void Program::update(float elapsed) {
   
-  camera.update(elapsed);
-  for (uint i=0; i<objects.size(); i++) {
-    objects[i]->update(elapsed);
+  Camera::Active->update(elapsed);
+  for (uint i=0; i<scenes.size(); i++) {
+    scenes[i]->update(elapsed);
   }
   
 }
@@ -116,8 +128,8 @@ void Program::draw() {
   glClear(GL_COLOR_BUFFER_BIT);
   glClear(GL_DEPTH_BUFFER_BIT);
 
-  for (uint i=0; i<objects.size(); i++) {
-    objects[i]->draw();
+  for (uint i=0; i<scenes.size(); i++) {
+    scenes[i]->draw();
   }
     
 }

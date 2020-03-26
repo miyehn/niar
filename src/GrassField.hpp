@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Drawable.hpp"
 
 struct Blade{
@@ -9,15 +11,15 @@ struct Blade{
 };
 static_assert(sizeof(Blade) == 16 * sizeof(float), "Blade should be packed");
 
-struct GrassField : Drawable {
+struct GrassField : public Drawable {
   
-  GrassField(Camera* camera, uint num_blades);
-  ~GrassField();
+  GrassField(uint num_blades, Drawable* _parent = nullptr, std::string _name = "grass");
+  virtual ~GrassField();
 
   // inherited
-  void update(float time_elapsed);
-  bool handle_event(SDL_Event event);
-  void draw();
+  virtual void update(float elapsed);
+  virtual bool handle_event(SDL_Event event);
+  virtual void draw();
 
   // properties and methods
   std::vector<Blade> blades;

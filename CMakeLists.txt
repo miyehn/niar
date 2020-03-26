@@ -7,6 +7,7 @@ find_package(OpenGL)
 
 add_executable(niar
   src/main 
+  src/Scene
   src/Program 
   src/utils
   src/Camera
