@@ -40,11 +40,11 @@ GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): D
     glBindVertexArray(0);
 
     // shaders
-    shader = newShaderProgram(
+    shader = new_shader_program(
         "../shaders/grass.vert",
+        "../shaders/grass.frag",
         "../shaders/grass.tesc",
-        "../shaders/grass.tese",
-        "../shaders/grass.frag");
+        "../shaders/grass.tese");
   }
 
 }

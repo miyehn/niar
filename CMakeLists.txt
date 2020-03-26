@@ -12,6 +12,7 @@ add_executable(niar
   src/utils
   src/Camera
   src/Drawable.hpp
+  src/Mesh
   src/GrassField
   src/Cube
   )

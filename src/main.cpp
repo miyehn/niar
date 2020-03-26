@@ -65,7 +65,7 @@ Program::Program(std::string name, int width, int height) {
 }
 
 Program::~Program() {
-  std::cout << "cleaning up..." << std::endl;
+  LOG("cleaning up...");
   for (uint i=0; i<scenes.size(); i++) {
     delete scenes[i];
   }

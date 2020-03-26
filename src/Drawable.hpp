@@ -10,7 +10,9 @@ struct Drawable: public Updatable {
   Drawable(Drawable* _parent = nullptr, std::string _name = "[unnamed drawable]") {
     parent = _parent; 
     name = _name;
-    if (parent) parent->children.push_back(this);
+    if (parent) {
+      parent->children.push_back(this);
+    }
   }
 
   // inherited

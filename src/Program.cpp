@@ -4,13 +4,11 @@
 #include "Cube.hpp"
 #include "utils.hpp"
 
-void Program::setup() { 
+void Program::setup() {
 
-  //scenes.push_back(new Scene(new GrassField(6)));
+  Drawable* grass = new GrassField(6);
+  int num = load_meshes("../media/longcube.fbx", grass);
 
-  Drawable* cube = new Cube();
-  new GrassField(6, cube); // grassfield as child of cube
-
-  scenes.push_back(new Scene(cube));
+  scenes.push_back(new Scene(grass));
 }
 
