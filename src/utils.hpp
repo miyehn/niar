@@ -3,7 +3,7 @@
 
 struct Drawable;
 
-int unifLoc(uint shaderID, std::string uniformName);
+int get_uniform_loc(uint shaderID, std::string uniformName);
 
 uint new_shader_program(
     std::string vertPath, 

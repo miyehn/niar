@@ -6,9 +6,8 @@
 
 void Program::setup() {
 
-  Drawable* grass = new GrassField(6);
-  int num = load_meshes("../media/longcube.fbx", grass);
-
-  scenes.push_back(new Scene(grass));
+  Scene* scene = new Scene("my scene");
+  int num = load_meshes("../media/torus.fbx", (Drawable*)scene);
+  scenes.push_back(scene);
 }
 

@@ -18,13 +18,13 @@ bool Camera::handle_event(SDL_Event event) {
     {
       SDL_Keycode key = event.key.keysym.sym;
       if (key == SDLK_UP) {
-        position.y += 0.2f;
+        position.y += 0.5f;
       } else if (key == SDLK_DOWN) {
-        position.y -= 0.2f;
+        position.y -= 0.5f;
       } else if (key == SDLK_LEFT) {
-        position.x -= 0.2f;
+        position.x -= 0.5f;
       } else if (key == SDLK_RIGHT) {
-        position.x += 0.2f;
+        position.x += 0.5f;
       }
       return true;
     }
@@ -40,7 +40,7 @@ bool Camera::handle_event(SDL_Event event) {
  * multiply by perspective matrix and send to vert
  * tip: could do: transpose(make_mat4(entries)) to get a matrix from 16 entries
  */
-mat4 Camera::obj_to_screen() {
+mat4 Camera::world_to_clip() {
     
   // mat4 worldTransform = translate(mat4(1.0f), obj_location); // world space
   mat4 cameraR = rotate(mat4(1.0f), pitch, vec3(1.0f, 0.0f, 0.0f));

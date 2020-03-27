@@ -2,7 +2,7 @@
 #include "Drawable.hpp"
 #include "Mesh.hpp"
 
-int unifLoc(uint shaderID, std::string uniformName) {
+int get_uniform_loc(uint shaderID, std::string uniformName) {
   int location = glGetUniformLocation(shaderID, uniformName.c_str());
   if (location < 0) {
     std::cout << "unable to find location for uniform: " << uniformName << std::endl;

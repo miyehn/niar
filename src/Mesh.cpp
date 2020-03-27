@@ -1,5 +1,6 @@
 #include "Mesh.hpp"
 #include "utils.hpp"
+#include "Camera.hpp"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
@@ -41,11 +42,67 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
     faces.push_back(face.mIndices[1]);
     faces.push_back(face.mIndices[2]);
   }
-  LOG("created a mesh of " + std::to_string(vertices.size()) + " vertices");
+  LOGF("loaded a mesh of %d vertices and %d triangles", vertices.size(), get_num_triangles());
+
+  //---- OpenGL setup ----
+  
+  // create shader
+  shader = new_shader_program("../shaders/basic.vert", "../shaders/basic.frag");
+
+  // generate buffers & objects
+  glGenBuffers(1, &vbo);
+  glGenBuffers(1, &ebo);
+  glGenVertexArrays(1, &vao);
+
+  glBindVertexArray(vao);
+  {
+    //---- set buffers and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint) * faces.size(), faces.data(), GL_STATIC_DRAW);
+
+    //---- set vertex attrib pointsers
+    glVertexAttribPointer(
+        0, // attrib index
+        3, // num of data elems
+        GL_FLOAT, // data type
+        GL_FALSE, // normalized
+        sizeof(Vertex), // stride size
+        (void*)offsetof(Vertex, position)); // offset from stride start
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(
+        1, // attrib index
+        3, // num of data elems
+        GL_FLOAT, // data type
+        GL_FALSE, // normalized
+        sizeof(Vertex), // stride size
+        (void*)offsetof(Vertex, normal)); // offset from stride start
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(
+        2, // attrib index
+        4, // num of data elems
+        GL_FLOAT, // data type
+        GL_FALSE, // normalized
+        sizeof(Vertex), // stride size
+        (void*)offsetof(Vertex, color)); // offset from stride start
+    glEnableVertexAttribArray(2);
+  }
+  glBindVertexArray(0);
+
+  GL_ERRORS();
+  LOG("setup gl stuff");
 
 }
 
 Mesh::~Mesh() {
+  glDeleteBuffers(1, &vbo);
+  glDeleteBuffers(1, &ebo);
+  glDeleteVertexArrays(1, &vao);
+  GL_ERRORS();
 }
 
 bool Mesh::handle_event(SDL_Event event) {
@@ -57,5 +114,19 @@ void Mesh::update(float elapsed) {
 }
 
 void Mesh::draw() {
+
+  // set shader
+  glUseProgram(shader);
+
+  // upload transformation uniform
+  mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * this->transformation;
+  glUniformMatrix4fv(get_uniform_loc(shader, "OBJECT_TO_CLIP"), 1, GL_FALSE, value_ptr(OBJECT_TO_CLIP));
+
+  // bind vao and draw
+  glBindVertexArray(vao);
+  glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
+  glBindVertexArray(0);
+
+  // draw children
   Drawable::draw();
 }

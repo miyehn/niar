@@ -23,6 +23,6 @@ struct Camera : Updatable {
   float aspect_ratio;
 
   // functions
-  glm::mat4 obj_to_screen();
+  glm::mat4 world_to_clip();
 
 };
