@@ -12,14 +12,15 @@ void Program::setup() {
   std::vector<Mesh*> meshes = load_meshes("../media/torus.fbx");
   Mesh* torus = meshes[0];
   assert(torus);
-  torus->local_position += vec3(0, 0, 4);
   scene->add_child((Drawable*)torus);
 
+#if 0
   meshes = load_meshes("../media/longcube.fbx");
   Mesh* cube = meshes[0];
   assert(cube);
   cube->local_position += vec3(0, 0, 4);
   torus->add_child((Drawable*) cube);
+#endif
 
   scenes.push_back(scene);
 }
