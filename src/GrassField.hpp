@@ -13,7 +13,10 @@ static_assert(sizeof(Blade) == 16 * sizeof(float), "Blade should be packed");
 
 struct GrassField : public Drawable {
   
-  GrassField(uint num_blades, Drawable* _parent = nullptr, std::string _name = "grass");
+  GrassField(
+      uint num_blades, 
+      Drawable* _parent = nullptr, 
+      std::string _name = "grass");
   virtual ~GrassField();
 
   // inherited

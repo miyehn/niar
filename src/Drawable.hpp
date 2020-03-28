@@ -5,7 +5,9 @@ struct Camera;
 
 struct Drawable: public Updatable {
 
-  Drawable(Drawable* _parent = nullptr, std::string _name = "[unnamed drawable]");
+  Drawable(
+      Drawable* _parent = nullptr, 
+      std::string _name = "[unnamed drawable]");
   virtual ~Drawable();
 
   // inherited
@@ -27,8 +29,8 @@ struct Drawable: public Updatable {
   mat4 world_to_object();
   vec3 world_position();
 
-  vec3 local_position = vec3(0, 0, 0);
-  quat rotation = quat(1, 0, 0, 0);
-  vec3 scale = vec3(1, 1, 1);
+  vec3 local_position;
+  quat rotation;
+  vec3 scale;
 
 };

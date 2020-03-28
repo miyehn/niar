@@ -1,7 +1,19 @@
 #include "Scene.hpp"
 
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
-  // TODO: keep a draw configuration stack to allow a few meshes being drawn with different configs?
+  // depth test
+  use_depth_test = true;
+
+  // culling
+  cull_face = true;
+  cull_mode = GL_BACK;
+
+  // blending: "blend the computed fragment color values with the values in the color buffers."
+  blend = false; // NOTE: see no reason why this should be enabled for 3D scenes 
+
+  // fill / wireframe (/ point)
+  fill_effective_polygon = GL_FRONT_AND_BACK; // GL_FRONT_AND_BACK | GL_BACK | GL_FRONT
+  fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
   
 }
 

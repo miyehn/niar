@@ -4,7 +4,9 @@
 
 struct Cube : Drawable {
   
-  Cube(Drawable* _parent = nullptr, std::string _name = "cube");
+  Cube(
+      Drawable* _parent = nullptr, 
+      std::string _name = "cube");
   virtual ~Cube();
 
   // inherited

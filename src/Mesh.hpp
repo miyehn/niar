@@ -12,8 +12,10 @@ static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4), "vertex struct shou
 
 struct Mesh : public Drawable {
   
-  // not sure what to do with this constructor...
-  Mesh(aiMesh* mesh = nullptr, Drawable* _parent = nullptr, std::string _name = "[unnamed mesh]");
+  Mesh(
+      aiMesh* mesh = nullptr, 
+      Drawable* _parent = nullptr, 
+      std::string _name = "[unnamed mesh]");
   virtual ~Mesh();
 
   virtual bool handle_event(SDL_Event event);

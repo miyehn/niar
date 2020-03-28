@@ -171,3 +171,4 @@ std::vector<Mesh*> load_meshes(std::string source) {
   // importer seems to automatically handle memory release for scene
   return meshes;
 }
+

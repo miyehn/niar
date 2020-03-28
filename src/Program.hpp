@@ -9,7 +9,10 @@ struct Scene;
 
 struct Program {
   
-  Program(std::string name, int width, int height);
+  Program(
+      std::string name, 
+      int width, 
+      int height);
   ~Program();
   void run();
     

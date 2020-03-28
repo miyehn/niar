@@ -8,6 +8,10 @@ Drawable::Drawable(Drawable* _parent, std::string _name) {
   if (parent) {
     parent->children.push_back(this);
   }
+
+  local_position = vec3(0, 0, 0);
+  rotation = quat(1, 0, 0, 0);
+  scale = vec3(1, 1, 1);
 }
 
 Drawable::~Drawable() {
