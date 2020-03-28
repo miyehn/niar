@@ -119,8 +119,8 @@ void Mesh::draw() {
   glUseProgram(shader);
 
   // upload transformation uniform
-  mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * this->transformation;
-  glUniformMatrix4fv(get_uniform_loc(shader, "OBJECT_TO_CLIP"), 1, GL_FALSE, value_ptr(OBJECT_TO_CLIP));
+  mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * object_to_world();
+  glUniformMatrix4fv(uniform_loc(shader, "OBJECT_TO_CLIP"), 1, GL_FALSE, value_ptr(OBJECT_TO_CLIP));
 
   // bind vao and draw
   glBindVertexArray(vao);

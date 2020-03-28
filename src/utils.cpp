@@ -2,8 +2,8 @@
 #include "Drawable.hpp"
 #include "Mesh.hpp"
 
-int get_uniform_loc(uint shaderID, std::string uniformName) {
-  int location = glGetUniformLocation(shaderID, uniformName.c_str());
+uint uniform_loc(uint shaderID, std::string uniformName) {
+  uint location = glGetUniformLocation(shaderID, uniformName.c_str());
   if (location < 0) {
     std::cout << "unable to find location for uniform: " << uniformName << std::endl;
   }
@@ -146,7 +146,7 @@ uint new_shader_program(std::string vertPath, std::string fragPath, std::string 
   return newProgram;
 }
 
-int load_meshes(std::string source, Drawable* root) {
+std::vector<Mesh*> load_meshes(std::string source) {
   // import mesh from source
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(source,
@@ -160,15 +160,14 @@ int load_meshes(std::string source, Drawable* root) {
   }
 
   // access and create mesh drawables from imported source
-  int meshes_count = 0;
+  std::vector<Mesh*> meshes;
   for (int i=0; i<scene->mNumMeshes; i++) {
     aiMesh* mesh = scene->mMeshes[i];
-    if (mesh) {
-      new Mesh(mesh, root);
-      meshes_count++;
-    }
+    if (mesh) meshes.push_back(new Mesh(mesh));
   }
 
+  LOGF("loaded %d meshes", meshes.size());
+
   // importer seems to automatically handle memory release for scene
-  return meshes_count;
+  return meshes;
 }

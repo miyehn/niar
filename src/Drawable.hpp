@@ -1,47 +1,34 @@
 #pragma once
 #include "Updatable.hpp"
 
-#include "utils.hpp"
-
 struct Camera;
 
 struct Drawable: public Updatable {
 
-  Drawable(Drawable* _parent = nullptr, std::string _name = "[unnamed drawable]") {
-    parent = _parent; 
-    name = _name;
-    if (parent) {
-      parent->children.push_back(this);
-    }
-  }
+  Drawable(Drawable* _parent = nullptr, std::string _name = "[unnamed drawable]");
+  virtual ~Drawable();
 
   // inherited
-  virtual bool handle_event(SDL_Event event) {
-    bool handled = false;
-    for (uint i=0; i<children.size(); i++) {
-      handled = handled | children[i]->handle_event(event);
-    }
-    return handled;
-  }
-  virtual void update(float elapsed) {
-    for (uint i=0; i<children.size(); i++) children[i]->update(elapsed);
-  }
+  virtual bool handle_event(SDL_Event event);
+  virtual void update(float elapsed);
 
-  // game object can be shown on screen
-  virtual void draw() {
-    for (uint i=0; i<children.size(); i++) children[i]->draw();
-  }
+  // draw function
+  virtual void draw();
 
-
-  virtual ~Drawable() {
-    for (uint i=0; i<children.size(); i++) delete children[i];
-  }
-
-  //---- hierarchy ----
-
+  // hierarchy
   Drawable* parent;
-
   std::vector<Drawable*> children = std::vector<Drawable*>();
+  virtual bool add_child(Drawable* child);
 
-  glm::mat4 transformation = glm::mat4(1.0f);
+  // transformation
+  mat4 object_to_parent();
+  mat4 object_to_world();
+  mat4 parent_to_object();
+  mat4 world_to_object();
+  vec3 world_position();
+
+  vec3 local_position = vec3(0, 0, 0);
+  quat rotation = quat(1, 0, 0, 0);
+  vec3 scale = vec3(1, 1, 1);
+
 };

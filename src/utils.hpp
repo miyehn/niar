@@ -2,8 +2,9 @@
 #include "lib.h"
 
 struct Drawable;
+struct Mesh;
 
-int get_uniform_loc(uint shaderID, std::string uniformName);
+uint uniform_loc(uint shaderID, std::string uniformName);
 
 uint new_shader_program(
     std::string vertPath, 
@@ -11,4 +12,4 @@ uint new_shader_program(
     std::string tescPath = "", 
     std::string tesePath = "");
 
-int load_meshes(std::string source, Drawable* root);
+std::vector<Mesh*> load_meshes(std::string source);

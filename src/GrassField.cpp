@@ -75,8 +75,8 @@ void GrassField::draw() {
   glUseProgram(shader);
 
   // upload transformation to shader
-  mat4 transformation = Camera::Active->world_to_clip() * this->transformation;
-  glUniformMatrix4fv(get_uniform_loc(shader, "transformation"), 1, GL_FALSE, value_ptr(transformation));
+  mat4 transformation = Camera::Active->world_to_clip() * object_to_world();
+  glUniformMatrix4fv(uniform_loc(shader, "transformation"), 1, GL_FALSE, value_ptr(transformation));
 
   // use vao
   glBindVertexArray(vao);
