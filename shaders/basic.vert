@@ -11,6 +11,6 @@ out vec4 vf_color;
 
 void main() {
   gl_Position = OBJECT_TO_CLIP * vec4(in_position, 1);
-  vf_normal = in_normal;
+  vf_normal = vec3(OBJECT_TO_CLIP * vec4(in_normal, 1));
   vf_color = in_color;
 }

@@ -6,6 +6,6 @@ in vec4 vf_color;
 out vec4 FragColor;
 
 void main() {
-  
-  FragColor = vf_color * clamp(dot(normalize(vf_normal), vec3(0, 0, 1)), 0, 1);
+  vec3 light_dir = normalize(vec3(0, 0.5, 1));
+  FragColor = vf_color * clamp(dot(normalize(vf_normal), light_dir), 0, 1);
 }
