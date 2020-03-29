@@ -4,9 +4,11 @@
 #include "GrassField.hpp"
 #include "Cube.hpp"
 #include "Mesh.hpp"
+#include "Pathtracer.hpp"
 #include "Shader.hpp"
 
 Shader Shader::Basic;
+Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 
 void Program::load_resources() {
@@ -14,6 +16,7 @@ void Program::load_resources() {
   LOG("loading resources...");
 
   Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
+  Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
 }
@@ -32,15 +35,17 @@ void Program::setup() {
     torus->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
 
-  scene->add_child((Drawable*)torus);
+  scene->add_child(static_cast<Drawable*>(torus));
 #else // grass
-  scene->add_child((Drawable*)(new GrassField(6)));
+  scene->add_child(static_cast<Drawable*>(new Pathtracer(width, height)));
 #endif
 
   scenes.push_back(scene);
 }
 
 void Program::release_resources() {
+  LOG("release resources");
   delete Camera::Active;
+  delete Pathtracer::Instance;
   if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
 }

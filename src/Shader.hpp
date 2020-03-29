@@ -50,6 +50,8 @@ struct Shader {
     glUniformMatrix4fv(uniform_loc(name), 1, GL_FALSE, value_ptr(mat));
   }
 
+  void set_tex2D(uint texture_unit, uint texture_id);
+
 private:
   uint uniform_loc(const std::string& uniformName) const;
 

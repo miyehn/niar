@@ -1,9 +1,6 @@
 #include "Camera.hpp"
 
 Camera::Camera(size_t w, size_t h) {
-  width = w;
-  height = h;
-
   position = vec3(0, -5, 0);
   yaw = 0.0f;
   pitch = radians(90.0f);

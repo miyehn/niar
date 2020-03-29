@@ -2,6 +2,7 @@
 #include "Drawable.hpp"
 #include "Scene.hpp"
 #include "Camera.hpp"
+#include "Pathtracer.hpp"
 
 int main(int argc, const char * argv[]) {
 
@@ -64,6 +65,7 @@ Program::~Program() {
   for (uint i=0; i<scenes.size(); i++) {
     delete scenes[i];
   }
+  release_resources();
 }
 
 void Program::run() {
@@ -84,7 +86,16 @@ void Program::run() {
           event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
       else if (event.type==SDL_KEYUP || event.type==SDL_KEYDOWN) {
+        // toggle between rasterizer & pathtracer
+        if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
+          if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();
+          else Pathtracer::Instance->enable();
+        }
+        // update singletons
         Camera::Active->handle_event(event);
+        if (Pathtracer::Instance->enabled) 
+          Pathtracer::Instance->handle_event(event);
+        // update scene(s)
         for (uint i=0; i<scenes.size(); i++) {
           scenes[i]->handle_event(event);
         }
@@ -112,7 +123,12 @@ void Program::run() {
 
 void Program::update(float elapsed) {
   
+  // camera
   Camera::Active->update(elapsed);
+  // pathtracer
+  if (Pathtracer::Instance->enabled)
+    Pathtracer::Instance->update(elapsed);
+  // scenes
   for (uint i=0; i<scenes.size(); i++) {
     scenes[i]->update(elapsed);
   }
@@ -123,10 +139,14 @@ void Program::draw() {
 
   glClearColor(0.1f, 0.1f, 0.1f, 1);
   glClear(GL_COLOR_BUFFER_BIT);
+  glClearDepth(1);
   glClear(GL_DEPTH_BUFFER_BIT);
 
+  // pathtracer
+  if (Pathtracer::Instance->enabled) Pathtracer::Instance->draw();
+  // scenes
   for (uint i=0; i<scenes.size(); i++) {
-    scenes[i]->draw();
+    if (scenes[i]->enabled) scenes[i]->draw();
   }
     
 }

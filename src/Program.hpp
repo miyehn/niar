@@ -29,6 +29,7 @@ struct Program {
   
   // implementation of these decides game behavior.
   void load_resources();
+
   void setup();
   void update(float elapsed);
   void draw();

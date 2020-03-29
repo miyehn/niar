@@ -18,6 +18,11 @@ struct Drawable: public Updatable {
   // draw function
   virtual void draw();
 
+  // enabled status
+  bool enabled;
+  virtual void enable();
+  virtual void disable();
+
   // material
   Shader shader;
 

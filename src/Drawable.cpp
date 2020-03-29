@@ -9,6 +9,8 @@ Drawable::Drawable(Drawable* _parent, std::string _name) {
     parent->children.push_back(this);
   }
 
+  enabled = true;
+
   local_position = vec3(0, 0, 0);
   rotation = quat(1, 0, 0, 0);
   scale = vec3(1, 1, 1);
@@ -21,17 +23,28 @@ Drawable::~Drawable() {
 bool Drawable::handle_event(SDL_Event event) {
   bool handled = false;
   for (uint i=0; i<children.size(); i++) {
-    handled = handled | children[i]->handle_event(event);
+    if (children[i]->enabled)
+      handled = handled || children[i]->handle_event(event);
   }
   return handled;
 }
 
 void Drawable::update(float elapsed) {
-  for (uint i=0; i<children.size(); i++) children[i]->update(elapsed);
+  for (uint i=0; i<children.size(); i++) 
+    if (children[i]->enabled) children[i]->update(elapsed);
 }
 
 void Drawable::draw() {
-  for (uint i=0; i<children.size(); i++) children[i]->draw();
+  for (uint i=0; i<children.size(); i++) 
+    if (children[i]->enabled) children[i]->draw();
+}
+
+void Drawable::enable() {
+  enabled = true;
+}
+
+void Drawable::disable() {
+  enabled = false;
 }
 
 bool Drawable::add_child(Drawable* child) {

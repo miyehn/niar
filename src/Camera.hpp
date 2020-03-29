@@ -24,8 +24,6 @@ struct Camera : Updatable {
   float cutoffNear;
   float cutoffFar;
 
-  size_t width;
-  size_t height;
   float aspect_ratio;
 
   // functions

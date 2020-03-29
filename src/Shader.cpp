@@ -1,5 +1,7 @@
 #include "Shader.hpp"
 
+#define DEBUG 1
+
 Shader::Shader(
     const std::string& vert_path, 
     const std::string& frag_path, 
@@ -149,6 +151,15 @@ Shader::Shader(
     glDeleteShader(TES);
   }
 
+}
+
+void Shader::set_tex2D(uint texture_unit, uint texture_id) {
+  glActiveTexture(GL_TEXTURE0 + texture_unit);
+  glBindTexture(GL_TEXTURE_2D, texture_id);
+  glActiveTexture(GL_TEXTURE0);
+#if DEBUG
+  GL_ERRORS();
+#endif
 }
 
 uint Shader::uniform_loc(const std::string& uniformName) const {
