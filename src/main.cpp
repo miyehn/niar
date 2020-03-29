@@ -1,21 +1,16 @@
 #include "Program.hpp"
 #include "Drawable.hpp"
-#include "Camera.hpp"
 #include "Scene.hpp"
-
-// global program instance, attached to class
-Camera* Camera::Active = nullptr;
+#include "Camera.hpp"
 
 int main(int argc, const char * argv[]) {
 
   uint w = 800;
   uint h = 600;
 
-  Camera::Active = new Camera(w, h);
   Program* program = new Program("my program", w, h);
   program->run();
   delete program;
-  delete Camera::Active;
   return 0;
 }
 
@@ -72,6 +67,8 @@ Program::~Program() {
 }
 
 void Program::run() {
+
+  load_resources();
   setup();
 
   while (true) {

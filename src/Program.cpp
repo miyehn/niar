@@ -1,27 +1,46 @@
 #include "Program.hpp"
+#include "Camera.hpp"
 #include "Scene.hpp"
 #include "GrassField.hpp"
 #include "Cube.hpp"
 #include "Mesh.hpp"
-#include "utils.hpp"
+#include "Shader.hpp"
+
+Shader Shader::Basic;
+Camera* Camera::Active;
+
+void Program::load_resources() {
+  
+  LOG("loading resources...");
+
+  Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
+  Camera::Active = new Camera(width, height);
+
+}
 
 void Program::setup() {
 
   Scene* scene = new Scene("my scene");
 
-  std::vector<Mesh*> meshes = load_meshes("../media/torus.fbx");
+#if 1 // torus
+  // load and process mesh
+  std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/torus.fbx");
   Mesh* torus = meshes[0];
-  assert(torus);
-  scene->add_child((Drawable*)torus);
 
-#if 0
-  meshes = load_meshes("../media/longcube.fbx");
-  Mesh* cube = meshes[0];
-  assert(cube);
-  cube->local_position += vec3(0, 0, 4);
-  torus->add_child((Drawable*) cube);
+  torus->shader.set_parameters = [torus]() {
+    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * torus->object_to_world();
+    torus->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+  };
+
+  scene->add_child((Drawable*)torus);
+#else // grass
+  scene->add_child((Drawable*)(new GrassField(6)));
 #endif
 
   scenes.push_back(scene);
 }
 
+void Program::release_resources() {
+  delete Camera::Active;
+  if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
+}

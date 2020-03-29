@@ -1,31 +1,29 @@
-#include "utils.hpp"
-#include "Drawable.hpp"
-#include "Mesh.hpp"
+#include "Shader.hpp"
 
-uint uniform_loc(uint shaderID, std::string uniformName) {
-  uint location = glGetUniformLocation(shaderID, uniformName.c_str());
-  if (location < 0) {
-    std::cout << "unable to find location for uniform: " << uniformName << std::endl;
-  }
-  return location;
-}
+Shader::Shader(
+    const std::string& vert_path, 
+    const std::string& frag_path, 
+    const std::string& tesc_path, 
+    const std::string& tese_path) {
 
-uint new_shader_program(std::string vertPath, std::string fragPath, std::string tescPath, std::string tesePath) {
+  LOG("---- creating shader program");
+  LOGF("  vert path: %s", vert_path.c_str());
+  LOGF("  frag path: %s", frag_path.c_str());
 
-  bool tessellate = tescPath.length() > 0 && tesePath.length() > 0;
+  bool tessellate = tesc_path.length() > 0 && tese_path.length() > 0;
 
-  uint newProgram = glCreateProgram();
+  id = glCreateProgram();
   uint vertexShader, fragmentShader, TCS, TES;
 
   // load vertex shader file
-  std::ifstream vIfs(vertPath);
+  std::ifstream vIfs(vert_path);
   std::string vContent( (std::istreambuf_iterator<char>(vIfs) ),
                        (std::istreambuf_iterator<char>()     ));
   const char* vertexShaderFile = vContent.c_str();
   const GLchar** vertexShaderSource = { &vertexShaderFile };
   
   // load fragment shader file
-  std::ifstream fIfs(fragPath);
+  std::ifstream fIfs(frag_path);
   std::string fContent( (std::istreambuf_iterator<char>(fIfs) ),
                        (std::istreambuf_iterator<char>()     ));
   const char* fragmentShaderFile = fContent.c_str();
@@ -62,26 +60,26 @@ uint new_shader_program(std::string vertPath, std::string fragPath, std::string 
   // check if compilation successful
   glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
   if (!success) {
-      glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+      glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
       std::cout << "fragment compile failed: \n" << infoLog << std::endl;
       exit(1);
   }
   
-  glAttachShader(newProgram, vertexShader);
-  glAttachShader(newProgram, fragmentShader);
+  glAttachShader(id, vertexShader);
+  glAttachShader(id, fragmentShader);
   
 
   if (tessellate) {
 
     // load TCS file
-    std::ifstream tcIfs(tescPath);
+    std::ifstream tcIfs(tesc_path);
     std::string tcContent( (std::istreambuf_iterator<char>(tcIfs) ),
                           (std::istreambuf_iterator<char>()     ));
     const char* tescShaderFile = tcContent.c_str();
     const GLchar** tescShaderSource = { &tescShaderFile };
     
     // load TES file
-    std::ifstream teIfs(tesePath);
+    std::ifstream teIfs(tese_path);
     std::string teContent( (std::istreambuf_iterator<char>(teIfs) ),
                           (std::istreambuf_iterator<char>()     ));
     const char* teseShaderFile = teContent.c_str();
@@ -121,18 +119,26 @@ uint new_shader_program(std::string vertPath, std::string fragPath, std::string 
         exit(1);
     }
   
-    glAttachShader(newProgram, TCS);
-    glAttachShader(newProgram, TES);
+    glAttachShader(id, TCS);
+    glAttachShader(id, TES);
   }
 
-  glLinkProgram(newProgram);
+  glLinkProgram(id);
 
   // check for success
-  glGetProgramiv(newProgram, GL_LINK_STATUS, &success);
+  glGetProgramiv(id, GL_LINK_STATUS, &success);
   if (!success) {
-      glGetProgramInfoLog(newProgram, 512, NULL, infoLog);
+      glGetProgramInfoLog(id, 512, NULL, infoLog);
       std::cout << "shader link failed: \n" << infoLog << std::endl;
       exit(1);
+  }
+
+  // detach shaders
+  glDetachShader(id, vertexShader);
+  glDetachShader(id, fragmentShader);
+  if (tessellate) {
+    glDetachShader(id, TCS);
+    glDetachShader(id, TES);
   }
   
   // delete shaders
@@ -142,33 +148,13 @@ uint new_shader_program(std::string vertPath, std::string fragPath, std::string 
     glDeleteShader(TCS);
     glDeleteShader(TES);
   }
-  
-  return newProgram;
+
 }
 
-std::vector<Mesh*> load_meshes(std::string source) {
-  // import mesh from source
-  Assimp::Importer importer;
-  const aiScene* scene = importer.ReadFile(source,
-      aiProcess_GenSmoothNormals |
-      aiProcess_CalcTangentSpace |
-      aiProcess_Triangulate |
-      aiProcess_JoinIdenticalVertices |
-      aiProcess_SortByPType);
-  if (!scene) {
-    ERR(importer.GetErrorString());
+uint Shader::uniform_loc(const std::string& uniformName) const {
+  uint location = glGetUniformLocation(id, uniformName.c_str());
+  if (location < 0) {
+    WARN("unable to find location for uniform \"%s\"", uniformName.c_str());
   }
-
-  // access and create mesh drawables from imported source
-  std::vector<Mesh*> meshes;
-  for (int i=0; i<scene->mNumMeshes; i++) {
-    aiMesh* mesh = scene->mMeshes[i];
-    if (mesh) meshes.push_back(new Mesh(mesh));
-  }
-
-  LOGF("loaded %d meshes", meshes.size());
-
-  // importer seems to automatically handle memory release for scene
-  return meshes;
+  return location;
 }
-

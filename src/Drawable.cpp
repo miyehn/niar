@@ -1,8 +1,8 @@
 #include "Drawable.hpp"
-#include "utils.hpp"
 
 
 Drawable::Drawable(Drawable* _parent, std::string _name) {
+
   parent = _parent;
   name = _name;
   if (parent) {

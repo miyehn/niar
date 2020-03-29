@@ -1,6 +1,6 @@
 #include "GrassField.hpp"
 #include "Camera.hpp"
-#include "utils.hpp"
+#include "Shader.hpp"
 #include "Program.hpp"
 
 GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): Drawable(_parent, _name) {
@@ -40,11 +40,15 @@ GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): D
     glBindVertexArray(0);
 
     // shaders
-    shader = new_shader_program(
+    shader = Shader(
         "../shaders/grass.vert",
         "../shaders/grass.frag",
         "../shaders/grass.tesc",
         "../shaders/grass.tese");
+    shader.set_parameters = [this]() {
+      mat4 transformation = Camera::Active->world_to_clip() * object_to_world();
+      shader.set_mat4("transformation", transformation);
+    };
   }
 
 }
@@ -54,6 +58,7 @@ GrassField::~GrassField() {
   vbo = 0;
   glDeleteVertexArrays(1, &vao);
   vao = 0;
+  glDeleteProgram(shader.id);
 }
 
 void GrassField::update(float elapsed) {
@@ -72,11 +77,10 @@ void GrassField::draw() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   // set shader
-  glUseProgram(shader);
+  glUseProgram(shader.id);
 
   // upload transformation to shader
-  mat4 transformation = Camera::Active->world_to_clip() * object_to_world();
-  glUniformMatrix4fv(uniform_loc(shader, "transformation"), 1, GL_FALSE, value_ptr(transformation));
+  shader.set_parameters();
 
   // use vao
   glBindVertexArray(vao);

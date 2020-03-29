@@ -27,7 +27,6 @@ struct GrassField : public Drawable {
   // properties and methods
   std::vector<Blade> blades;
 
-  uint shader;
   uint vbo;
   uint vao;
 };

@@ -11,6 +11,8 @@ struct Vertex {
 static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4), "vertex struct should be packed");
 
 struct Mesh : public Drawable {
+
+  static std::vector<Mesh*> LoadMeshes(const std::string& source);
   
   Mesh(
       aiMesh* mesh = nullptr, 
@@ -27,6 +29,6 @@ struct Mesh : public Drawable {
   uint get_num_triangles() { return faces.size() / 3; }
 
   //---- opengl stuff ----
-  uint shader, vbo, ebo, vao = 0;
+  uint vbo, ebo, vao = 0;
 
 };

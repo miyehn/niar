@@ -1,5 +1,4 @@
 #include "Cube.hpp"
-#include "utils.hpp"
 
 Cube::Cube(Drawable* _parent, std::string _name): Drawable(_parent, _name) {
   Assimp::Importer importer;

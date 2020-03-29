@@ -16,8 +16,6 @@ struct Program {
   ~Program();
   void run();
     
-private:
-    
   // generic program properties
   std::string name;
   size_t width;
@@ -30,9 +28,12 @@ private:
   std::vector<Scene*> scenes;
   
   // implementation of these decides game behavior.
+  void load_resources();
   void setup();
   void update(float elapsed);
   void draw();
+
+  void release_resources();
 
 };
 

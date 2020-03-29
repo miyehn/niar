@@ -1,5 +1,5 @@
 #include "Mesh.hpp"
-#include "utils.hpp"
+#include "Shader.hpp"
 #include "Camera.hpp"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
@@ -46,8 +46,8 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 
   //---- OpenGL setup ----
   
-  // create shader
-  shader = new_shader_program("../shaders/basic.vert", "../shaders/basic.frag");
+  // copy construct a default shader
+  shader = Shader::Basic;
 
   // generate buffers & objects
   glGenBuffers(1, &vbo);
@@ -93,9 +93,6 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   }
   glBindVertexArray(0);
 
-  GL_ERRORS();
-  LOG("setup gl stuff");
-
 }
 
 Mesh::~Mesh() {
@@ -116,17 +113,45 @@ void Mesh::update(float elapsed) {
 void Mesh::draw() {
 
   // set shader
-  glUseProgram(shader);
+  glUseProgram(shader.id);
 
-  // upload transformation uniform
-  mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * object_to_world();
-  glUniformMatrix4fv(uniform_loc(shader, "OBJECT_TO_CLIP"), 1, GL_FALSE, value_ptr(OBJECT_TO_CLIP));
+  // upload uniform
+  shader.set_parameters();
 
   // bind vao and draw
   glBindVertexArray(vao);
   glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
   glBindVertexArray(0);
 
+  glUseProgram(0);
+
   // draw children
   Drawable::draw();
+}
+
+std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
+  // import mesh from source
+  Assimp::Importer importer;
+  const aiScene* scene = importer.ReadFile(source,
+      aiProcess_GenSmoothNormals |
+      aiProcess_CalcTangentSpace |
+      aiProcess_Triangulate |
+      aiProcess_JoinIdenticalVertices |
+      aiProcess_SortByPType);
+  if (!scene) {
+    ERR(importer.GetErrorString());
+  }
+
+  // access and create mesh drawables from imported source
+  std::vector<Mesh*> meshes;
+  for (int i=0; i<scene->mNumMeshes; i++) {
+    aiMesh* mesh = scene->mMeshes[i];
+    if (mesh) meshes.push_back(new Mesh(mesh));
+  }
+
+  LOGF("loaded %d meshe(s)", meshes.size());
+
+  // importer seems to automatically handle memory release for scene
+  return meshes;
+
 }

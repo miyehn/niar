@@ -30,7 +30,10 @@ struct Camera : Updatable {
 
   // functions
   mat4 world_to_camera_rotation();
+  mat4 world_to_camera();
   mat4 camera_to_world_rotation();
+  mat4 camera_to_world();
+
   mat4 world_to_clip();
 
   vec3 forward();

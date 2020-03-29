@@ -1,5 +1,6 @@
 #pragma once
 #include "Updatable.hpp"
+#include "Shader.hpp"
 
 struct Camera;
 
@@ -16,6 +17,9 @@ struct Drawable: public Updatable {
 
   // draw function
   virtual void draw();
+
+  // material
+  Shader shader;
 
   // hierarchy
   Drawable* parent;
