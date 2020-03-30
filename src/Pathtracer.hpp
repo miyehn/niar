@@ -18,8 +18,6 @@ struct Pathtracer : public Drawable {
   // size for the pathtraced image - could be different from display window.
   size_t width, height;
 
-  float min_x, min_y, max_x, max_y; // in range [-1, 1]
-
   // ray tracing state
   bool paused;
   void pause_trace();
@@ -27,18 +25,21 @@ struct Pathtracer : public Drawable {
   virtual void enable();
   virtual void disable();
 
+  void reset();
+
   size_t pixels_per_frame;
   size_t progress;
 
-  bool refresh;
   float refresh_timer;
   float refresh_interval;
+  size_t uploaded_rows;
 
   //---- buffer & opengl stuff ----
 
   // an image buffer of size width * height * 3 (since it has rgb channels)
   unsigned char* image_buffer;
 
+  void upload_rows(GLint begin, GLint end);
   void set_rgb(size_t w, size_t h, vec3 rgb);
   void set_rgb(size_t i, vec3 rgb);
 

@@ -10,20 +10,14 @@ Pathtracer::Pathtracer(
       height(_height), 
       Drawable(nullptr, _name) {
 
-  min_x = -0.96f; min_y = -0.96f;
-  max_x = -0.1f; max_y = -0.1f;
+  float min_x = -0.96f; float min_y = -0.96f;
+  float max_x = -0.1f; float max_y = -0.1f;
 
-  size_t num_bytes = width * height * 3;
-  image_buffer = new unsigned char[num_bytes]; 
-  memset(image_buffer, 40, num_bytes);
+  image_buffer = new unsigned char[width * height * 3]; 
 
   enabled = false;
-  paused = true;
 
   pixels_per_frame = 2000;
-  progress = 0;
-
-  refresh = false;
   refresh_timer = 0.0f;
   refresh_interval = 0.5f;
 
@@ -83,7 +77,9 @@ Pathtracer::Pathtracer(
   }
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  LOG("initialized pathtracer");
+  //------------------------------------
+
+  reset();
 }
 
 Pathtracer::~Pathtracer() {
@@ -120,13 +116,21 @@ void Pathtracer::disable() {
 
 void Pathtracer::pause_trace() {
   LOG("pause trace");
-  refresh = true;
   paused = true;
 }
 
 void Pathtracer::continue_trace() {
   LOG("continue trace");
   paused = false;
+}
+
+void Pathtracer::reset() {
+  LOG("reset pathtracer");
+  memset(image_buffer, 40, width * height * 3);
+  paused = true;
+  progress = 0;
+  uploaded_rows = 0;
+  upload_rows(0, height);
 }
 
 void Pathtracer::set_rgb(size_t w, size_t h, vec3 rgb) {
@@ -141,28 +145,52 @@ void Pathtracer::set_rgb(size_t i, vec3 rgb) {
   image_buffer[3 * i + 2] = int(rgb.b * 255.0f);
 }
 
+void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
+  LOGF("begin, num rows: %d, %d", begin, rows);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  GLsizei subimage_offset = width * begin * 3;
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 
+      0, begin, // min x, min y
+      width, rows, // subimage width, subimage height
+      GL_RGB, GL_UNSIGNED_BYTE, 
+      image_buffer + subimage_offset);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  int percentage = int(float(begin + rows) / float(height) * 100.0f);
+  WARNF("refresh! updated %d rows, %d%% done.", rows, percentage);
+  GL_ERRORS();
+}
+
 void Pathtracer::update(float elapsed) {
   if (!paused) {
 
-    // trace N pixels
+    // trace N pixels and update progress (capped at num pixels total)
     size_t end = std::min(width * height, progress + pixels_per_frame);
     for (size_t i=progress; i<end; i++) {
-      set_rgb(i, vec3(0.4f, 0.5f, 0.6f));
+      set_rgb(i, vec3(0.4f, 0.5f, 0.7f));
     }
     progress = end;
 
+    // re-upload data each interval, or if pathtracing finished
+    refresh_timer = std::min(refresh_interval, refresh_timer + elapsed);
+    if (refresh_timer >= refresh_interval || progress == width * height) {
+
+      size_t num_rows_to_upload = progress / width - uploaded_rows;
+      if (num_rows_to_upload > 0) upload_rows(uploaded_rows, num_rows_to_upload);
+
+      uploaded_rows += num_rows_to_upload;
+
+      refresh_timer = 0.0f;
+    }
+
     // determine if finished
     if (progress == width * height) {
+      WARN("Done!");
       pause_trace();
       progress = 0;
     }
     
-    refresh_timer = std::min(refresh_interval, refresh_timer + elapsed);
-    if (refresh_timer >= refresh_interval) {
-      refresh = true;
-      refresh_timer = 0.0f;
-    }
-
   }
   Drawable::update(elapsed);
 }
@@ -172,17 +200,8 @@ void Pathtracer::draw() {
   // set shader
   glUseProgram(shader.id);
 
-  // upload uniforms
+  // pass uniforms
   shader.set_parameters();
-  // re-upload data if things are updated
-  if (refresh) {
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    WARNF("refresh! progress: %d", progress);
-    refresh = false;
-  }
 
   // draw stuff
   glBindVertexArray(vao);
