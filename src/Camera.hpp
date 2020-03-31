@@ -8,8 +8,8 @@ struct Camera : Updatable {
   Camera(size_t w, size_t h);
 
   // inherited
-  void update(float time_elapsed);
-  bool handle_event(SDL_Event event);
+  virtual void update(float time_elapsed);
+  virtual bool handle_event(SDL_Event event);
 
   // properties, can be set by the program
   vec3 position;
@@ -25,6 +25,11 @@ struct Camera : Updatable {
   float cutoffFar;
 
   float aspect_ratio;
+
+  // can move & rotate camera?
+  bool locked;
+  void lock();
+  void unlock();
 
   // functions
   mat4 world_to_camera_rotation();

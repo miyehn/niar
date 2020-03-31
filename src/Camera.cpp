@@ -1,9 +1,9 @@
 #include "Camera.hpp"
 
 Camera::Camera(size_t w, size_t h) {
-  position = vec3(0, -5, 0);
+  position = vec3(0, 0, 5);
   yaw = 0.0f;
-  pitch = radians(90.0f);
+  pitch = radians(0.0f);
   roll = 0.0f;
 
   move_speed = 4.0f;
@@ -15,64 +15,67 @@ Camera::Camera(size_t w, size_t h) {
 
   aspect_ratio = (float)w / (float)h;
 
+  locked = false;
+
   int prev_mouse_x = 0;
   int prev_mouse_y = 0;
 }
 
 void Camera::update(float elapsed) {
 
-  const Uint8* state = SDL_GetKeyboardState(nullptr);
+  if (!locked) {
+    const Uint8* state = SDL_GetKeyboardState(nullptr);
 
-  vec3 forward = this->forward();
-  vec3 right = this->right();
+    vec3 forward = this->forward();
+    vec3 right = this->right();
 
-  if (state[SDL_SCANCODE_LSHIFT]) {
-    // up, down
-    if (state[SDL_SCANCODE_W]) {
-      position.z += move_speed * elapsed;
-    }
-    if (state[SDL_SCANCODE_S]) {
-      position.z -= move_speed * elapsed;
+    if (state[SDL_SCANCODE_LSHIFT]) {
+      // up, down
+      if (state[SDL_SCANCODE_W]) {
+        position.z += move_speed * elapsed;
+      }
+      if (state[SDL_SCANCODE_S]) {
+        position.z -= move_speed * elapsed;
+      }
+
+      // roll
+      if (state[SDL_SCANCODE_A]) {
+        roll -= 2 * elapsed;
+      }
+      if (state[SDL_SCANCODE_D]) {
+        roll += 2 * elapsed;
+      }
+
+    } else {
+      // WASD movement; space - up
+      if (state[SDL_SCANCODE_A]) {
+        position -= move_speed * elapsed * right;
+      }
+      if (state[SDL_SCANCODE_D]) {
+        position += move_speed * elapsed * right;
+      }
+      if (state[SDL_SCANCODE_S]) {
+        position -= move_speed * elapsed * forward;
+      }
+      if (state[SDL_SCANCODE_W]) {
+        position += move_speed * elapsed * forward;
+      }
+      if (state[SDL_SCANCODE_SPACE]) {
+        position.z += move_speed * elapsed;
+      }
     }
 
-    // roll
-    if (state[SDL_SCANCODE_A]) {
-      roll -= 2 * elapsed;
+    // rotation
+    int mouse_x, mouse_y;
+    if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON_LEFT) {
+      float dx = mouse_x - prev_mouse_x;
+      float dy = mouse_y - prev_mouse_y;
+      yaw -= dx * rotate_speed;
+      pitch -= dy * rotate_speed;
     }
-    if (state[SDL_SCANCODE_D]) {
-      roll += 2 * elapsed;
-    }
-
-  } else {
-    // WASD movement; space - up
-    if (state[SDL_SCANCODE_A]) {
-      position -= move_speed * elapsed * right;
-    }
-    if (state[SDL_SCANCODE_D]) {
-      position += move_speed * elapsed * right;
-    }
-    if (state[SDL_SCANCODE_S]) {
-      position -= move_speed * elapsed * forward;
-    }
-    if (state[SDL_SCANCODE_W]) {
-      position += move_speed * elapsed * forward;
-    }
-    if (state[SDL_SCANCODE_SPACE]) {
-      position.z += move_speed * elapsed;
-    }
+    prev_mouse_x = mouse_x;
+    prev_mouse_y = mouse_y;
   }
-
-  // rotation
-  int mouse_x, mouse_y;
-  if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON_LEFT) {
-    float dx = mouse_x - prev_mouse_x;
-    float dy = mouse_y - prev_mouse_y;
-    yaw -= dx * rotate_speed;
-    pitch -= dy * rotate_speed;
-  }
-
-  prev_mouse_x = mouse_x;
-  prev_mouse_y = mouse_y;
 }
 
 bool Camera::handle_event(SDL_Event event) {
@@ -119,3 +122,10 @@ vec3 Camera::forward() {
   return vec3(camera_to_world_rotation() * vec4(0, 0, -1, 1));
 }
 
+void Camera::lock() {
+  locked = true;
+}
+
+void Camera::unlock() {
+  locked = false;
+}

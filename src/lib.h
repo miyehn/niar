@@ -54,6 +54,9 @@ std::string string_format( const std::string& format, Args ... args ) {
 #define ERR(message) std::cout << "\033[31m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
   message << std::endl;
 
+//---- pathtracer specific
+#define TRACEF(...) std::cout << "\033[1;35m[Pathtracer] " << string_format(__VA_ARGS__) << "\033[0m" << std::endl;
+#define TRACE(message) std::cout << "\033[1;35m[Pathtracer] " << message << "\033[0m" << std::endl; 
 
 //-------- gl_errors.hpp, found in Jim's base code --------
 #define STR2(X) # X
@@ -83,3 +86,5 @@ inline void gl_errors(std::string const &where) {
 #define GL_ERRORS() gl_errors(__FILE__  ":" STR(__LINE__) )
 //---------------------------------------------------------
 
+// other macros
+#define INF std::numeric_limits<float>::infinity();

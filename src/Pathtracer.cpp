@@ -1,4 +1,7 @@
 #include "Pathtracer.hpp"
+#include "Camera.hpp"
+#include "Mesh.hpp"
+#include "Scene.hpp"
 
 #define DEBUG 1
 
@@ -90,42 +93,61 @@ Pathtracer::~Pathtracer() {
 #if DEBUG
   GL_ERRORS();
 #endif
-  LOG("deleted pathtracer");
+  TRACE("deleted pathtracer");
 }
 
 bool Pathtracer::handle_event(SDL_Event event) {
-  if (event.type==SDL_KEYUP && 
-      event.key.keysym.sym==SDLK_p) {
+  if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_p) {
     if (paused) continue_trace();
     else pause_trace();
     return true;
+  } else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
+    reset();
   }
 
   return Drawable::handle_event(event);
 }
 
+// TODO: load scene recursively
+void Pathtracer::load_scene(const Scene& scene) {
+  for (Drawable* drawable : scene.children) {
+    Mesh* mesh = dynamic_cast<Mesh*>(drawable);
+    if (mesh) {
+      for (int i=0; i<mesh->faces.size(); i+=3) {
+        Vertex v1 = mesh->vertices[mesh->faces[i]];
+        Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
+        Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
+        triangles.emplace_back(v1, v2, v3);
+      }
+    }
+  }
+  TRACEF("loaded a scene with %d triangles", triangles.size());
+}
+
 void Pathtracer::enable() {
-  LOG("pathtracer enabled");
+  TRACE("pathtracer enabled");
+  Camera::Active->lock();
   Drawable::enable();
 }
 
 void Pathtracer::disable() {
-  LOG("pathtracer disabled");
+  TRACE("pathtracer disabled");
+  Camera::Active->unlock();
   Drawable::disable();
 }
 
 void Pathtracer::pause_trace() {
-  LOG("pause trace");
+  TRACE("pause trace");
   paused = true;
 }
 
 void Pathtracer::continue_trace() {
-  LOG("continue trace");
+  TRACE("continue trace");
   paused = false;
 }
 
 void Pathtracer::reset() {
-  LOG("reset pathtracer");
+  TRACE("reset pathtracer");
   memset(image_buffer, 40, width * height * 3);
   paused = true;
   progress = 0;
@@ -138,7 +160,7 @@ void Pathtracer::set_rgb(size_t w, size_t h, vec3 rgb) {
 
 void Pathtracer::set_rgb(size_t i, vec3 rgb) {
 #if DEBUG
-  if (i >= width * height * 3) ERR("set_rgb index out of range!!");
+  if (i >= width * height * 3) ERR("set_rgb indexing out of range!!");
 #endif
   image_buffer[3 * i] = int(rgb.r * 255.0f);
   image_buffer[3 * i + 1] = int(rgb.g * 255.0f);
@@ -146,7 +168,6 @@ void Pathtracer::set_rgb(size_t i, vec3 rgb) {
 }
 
 void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
-  LOGF("begin, num rows: %d, %d", begin, rows);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture);
   GLsizei subimage_offset = width * begin * 3;
@@ -158,8 +179,10 @@ void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
   glBindTexture(GL_TEXTURE_2D, 0);
 
   int percentage = int(float(begin + rows) / float(height) * 100.0f);
-  WARNF("refresh! updated %d rows, %d%% done.", rows, percentage);
+  TRACEF("refresh! updated %d rows, %d%% done.", rows, percentage);
+#if DEBUG
   GL_ERRORS();
+#endif
 }
 
 void Pathtracer::update(float elapsed) {
@@ -168,7 +191,8 @@ void Pathtracer::update(float elapsed) {
     // trace N pixels and update progress (capped at num pixels total)
     size_t end = std::min(width * height, progress + pixels_per_frame);
     for (size_t i=progress; i<end; i++) {
-      set_rgb(i, vec3(0.4f, 0.5f, 0.7f));
+      vec3 color = raytrace_pixel(i);
+      set_rgb(i, color);
     }
     progress = end;
 
@@ -186,9 +210,8 @@ void Pathtracer::update(float elapsed) {
 
     // determine if finished
     if (progress == width * height) {
-      WARN("Done!");
+      TRACE("Done!");
       pause_trace();
-      progress = 0;
     }
     
   }
@@ -215,3 +238,6 @@ void Pathtracer::draw() {
 
   Drawable::draw();
 }
+
+// file that contains the actual pathtracing meat
+#include "Pathtracer.inl"

@@ -1,6 +1,10 @@
 #pragma once
 #include "Drawable.hpp"
 
+struct Scene;
+struct Ray;
+struct Triangle;
+
 struct Pathtracer : public Drawable {
 
   static Pathtracer* Instance;
@@ -33,6 +37,13 @@ struct Pathtracer : public Drawable {
   float refresh_timer;
   float refresh_interval;
   size_t uploaded_rows;
+
+  std::vector<Triangle> triangles;
+  void load_scene(const Scene& scene);
+
+  std::vector<Ray> generate_rays(size_t index);
+  vec3 trace_ray(Ray& ray);
+  vec3 raytrace_pixel(size_t index);
 
   //---- buffer & opengl stuff ----
 

@@ -9,7 +9,7 @@ int main(int argc, const char * argv[]) {
   uint w = 800;
   uint h = 600;
 
-  Program* program = new Program("my program", w, h);
+  Program* program = new Program("niar", w, h);
   program->run();
   delete program;
   return 0;

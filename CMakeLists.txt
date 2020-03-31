@@ -13,6 +13,7 @@ add_executable(niar
   src/Drawable
   src/Mesh
   src/Shader
+  src/Triangle
   src/Pathtracer
   src/GrassField
   src/Cube

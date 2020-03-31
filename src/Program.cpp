@@ -36,6 +36,8 @@ void Program::setup() {
   };
 
   scene->add_child(static_cast<Drawable*>(torus));
+
+  Pathtracer::Instance->load_scene(*scene);
 #else // grass
   scene->add_child(static_cast<Drawable*>(new Pathtracer(width, height)));
 #endif
