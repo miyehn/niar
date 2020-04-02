@@ -26,17 +26,17 @@ void Program::setup() {
 
   Scene* scene = new Scene("my scene");
 
-#if 1 // torus
+#if 1 // cube
   // load and process mesh
-  std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/torus.fbx");
-  Mesh* torus = meshes[0];
-  torus->shader.set_parameters = [torus]() {
-    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * torus->object_to_world();
-    torus->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+  std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
+  Mesh* cube = meshes[0];
+  cube->shader.set_parameters = [cube]() {
+    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * cube->object_to_world();
+    cube->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
-	torus->local_position += vec3(0, 0, 3);
-	torus->bsdf = new Diffuse();
-  scene->add_child(static_cast<Drawable*>(torus));
+	cube->local_position += vec3(2, 0, 3);
+	cube->bsdf = new Diffuse(vec3(1, 0.4, 0.4));
+  scene->add_child(static_cast<Drawable*>(cube));
 
   meshes = Mesh::LoadMeshes("../media/plane.fbx");
   Mesh* plane = meshes[0];
@@ -48,6 +48,7 @@ void Program::setup() {
   plane->local_position = vec3(0, 0, 5.5);
   plane->scale = vec3(4, 4, 1);
 	plane->bsdf = new Diffuse();
+	plane->bsdf->Le = vec3(3); // emissive plane
   scene->add_child(static_cast<Drawable*>(plane));
 
   Pathtracer::Instance->load_scene(*scene);

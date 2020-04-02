@@ -25,7 +25,7 @@ struct BSDF {
    * wo: light outgoing dir (input)
    * n: normal of the hit surface (input)
    */
-  virtual float f(vec3& wi, vec3 wo, vec3 n) const = 0;
+  virtual float f(vec3& wi, vec3 wo) const = 0;
 };
 
 struct Diffuse : public BSDF {
@@ -33,7 +33,7 @@ struct Diffuse : public BSDF {
     albedo = _albedo;
     Le = vec3(0.0f);
   }
-  float f(vec3& wi, vec3 wo, vec3 n) const;
+  float f(vec3& wi, vec3 wo) const;
 };
 
 struct Mirror : public BSDF {
@@ -41,7 +41,7 @@ struct Mirror : public BSDF {
     albedo = vec3(1, 1, 1);
     Le = vec3(0.0f);
   }
-  float f(vec3& wi, vec3 wo, vec3 n) const;
+  float f(vec3& wi, vec3 wo) const;
 };
 
 struct Glass : public BSDF {

@@ -13,7 +13,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
   // fill / wireframe (/ point)
   fill_effective_polygon = GL_FRONT_AND_BACK; // GL_FRONT_AND_BACK | GL_BACK | GL_FRONT
-  fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
+  fill_mode = GL_LINE; // GL_FILL | GL_LINE | GL_POINT
   
 }
 

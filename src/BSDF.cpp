@@ -25,14 +25,15 @@ vec3 sample::hemisphere_uniform() {
 
   return vec3(x, y, z);
 #else
-  float x = rand01(); 
-  float y = rand01(); 
-  float z = rand01();
+  float x = rand01() - 0.5f; 
+  float y = rand01() - 0.5f; 
+  float z = rand01() - 0.5f;
   while (length(vec3(x, y, z)) > 1) {
-    x = rand01(); y = rand01(); z = rand01();
+    x = rand01() - 0.5f;
+		y = rand01() - 0.5f;
+		z = rand01();
   }
-  if (z <= 0) z = -z;
-  return normalize(vec3(x, y, z));
+  return normalize(vec3(x, y, abs(z)));
 #endif
 }
 
@@ -40,7 +41,7 @@ vec3 sample::hemisphere_cos_weighed() {
   return vec3(0);
 }
 
-float Diffuse::f(vec3& wi, vec3 wo, vec3 n) const {
+float Diffuse::f(vec3& wi, vec3 wo) const {
   wi = sample::hemisphere_uniform();
   return 1.0f / (2.0f * M_PI);
 }

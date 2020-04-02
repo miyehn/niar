@@ -225,6 +225,9 @@ void Pathtracer::update(float elapsed) {
 }
 
 void Pathtracer::draw() {
+	
+	// set fill
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
   // set shader
   glUseProgram(shader.id);

@@ -1,7 +1,6 @@
 #include "Triangle.hpp"
 #include "Mesh.hpp"
 
-#define EPSILON 0.00001f
 #define USE_INTERPOLATED_NORMAL 0
 
 Triangle::Triangle(
@@ -62,13 +61,9 @@ const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) {
   float v = dot(p0, enormals[2]) / dot(vertices[1] - vertices[0], enormals[2]);
   if (u < 0 || v < 0 || u + v > 1) return nullptr;
 #else // test sides for each edge. Gives wrong uv though.
-  vec3 edge;
   // other early outs: intersection not in triangle TODO: precompute some of these
-  edge = vertices[1] - vertices[0];
   if (dot(p - vertices[0], enormals[0]) < 0) return nullptr;
-  edge = vertices[2] - vertices[1];
   if (dot(p - vertices[1], enormals[1]) < 0) return nullptr;
-  edge = vertices[0] - vertices[2];
   if (dot(p - vertices[2], enormals[2]) < 0) return nullptr;
 #endif
 
