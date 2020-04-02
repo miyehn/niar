@@ -96,6 +96,7 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 }
 
 Mesh::~Mesh() {
+	if (bsdf) delete bsdf;
   glDeleteBuffers(1, &vbo);
   glDeleteBuffers(1, &ebo);
   glDeleteVertexArrays(1, &vao);

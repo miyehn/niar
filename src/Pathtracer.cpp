@@ -2,6 +2,7 @@
 #include "Camera.hpp"
 #include "Mesh.hpp"
 #include "Scene.hpp"
+#include "BSDF.hpp"
 
 #define DEBUG 1
 
@@ -20,9 +21,9 @@ Pathtracer::Pathtracer(
 
   enabled = false;
 
-  pixels_per_frame = 2000;
+  pixels_per_frame = 3000;
   refresh_timer = 0.0f;
-  refresh_interval = 0.5f;
+  refresh_interval = 0.0f;
 
   //-------- opengl stuff setup --------
 
@@ -110,14 +111,19 @@ bool Pathtracer::handle_event(SDL_Event event) {
 
 // TODO: load scene recursively
 void Pathtracer::load_scene(const Scene& scene) {
+  LOGF("number of meshes: %d", scene.children.size());
   for (Drawable* drawable : scene.children) {
     Mesh* mesh = dynamic_cast<Mesh*>(drawable);
     if (mesh) {
+			if (!mesh->bsdf) {
+				WARN("trying to load a mesh without bsdf. skipping...");
+				continue;
+			}
       for (int i=0; i<mesh->faces.size(); i+=3) {
         Vertex v1 = mesh->vertices[mesh->faces[i]];
         Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
         Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
-        triangles.emplace_back(v1, v2, v3);
+        triangles.emplace_back(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
       }
     }
   }

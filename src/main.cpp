@@ -6,6 +6,8 @@
 
 int main(int argc, const char * argv[]) {
 
+  std::srand(time(nullptr));
+
   uint w = 800;
   uint h = 600;
 

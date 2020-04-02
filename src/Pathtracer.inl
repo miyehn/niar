@@ -1,6 +1,8 @@
 #include "Triangle.hpp"
 #include "Camera.hpp"
 
+#define MAX_RAY_DEPTH 2
+
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
   size_t h = index / width;
@@ -31,24 +33,46 @@ std::vector<Ray> Pathtracer::generate_rays(size_t index) {
 
 }
 
-vec3 Pathtracer::trace_ray(Ray& ray) {
-  bool hit = false;
-
-  for (size_t i = 0; i < triangles.size(); i++) {
-    float t; vec3 n;
-    hit = hit || triangles[i].intersect(ray, t, n);
-  }
-
-  return hit ? vec3(1, 0.5, 0.4) : vec3(0, 0, 0);
-}
-
 vec3 Pathtracer::raytrace_pixel(size_t index) {
   std::vector<Ray> rays = generate_rays(index);
 
   vec3 result = vec3(0);
   for (size_t i = 0; i < rays.size(); i++) {
-    result += trace_ray(rays[i]) / float(rays.size());
+    result += trace_ray(rays[i], 0) / float(rays.size());
   }
 
   return result;
+}
+
+vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
+  // info of closest hit
+  const BSDF* bsdf = nullptr;
+  float t; vec3 n;
+  for (size_t i = 0; i < triangles.size(); i++) {
+    const BSDF* bsdf_tmp = triangles[i].intersect(ray, t, n);
+    if (bsdf_tmp) bsdf = bsdf_tmp;
+  }
+  if (bsdf) { // intersected with at least 1 triangle (has valid t, n, bsdf)
+    
+#if 1
+    return vec3(1, 1, 1);
+#endif
+    
+    vec3 L = vec3(0);
+    // emission
+    L += bsdf->Le;
+    // scatter
+    vec3 wi;
+    float pdf = bsdf->f(wi, -ray.d, n);
+    Ray ray_refl(ray.o + t * ray.d, wi);
+    vec3 L_indirect = ray_depth >= MAX_RAY_DEPTH ? 
+      vec3(0) :
+      trace_ray(ray_refl, ray_depth + 1);
+
+    float costheta = abs(dot(n, -ray.d)); // [0, 1], not considering front/back face here
+    L += L_indirect * bsdf->albedo * costheta / pdf;
+
+    return L;
+  }
+  return vec3(0);//hit ? vec3(1, 0.5, 0.4) : vec3(0, 0, 0);
 }

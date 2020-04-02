@@ -1,6 +1,8 @@
 #pragma once
 #include "Drawable.hpp"
 
+struct BSDF;
+
 struct Vertex {
   Vertex() {}
   Vertex(vec3 _position) : position(_position) {}
@@ -27,6 +29,9 @@ struct Mesh : public Drawable {
   std::vector<Vertex> vertices;
   std::vector<uint> faces;
   uint get_num_triangles() { return faces.size() / 3; }
+
+  // TODO: material info (BSDF*)
+	BSDF* bsdf = nullptr;
 
   //---- opengl stuff ----
   uint vbo, ebo, vao = 0;

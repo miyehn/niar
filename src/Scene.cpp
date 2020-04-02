@@ -5,7 +5,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
   use_depth_test = true;
 
   // culling
-  cull_face = true;
+  cull_face = false;
   cull_mode = GL_BACK;
 
   // blending: "blend the computed fragment color values with the values in the color buffers."

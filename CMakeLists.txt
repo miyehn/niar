@@ -15,6 +15,7 @@ add_executable(niar
   src/Shader
   src/Triangle
   src/Pathtracer
+  src/BSDF
   src/GrassField
   src/Cube
   )

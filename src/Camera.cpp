@@ -1,9 +1,9 @@
 #include "Camera.hpp"
 
 Camera::Camera(size_t w, size_t h) {
-  position = vec3(0, 0, 5);
+  position = vec3(0, -6, 4);
   yaw = 0.0f;
-  pitch = radians(0.0f);
+  pitch = radians(90.0f);
   roll = 0.0f;
 
   move_speed = 4.0f;
