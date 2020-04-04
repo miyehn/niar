@@ -1,5 +1,8 @@
 #include "BSDF.hpp"
 
+#define SQ(x) x * x
+#define EMISSIVE_THRESHOLD SQ(0.4f)
+
 float sample::rand01() {
   return float(rand()) / float(RAND_MAX);
 }
@@ -31,7 +34,7 @@ vec3 sample::hemisphere_uniform() {
   while (length(vec3(x, y, z)) > 1) {
     x = rand01() - 0.5f;
 		y = rand01() - 0.5f;
-		z = rand01();
+		z = rand01() - 0.5f;
   }
   return normalize(vec3(x, y, abs(z)));
 #endif
@@ -41,8 +44,16 @@ vec3 sample::hemisphere_cos_weighed() {
   return vec3(0);
 }
 
-float Diffuse::f(vec3& wi, vec3 wo) const {
-  wi = sample::hemisphere_uniform();
-  return 1.0f / (2.0f * M_PI);
+bool BSDF::is_emissive() {
+	return dot(Le, Le) >= EMISSIVE_THRESHOLD;
 }
 
+vec3 Diffuse::f(vec3 wi, vec3 wo) const {
+  return albedo * (1.0f / TWO_PI);
+}
+
+// uniform sampling
+float Diffuse::pdf(vec3& wi, vec3 wo) const {
+  wi = sample::hemisphere_uniform();
+	return 1.0f / TWO_PI;
+}

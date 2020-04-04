@@ -1,5 +1,6 @@
 #include "Triangle.hpp"
 #include "Mesh.hpp"
+#include "BSDF.hpp"
 
 #define USE_INTERPOLATED_NORMAL 0
 
@@ -44,7 +45,7 @@ Triangle::~Triangle() {
  * t * (d . n) = k - o . n
  * t = (k - o . n) / (d . n)
  */
-const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) {
+const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) const {
   // ray parallel to plane
   float d_dot_n = dot(ray.d, plane_n);
   if (abs(d_dot_n) < EPSILON) return nullptr;
@@ -76,4 +77,18 @@ const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) {
   normal = plane_n;
 #endif
   return bsdf;
+}
+
+vec3 Triangle::sample_point() const {
+	float u = sample::rand01();
+	float v = sample::rand01();
+	if (u + v > 1) {
+		u = 1.0f - u;
+		v = 1.0f - v;
+	}
+	
+	vec3 e1 = vertices[1] - vertices[0];
+	vec3 e2 = vertices[2] - vertices[0];
+
+	return vertices[0] + e1 * u + e2 * v;
 }

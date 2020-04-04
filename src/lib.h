@@ -89,3 +89,5 @@ inline void gl_errors(std::string const &where) {
 // other macros
 #define INF std::numeric_limits<float>::infinity();
 #define EPSILON 0.00001f
+#define PI float(M_PI)
+#define TWO_PI PI * 2

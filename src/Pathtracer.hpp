@@ -4,6 +4,7 @@
 struct Scene;
 struct Ray;
 struct Triangle;
+struct Light;
 
 struct Pathtracer : public Drawable {
 
@@ -28,7 +29,6 @@ struct Pathtracer : public Drawable {
   void continue_trace();
   virtual void enable();
   virtual void disable();
-
   void reset();
 
   size_t pixels_per_frame;
@@ -39,11 +39,13 @@ struct Pathtracer : public Drawable {
   size_t uploaded_rows;
 
   std::vector<Triangle> triangles;
+	std::vector<Light*> lights;
   void load_scene(const Scene& scene);
 
   std::vector<Ray> generate_rays(size_t index);
-  vec3 trace_ray(Ray& ray, int ray_depth);
   vec3 raytrace_pixel(size_t index);
+  vec3 trace_ray(Ray& ray, int ray_depth);
+	bool trace_shadow_ray(Ray& ray);
 
   //---- buffer & opengl stuff ----
 
@@ -58,3 +60,16 @@ struct Pathtracer : public Drawable {
 
 };
 
+struct Light {
+	virtual ~Light() {}
+	virtual Ray ray_to_light(const vec3& origin) = 0;
+	virtual vec3 get_emission() = 0;
+};
+
+struct AreaLight : public Light {
+	AreaLight(const Triangle* _triangle) : triangle(_triangle) {}
+	virtual ~AreaLight() {}
+	const Triangle* triangle;
+	vec3 get_emission();
+	Ray ray_to_light(const vec3& origin);
+};

@@ -2,7 +2,7 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 2
-#define RAYS_PER_PIXEL 4
+#define RAYS_PER_PIXEL 1
 
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
@@ -47,7 +47,17 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
   return clamp(result, vec3(0), vec3(1));
 }
 
+bool Pathtracer::trace_shadow_ray(Ray& ray) {
+  float t; vec3 n;
+  for (size_t i = 0; i < triangles.size(); i++) {
+		if (triangles[i].intersect(ray, t, n)) return true;
+	}
+	return false;
+}
+
 vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
+	if (ray_depth >= MAX_RAY_DEPTH) return vec3(0);
+
   // info of closest hit
   const BSDF* bsdf = nullptr;
   float t; vec3 n;
@@ -55,14 +65,23 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
     const BSDF* bsdf_tmp = triangles[i].intersect(ray, t, n);
     if (bsdf_tmp) bsdf = bsdf_tmp;
   }
+
   if (bsdf) { // intersected with at least 1 triangle (has valid t, n, bsdf)
-    
     vec3 L = vec3(0);
 
     //---- emission ----
     L += bsdf->Le;
 
-    //---- scatter ----
+		//---- direct light contribution ----
+#if 0
+		for (size_t j = 0; j < lights.size(); j++) {
+			Ray to_light = lights[j]->ray_to_light(ray.o + ray.d * t + n * EPSILON);
+			vec3 L_direct = trace_shadow_ray(to_light) ? vec3(0) : lights[j]->get_emission();
+			L += L_direct * bsdf->albedo * abs(dot(n, to_light.d));
+		}
+#endif
+
+    //---- scatter (recursive part) ----
 		// construct transform from hemisphere space to world space
 		vec3 axis = cross(vec3(0, 0, 1), n);
 		mat4 hemi_to_world = mat4(1);
@@ -71,16 +90,16 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 			hemi_to_world = rotate(mat4(1), angle, axis);
 		}
     vec3 wi; // assigned by f in hemisphere space
-    float pdf = bsdf->f(wi, -ray.d);
+    float pdf = bsdf->pdf(wi, -ray.d);
 		// transform wi back to world space
 		wi = vec3(hemi_to_world * vec4(wi, 1));
 
 		// recursive step: trace scattered ray in wi direction
     Ray ray_refl(ray.o + t * ray.d + n * EPSILON, wi);
-    vec3 L_indirect = ray_depth >= MAX_RAY_DEPTH ? vec3(0) : trace_ray(ray_refl, ray_depth + 1);
+    vec3 L_indirect = trace_ray(ray_refl, ray_depth + 1);
 
     float costheta = abs(dot(n, wi)); // [0, 1], not considering front/back face here
-    L += L_indirect * bsdf->albedo * costheta * (2.0f * float(M_PI) * pdf);
+    L += L_indirect * bsdf->f(wi, ray.d) * costheta / pdf;
 
     return L;
   }

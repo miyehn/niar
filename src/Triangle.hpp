@@ -30,6 +30,8 @@ struct Triangle {
 	// this gets passed in from mesh, and will be cleaned up by mesh as well.
   const BSDF* bsdf;
 
-  const BSDF* intersect(Ray& ray, float& t, vec3& normal);
+  const BSDF* intersect(Ray& ray, float& t, vec3& normal) const;
+
+	vec3 sample_point() const;
 
 };

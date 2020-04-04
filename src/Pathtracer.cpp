@@ -3,6 +3,7 @@
 #include "Mesh.hpp"
 #include "Scene.hpp"
 #include "BSDF.hpp"
+#include "Triangle.hpp"
 
 #define DEBUG 1
 
@@ -111,7 +112,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 
 // TODO: load scene recursively
 void Pathtracer::load_scene(const Scene& scene) {
-  LOGF("number of meshes: %d", scene.children.size());
+
   for (Drawable* drawable : scene.children) {
     Mesh* mesh = dynamic_cast<Mesh*>(drawable);
     if (mesh) {
@@ -119,15 +120,25 @@ void Pathtracer::load_scene(const Scene& scene) {
 				WARN("trying to load a mesh without bsdf. skipping...");
 				continue;
 			}
+
+			bool emissive = mesh->bsdf->is_emissive();
       for (int i=0; i<mesh->faces.size(); i+=3) {
+				// loop and load triangles
         Vertex v1 = mesh->vertices[mesh->faces[i]];
         Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
         Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
         triangles.emplace_back(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
+				
+				// also load as light if emissive
+				if (emissive) {
+					lights.push_back(static_cast<Light*>(new AreaLight(&triangles.back())));
+				}
       }
     }
   }
-  TRACEF("loaded a scene with %d triangles", triangles.size());
+
+  TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
+			scene.children.size(), triangles.size(), lights.size());
 }
 
 void Pathtracer::enable() {
@@ -246,6 +257,22 @@ void Pathtracer::draw() {
 #endif
 
   Drawable::draw();
+}
+
+vec3 AreaLight::get_emission() {
+	return triangle->bsdf->Le;
+}
+
+Ray AreaLight::ray_to_light(const vec3 &origin) {
+	vec3 light_p = triangle->sample_point();
+
+	Ray ray(origin, normalize(light_p - origin));
+	float t; vec3 n;
+	triangle->intersect(ray, t, n);
+	// but move its end back a bit so it doens't really hit the light (just almost)
+	ray.tmax = ray.tmax - 0.1f;
+
+	return ray;
 }
 
 // file that contains the actual pathtracing meat

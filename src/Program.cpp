@@ -48,7 +48,7 @@ void Program::setup() {
   plane->local_position = vec3(0, 0, 5.5);
   plane->scale = vec3(4, 4, 1);
 	plane->bsdf = new Diffuse();
-	plane->bsdf->Le = vec3(3); // emissive plane
+	plane->bsdf->Le = vec3(1); // emissive plane
   scene->add_child(static_cast<Drawable*>(plane));
 
   Pathtracer::Instance->load_scene(*scene);
