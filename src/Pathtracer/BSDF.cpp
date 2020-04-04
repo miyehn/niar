@@ -14,22 +14,11 @@ vec2 sample::unit_square_uniform() {
 }
 
 vec2 sample::unit_square_jittered() {
+	// TODO
   return vec2(0);
 }
 
 vec3 sample::hemisphere_uniform() {
-#if 0
-  float u = rand01();
-  float v = rand01();
-
-  float z = v;
-  float theta = 2 * M_PI * u;
-  float r = sqrt(1.0f - z * z);
-  float x = r * cos(theta);
-  float y = r * sin(theta);
-
-  return vec3(x, y, z);
-#else
   float x = 2.0f * rand01() - 1.0f; 
   float y = 2.0f * rand01() - 1.0f; 
   float z = 2.0f * rand01() - 1.0f;
@@ -39,7 +28,6 @@ vec3 sample::hemisphere_uniform() {
 		z = 2.0f * rand01() - 1.0f;
   }
   return normalize(vec3(x, y, abs(z)));
-#endif
 }
 
 vec3 sample::hemisphere_cos_weighed() {

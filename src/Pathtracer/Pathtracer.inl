@@ -4,6 +4,8 @@
 #define MAX_RAY_DEPTH 4
 #define RAYS_PER_PIXEL 32
 
+#define RR_THRESHOLD 0.25f
+
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
   size_t h = index / width;
@@ -57,6 +59,11 @@ mat3 make_h2w(const vec3& n) {
 	vec3 y = cross(z, x);
 
 	return mat3(x, y, z);
+}
+
+// see: https://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
+float brightness(vec3 color) {
+	return 0.2989f * color.r + 0.587f * color.g + 0.114 * color.b;
 }
 
 vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
@@ -113,11 +120,24 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 
 		// transform wi back to world space
 		vec3 wi = h2w * wi_hemi;
-		// recursive step: trace scattered ray in wi direction
-    Ray ray_refl(ray.o + t * ray.d + n * EPSILON, wi);
-    vec3 Li = trace_ray(ray_refl, ray_depth + 1);
-
     float costheta = abs(dot(n, wi)); // [0, 1], not considering front/back face here
+
+		// russian roulette
+		float termination_prob = 0.0f;
+		ray.contribution *= brightness(f) * costheta;
+		if (ray.contribution < RR_THRESHOLD) {
+			termination_prob = (RR_THRESHOLD - ray.contribution) / RR_THRESHOLD;
+		}
+		bool terminate = sample::rand01() < termination_prob;
+
+		// recursive step: trace scattered ray in wi direction (if not terminated by RR)
+		vec3 Li = vec3(0);
+		if (!terminate) {
+			Ray ray_refl(ray.o + t * ray.d + n * EPSILON, wi);
+			// if it has some termination probability, weigh it more if it's not terminated
+			Li = trace_ray(ray_refl, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
+		}
+
     L += Li * f * costheta / pdf;
 #endif
 

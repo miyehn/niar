@@ -9,9 +9,10 @@ struct Ray {
   Ray(vec3 _o = vec3(0), vec3 _d = vec3(0, 0, 1)) : o(_o), d(_d) {
     tmin = 0.0f;
     tmax = INF;
+		contribution = 1.0f;
   }
   vec3 o, d;
-  float tmin, tmax; // TODO: why need tmin?
+  float tmin, tmax, contribution; // TODO: why need tmin?
 };
 
 struct Triangle {
