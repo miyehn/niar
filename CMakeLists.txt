@@ -13,14 +13,15 @@ add_executable(niar
   src/Drawable
   src/Mesh
   src/Shader
-  src/Triangle
-  src/Pathtracer
-  src/BSDF
   src/GrassField
   src/Cube
+  src/Pathtracer/Triangle
+  src/Pathtracer/Pathtracer
+  src/Pathtracer/BSDF
+	src/Pathtracer/Light
   )
 
-include_directories(include)
+include_directories(include src src/Pathtracer)
 
 target_link_libraries(niar
   ${OPENGL_gl_LIBRARY}
