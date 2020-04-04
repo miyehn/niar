@@ -70,9 +70,9 @@ void Program::setup() {
 		};
 		mesh->bsdf = new Diffuse(vec3(0.6f));
 		if (i==1) {// right
-			mesh->bsdf->albedo = vec3(0.2f, 0.2f, 0.6f); 
+			mesh->bsdf->albedo = vec3(0.4f, 0.4f, 0.6f); 
 		} else if (i==2) {// left
-			mesh->bsdf->albedo = vec3(0.6f, 0.2f, 0.2f); 
+			mesh->bsdf->albedo = vec3(0.6f, 0.4f, 0.4f); 
 		}
 		scene->add_child(static_cast<Drawable*>(mesh));
 	}

@@ -2,8 +2,6 @@
 #include <chrono>
 #include "lib.h"
 
-typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
-
 struct Drawable;
 struct Scene;
 

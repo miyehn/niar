@@ -1,8 +1,8 @@
 #include "Triangle.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 3
-#define RAYS_PER_PIXEL 8
+#define MAX_RAY_DEPTH 4
+#define RAYS_PER_PIXEL 32
 
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;

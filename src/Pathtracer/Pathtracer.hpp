@@ -38,6 +38,9 @@ struct Pathtracer : public Drawable {
   float refresh_interval;
   size_t uploaded_rows;
 
+	TimePoint last_begin_time;
+	float cumulative_render_time;
+
   std::vector<Triangle> triangles;
 	std::vector<Light*> lights;
   void load_scene(const Scene& scene);
@@ -45,7 +48,6 @@ struct Pathtracer : public Drawable {
   std::vector<Ray> generate_rays(size_t index);
   vec3 raytrace_pixel(size_t index);
   vec3 trace_ray(Ray& ray, int ray_depth);
-	//vec3 trace_shadow_ray(Light* light, const vec3& origin, const BSDF* bsdf);
 
   //---- buffer & opengl stuff ----
 

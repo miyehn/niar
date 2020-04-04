@@ -5,6 +5,7 @@
 #include "BSDF.hpp"
 #include "Triangle.hpp"
 #include "Light.hpp"
+#include <chrono>
 
 #define DEBUG 1
 
@@ -159,11 +160,15 @@ void Pathtracer::disable() {
 
 void Pathtracer::pause_trace() {
   TRACE("pause trace");
+	TimePoint end_time = std::chrono::high_resolution_clock::now();
+	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
+	TRACEF("rendered %f seconds so far.", cumulative_render_time);
   paused = true;
 }
 
 void Pathtracer::continue_trace() {
   TRACE("continue trace");
+	last_begin_time = std::chrono::high_resolution_clock::now();
   paused = false;
 }
 
@@ -172,6 +177,7 @@ void Pathtracer::reset() {
   memset(image_buffer, 40, width * height * 3);
   paused = true;
   progress = 0;
+	cumulative_render_time = 0.0f;
   uploaded_rows = 0;
   upload_rows(0, height);
 }

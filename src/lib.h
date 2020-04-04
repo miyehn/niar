@@ -91,3 +91,4 @@ inline void gl_errors(std::string const &where) {
 #define EPSILON 0.0001f
 #define PI float(M_PI)
 #define TWO_PI float(M_PI * 2.0f)
+typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;

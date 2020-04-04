@@ -1,7 +1,9 @@
 #include "BSDF.hpp"
 
-#define SQ(x) x * x
+#define SQ(x) (x * x)
 #define EMISSIVE_THRESHOLD SQ(0.4f)
+
+#define USE_COS_WEIGHED 1
 
 float sample::rand01() {
   return float(rand()) / float(RAND_MAX);
@@ -28,20 +30,28 @@ vec3 sample::hemisphere_uniform() {
 
   return vec3(x, y, z);
 #else
-  float x = rand01() - 0.5f; 
-  float y = rand01() - 0.5f; 
-  float z = rand01() - 0.5f;
+  float x = 2.0f * rand01() - 1.0f; 
+  float y = 2.0f * rand01() - 1.0f; 
+  float z = 2.0f * rand01() - 1.0f;
   while (length(vec3(x, y, z)) > 1) {
-    x = rand01() - 0.5f;
-		y = rand01() - 0.5f;
-		z = rand01() - 0.5f;
+    x = 2.0f * rand01() - 1.0f;
+		y = 2.0f * rand01() - 1.0f;
+		z = 2.0f * rand01() - 1.0f;
   }
   return normalize(vec3(x, y, abs(z)));
 #endif
 }
 
 vec3 sample::hemisphere_cos_weighed() {
-  return vec3(0);
+  float x = 2.0f * rand01() - 1.0f; 
+  float y = 2.0f * rand01() - 1.0f; 
+	while(length(vec2(x, y)) > 1) {
+    x = 2.0f * rand01() - 1.0f;
+		y = 2.0f * rand01() - 1.0f;
+	}
+	float z = sqrt(1.0f - length(vec2(x, y)) * length(vec2(x, y)));
+
+  return vec3(x, y, z);
 }
 
 bool BSDF::is_emissive() {
@@ -54,6 +64,11 @@ vec3 Diffuse::f(vec3 wi, vec3 wo) const {
 
 // uniform sampling
 float Diffuse::pdf(vec3& wi, vec3 wo) const {
+#if USE_COS_WEIGHED
+  wi = sample::hemisphere_cos_weighed();
+	return wi.z / PI;
+#else
   wi = sample::hemisphere_uniform();
 	return 1.0f / TWO_PI;
+#endif
 }
