@@ -49,7 +49,7 @@ bool BSDF::is_emissive() {
 }
 
 vec3 Diffuse::f(vec3 wi, vec3 wo) const {
-  return albedo * (1.0f / TWO_PI);
+  return albedo * (1.0f / PI);
 }
 
 // uniform sampling

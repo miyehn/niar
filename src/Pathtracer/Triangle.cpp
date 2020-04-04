@@ -2,6 +2,7 @@
 #include "Mesh.hpp"
 #include "BSDF.hpp"
 
+#define USE_EMBEDDED_NORMAL 0
 #define USE_INTERPOLATED_NORMAL 0
 
 Triangle::Triangle(
@@ -14,20 +15,32 @@ Triangle::Triangle(
   vertices[0] = vec3(o2w * vec4(v1.position, 1));
   vertices[1] = vec3(o2w * vec4(v2.position, 1));
   vertices[2] = vec3(o2w * vec4(v3.position, 1));
-  // normal. TODO: correct to transform this way even if object is non-uniformly scaled?
-  normals[0] = normalize(vec3(o2w * vec4(v1.normal, 1)));
-  normals[1] = normalize(vec3(o2w * vec4(v2.normal, 1)));
-  normals[2] = normalize(vec3(o2w * vec4(v3.normal, 1)));
 
   // precompute true normal and distance to origin
   vec3 u = normalize(vertices[1] - vertices[0]);
-  vec3 v = normalize(vertices[2] - vertices[1]);
+  vec3 v = normalize(vertices[2] - vertices[0]);
   if (dot(u, v) > 1.0f - EPSILON) { // if unfortunately picked a very sharp angle
-    u = v;
-    v = normalize(vertices[0] - vertices[2]);
+    u = normalize(vertices[2] - vertices[1]);
+    v = normalize(vertices[0] - vertices[1]);
   }
   plane_n = normalize(cross(u, v));
   plane_k = dot(vertices[0], plane_n);
+
+// normal. TODO: correct to transform this way even if object is non-uniformly scaled?
+#if USE_EMBEDDED_NORMAL
+  normals[0] = normalize(vec3(o2w * vec4(v1.normal, 1)));
+  normals[1] = normalize(vec3(o2w * vec4(v2.normal, 1)));
+  normals[2] = normalize(vec3(o2w * vec4(v3.normal, 1)));
+#else
+  normals[0] = plane_n;
+  normals[1] = plane_n;
+  normals[2] = plane_n;
+#endif
+
+	// precompute area
+	vec3 e1 = vertices[1] - vertices[0];
+	vec3 e2 = vertices[2] - vertices[0];
+	area = length(cross(e1, e2)) * 0.5f;
 
   // precompute edge normals
   enormals[0] = normalize(cross(plane_n, vertices[1] - vertices[0]));

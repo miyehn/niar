@@ -1,17 +1,17 @@
 #include "Camera.hpp"
 
 Camera::Camera(size_t w, size_t h) {
-  position = vec3(0, -6, 4);
-  yaw = 0.0f;
+  position = vec3(0);
+  yaw = radians(0.0f);
   pitch = radians(90.0f);
   roll = 0.0f;
 
-  move_speed = 4.0f;
+  move_speed = 150.0f;
   rotate_speed = 0.003f;
 
-  fov = radians(60.0f);
+  fov = radians(30.0f);
   cutoffNear = 0.1f;
-  cutoffFar = 100.0f;
+  cutoffFar = 1000.0f;
 
   aspect_ratio = (float)w / (float)h;
 

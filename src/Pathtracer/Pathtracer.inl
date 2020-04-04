@@ -1,8 +1,8 @@
 #include "Triangle.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 2
-#define RAYS_PER_PIXEL 1
+#define MAX_RAY_DEPTH 3
+#define RAYS_PER_PIXEL 8
 
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
@@ -47,13 +47,16 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
   return clamp(result, vec3(0), vec3(1));
 }
 
-vec3 Pathtracer::trace_shadow_ray(Light* light, const vec3& origin) {
-  float t; vec3 n; Ray ray;
-	float pdf = light->ray_to_light(ray, origin);
-  for (size_t i = 0; i < triangles.size(); i++) {
-		if (triangles[i].intersect(ray, t, n)) return vec3(0);
-	}
-	return vec3(1);
+mat3 make_h2w(const vec3& n) {
+	vec3 z = n;
+	// choose a vector different from z
+	vec3 tmp = vec3(n.z, n.x, n.y);
+	
+	vec3 x = cross(tmp, z);
+	x = normalize(x);
+	vec3 y = cross(z, x);
+
+	return mat3(x, y, z);
 }
 
 vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
@@ -73,36 +76,52 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
     //---- emission ----
     L += bsdf->Le;
 
+		// construct transform from hemisphere space to world space;
+		// used by both direct and indirect lighting
+		vec3 axis = cross(vec3(0, 0, 1), n);
+		mat3 h2w = make_h2w(n);
+		mat3 w2h = transpose(h2w);
+
 		//---- direct light contribution ----
 #if 1
 		for (size_t i = 0; i < lights.size(); i++) {
-			vec3 L_direct = trace_shadow_ray(lights[i], ray.o + ray.d * t + n * EPSILON);
-			L += L_direct;
-			//L += L_direct * bsdf->albedo * abs(dot(n, to_light.d));
+			Ray ray_to_light;
+			float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * t + n * EPSILON);
+
+			float to_light_t; vec3 light_n;
+			bool in_shadow = false;
+			for (size_t j = 0; j < triangles.size(); j++) {
+				if (triangles[j].intersect(ray_to_light, to_light_t, light_n)) in_shadow = true; 
+			}
+			if (!in_shadow) {
+				vec3 wi = w2h * ray_to_light.d;
+				vec3 wo = -w2h * ray.d;
+				float costheta = abs(dot(n, -ray_to_light.d));
+				vec3 L_direct = lights[i]->get_emission() * bsdf->f(wi, wo) * costheta / pdf;
+				L += L_direct;
+			}
+
 		}
 #endif
 
+#if 1
     //---- scatter (recursive part) ----
-		// construct transform from hemisphere space to world space
-		vec3 axis = cross(vec3(0, 0, 1), n);
-		mat4 hemi_to_world = mat4(1);
-		if (dot(axis, axis) > EPSILON) {
-			float angle = acos(n.z);
-			hemi_to_world = rotate(mat4(1), angle, axis);
-		}
-    vec3 wi; // assigned by f in hemisphere space
-    float pdf = bsdf->pdf(wi, -ray.d);
-		// transform wi back to world space
-		wi = vec3(hemi_to_world * vec4(wi, 1));
+    vec3 wi_hemi; // assigned by pdf in hemisphere space
+		vec3 wo_hemi = w2h * (-ray.d);
+    float pdf = bsdf->pdf(wi_hemi, wo_hemi);
+		vec3 f = bsdf->f(wi_hemi, wo_hemi);
 
+		// transform wi back to world space
+		vec3 wi = h2w * wi_hemi;
 		// recursive step: trace scattered ray in wi direction
     Ray ray_refl(ray.o + t * ray.d + n * EPSILON, wi);
-    vec3 L_indirect = trace_ray(ray_refl, ray_depth + 1);
+    vec3 Li = trace_ray(ray_refl, ray_depth + 1);
 
     float costheta = abs(dot(n, wi)); // [0, 1], not considering front/back face here
-    L += L_indirect * bsdf->f(wi, ray.d) * costheta / pdf;
+    L += Li * f * costheta / pdf;
+#endif
 
     return L;
   }
-  return vec3(0);//hit ? vec3(1, 0.5, 0.4) : vec3(0, 0, 0);
+  return vec3(0);
 }

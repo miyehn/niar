@@ -23,9 +23,10 @@ struct Triangle {
   vec3 normals[3];
   vec3 enormals[3]; // cached edge normals
 
-  // pre-computed to allow faster intersection test
+  // other pre-computed values
   vec3 plane_n;
   float plane_k;
+	float area;
 
 	// this gets passed in from mesh, and will be cleaned up by mesh as well.
   const BSDF* bsdf;

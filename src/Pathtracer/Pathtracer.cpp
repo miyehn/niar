@@ -144,6 +144,9 @@ void Pathtracer::load_scene(const Scene& scene) {
 
 void Pathtracer::enable() {
   TRACE("pathtracer enabled");
+	for (auto T : triangles) {
+		assert(T.bsdf);
+	}
   Camera::Active->lock();
   Drawable::enable();
 }
