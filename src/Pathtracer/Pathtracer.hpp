@@ -45,7 +45,7 @@ struct Pathtracer : public Drawable {
   std::vector<Ray> generate_rays(size_t index);
   vec3 raytrace_pixel(size_t index);
   vec3 trace_ray(Ray& ray, int ray_depth);
-	bool trace_shadow_ray(Ray& ray);
+	vec3 trace_shadow_ray(Light* light, const vec3& origin);
 
   //---- buffer & opengl stuff ----
 

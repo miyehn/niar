@@ -47,12 +47,13 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
   return clamp(result, vec3(0), vec3(1));
 }
 
-bool Pathtracer::trace_shadow_ray(Ray& ray) {
-  float t; vec3 n;
+vec3 Pathtracer::trace_shadow_ray(Light* light, const vec3& origin) {
+  float t; vec3 n; Ray ray;
+	float pdf = light->ray_to_light(ray, origin);
   for (size_t i = 0; i < triangles.size(); i++) {
-		if (triangles[i].intersect(ray, t, n)) return true;
+		if (triangles[i].intersect(ray, t, n)) return vec3(0);
 	}
-	return false;
+	return vec3(1);
 }
 
 vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
@@ -73,11 +74,11 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
     L += bsdf->Le;
 
 		//---- direct light contribution ----
-#if 0
-		for (size_t j = 0; j < lights.size(); j++) {
-			Ray to_light = lights[j]->ray_to_light(ray.o + ray.d * t + n * EPSILON);
-			vec3 L_direct = trace_shadow_ray(to_light) ? vec3(0) : lights[j]->get_emission();
-			L += L_direct * bsdf->albedo * abs(dot(n, to_light.d));
+#if 1
+		for (size_t i = 0; i < lights.size(); i++) {
+			vec3 L_direct = trace_shadow_ray(lights[i], ray.o + ray.d * t + n * EPSILON);
+			L += L_direct;
+			//L += L_direct * bsdf->albedo * abs(dot(n, to_light.d));
 		}
 #endif
 
