@@ -22,7 +22,7 @@ Pathtracer::Pathtracer(
 
 	num_threads = 1;
   pixels_per_frame = 3000;
-	tile_size = 32;
+	tile_size = 100;
 
 	tiles_X = std::ceil(float(width) / float(tile_size));
 	tiles_Y = std::ceil(float(height) / float(tile_size));
@@ -190,6 +190,7 @@ void Pathtracer::reset() {
   memset(image_buffer, 40, width * height * 3);
   paused = true;
   progress = 0;
+	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
   uploaded_rows = 0;
   upload_rows(0, height);
@@ -255,15 +256,28 @@ void Pathtracer::update(float elapsed) {
     }
     progress = end;
 		*/
-		for (size_t Y = 0; Y < tiles_Y; Y++) {
-			for (size_t X = 0; X < tiles_X; X++) {
-				raytrace_tile(X, Y);
+
+#if 1
+		if (rendered_tiles == tiles_X * tiles_Y) {
+      TRACE("Done!");
+      pause_trace();
+
+		} else {
+			size_t X = rendered_tiles % tiles_X;
+			size_t Y = rendered_tiles / tiles_X;
+
+			raytrace_tile(X, Y);
+			rendered_tiles++;
+		}
+#else
+		for (int y=0; y<tiles_Y; y++) {
+			for (int x=0; x<tiles_X; x++) {
+				raytrace_tile(x, y);
 			}
 		}
-
-		TRACE("(tracing tiles) done.");
 		pause_trace();
-		//upload_rows(0, height);
+		upload_rows(0, height);
+#endif
 
 		/*
     // re-upload data each interval, or if pathtracing finished

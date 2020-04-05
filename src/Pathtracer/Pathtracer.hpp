@@ -25,6 +25,7 @@ struct Pathtracer : public Drawable {
   // size for the pathtraced image - could be different from display window.
   size_t width, height;
 	size_t tile_size, tiles_X, tiles_Y;
+	size_t rendered_tiles;
 
   // ray tracing state
   bool paused;
