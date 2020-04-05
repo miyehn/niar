@@ -4,6 +4,7 @@ project("niar")
 set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenGL)
+find_package(Threads)
 
 add_executable(niar
   src/main 
@@ -24,6 +25,7 @@ add_executable(niar
 include_directories(include src src/Pathtracer)
 
 target_link_libraries(niar
+	${CMAKE_THREAD_LIBS_INIT}
   ${OPENGL_gl_LIBRARY}
   ${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
   ${CMAKE_SOURCE_DIR}/lib/SDL2.framework 

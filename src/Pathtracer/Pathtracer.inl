@@ -1,8 +1,8 @@
 #include "Triangle.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 2
-#define RAYS_PER_PIXEL 1
+#define MAX_RAY_DEPTH 6
+#define RAYS_PER_PIXEL 16
 
 #define RR_THRESHOLD 0.2f
 
@@ -50,9 +50,10 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 	return result;
 }
 
-void Pathtracer::raytrace_tile(size_t X, size_t Y) {
-	LOGF("tracing tile %d, %d", X, Y);
-	
+void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
+	size_t X = tile_index % tiles_X;
+	size_t Y = tile_index / tiles_X;
+
 	size_t tile_w = std::min(tile_size, width - X * tile_size);
 	size_t tile_h = std::min(tile_size, height - Y * tile_size);
 
@@ -67,12 +68,11 @@ void Pathtracer::raytrace_tile(size_t X, size_t Y) {
 			set_mainbuffer_rgb(px_index_main, color);
 
 			size_t px_index_sub = y * tile_w + x;
-			set_subbuffer_rgb(0, px_index_sub, color);
+			set_subbuffer_rgb(tid, px_index_sub, color);
 
 		}
 	}
 
-	upload_tile(0, x_offset, y_offset, tile_w, tile_h);
 }
 
 mat3 make_h2w(const vec3& n) { // TODO: make more robust

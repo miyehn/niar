@@ -8,6 +8,7 @@
 #include <chrono>
 
 #define DEBUG 1
+#define NUM_THREADS 8
 
 Pathtracer::Pathtracer(
   size_t _width, 
@@ -20,9 +21,9 @@ Pathtracer::Pathtracer(
   float min_x = -0.96f; float min_y = -0.96f;
   float max_x = -0.1f; float max_y = -0.1f;
 
-	num_threads = 1;
+	num_threads = NUM_THREADS;
   pixels_per_frame = 3000;
-	tile_size = 100;
+	tile_size = 51;
 
 	tiles_X = std::ceil(float(width) / float(tile_size));
 	tiles_Y = std::ceil(float(height) / float(tile_size));
@@ -192,6 +193,46 @@ void Pathtracer::reset() {
   progress = 0;
 	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
+	
+	//-------- threading stuff --------
+	
+	// enqueue all tiles
+	for (size_t i=0; i < tiles_X * tiles_Y; i++) {
+		raytrace_tasks.enqueue(i);
+	}
+	
+	// define work for raytrace threads
+	auto task = [this](int tid) {
+		while (true) {
+			std::unique_lock<std::mutex> lock(threads[tid]->m);
+
+			// wait until main thread says it's okay to keep working
+			threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
+
+			// try to get next tile to work on
+			size_t tile;
+			if (raytrace_tasks.dequeue(tile)) {
+				// it now owns the lock, and main thread messaged it's okay to start tracing
+				threads[tid]->status = RaytraceThread::working;
+				threads[tid]->tile_index = tile;
+				raytrace_tile(tid, tile);
+				threads[tid]->status = RaytraceThread::pending_upload;
+			} else {
+				threads[tid]->status = RaytraceThread::all_done;
+				break;
+			}
+			
+		}
+	};
+
+	// start threads
+	threads.clear(); // TODO: what if not first time reset? (join them at some point before this?
+	for (size_t i=0; i<num_threads; i++) {
+		threads.push_back(new RaytraceThread(task, i));
+	}
+
+	//---------------------------------
+	
   uploaded_rows = 0;
   upload_rows(0, height);
 }
@@ -206,7 +247,7 @@ void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
 }
 
 void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
-	unsigned char* buf = subimage_buffers[0];
+	unsigned char* buf = subimage_buffers[buf_i];
   buf[3 * i] = int(rgb.r * 255.0f);
   buf[3 * i + 1] = int(rgb.g * 255.0f);
   buf[3 * i + 2] = int(rgb.b * 255.0f);
@@ -245,19 +286,23 @@ void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, 
 #endif
 }
 
+void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
+	size_t X = tile_index % tiles_X;
+	size_t Y = tile_index / tiles_X;
+
+	size_t tile_w = std::min(tile_size, width - X * tile_size);
+	size_t tile_h = std::min(tile_size, height - Y * tile_size);
+
+	size_t x_offset = X * tile_size;
+	size_t y_offset = Y * tile_size;
+	
+	upload_tile(subbuf_index, x_offset, y_offset, tile_w, tile_h);
+}
+
 void Pathtracer::update(float elapsed) {
   if (!paused) {
 
-		/*
-    // trace N pixels and update progress (capped at num pixels total)
-    size_t end = std::min(width * height, progress + pixels_per_frame);
-    for (size_t i=progress; i<end; i++) {
-      raytrace_pixel(i);
-    }
-    progress = end;
-		*/
-
-#if 1
+#if 0
 		if (rendered_tiles == tiles_X * tiles_Y) {
       TRACE("Done!");
       pause_trace();
@@ -270,35 +315,37 @@ void Pathtracer::update(float elapsed) {
 			rendered_tiles++;
 		}
 #else
-		for (int y=0; y<tiles_Y; y++) {
-			for (int x=0; x<tiles_X; x++) {
-				raytrace_tile(x, y);
+
+		int finished_threads = 0;
+
+		for (size_t i=0; i<threads.size(); i++) {
+
+			if (threads[i]->status == RaytraceThread::all_done) {
+				finished_threads++;
+				if (threads[i]->thread.joinable()) threads[i]->thread.join();
+
+			} else if (threads[i]->status == RaytraceThread::pending_upload) {
+				{// block things when uploading data
+					std::lock_guard<std::mutex> lock(threads[i]->m);
+					upload_tile(i, threads[i]->tile_index);
+					threads[i]->status = RaytraceThread::ready_for_next;
+				}
+				threads[i]->cv.notify_one();
+				
+			} else if (threads[i]->status == RaytraceThread::uninitialized) {
+				threads[i]->status = RaytraceThread::ready_for_next;
+				threads[i]->cv.notify_one();
 			}
+
 		}
-		pause_trace();
-		upload_rows(0, height);
+
+		if (finished_threads == threads.size()) {
+			TRACE("Done!");
+			pause_trace();
+		}
+
 #endif
 
-		/*
-    // re-upload data each interval, or if pathtracing finished
-    refresh_timer = std::min(refresh_interval, refresh_timer + elapsed);
-    if (refresh_timer >= refresh_interval || progress == width * height) {
-
-      size_t num_rows_to_upload = progress / width - uploaded_rows;
-      if (num_rows_to_upload > 0) upload_rows(uploaded_rows, num_rows_to_upload);
-
-      uploaded_rows += num_rows_to_upload;
-
-      refresh_timer = 0.0f;
-    }
-
-    // determine if finished
-    if (progress == width * height) {
-      TRACE("Done!");
-      pause_trace();
-    }
-		*/
-    
   }
   Drawable::update(elapsed);
 }

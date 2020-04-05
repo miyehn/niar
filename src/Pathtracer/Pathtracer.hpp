@@ -1,10 +1,68 @@
 #pragma once
 #include "Drawable.hpp"
+#include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 
 struct Scene;
 struct Ray;
 struct Triangle;
 struct Light;
+
+template <typename T>
+struct TaskQueue {
+	
+	size_t size() {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		return queue.size();
+	}
+
+	bool dequeue(T& out_task) {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		if (queue.size() == 0) return false;
+		out_task = queue.back();
+		queue.pop_back();
+		return true;
+	}
+
+	void enqueue(T task) {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		queue.insert(queue.begin(), task);
+	}
+
+	void clear() {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		queue.clear();
+	}
+
+private:
+	std::vector<T> queue;
+	std::mutex queue_mutex;
+
+};
+
+struct RaytraceThread {
+
+	enum Status { uninitialized, working, pending_upload, ready_for_next, all_done };
+	
+	RaytraceThread(std::function<void(int)> work, int _tid) : tid(_tid) {
+		thread = std::thread(work, _tid);
+		finished = true;
+		tile_index = -1;
+		status = uninitialized;
+	}
+
+	int tid;
+	std::thread thread;
+	std::mutex m;
+	std::condition_variable cv;
+
+	std::atomic<bool> finished;
+	std::atomic<Status> status;
+	int tile_index; // protected by m as well as the tile buffer
+
+};
 
 struct Pathtracer : public Drawable {
 
@@ -51,8 +109,13 @@ struct Pathtracer : public Drawable {
 
   std::vector<Ray> generate_rays(size_t index);
   vec3 raytrace_pixel(size_t index);
-	void raytrace_tile(size_t X, size_t Y);
+	void raytrace_tile(size_t tid, size_t tile_index);
   vec3 trace_ray(Ray& ray, int ray_depth);
+
+	//---- threading stuff ----
+
+	std::vector<RaytraceThread*> threads;
+	TaskQueue<size_t> raytrace_tasks;
 
   //---- buffer & opengl stuff ----
 
@@ -61,6 +124,7 @@ struct Pathtracer : public Drawable {
 	unsigned char** subimage_buffers;
 
   void upload_rows(GLint begin, GLint end);
+	void upload_tile(size_t subbuf_index, size_t tile_index);
 	void upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h);
   void set_mainbuffer_rgb(size_t i, vec3 rgb);
 	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
