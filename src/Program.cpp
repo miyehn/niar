@@ -61,7 +61,7 @@ void Program::setup() {
 	Camera::Active->position = vec3(0, 0, 0);
 	
 	// cornell box
-	std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_empty.fbx");
+	std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_box.dae");
 	for (int i=0; i<meshes.size(); i++) { // 4 is floor
 		Mesh* mesh = meshes[i];
 		mesh->shader.set_parameters = [mesh](){
@@ -77,7 +77,7 @@ void Program::setup() {
 		scene->add_child(static_cast<Drawable*>(mesh));
 	}
 
-  meshes = Mesh::LoadMeshes("../media/cornell_light.fbx");
+  meshes = Mesh::LoadMeshes("../media/cornell_light.dae");
 	Mesh* light = meshes[0];
   light->shader.set_parameters = [light]() {
     mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * light->object_to_world();
@@ -85,21 +85,20 @@ void Program::setup() {
   };
 	light->bsdf = new Diffuse();
 	light->name = "light";
-	light->bsdf->Le = vec3(10);
+	light->bsdf->Le = vec3(5);
   scene->add_child(static_cast<Drawable*>(light));
 
-	// add a box to it
-	meshes = Mesh::LoadMeshes("../media/plane.fbx");
-  Mesh* cube = meshes[0];
-  cube->shader.set_parameters = [cube]() {
-    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * cube->object_to_world();
-    cube->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+	// add another item to it
+	meshes = Mesh::LoadMeshes("../media/blob.dae");
+  Mesh* mesh = meshes[0];
+  mesh->shader.set_parameters = [mesh]() {
+    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
+    mesh->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
-	cube->local_position = vec3(0, 400, -50);
-	cube->scale = vec3(40);
-	cube->bsdf = new Diffuse(vec3(0.6f, 0.6f, 0.6f));
-	cube->name = "plane";
-  scene->add_child(static_cast<Drawable*>(cube));
+	mesh->bsdf = new Mirror();
+	mesh->bsdf->albedo = vec3(1, 0.5, 0);
+	mesh->name = "prism";
+  scene->add_child(static_cast<Drawable*>(mesh));
 
   Pathtracer::Instance->load_scene(*scene);
 

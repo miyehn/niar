@@ -1,10 +1,10 @@
 #include "Triangle.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 4
-#define RAYS_PER_PIXEL 32
+#define MAX_RAY_DEPTH 6
+#define RAYS_PER_PIXEL 8
 
-#define RR_THRESHOLD 0.25f
+#define RR_THRESHOLD 0.2f
 
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
@@ -73,7 +73,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
   const BSDF* bsdf = nullptr;
   float t; vec3 n;
   for (size_t i = 0; i < triangles.size(); i++) {
-    const BSDF* bsdf_tmp = triangles[i].intersect(ray, t, n);
+    const BSDF* bsdf_tmp = triangles[i]->intersect(ray, t, n);
     if (bsdf_tmp) bsdf = bsdf_tmp;
   }
 
@@ -91,23 +91,25 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 
 		//---- direct light contribution ----
 #if 1
-		for (size_t i = 0; i < lights.size(); i++) {
-			Ray ray_to_light;
-			float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * t + n * EPSILON);
+		if (!bsdf->is_delta) {
+			for (size_t i = 0; i < lights.size(); i++) {
+				Ray ray_to_light;
+				float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * t + n * EPSILON);
 
-			float to_light_t; vec3 light_n;
-			bool in_shadow = false;
-			for (size_t j = 0; j < triangles.size(); j++) {
-				if (triangles[j].intersect(ray_to_light, to_light_t, light_n)) in_shadow = true; 
-			}
-			if (!in_shadow) {
-				vec3 wi = w2h * ray_to_light.d;
-				vec3 wo = -w2h * ray.d;
-				float costheta = abs(dot(n, -ray_to_light.d));
-				vec3 L_direct = lights[i]->get_emission() * bsdf->f(wi, wo) * costheta / pdf;
-				L += L_direct;
-			}
+				float to_light_t; vec3 light_n;
+				bool in_shadow = false;
+				for (size_t j = 0; j < triangles.size(); j++) {
+					if (triangles[j]->intersect(ray_to_light, to_light_t, light_n)) in_shadow = true; 
+				}
+				if (!in_shadow) {
+					vec3 wi = w2h * ray_to_light.d;
+					vec3 wo = -w2h * ray.d;
+					float costheta = abs(dot(n, -ray_to_light.d));
+					vec3 L_direct = lights[i]->get_emission() * bsdf->f(wi, wo) * costheta / pdf;
+					L += L_direct;
+				}
 
+			}
 		}
 #endif
 
@@ -115,8 +117,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
     //---- scatter (recursive part) ----
     vec3 wi_hemi; // assigned by pdf in hemisphere space
 		vec3 wo_hemi = w2h * (-ray.d);
-    float pdf = bsdf->pdf(wi_hemi, wo_hemi);
-		vec3 f = bsdf->f(wi_hemi, wo_hemi);
+		float pdf;
+    vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi);
 
 		// transform wi back to world space
 		vec3 wi = h2w * wi_hemi;

@@ -46,17 +46,29 @@ bool BSDF::is_emissive() {
 	return dot(Le, Le) >= EMISSIVE_THRESHOLD;
 }
 
-vec3 Diffuse::f(vec3 wi, vec3 wo) const {
+vec3 Diffuse::f(const vec3& wi, const vec3& wo) const {
   return albedo * (1.0f / PI);
 }
 
 // uniform sampling
-float Diffuse::pdf(vec3& wi, vec3 wo) const {
+vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 #if USE_COS_WEIGHED
   wi = sample::hemisphere_cos_weighed();
-	return wi.z / PI;
+	pdf = wi.z / PI;
 #else
   wi = sample::hemisphere_uniform();
-	return 1.0f / TWO_PI;
+	pdf 1.0f / TWO_PI;
 #endif
+	return f(wi, wo);
+}
+
+vec3 Mirror::f(const vec3& wi, const vec3& wo) const {
+	return vec3(0.0f);
+}
+
+vec3 Mirror::sample_f(float& pdf, vec3& wi, vec3 wo) const {
+	wi = -wo;
+	wi.z = wo.z;
+	pdf = 1.0f;
+	return albedo;
 }

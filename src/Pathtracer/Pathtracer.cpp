@@ -94,6 +94,8 @@ Pathtracer::~Pathtracer() {
   glDeleteBuffers(1, &vbo);
   glDeleteVertexArrays(1, &vao);
   delete image_buffer;
+	for (auto l : lights) delete l;
+	for (auto t : triangles) delete t;
 #if DEBUG
   GL_ERRORS();
 #endif
@@ -129,11 +131,12 @@ void Pathtracer::load_scene(const Scene& scene) {
         Vertex v1 = mesh->vertices[mesh->faces[i]];
         Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
         Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
-        triangles.emplace_back(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
+				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
+        triangles.push_back(T);
 				
 				// also load as light if emissive
 				if (emissive) {
-					lights.push_back(static_cast<Light*>(new AreaLight(&triangles.back())));
+					lights.push_back(static_cast<Light*>(new AreaLight(T)));
 				}
       }
     }
@@ -145,9 +148,6 @@ void Pathtracer::load_scene(const Scene& scene) {
 
 void Pathtracer::enable() {
   TRACE("pathtracer enabled");
-	for (auto T : triangles) {
-		assert(T.bsdf);
-	}
   Camera::Active->lock();
   Drawable::enable();
 }

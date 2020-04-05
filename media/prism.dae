@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+  <asset>
+    <contributor>
+      <author/>
+      <authoring_tool>FBX COLLADA exporter</authoring_tool>
+      <comments/>
+    </contributor>
+    <created>2020-04-04T19:18:11Z</created>
+    <keywords/>
+    <modified>2020-04-04T19:18:11Z</modified>
+    <revision/>
+    <subject/>
+    <title/>
+    <unit meter="0.010000" name="centimeter"/>
+    <up_axis>Z_UP</up_axis>
+  </asset>
+  <library_materials>
+    <material id="lambert1" name="lambert1">
+      <instance_effect url="#lambert1-fx"/>
+    </material>
+  </library_materials>
+  <library_effects>
+    <effect id="lambert1-fx" name="lambert1">
+      <profile_COMMON>
+        <technique sid="standard">
+          <lambert>
+            <emission>
+              <color sid="emission">0.000000  0.000000 0.000000 1.000000</color>
+            </emission>
+            <ambient>
+              <color sid="ambient">0.000000  0.000000 0.000000 1.000000</color>
+            </ambient>
+            <diffuse>
+              <color sid="diffuse">0.400000  0.400000 0.400000 1.000000</color>
+            </diffuse>
+            <transparent opaque="RGB_ZERO">
+              <color sid="transparent">0.000000  0.000000 0.000000 1.000000</color>
+            </transparent>
+            <transparency>
+              <float sid="transparency">1.000000</float>
+            </transparency>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+  </library_effects>
+  <library_geometries>
+    <geometry id="pCone1-lib" name="pCone1Mesh">
+      <mesh>
+        <source id="pCone1-POSITION">
+          <float_array id="pCone1-POSITION-array" count="15">
+-0.246553 437.116943 -54.529007
+-20.493599 402.840546 -44.855267
+14.768270 385.111969 -33.869225
+35.015312 419.388367 -43.542969
+0.182231 430.568024 9.914124
+</float_array>
+          <technique_common>
+            <accessor source="#pCone1-POSITION-array" count="5" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="pCone1-Normal0">
+          <float_array id="pCone1-Normal0-array" count="54">
+0.122176 -0.335767 -0.933988
+0.122176 -0.335767 -0.933988
+0.122176 -0.335767 -0.933988
+0.122176 -0.335767 -0.933988
+0.122176 -0.335767 -0.933988
+0.122176 -0.335767 -0.933988
+-0.852213 0.519914 0.058506
+-0.852213 0.519914 0.058506
+-0.852213 0.519914 0.058506
+-0.506674 -0.676887 0.533953
+-0.506674 -0.676887 0.533953
+-0.506674 -0.676887 0.533953
+0.770763 -0.296069 0.564152
+0.770763 -0.296069 0.564152
+0.770763 -0.296069 0.564152
+0.425223 0.900731 0.088705
+0.425223 0.900731 0.088705
+0.425223 0.900731 0.088705
+</float_array>
+          <technique_common>
+            <accessor source="#pCone1-Normal0-array" count="18" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="pCone1-UV0">
+          <float_array id="pCone1-UV0-array" count="20">
+0.500000 0.000000
+0.250000 0.250000
+0.500000 0.500000
+0.750000 0.250000
+0.250000 0.500000
+0.375000 0.500000
+0.500000 0.500000
+0.625000 0.500000
+0.750000 0.500000
+0.500000 1.000000
+</float_array>
+          <technique_common>
+            <accessor source="#pCone1-UV0-array" count="10" stride="2">
+              <param name="S" type="float"/>
+              <param name="T" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <vertices id="pCone1-VERTEX">
+          <input semantic="POSITION" source="#pCone1-POSITION"/>
+        </vertices>
+        <triangles count="6" material="lambert1">
+          <input semantic="VERTEX" offset="0" source="#pCone1-VERTEX"/>
+          <input semantic="NORMAL" offset="1" source="#pCone1-Normal0"/>
+          <input semantic="TEXCOORD" offset="2" set="0" source="#pCone1-UV0"/>
+          <p> 1 0 1 0 1 0 2 2 2 0 3 0 3 4 3 2 5 2 0 6 4 1 7 5 4 8 9 1 9 5 2 10 6 4 11 9 2 12 6 3 13 7 4 14 9 3 15 7 0 16 8 4 17 9</p>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+  <library_visual_scenes>
+    <visual_scene id="prism" name="prism">
+      <node name="pCone1" id="pCone1" sid="pCone1">
+        <matrix sid="matrix">1.000000 0.000000 0.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000 1.000000</matrix>
+        <instance_geometry url="#pCone1-lib">
+          <bind_material>
+            <technique_common>
+              <instance_material symbol="lambert1" target="#lambert1"/>
+            </technique_common>
+          </bind_material>
+        </instance_geometry>
+        <extra>
+          <technique profile="FCOLLADA">
+            <visibility>1.000000</visibility>
+          </technique>
+        </extra>
+      </node>
+      <extra>
+        <technique profile="MAX3D">
+          <frame_rate>24.000000</frame_rate>
+        </technique>
+        <technique profile="FCOLLADA">
+          <start_time>0.041667</start_time>
+          <end_time>8.333333</end_time>
+        </technique>
+      </extra>
+    </visual_scene>
+  </library_visual_scenes>
+  <scene>
+    <instance_visual_scene url="#prism"/>
+  </scene>
+</COLLADA>
