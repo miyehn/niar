@@ -20,8 +20,11 @@ struct Pathtracer : public Drawable {
   virtual void update(float elapsed);
   virtual void draw();
 
+	size_t num_threads;
+
   // size for the pathtraced image - could be different from display window.
   size_t width, height;
+	size_t tile_size, tiles_X, tiles_Y;
 
   // ray tracing state
   bool paused;
@@ -47,16 +50,19 @@ struct Pathtracer : public Drawable {
 
   std::vector<Ray> generate_rays(size_t index);
   vec3 raytrace_pixel(size_t index);
+	void raytrace_tile(size_t X, size_t Y);
   vec3 trace_ray(Ray& ray, int ray_depth);
 
   //---- buffer & opengl stuff ----
 
   // an image buffer of size width * height * 3 (since it has rgb channels)
   unsigned char* image_buffer;
+	unsigned char** subimage_buffers;
 
   void upload_rows(GLint begin, GLint end);
-  void set_rgb(size_t w, size_t h, vec3 rgb);
-  void set_rgb(size_t i, vec3 rgb);
+	void upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h);
+  void set_mainbuffer_rgb(size_t i, vec3 rgb);
+	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
 
   uint texture, vbo, vao;
 

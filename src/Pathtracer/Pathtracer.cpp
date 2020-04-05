@@ -20,11 +20,21 @@ Pathtracer::Pathtracer(
   float min_x = -0.96f; float min_y = -0.96f;
   float max_x = -0.1f; float max_y = -0.1f;
 
+	num_threads = 1;
+  pixels_per_frame = 3000;
+	tile_size = 32;
+
+	tiles_X = std::ceil(float(width) / float(tile_size));
+	tiles_Y = std::ceil(float(height) / float(tile_size));
+
   image_buffer = new unsigned char[width * height * 3]; 
+	subimage_buffers = new unsigned char*[num_threads];
+	for (int i=0; i<num_threads; i++) {
+		subimage_buffers[i] = new unsigned char[tile_size * tile_size * 3];
+	}
 
   enabled = false;
 
-  pixels_per_frame = 3000;
   refresh_timer = 0.0f;
   refresh_interval = 0.0f;
 
@@ -94,6 +104,9 @@ Pathtracer::~Pathtracer() {
   glDeleteBuffers(1, &vbo);
   glDeleteVertexArrays(1, &vao);
   delete image_buffer;
+	for (size_t i=0; i<num_threads; i++) delete subimage_buffers[i];
+	delete subimage_buffers;
+
 	for (auto l : lights) delete l;
 	for (auto t : triangles) delete t;
 #if DEBUG
@@ -182,16 +195,20 @@ void Pathtracer::reset() {
   upload_rows(0, height);
 }
 
-void Pathtracer::set_rgb(size_t w, size_t h, vec3 rgb) {
-}
-
-void Pathtracer::set_rgb(size_t i, vec3 rgb) {
+void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
 #if DEBUG
   if (i >= width * height * 3) ERR("set_rgb indexing out of range!!");
 #endif
   image_buffer[3 * i] = int(rgb.r * 255.0f);
   image_buffer[3 * i + 1] = int(rgb.g * 255.0f);
   image_buffer[3 * i + 2] = int(rgb.b * 255.0f);
+}
+
+void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
+	unsigned char* buf = subimage_buffers[0];
+  buf[3 * i] = int(rgb.r * 255.0f);
+  buf[3 * i + 1] = int(rgb.g * 255.0f);
+  buf[3 * i + 2] = int(rgb.b * 255.0f);
 }
 
 void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
@@ -212,17 +229,43 @@ void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
 #endif
 }
 
+void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h) {
+	unsigned char* buffer = subimage_buffers[subbuf_index];
+	glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture);
+	glTexSubImage2D(GL_TEXTURE_2D, 0,
+			begin_x, begin_y,
+			w, h,
+			GL_RGB, GL_UNSIGNED_BYTE,
+			buffer);
+	glBindTexture(GL_TEXTURE_2D, 0);
+#if DEBUG
+  GL_ERRORS();
+#endif
+}
+
 void Pathtracer::update(float elapsed) {
   if (!paused) {
 
+		/*
     // trace N pixels and update progress (capped at num pixels total)
     size_t end = std::min(width * height, progress + pixels_per_frame);
     for (size_t i=progress; i<end; i++) {
-      vec3 color = raytrace_pixel(i);
-      set_rgb(i, color);
+      raytrace_pixel(i);
     }
     progress = end;
+		*/
+		for (size_t Y = 0; Y < tiles_Y; Y++) {
+			for (size_t X = 0; X < tiles_X; X++) {
+				raytrace_tile(X, Y);
+			}
+		}
 
+		TRACE("(tracing tiles) done.");
+		pause_trace();
+		//upload_rows(0, height);
+
+		/*
     // re-upload data each interval, or if pathtracing finished
     refresh_timer = std::min(refresh_interval, refresh_timer + elapsed);
     if (refresh_timer >= refresh_interval || progress == width * height) {
@@ -240,6 +283,7 @@ void Pathtracer::update(float elapsed) {
       TRACE("Done!");
       pause_trace();
     }
+		*/
     
   }
   Drawable::update(elapsed);
