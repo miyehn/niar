@@ -5,6 +5,8 @@ struct Ray;
 struct Triangle;
 
 struct Light {
+	enum Type { Area, Point, Directional };
+	Type type;
 	virtual ~Light() {}
 	virtual float ray_to_light_pdf(Ray& ray, const vec3& origin) = 0;
 	virtual vec3 get_emission() = 0;

@@ -6,9 +6,9 @@
       <authoring_tool>FBX COLLADA exporter</authoring_tool>
       <comments/>
     </contributor>
-    <created>2020-04-07T05:13:53Z</created>
+    <created>2020-04-07T16:32:33Z</created>
     <keywords/>
-    <modified>2020-04-07T05:13:53Z</modified>
+    <modified>2020-04-07T16:32:33Z</modified>
     <revision/>
     <subject/>
     <title/>
@@ -65,10 +65,10 @@
         </source>
         <source id="light-Normal0">
           <float_array id="light-Normal0-array" count="12">
-0.000000 0.000000 1.000000
-0.000000 0.000000 1.000000
-0.000000 0.000000 1.000000
-0.000000 0.000000 1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
 </float_array>
           <technique_common>
             <accessor source="#light-Normal0-array" count="4" stride="3">
@@ -116,7 +116,7 @@
           <input semantic="VERTEX" offset="0" source="#light-VERTEX"/>
           <input semantic="TEXCOORD" offset="1" set="0" source="#light-UV0"/>
           <input semantic="COLOR" offset="2" set="0" source="#light-VERTEX_COLOR0"/>
-          <p> 1 1 3 0 0 0 3 3 2 0 0 0 2 2 1 3 3 2</p>
+          <p> 3 3 2 2 2 3 0 0 0 3 3 2 0 0 0 1 1 1</p>
         </triangles>
       </mesh>
     </geometry>

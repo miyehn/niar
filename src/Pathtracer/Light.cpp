@@ -3,6 +3,7 @@
 
 AreaLight::AreaLight(const Triangle* _triangle)
 	: triangle(_triangle) {
+	type = Area;
 }
 
 vec3 AreaLight::get_emission() {
@@ -23,8 +24,8 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	// TODO: correct this so only one side of area light is lit
 	ray.tmax -= EPSILON;
 
-	// TODO: should area lights be two-sided like this?
-	float costheta_l = abs(dot(ray.d, n));
+	// TODO: make more robust
+	float costheta_l = dot(-ray.d, n);
 
 	return distance * distance / (triangle->area * costheta_l);
 }

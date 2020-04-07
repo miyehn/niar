@@ -300,6 +300,31 @@ void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
 	upload_tile(subbuf_index, x_offset, y_offset, tile_w, tile_h);
 }
 
+void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
+	size_t X = tile_index % tiles_X;
+	size_t Y = tile_index / tiles_X;
+
+	size_t tile_w = std::min(tile_size, width - X * tile_size);
+	size_t tile_h = std::min(tile_size, height - Y * tile_size);
+
+	size_t x_offset = X * tile_size;
+	size_t y_offset = Y * tile_size;
+
+	for (size_t y = 0; y < tile_h; y++) {
+		for (size_t x = 0; x < tile_w; x++) {
+
+			size_t px_index_main = width * (y_offset + y) + (x_offset + x);
+			vec3 color = raytrace_pixel(px_index_main);
+			set_mainbuffer_rgb(px_index_main, color);
+
+			size_t px_index_sub = y * tile_w + x;
+			set_subbuffer_rgb(tid, px_index_sub, color);
+
+		}
+	}
+
+}
+
 void Pathtracer::update(float elapsed) {
   if (!paused) {
 
