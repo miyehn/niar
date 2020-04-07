@@ -6,9 +6,9 @@
       <authoring_tool>FBX COLLADA exporter</authoring_tool>
       <comments/>
     </contributor>
-    <created>2020-04-07T05:13:53Z</created>
+    <created>2020-04-06T19:00:00Z</created>
     <keywords/>
-    <modified>2020-04-07T05:13:53Z</modified>
+    <modified>2020-04-06T19:00:00Z</modified>
     <revision/>
     <subject/>
     <title/>
@@ -46,86 +46,115 @@
     </effect>
   </library_effects>
   <library_geometries>
-    <geometry id="light-lib" name="lightMesh">
+    <geometry id="pCube1-lib" name="pCube1Mesh">
       <mesh>
-        <source id="light-POSITION">
-          <float_array id="light-POSITION-array" count="12">
--40.000000 440.000000 74.000000
-40.000000 440.000000 74.000000
--40.000000 360.000000 74.000000
-40.000000 360.000000 74.000000
+        <source id="pCube1-POSITION">
+          <float_array id="pCube1-POSITION-array" count="24">
+-26.915209 416.259003 -55.967102
+18.968958 396.393372 -55.967102
+-26.915209 416.259003 -5.967102
+18.968958 396.393372 -5.967102
+-18.968958 434.612671 -5.967102
+26.915209 414.747040 -5.967102
+-18.968958 434.612671 -55.967102
+26.915209 414.747040 -55.967102
 </float_array>
           <technique_common>
-            <accessor source="#light-POSITION-array" count="4" stride="3">
+            <accessor source="#pCube1-POSITION-array" count="8" stride="3">
               <param name="X" type="float"/>
               <param name="Y" type="float"/>
               <param name="Z" type="float"/>
             </accessor>
           </technique_common>
         </source>
-        <source id="light-Normal0">
-          <float_array id="light-Normal0-array" count="12">
+        <source id="pCube1-Normal0">
+          <float_array id="pCube1-Normal0-array" count="108">
+-0.397313 -0.917683 0.000000
+-0.397313 -0.917683 0.000000
+-0.397313 -0.917683 0.000000
+-0.397313 -0.917683 0.000000
+-0.397313 -0.917683 0.000000
+-0.397313 -0.917683 0.000000
 0.000000 0.000000 1.000000
 0.000000 0.000000 1.000000
 0.000000 0.000000 1.000000
 0.000000 0.000000 1.000000
+0.000000 0.000000 1.000000
+0.000000 0.000000 1.000000
+0.397313 0.917683 0.000000
+0.397313 0.917683 0.000000
+0.397313 0.917683 0.000000
+0.397313 0.917683 0.000000
+0.397313 0.917683 0.000000
+0.397313 0.917683 0.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.000000 0.000000 -1.000000
+0.917683 -0.397313 0.000000
+0.917683 -0.397313 0.000000
+0.917683 -0.397313 0.000000
+0.917683 -0.397313 0.000000
+0.917683 -0.397313 0.000000
+0.917683 -0.397313 0.000000
+-0.917683 0.397313 0.000000
+-0.917683 0.397313 0.000000
+-0.917683 0.397313 0.000000
+-0.917683 0.397313 0.000000
+-0.917683 0.397313 0.000000
+-0.917683 0.397313 0.000000
 </float_array>
           <technique_common>
-            <accessor source="#light-Normal0-array" count="4" stride="3">
+            <accessor source="#pCube1-Normal0-array" count="36" stride="3">
               <param name="X" type="float"/>
               <param name="Y" type="float"/>
               <param name="Z" type="float"/>
             </accessor>
           </technique_common>
         </source>
-        <source id="light-UV0">
-          <float_array id="light-UV0-array" count="8">
-0.000000 0.000000
-1.000000 0.000000
-0.000000 1.000000
-1.000000 1.000000
+        <source id="pCube1-UV0">
+          <float_array id="pCube1-UV0-array" count="28">
+0.375000 0.000000
+0.625000 0.000000
+0.375000 0.250000
+0.625000 0.250000
+0.375000 0.500000
+0.625000 0.500000
+0.375000 0.750000
+0.625000 0.750000
+0.375000 1.000000
+0.625000 1.000000
+0.875000 0.000000
+0.875000 0.250000
+0.125000 0.000000
+0.125000 0.250000
 </float_array>
           <technique_common>
-            <accessor source="#light-UV0-array" count="4" stride="2">
+            <accessor source="#pCube1-UV0-array" count="14" stride="2">
               <param name="S" type="float"/>
               <param name="T" type="float"/>
             </accessor>
           </technique_common>
         </source>
-        <source id="light-VERTEX_COLOR0">
-          <float_array id="light-VERTEX_COLOR0-array" count="16">
-0.800000 0.800000 0.800000 1.000000
-0.800000 0.800000 0.800000 1.000000
-0.800000 0.800000 0.800000 1.000000
-0.800000 0.800000 0.800000 1.000000
-</float_array>
-          <technique_common>
-            <accessor source="#light-VERTEX_COLOR0-array" count="4" stride="4">
-              <param name="R" type="double"/>
-              <param name="G" type="double"/>
-              <param name="B" type="double"/>
-              <param name="A" type="double"/>
-            </accessor>
-          </technique_common>
-        </source>
-        <vertices id="light-VERTEX">
-          <input semantic="POSITION" source="#light-POSITION"/>
-          <input semantic="NORMAL" source="#light-Normal0"/>
+        <vertices id="pCube1-VERTEX">
+          <input semantic="POSITION" source="#pCube1-POSITION"/>
         </vertices>
-        <triangles count="2" material="lambert1">
-          <input semantic="VERTEX" offset="0" source="#light-VERTEX"/>
-          <input semantic="TEXCOORD" offset="1" set="0" source="#light-UV0"/>
-          <input semantic="COLOR" offset="2" set="0" source="#light-VERTEX_COLOR0"/>
-          <p> 1 1 3 0 0 0 3 3 2 0 0 0 2 2 1 3 3 2</p>
+        <triangles count="12" material="lambert1">
+          <input semantic="VERTEX" offset="0" source="#pCube1-VERTEX"/>
+          <input semantic="NORMAL" offset="1" source="#pCube1-Normal0"/>
+          <input semantic="TEXCOORD" offset="2" set="0" source="#pCube1-UV0"/>
+          <p> 3 0 3 2 1 2 0 2 0 3 3 3 0 4 0 1 5 1 2 6 2 5 7 5 4 8 4 5 9 5 2 10 2 3 11 3 7 12 7 4 13 4 5 14 5 4 15 4 7 16 7 6 17 6 0 18 8 7 19 7 1 20 9 7 21 7 0 22 8 6 23 6 3 24 3 1 25 1 5 26 11 5 27 11 1 28 1 7 29 10 4 30 13 6 31 12 2 32 2 2 33 2 6 34 12 0 35 0</p>
         </triangles>
       </mesh>
     </geometry>
   </library_geometries>
   <library_visual_scenes>
-    <visual_scene id="cornell_light" name="cornell_light">
-      <node name="light" id="light" sid="light">
+    <visual_scene id="box" name="box">
+      <node name="pCube1" id="pCube1" sid="pCube1">
         <matrix sid="matrix">1.000000 0.000000 0.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000 1.000000 0.000000 0.000000 0.000000 0.000000 1.000000</matrix>
-        <instance_geometry url="#light-lib">
+        <instance_geometry url="#pCube1-lib">
           <bind_material>
             <technique_common>
               <instance_material symbol="lambert1" target="#lambert1"/>
@@ -150,6 +179,6 @@
     </visual_scene>
   </library_visual_scenes>
   <scene>
-    <instance_visual_scene url="#cornell_light"/>
+    <instance_visual_scene url="#box"/>
   </scene>
 </COLLADA>

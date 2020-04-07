@@ -37,7 +37,7 @@ void Program::setup() {
     mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * cube->object_to_world();
     cube->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
-	cube->local_position += vec3(2, 0, 3);
+	cube->local_position += vec3(1, 0, 6);
 	cube->scale = vec3(1.2f);
 	cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
   scene->add_child(static_cast<Drawable*>(cube));
@@ -49,7 +49,7 @@ void Program::setup() {
     plane->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
   //plane->bsdf->emission = vec3(1.0f);
-  plane->local_position = vec3(0, 0, 6);
+  plane->local_position = vec3(0, 0, 3);
   plane->scale = vec3(4, 4, 1);
 	plane->bsdf = new Diffuse();
 	plane->bsdf->Le = vec3(1); // emissive plane
@@ -85,20 +85,22 @@ void Program::setup() {
   };
 	light->bsdf = new Diffuse();
 	light->name = "light";
-	light->bsdf->Le = vec3(5);
+	light->bsdf->Le = vec3(10);
   scene->add_child(static_cast<Drawable*>(light));
 
+#if 1
 	// add another item to it
-	meshes = Mesh::LoadMeshes("../media/blob.dae");
+	meshes = Mesh::LoadMeshes("../media/prism2.dae");
   Mesh* mesh = meshes[0];
   mesh->shader.set_parameters = [mesh]() {
     mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
     mesh->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
-	mesh->bsdf = new Mirror();
-	mesh->bsdf->albedo = vec3(1, 0.5, 0);
+	mesh->bsdf = new Glass();
+	mesh->bsdf->albedo = vec3(1, 1, 1);
 	mesh->name = "prism";
   scene->add_child(static_cast<Drawable*>(mesh));
+#endif
 
   Pathtracer::Instance->load_scene(*scene);
 

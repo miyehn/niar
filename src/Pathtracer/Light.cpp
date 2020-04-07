@@ -20,7 +20,8 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	float distance = ray.tmax;
 
 	// move its end back a bit so it doesn't really hit the light (just almost)
-	ray.tmax = ray.tmax - EPSILON;
+	// TODO: correct this so only one side of area light is lit
+	ray.tmax -= EPSILON;
 
 	// TODO: should area lights be two-sided like this?
 	float costheta_l = abs(dot(ray.d, n));

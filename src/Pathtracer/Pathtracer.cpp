@@ -9,6 +9,7 @@
 
 #define DEBUG 1
 #define NUM_THREADS 8
+#define MULTITHREADED 1
 
 Pathtracer::Pathtracer(
   size_t _width, 
@@ -19,14 +20,14 @@ Pathtracer::Pathtracer(
       Drawable(nullptr, _name) {
 
   float min_x = -0.96f; float min_y = -0.96f;
-  float max_x = -0.1f; float max_y = -0.1f;
+  float max_x = 0.0f; float max_y = 0.0f;
 
 	num_threads = NUM_THREADS;
   pixels_per_frame = 3000;
-	tile_size = 51;
+	tile_size = 16;
 
-	tiles_X = std::ceil(float(width) / float(tile_size));
-	tiles_Y = std::ceil(float(height) / float(tile_size));
+	tiles_X = std::ceil(float(width) / tile_size);
+	tiles_Y = std::ceil(float(height) / tile_size);
 
   image_buffer = new unsigned char[width * height * 3]; 
 	subimage_buffers = new unsigned char*[num_threads];
@@ -241,16 +242,16 @@ void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
 #if DEBUG
   if (i >= width * height * 3) ERR("set_rgb indexing out of range!!");
 #endif
-  image_buffer[3 * i] = int(rgb.r * 255.0f);
-  image_buffer[3 * i + 1] = int(rgb.g * 255.0f);
-  image_buffer[3 * i + 2] = int(rgb.b * 255.0f);
+  image_buffer[3 * i] = char(rgb.r * 255.0f);
+  image_buffer[3 * i + 1] = char(rgb.g * 255.0f);
+  image_buffer[3 * i + 2] = char(rgb.b * 255.0f);
 }
 
 void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
 	unsigned char* buf = subimage_buffers[buf_i];
-  buf[3 * i] = int(rgb.r * 255.0f);
-  buf[3 * i + 1] = int(rgb.g * 255.0f);
-  buf[3 * i + 2] = int(rgb.b * 255.0f);
+  buf[3 * i] = char(rgb.r * 255.0f);
+  buf[3 * i + 1] = char(rgb.g * 255.0f);
+  buf[3 * i + 2] = char(rgb.b * 255.0f);
 }
 
 void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
@@ -302,20 +303,7 @@ void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
 void Pathtracer::update(float elapsed) {
   if (!paused) {
 
-#if 0
-		if (rendered_tiles == tiles_X * tiles_Y) {
-      TRACE("Done!");
-      pause_trace();
-
-		} else {
-			size_t X = rendered_tiles % tiles_X;
-			size_t Y = rendered_tiles / tiles_X;
-
-			raytrace_tile(X, Y);
-			rendered_tiles++;
-		}
-#else
-
+#if MULTITHREADED
 		int finished_threads = 0;
 
 		for (size_t i=0; i<threads.size(); i++) {
@@ -342,6 +330,22 @@ void Pathtracer::update(float elapsed) {
 		if (finished_threads == threads.size()) {
 			TRACE("Done!");
 			pause_trace();
+		}
+
+#else
+		if (rendered_tiles == tiles_X * tiles_Y) {
+      TRACE("Done!");
+      pause_trace();
+			//upload_rows(0, height);
+
+		} else {
+			size_t X = rendered_tiles % tiles_X;
+			size_t Y = rendered_tiles / tiles_X;
+
+			raytrace_tile(0, rendered_tiles);
+			upload_tile(0, rendered_tiles);
+
+			rendered_tiles++;
 		}
 
 #endif

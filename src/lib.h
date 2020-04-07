@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <math.h>
+#include <algorithm>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -88,7 +89,7 @@ inline void gl_errors(std::string const &where) {
 
 // other macros
 #define INF std::numeric_limits<float>::infinity();
-#define EPSILON 0.0001f
+#define EPSILON 0.0005f
 #define PI float(M_PI)
 #define TWO_PI float(M_PI * 2.0f)
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;

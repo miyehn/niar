@@ -1,8 +1,9 @@
 #include "Triangle.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 6
-#define RAYS_PER_PIXEL 16
+#define MAX_RAY_DEPTH 16
+#define RAYS_PER_PIXEL 256
+#define AREA_LIGHT_SAMPLES 1
 
 #define RR_THRESHOLD 0.2f
 
@@ -115,40 +116,42 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 		mat3 h2w = make_h2w(n);
 		mat3 w2h = transpose(h2w);
 
+#if 0
 		//---- direct light contribution ----
-#if 1
 		if (!bsdf->is_delta) {
 			for (size_t i = 0; i < lights.size(); i++) {
-				Ray ray_to_light;
-				float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * t + n * EPSILON);
+				for (size_t j = 0; j < AREA_LIGHT_SAMPLES; j++) {
+					Ray ray_to_light;
+					float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * t + n * EPSILON);
 
-				float to_light_t; vec3 light_n;
-				bool in_shadow = false;
-				for (size_t j = 0; j < triangles.size(); j++) {
-					if (triangles[j]->intersect(ray_to_light, to_light_t, light_n)) in_shadow = true; 
+					float to_light_t; vec3 light_n;
+					bool in_shadow = false;
+					for (size_t j = 0; j < triangles.size(); j++) {
+						if (triangles[j]->intersect(ray_to_light, to_light_t, light_n)) in_shadow = true; 
+					}
+					if (!in_shadow) {
+						vec3 wi = w2h * ray_to_light.d;
+						vec3 wo = -w2h * ray.d;
+						// TODO: make mesh light emissive on only positive side
+						float costheta = abs(dot(n, -ray_to_light.d));//std::max(0.0f, dot(n, -ray_to_light.d)); 
+						vec3 L_direct = lights[i]->get_emission() * bsdf->f(wi, wo) * costheta / pdf;
+						L += L_direct * (1.0f / AREA_LIGHT_SAMPLES);
+					}
 				}
-				if (!in_shadow) {
-					vec3 wi = w2h * ray_to_light.d;
-					vec3 wo = -w2h * ray.d;
-					float costheta = abs(dot(n, -ray_to_light.d));
-					vec3 L_direct = lights[i]->get_emission() * bsdf->f(wi, wo) * costheta / pdf;
-					L += L_direct;
-				}
-
 			}
 		}
 #endif
 
 #if 1
     //---- scatter (recursive part) ----
-    vec3 wi_hemi; // assigned by pdf in hemisphere space
+		vec3 wi_hemi; // assigned by pdf in hemisphere space
 		vec3 wo_hemi = w2h * (-ray.d);
-		float pdf;
-    vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi);
+		float pdf = float(bsdf->is_delta && ray_depth == 0);
+		vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi);
 
 		// transform wi back to world space
 		vec3 wi = h2w * wi_hemi;
-    float costheta = abs(dot(n, wi)); // [0, 1], not considering front/back face here
+		float costheta = abs(dot(n, wi)); // [0, 1], not considering front/back face here
 
 		// russian roulette
 		float termination_prob = 0.0f;
@@ -161,12 +164,13 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 		// recursive step: trace scattered ray in wi direction (if not terminated by RR)
 		vec3 Li = vec3(0);
 		if (!terminate) {
-			Ray ray_refl(ray.o + t * ray.d + n * EPSILON, wi);
+			vec3 refl_o_offset = ray.d * EPSILON; // offset to the side of wi
+			Ray ray_refl(ray.o + t * ray.d + refl_o_offset, wi);
 			// if it has some termination probability, weigh it more if it's not terminated
 			Li = trace_ray(ray_refl, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
 		}
 
-    L += Li * f * costheta / pdf;
+		L += Li * f * costheta / pdf;
 #endif
 
     return L;

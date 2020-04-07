@@ -37,7 +37,7 @@ struct BSDF {
   virtual vec3 f(const vec3& wi, const vec3& wo) const = 0;
 	virtual vec3 sample_f(float& pdf, vec3& wi, vec3 wo) const = 0;
 
-	bool is_emissive();
+	bool is_emissive() const;
 };
 
 struct Diffuse : public BSDF {
@@ -61,5 +61,12 @@ struct Mirror : public BSDF {
 };
 
 struct Glass : public BSDF {
-  // TODO
+	float IOR;
+	Glass(float _IOR = 1.52f) : IOR(_IOR) {
+		is_delta = true;
+		albedo = vec3(1);
+		Le = vec3(0);
+	}
+  vec3 f(const vec3& wi, const vec3& wo) const;
+	vec3 sample_f(float& pdf, vec3& wi, vec3 wo) const;
 };

@@ -42,7 +42,7 @@ vec3 sample::hemisphere_cos_weighed() {
   return vec3(x, y, z);
 }
 
-bool BSDF::is_emissive() {
+bool BSDF::is_emissive() const {
 	return dot(Le, Le) >= EMISSIVE_THRESHOLD;
 }
 
@@ -70,5 +70,67 @@ vec3 Mirror::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 	wi = -wo;
 	wi.z = wo.z;
 	pdf = 1.0f;
-	return albedo;
+	return albedo * (1.0f / wi.z);
+}
+
+vec3 Glass::f(const vec3& wi, const vec3& wo) const {
+	return vec3(0.0f);
+}
+
+vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
+#if 1
+	bool l = pdf > 0.5f;
+	// will treat wo as in direction and wi as out direction, since it's bidirectional
+
+	bool trace_out = wo.z < 0; // the direction we're going to trace is into the medium
+
+	// IOR, assume container medium is air
+	float ni = trace_out ? IOR : 1.0f;
+	float nt = trace_out ? 1.0f : IOR;
+	float theta_i = acos(abs(wo.z)); // ok
+
+	// find the other angle (and opt out early for total internal reflection)
+	float cos_sq_theta_t = 1.0f - (ni/nt) * (ni/nt) * (1.0f - wo.z * wo.z);
+	bool TIR = cos_sq_theta_t < 0;
+	if (TIR) { // total internal reflection
+		//LOG("TIR");
+		wi = -wo;
+		wi.z = wo.z;
+		pdf = 1.0f; // TODO: why
+		return -albedo * (1.0f / wi.z); // TODO!!!
+	}
+	float theta_t = acos(sqrt(cos_sq_theta_t));
+	//if (l) LOGF("dif angl: %f", degrees(theta_t - theta_i));
+	
+	// then use angles to find reflectance
+	float cos_theta_i = cos(theta_i);
+	float cos_theta_t = cos(theta_t);
+	float r_para = (nt * cos_theta_i - ni * cos_theta_t) / (nt * cos_theta_i + ni * cos_theta_t);
+	float r_perp = (ni * cos_theta_i - nt * cos_theta_t) / (ni * cos_theta_i + nt * cos_theta_t);
+	float reflectance = 0.5f * (r_para * r_para + r_perp * r_perp);
+	//if (l) LOGF("reflectance: %f", reflectance);
+	
+	// flip a biased coin to decide whether to reflect or refract
+	bool reflect = sample::rand01() <= reflectance;
+	if (reflect) {
+		//LOG("reflect");
+		wi = -wo;
+		wi.z = wo.z;
+		pdf = 1.0f;
+		return -albedo * (1.0f / wi.z); // TODO!!!
+
+	} else { // refract
+		// remember we treat wi as "out direction"
+		//if (l) LOGF("wo.z: %f", wo.z);
+		wi = normalize(vec3(-wo.x, -wo.y, trace_out ? cos_theta_t : -cos_theta_t));
+		pdf = 1.0f;
+		// now compute f...
+		return albedo * ((nt*nt) / (ni*ni)) * (1.0f - reflectance) * (1.0f / abs(wi.z));
+	}
+#else
+	wi = -wo;
+	pdf = 1.0f;
+	return vec3(1) * (1.0f / abs(wi.z));
+#endif
+
 }
