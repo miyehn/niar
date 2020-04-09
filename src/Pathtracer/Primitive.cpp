@@ -1,4 +1,4 @@
-#include "Triangle.hpp"
+#include "Primitive.hpp"
 #include "Mesh.hpp"
 #include "BSDF.hpp"
 
@@ -19,7 +19,7 @@ Triangle::Triangle(
   // precompute true normal and distance to origin
   vec3 u = normalize(vertices[1] - vertices[0]);
   vec3 v = normalize(vertices[2] - vertices[0]);
-  if (dot(u, v) > 1.0f - EPSILON) { // if unfortunately picked a very sharp angle
+  if (dot(u, v) > 1.0f - 0.1f * EPSILON) { // if unfortunately picked a very sharp angle
     u = normalize(vertices[2] - vertices[1]);
     v = normalize(vertices[0] - vertices[1]);
   }
@@ -50,9 +50,6 @@ Triangle::Triangle(
   bsdf = _bsdf;
 }
 
-Triangle::~Triangle() {
-}
-
 /* (o + t*d) . n = k
  * o . n + t*d . n = k
  * t * (d . n) = k - o . n
@@ -61,10 +58,10 @@ Triangle::~Triangle() {
 const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) const {
   // ray parallel to plane
   float d_dot_n = dot(ray.d, plane_n);
-  if (abs(d_dot_n) < EPSILON) return nullptr;
+  if (abs(d_dot_n) == 0.0f) return nullptr;
   // intersection out of range
   float _t = (plane_k - dot(ray.o, plane_n)) / d_dot_n;
-  if (_t < ray.tmin || _t > ray.tmax) return nullptr;
+  if (_t <= ray.tmin || _t > ray.tmax) return nullptr;
 
   vec3 p = ray.o + _t * ray.d;
   // barycentric coordinate with axes v[1] - v[0], v[2] - v[0]
@@ -104,4 +101,32 @@ vec3 Triangle::sample_point() const {
 	vec3 e2 = vertices[2] - vertices[0];
 
 	return vertices[0] + e1 * u + e2 * v;
+}
+
+//-------------- Sphere ----------------
+
+Sphere::~Sphere() {
+	delete bsdf;
+}
+
+const BSDF* Sphere::intersect(Ray& ray, float& t, vec3& normal) const {
+	vec3 p = ray.o - center;
+	float r2 = r * r;
+	// a = 1
+	float b = 2 * dot(p, ray.d);
+	float c = dot(p, p) - r2;
+	float delta = b * b - 4 * c;
+
+	if (delta < 0) return nullptr; // no intersection
+
+	float rt_delta = sqrt(delta);
+	float t_tmp = 0.5f * (-b - rt_delta); // t1
+	if (t_tmp < ray.tmin || t_tmp > ray.tmax) t_tmp = 0.5f * (-b + rt_delta); // t2
+	if (t_tmp < ray.tmin || t_tmp > ray.tmax) return nullptr; // intersection(s) not valid
+
+	// outputs
+	t = t_tmp;
+	ray.tmax = t_tmp;
+	normal = normalize(ray.o + t * ray.d - center);
+	return bsdf;
 }

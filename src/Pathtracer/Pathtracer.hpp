@@ -7,7 +7,7 @@
 
 struct Scene;
 struct Ray;
-struct Triangle;
+struct Primitive;
 struct Light;
 
 template <typename T>
@@ -103,7 +103,7 @@ struct Pathtracer : public Drawable {
 	TimePoint last_begin_time;
 	float cumulative_render_time;
 
-  std::vector<Triangle*> triangles;
+  std::vector<Primitive*> primitives;
 	std::vector<Light*> lights;
   void load_scene(const Scene& scene);
 

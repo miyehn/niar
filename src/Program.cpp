@@ -7,6 +7,7 @@
 #include "Pathtracer.hpp"
 #include "Shader.hpp"
 #include "BSDF.hpp"
+#include "Primitive.hpp"
 
 Shader Shader::Basic;
 Pathtracer* Pathtracer::Instance;
@@ -84,11 +85,15 @@ void Program::setup() {
     light->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
 	light->bsdf = new Diffuse();
+	/*
+	light->scale = vec3(2.0f, 2.0f, 1);
+	light->local_position += vec3(0, -400, 0);
+	*/
 	light->name = "light";
-	light->bsdf->Le = vec3(10);
+	light->bsdf->Le = vec3(10.0f);
   scene->add_child(static_cast<Drawable*>(light));
 
-#if 1
+#if 0
 	// add another item to it
 	meshes = Mesh::LoadMeshes("../media/prism2.dae");
   Mesh* mesh = meshes[0];
@@ -103,6 +108,15 @@ void Program::setup() {
 #endif
 
   Pathtracer::Instance->load_scene(*scene);
+
+#if 1
+	BSDF* sphere_bsdf_1 = new Mirror();
+	Pathtracer::Instance->primitives.emplace_back(
+			static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));
+	BSDF* sphere_bsdf_2 = new Glass();
+	Pathtracer::Instance->primitives.emplace_back(
+			static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
+#endif
 
 #endif
 

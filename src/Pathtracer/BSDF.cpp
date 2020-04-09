@@ -3,7 +3,7 @@
 #define SQ(x) (x * x)
 #define EMISSIVE_THRESHOLD SQ(0.4f)
 
-#define USE_COS_WEIGHED 1
+#define USE_COS_WEIGHED 0
 
 float sample::rand01() {
   return float(rand()) / float(RAND_MAX);
@@ -57,7 +57,7 @@ vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 	pdf = wi.z / PI;
 #else
   wi = sample::hemisphere_uniform();
-	pdf 1.0f / TWO_PI;
+	pdf = 1.0f / TWO_PI;
 #endif
 	return f(wi, wo);
 }

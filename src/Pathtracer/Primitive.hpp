@@ -1,6 +1,5 @@
 #pragma once
 #include "lib.h"
-#include "BSDF.hpp"
 
 struct Vertex;
 struct BSDF;
@@ -15,10 +14,16 @@ struct Ray {
   float tmin, tmax, contribution; // TODO: why need tmin?
 };
 
-struct Triangle {
+struct Primitive {
+  virtual const BSDF* intersect(Ray& ray, float& t, vec3& normal) const = 0;
+	virtual ~Primitive(){}
+	const BSDF* bsdf;
+};
 
+struct Triangle : public Primitive {
+
+	// bsdf gets passed in from mesh, and will be cleaned up by mesh as well.
   Triangle(const mat4& o2w, const Vertex& v1, const Vertex& v2, const Vertex& v3, BSDF* _bsdf);
-  ~Triangle();
 
   vec3 vertices[3];
   vec3 normals[3];
@@ -29,11 +34,23 @@ struct Triangle {
   float plane_k;
 	float area;
 
-	// this gets passed in from mesh, and will be cleaned up by mesh as well.
-  const BSDF* bsdf;
-
   const BSDF* intersect(Ray& ray, float& t, vec3& normal) const;
 
 	vec3 sample_point() const;
 
+};
+
+struct Sphere : public Primitive {
+
+	// since spheres are created and used for pathtracer only, 
+	// it's responsible for managing bsdf memory as well.
+	Sphere(const vec3& _c, float _r, BSDF* _bsdf) : center(_c), r(_r) {
+		bsdf = _bsdf;
+	}
+	~Sphere();
+
+	vec3 center;
+	float r;
+
+  const BSDF* intersect(Ray& ray, float& t, vec3& normal) const;
 };

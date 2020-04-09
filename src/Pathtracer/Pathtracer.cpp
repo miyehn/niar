@@ -3,7 +3,7 @@
 #include "Mesh.hpp"
 #include "Scene.hpp"
 #include "BSDF.hpp"
-#include "Triangle.hpp"
+#include "Primitive.hpp"
 #include "Light.hpp"
 #include <chrono>
 
@@ -110,7 +110,7 @@ Pathtracer::~Pathtracer() {
 	delete subimage_buffers;
 
 	for (auto l : lights) delete l;
-	for (auto t : triangles) delete t;
+	for (auto t : primitives) delete t;
 #if DEBUG
   GL_ERRORS();
 #endif
@@ -147,7 +147,7 @@ void Pathtracer::load_scene(const Scene& scene) {
         Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
         Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
 				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
-        triangles.push_back(T);
+        primitives.push_back(static_cast<Primitive*>(T));
 				
 				// also load as light if emissive
 				if (emissive) {
@@ -158,7 +158,7 @@ void Pathtracer::load_scene(const Scene& scene) {
   }
 
   TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
-			scene.children.size(), triangles.size(), lights.size());
+			scene.children.size(), primitives.size(), lights.size());
 }
 
 void Pathtracer::enable() {

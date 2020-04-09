@@ -1,11 +1,12 @@
-#include "Triangle.hpp"
+#include "Primitive.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 16
-#define RAYS_PER_PIXEL 64
+#define MAX_RAY_DEPTH 8
+#define RAYS_PER_PIXEL 32
 #define AREA_LIGHT_SAMPLES 2
+#define USE_DIRECT_LIGHT 1
 
-#define RR_THRESHOLD 0.2f
+#define RR_THRESHOLD 0.08f
 
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
@@ -54,7 +55,7 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 mat3 make_h2w(const vec3& n) { // TODO: make more robust
 	vec3 z = n;
 	// choose a vector different from z
-	vec3 tmp = vec3(n.z, n.x, n.y);
+	vec3 tmp = normalize(vec3(1, 2, 3));
 	
 	vec3 x = cross(tmp, z);
 	x = normalize(x);
@@ -74,8 +75,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
   // info of closest hit
   const BSDF* bsdf = nullptr;
   float t; vec3 n;
-  for (size_t i = 0; i < triangles.size(); i++) {
-    const BSDF* bsdf_tmp = triangles[i]->intersect(ray, t, n);
+  for (size_t i = 0; i < primitives.size(); i++) {
+    const BSDF* bsdf_tmp = primitives[i]->intersect(ray, t, n);
     if (bsdf_tmp) bsdf = bsdf_tmp;
   }
 
@@ -83,15 +84,19 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
     vec3 L = vec3(0);
 
 		//---- emission ----
-		if (ray_depth == 0 || !bsdf->is_emissive()) L += bsdf->Le;
+#if USE_DIRECT_LIGHT
+		// totally a hack...
+		if (!bsdf->is_emissive()) L += bsdf->Le;
+#else
+		L += bsdf->Le;
+#endif
 
 		// construct transform from hemisphere space to world space;
 		// used by both direct and indirect lighting
-		vec3 axis = cross(vec3(0, 0, 1), n);
 		mat3 h2w = make_h2w(n);
 		mat3 w2h = transpose(h2w);
 
-#if 1
+#if USE_DIRECT_LIGHT
 		//---- direct light contribution ----
 		if (!bsdf->is_delta) {
 			for (size_t i = 0; i < lights.size(); i++) {
@@ -99,21 +104,20 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 				if (lights[i]->type == Light::Area) {
 					for (size_t j = 0; j < AREA_LIGHT_SAMPLES; j++) {
 						Ray ray_to_light;
-						// TODO: THIS IS NOT PDF!!!!
-						float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * t + n * EPSILON);
+						float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * (t-EPSILON));
 
 						float tmp_t; vec3 tmp_n;
 						bool in_shadow = false;
-						for (size_t j = 0; j < triangles.size(); j++) {
-							if (triangles[j]->intersect(ray_to_light, tmp_t, tmp_n)) in_shadow = true; 
+						for (size_t j = 0; j < primitives.size(); j++) {
+							if (primitives[j]->intersect(ray_to_light, tmp_t, tmp_n)) in_shadow = true; 
 						}
 						if (!in_shadow) {
 							vec3 wi = w2h * ray_to_light.d;
 							vec3 wo = -w2h * ray.d;
 
-							float costheta_p = dot(n, ray_to_light.d);
+							float costheta_p = std::max(0.0f, dot(n, ray_to_light.d));
 							vec3 L_direct = pdf <= EPSILON ? 
-								vec3(0) : lights[i]->get_emission() * bsdf->f(wi, wo) * costheta_p / pdf;
+								vec3(0) : lights[i]->get_emission() * bsdf->f(wi, wo) * costheta_p/ pdf;
 							L += L_direct * (1.0f / AREA_LIGHT_SAMPLES);
 						}
 					}
@@ -125,17 +129,20 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 
 #if 1
 
+#if USE_DIRECT_LIGHT
 		if (!bsdf->is_emissive()) {
-
+#else
+		if (1) {
+#endif
 			//---- scatter (recursive part) ----
 			vec3 wi_hemi; // assigned by pdf in hemisphere space
 			vec3 wo_hemi = w2h * (-ray.d);
-			float pdf = float(bsdf->is_delta && ray_depth == 0);
+			float pdf;// = float(bsdf->is_delta && ray_depth == 0);
 			vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi);
 
 			// transform wi back to world space
 			vec3 wi = h2w * wi_hemi;
-			float costheta = abs(dot(n, wi)); // [0, 1], not considering front/back face here
+			float costheta = std::max(0.0f, dot(n, wi)); 
 
 			// russian roulette
 			float termination_prob = 0.0f;
@@ -148,8 +155,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 			// recursive step: trace scattered ray in wi direction (if not terminated by RR)
 			vec3 Li = vec3(0);
 			if (!terminate) {
-				vec3 refl_o_offset = ray.d * EPSILON; // offset to the side of wi
-				Ray ray_refl(ray.o + t * ray.d + refl_o_offset, wi);
+				vec3 refl_o_offset = wi * EPSILON;//dot(wi,n)>0 ? n * EPSILON : -n * EPSILON; // offset to the side of wi
+				Ray ray_refl(ray.o + t*ray.d + refl_o_offset, wi);
 				// if it has some termination probability, weigh it more if it's not terminated
 				Li = trace_ray(ray_refl, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
 			}
@@ -157,8 +164,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 			L += Li * f * costheta / pdf;
 		}
 #endif
-
-    return L;
+    return clamp(L, vec3(0), vec3(INF));
   }
   return vec3(0);
 }
