@@ -101,14 +101,18 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 	if (ray_depth >= MAX_RAY_DEPTH) return vec3(0);
 
   // info of closest hit
+	Primitive* primitive = nullptr;
   const BSDF* bsdf = nullptr;
   float t; vec3 n;
   for (size_t i = 0; i < primitives.size(); i++) {
-    const BSDF* bsdf_tmp = primitives[i]->intersect(ray, t, n);
-    if (bsdf_tmp) bsdf = bsdf_tmp;
+    Primitive* prim_tmp = primitives[i]->intersect(ray, t, n);
+    if (prim_tmp) {
+			primitive = prim_tmp;
+			bsdf = primitive->bsdf;
+		}
   }
 
-  if (bsdf) { // intersected with at least 1 triangle (has valid t, n, bsdf)
+  if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
     vec3 L = vec3(0);
 
 		//---- emission ----
@@ -129,33 +133,43 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		if (!bsdf->is_delta) {
 			for (size_t i = 0; i < lights.size(); i++) {
 
-				if (lights[i]->type == Light::Area) {
+				// Area lights
+				AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
+				if (area_light) {
 					for (size_t j = 0; j < AREA_LIGHT_SAMPLES; j++) {
-						Ray ray_to_light;
-						float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + t*ray.d + EPSILON*n);
 
+						// get ray to light
+						Ray ray_to_light;
+						float pdf = area_light->ray_to_light_pdf(ray_to_light, ray.o + t*ray.d);
+
+						// test if ray to light hits anything other than the starting primitive and the light
 						float tmp_t; vec3 tmp_n;
 						bool in_shadow = false;
 						for (size_t j = 0; j < primitives.size(); j++) {
-							if (primitives[j]->intersect(ray_to_light, tmp_t, tmp_n)) in_shadow = true; 
+							Primitive* hit_prim = primitives[j]->intersect(ray_to_light, tmp_t, tmp_n, false);
+							if (hit_prim && hit_prim!=primitive && hit_prim!=area_light->triangle) in_shadow = true; 
 						}
+
+						// add contribution
 						if (!in_shadow) {
 							vec3 wi = w2h * ray_to_light.d;
 							vec3 wo = -w2h * ray.d;
-
+							// NOTE: funny how spheres can technically cast self shadows, but this cosine theta gives the same effect
 							float costheta_p = std::max(0.0f, dot(n, ray_to_light.d));
-							vec3 L_direct = pdf <= EPSILON ? 
-								vec3(0) : lights[i]->get_emission() * bsdf->f(wi, wo) * costheta_p/ pdf;
+							vec3 L_direct = area_light->get_emission() * bsdf->f(wi, wo) * costheta_p / pdf;
+							if (isinf(L_direct.x) || isinf(L_direct.y) || isinf(L_direct.z)) L_direct = vec3(0);
 							L += L_direct * (1.0f / AREA_LIGHT_SAMPLES);
 						}
 					}
 				}
 
+				// Other types of lights (TODO)
+
 			}
 		}
 #endif
 
-#if 1
+#if 0
 
 #if USE_DIRECT_LIGHT
 		if (!bsdf->is_emissive()) {
@@ -192,7 +206,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 			// recursive step: trace scattered ray in wi direction (if not terminated by RR)
 			vec3 Li = vec3(0);
 			if (!terminate) {
-				vec3 refl_o_offset = wi * EPSILON;//dot(wi,n)>0 ? n * EPSILON : -n * EPSILON; // offset to the side of wi
+				vec3 refl_o_offset = dot(wi,n)>0 ? n * EPSILON : -n * EPSILON; // offset to the side of wi
 				Ray ray_refl(ray.o + t*ray.d + refl_o_offset, wi);
 				// if it has some termination probability, weigh it more if it's not terminated
 				Li = trace_ray(ray_refl, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));

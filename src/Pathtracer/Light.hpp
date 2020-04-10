@@ -14,10 +14,10 @@ struct Light {
 
 struct AreaLight : public Light {
 
-	AreaLight(const Triangle* _triangle);
+	AreaLight(Triangle* _triangle);
 	virtual ~AreaLight() {}
 
-	const Triangle* triangle;
+	Triangle* triangle;
 
 	vec3 get_emission();
 

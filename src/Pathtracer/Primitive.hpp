@@ -15,7 +15,7 @@ struct Ray {
 };
 
 struct Primitive {
-  virtual const BSDF* intersect(Ray& ray, float& t, vec3& normal) const = 0;
+  virtual Primitive* intersect(Ray& ray, float& t, vec3& normal, bool modify_ray = true) = 0;
 	virtual ~Primitive(){}
 	const BSDF* bsdf;
 };
@@ -34,7 +34,7 @@ struct Triangle : public Primitive {
   float plane_k;
 	float area;
 
-  const BSDF* intersect(Ray& ray, float& t, vec3& normal) const;
+  Primitive* intersect(Ray& ray, float& t, vec3& normal, bool modify_ray);
 
 	vec3 sample_point() const;
 
@@ -52,5 +52,5 @@ struct Sphere : public Primitive {
 	vec3 center;
 	float r;
 
-  const BSDF* intersect(Ray& ray, float& t, vec3& normal) const;
+  Primitive* intersect(Ray& ray, float& t, vec3& normal, bool modify_ray);
 };

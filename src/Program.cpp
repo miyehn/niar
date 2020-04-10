@@ -95,13 +95,13 @@ void Program::setup() {
 
 #if 0
 	// add another item to it
-	meshes = Mesh::LoadMeshes("../media/prism2.dae");
+	meshes = Mesh::LoadMeshes("../media/prism.dae");
   Mesh* mesh = meshes[0];
   mesh->shader.set_parameters = [mesh]() {
     mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
     mesh->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
-	mesh->bsdf = new Glass();
+	mesh->bsdf = new Diffuse(vec3(0.6, 0.6, 0.6));
 	mesh->bsdf->albedo = vec3(1, 1, 1);
 	mesh->name = "prism";
   scene->add_child(static_cast<Drawable*>(mesh));
@@ -110,10 +110,10 @@ void Program::setup() {
   Pathtracer::Instance->load_scene(*scene);
 
 #if 1
-	BSDF* sphere_bsdf_1 = new Mirror();
+	BSDF* sphere_bsdf_1 = new Diffuse(vec3(0.6));
 	Pathtracer::Instance->primitives.emplace_back(
 			static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));
-	BSDF* sphere_bsdf_2 = new Glass();
+	BSDF* sphere_bsdf_2 = new Diffuse(vec3(0.6));
 	Pathtracer::Instance->primitives.emplace_back(
 			static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
 #endif

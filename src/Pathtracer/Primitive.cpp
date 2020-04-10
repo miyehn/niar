@@ -50,12 +50,7 @@ Triangle::Triangle(
   bsdf = _bsdf;
 }
 
-/* (o + t*d) . n = k
- * o . n + t*d . n = k
- * t * (d . n) = k - o . n
- * t = (k - o . n) / (d . n)
- */
-const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) const {
+Primitive* Triangle::intersect(Ray& ray, float& t, vec3& normal, bool modify_ray = true) {
   // ray parallel to plane
   float d_dot_n = dot(ray.d, plane_n);
   if (abs(d_dot_n) == 0.0f) return nullptr;
@@ -79,14 +74,14 @@ const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) const {
 #endif
 
   // intersection is valid.
-  ray.tmax = _t;
+  if (modify_ray) ray.tmax = _t;
   t = _t;
 #if USE_INTERPOLATED_NORMAL
   normal = normalize(normals[0] + u * normals[1] + v * normals[2]);
 #else
   normal = plane_n;
 #endif
-  return bsdf;
+  return this;
 }
 
 vec3 Triangle::sample_point() const {
@@ -109,7 +104,7 @@ Sphere::~Sphere() {
 	delete bsdf;
 }
 
-const BSDF* Sphere::intersect(Ray& ray, float& t, vec3& normal) const {
+Primitive* Sphere::intersect(Ray& ray, float& t, vec3& normal, bool modify_ray = true) {
 	vec3 p = ray.o - center;
 	float r2 = r * r;
 	// a = 1
@@ -126,7 +121,7 @@ const BSDF* Sphere::intersect(Ray& ray, float& t, vec3& normal) const {
 
 	// outputs
 	t = t_tmp;
-	ray.tmax = t_tmp;
+	if (modify_ray) ray.tmax = t_tmp;
 	normal = normalize(ray.o + t * ray.d - center);
-	return bsdf;
+	return this;
 }
