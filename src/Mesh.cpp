@@ -1,6 +1,7 @@
 #include "Mesh.hpp"
 #include "Shader.hpp"
 #include "Camera.hpp"
+#include "BSDF.hpp"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 

@@ -87,7 +87,7 @@ void Program::run() {
       else if (event.type==SDL_KEYUP && 
           event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-      else if (event.type==SDL_KEYUP || event.type==SDL_KEYDOWN) {
+      else {
         // toggle between rasterizer & pathtracer
         if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
           if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();

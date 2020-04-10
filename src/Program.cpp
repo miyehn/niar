@@ -18,7 +18,7 @@ void Program::load_resources() {
   LOG("loading resources...");
 
   Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
-  Pathtracer::Instance = new Pathtracer(width / 2, height / 2, "Niar");
+  Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
 }

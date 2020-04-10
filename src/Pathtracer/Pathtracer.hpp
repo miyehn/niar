@@ -109,8 +109,9 @@ struct Pathtracer : public Drawable {
 
   std::vector<Ray> generate_rays(size_t index);
   vec3 raytrace_pixel(size_t index);
+	void raytrace_debug(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
-  vec3 trace_ray(Ray& ray, int ray_depth);
+  vec3 trace_ray(Ray& ray, int ray_depth, bool debug);
 
 	//---- threading stuff ----
 

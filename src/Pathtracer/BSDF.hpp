@@ -26,7 +26,6 @@ struct BSDF {
   vec3 albedo;
 
 	virtual ~BSDF(){
-		WARN("deleting BSDF!");
 	}
 
   /* output: proportion of light going to direction wo (for each wavelength)

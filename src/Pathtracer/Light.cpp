@@ -19,11 +19,10 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	float t; vec3 n;
 	triangle->intersect(ray, t, n);
 
-	float d2 = t * t;//80;
+	float d2 = t * t;
 
 	// move its end back a bit so it doesn't really hit the light (just almost)
-	// TODO: correct this so only one side of area light is lit
-	ray.tmax -= EPSILON / abs(dot(n, ray.d));
+	ray.tmax -= EPS_F;
 
 	// TODO: make more robust
 	float costheta_l = dot(-ray.d, n);

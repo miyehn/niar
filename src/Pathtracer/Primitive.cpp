@@ -19,7 +19,7 @@ Triangle::Triangle(
   // precompute true normal and distance to origin
   vec3 u = normalize(vertices[1] - vertices[0]);
   vec3 v = normalize(vertices[2] - vertices[0]);
-  if (dot(u, v) > 1.0f - 0.1f * EPSILON) { // if unfortunately picked a very sharp angle
+  if (dot(u, v) > 1.0f - 0.1f * EPS_F) { // if unfortunately picked a very sharp angle
     u = normalize(vertices[2] - vertices[1]);
     v = normalize(vertices[0] - vertices[1]);
   }
@@ -61,7 +61,7 @@ const BSDF* Triangle::intersect(Ray& ray, float& t, vec3& normal) const {
   if (abs(d_dot_n) == 0.0f) return nullptr;
   // intersection out of range
   float _t = (plane_k - dot(ray.o, plane_n)) / d_dot_n;
-  if (_t <= ray.tmin || _t > ray.tmax) return nullptr;
+  if (_t < ray.tmin || _t > ray.tmax) return nullptr;
 
   vec3 p = ray.o + _t * ray.d;
   // barycentric coordinate with axes v[1] - v[0], v[2] - v[0]

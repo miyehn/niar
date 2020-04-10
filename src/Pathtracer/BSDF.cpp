@@ -3,7 +3,7 @@
 #define SQ(x) (x * x)
 #define EMISSIVE_THRESHOLD SQ(0.4f)
 
-#define USE_COS_WEIGHED 0
+#define USE_COS_WEIGHED 1
 
 float sample::rand01() {
   return float(rand()) / float(RAND_MAX);
@@ -85,6 +85,8 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 	// IOR, assume container medium is air
 	float ni = trace_out ? IOR : 1.0f;
 	float nt = trace_out ? 1.0f : IOR;
+	//LOGF("ni: %f, nt: %f", ni, nt);
+
 	float theta_i = acos(abs(wo.z)); // ok
 
 	// find the other angle (and opt out early for total internal reflection)
@@ -94,16 +96,21 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 		wi = -wo;
 		wi.z = wo.z;
 		pdf = 1.0f;
-		return -albedo * (1.0f / wi.z); // TODO!!!
+		return albedo * (1.0f / wi.z);
 	}
 	float theta_t = acos(sqrt(cos_sq_theta_t));
 	
 	// then use angles to find reflectance
 	float cos_theta_i = cos(theta_i);
 	float cos_theta_t = cos(theta_t);
+#if 0
 	float r_para = (nt * cos_theta_i - ni * cos_theta_t) / (nt * cos_theta_i + ni * cos_theta_t);
 	float r_perp = (ni * cos_theta_i - nt * cos_theta_t) / (ni * cos_theta_i + nt * cos_theta_t);
 	float reflectance = 0.5f * (r_para * r_para + r_perp * r_perp);
+#else
+	float r0 = pow((ni-nt)/(ni+nt), 2);
+	float reflectance = r0 + (1.0f - r0) * pow(1.0f - cos_theta_i, 5);
+#endif
 	
 	// flip a biased coin to decide whether to reflect or refract
 	bool reflect = sample::rand01() <= reflectance;
@@ -111,13 +118,17 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 		wi = -wo;
 		wi.z = wo.z;
 		pdf = reflectance;
-		return -albedo * (reflectance / wi.z); // TODO!!!
+		return albedo * (reflectance / cos_theta_i);
 
 	} else { // refract
 		// remember we treat wi as "out direction"
-		wi = normalize(vec3(-wo.x, -wo.y, trace_out ? cos_theta_t : -cos_theta_t));
+		float xy_norm_factor = sin(theta_t) / sin(theta_i);
+		wi = vec3(-wo.x * xy_norm_factor,
+						  -wo.y * xy_norm_factor,
+							trace_out ? cos_theta_t : -cos_theta_t);
+
 		pdf = 1.0f - reflectance;
 		// now compute f...
-		return albedo * ((nt*nt) / (ni*ni)) * (1.0f - reflectance) * (1.0f / abs(wi.z));
+		return albedo * ((nt*nt) / (ni*ni)) * (1.0f - reflectance) * (1.0f / cos_theta_i);
 	}
 }

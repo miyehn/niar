@@ -19,8 +19,13 @@ Pathtracer::Pathtracer(
       height(_height), 
       Drawable(nullptr, _name) {
 
+#if 0
   float min_x = -0.96f; float min_y = -0.96f;
   float max_x = 0.0f; float max_y = 0.0f;
+#else
+  float min_x = -1.0f; float min_y = -1.0f;
+  float max_x = 1.0f; float max_y = 1.0f;
+#endif
 
 	num_threads = NUM_THREADS;
   pixels_per_frame = 3000;
@@ -124,7 +129,12 @@ bool Pathtracer::handle_event(SDL_Event event) {
     return true;
   } else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
     reset();
-  }
+  } else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
+		int x, y;
+		SDL_GetMouseState(&x, &y);
+		size_t pixel_index = (height-y) * width + x;
+		raytrace_debug(pixel_index);
+	}
 
   return Drawable::handle_event(event);
 }

@@ -1,8 +1,8 @@
 #include "Primitive.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 8
-#define RAYS_PER_PIXEL 32
+#define MAX_RAY_DEPTH 16
+#define RAYS_PER_PIXEL 16
 #define AREA_LIGHT_SAMPLES 2
 #define USE_DIRECT_LIGHT 1
 
@@ -45,11 +45,39 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 
   vec3 result = vec3(0);
   for (size_t i = 0; i < rays.size(); i++) {
-    result += trace_ray(rays[i], 0) / float(rays.size());
+    result += trace_ray(rays[i], 0, false) / float(rays.size());
   }
 
   result = clamp(result, vec3(0), vec3(1));
 	return result;
+}
+
+// DEBUG ONLY!!!
+void Pathtracer::raytrace_debug(size_t index) {
+  size_t w = index % width;
+  size_t h = index / width;
+	Ray ray;
+	ray.o = Camera::Active->position;
+	ray.tmin = 0.0f;
+	ray.tmax = INF;
+
+	float fov = Camera::Active->fov;
+	// dx, dy: deviation from canvas center, normalized to range [-1, 1]
+	vec2 offset = vec2(0.5f, 0.5f);
+	float half_width = float(width) / 2.0f;
+	float half_height = float(height) / 2.0f;
+	float dx = (w + offset.x - half_width) / half_width;
+	float dy = (h + offset.y - half_height) / half_height;
+	// the raytraced image plane is at plane z = -1. Supposed k is its size in half.
+	float k_y = tan(fov / 2.0f);
+	float k_x = k_y * Camera::Active->aspect_ratio;
+
+	vec4 d_cam = vec4(normalize(vec3(k_x * dx, k_y * dy, -1)), 1);
+	ray.d = vec3(Camera::Active->camera_to_world_rotation() * d_cam);
+
+	vec3 color = trace_ray(ray, 0, true);
+	LOGF("result color: %f %f %f", color.x, color.y, color.z);
+	LOG("---------------------");
 }
 
 mat3 make_h2w(const vec3& n) { // TODO: make more robust
@@ -69,7 +97,7 @@ float brightness(vec3 color) {
 	return 0.2989f * color.r + 0.587f * color.g + 0.114 * color.b;
 }
 
-vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
+vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 	if (ray_depth >= MAX_RAY_DEPTH) return vec3(0);
 
   // info of closest hit
@@ -104,7 +132,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 				if (lights[i]->type == Light::Area) {
 					for (size_t j = 0; j < AREA_LIGHT_SAMPLES; j++) {
 						Ray ray_to_light;
-						float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + ray.d * (t-EPSILON));
+						float pdf = lights[i]->ray_to_light_pdf(ray_to_light, ray.o + t*ray.d + EPSILON*n);
 
 						float tmp_t; vec3 tmp_n;
 						bool in_shadow = false;
@@ -142,7 +170,16 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 
 			// transform wi back to world space
 			vec3 wi = h2w * wi_hemi;
-			float costheta = std::max(0.0f, dot(n, wi)); 
+			float costheta = abs(dot(n, wi)); 
+
+			if (debug) {
+				vec3 hit = ray.o + t*ray.d;
+				LOGF("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit.x, hit.y, hit.z);
+				LOGF("wo: %f %f %f (normalized to %f %f %f)", 
+						-ray.d.x, -ray.d.y, -ray.d.z, wo_hemi.x, wo_hemi.y, wo_hemi.z);
+				LOGF("wi: %f %f %f (normalized to %f %f %f)", 
+						wi.x, wi.y, wi.z, wi_hemi.x, wi_hemi.y, wi_hemi.z);
+			}
 
 			// russian roulette
 			float termination_prob = 0.0f;
@@ -158,12 +195,13 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth) {
 				vec3 refl_o_offset = wi * EPSILON;//dot(wi,n)>0 ? n * EPSILON : -n * EPSILON; // offset to the side of wi
 				Ray ray_refl(ray.o + t*ray.d + refl_o_offset, wi);
 				// if it has some termination probability, weigh it more if it's not terminated
-				Li = trace_ray(ray_refl, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
+				Li = trace_ray(ray_refl, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));
 			}
 
 			L += Li * f * costheta / pdf;
 		}
 #endif
+		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
     return clamp(L, vec3(0), vec3(INF));
   }
   return vec3(0);
