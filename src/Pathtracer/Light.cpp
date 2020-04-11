@@ -21,9 +21,9 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 
 	double d2 = t * t;
 
-	// TODO: make more robust
-	float costheta_l = dot(-ray.d, n);
+	float costheta_l = std::max(0.0f, dot(-ray.d, n)); // non-negative
 
+	// TODO: make more robust
 	return d2 / (triangle->area * costheta_l);
 }
 

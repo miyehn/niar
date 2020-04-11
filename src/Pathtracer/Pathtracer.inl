@@ -2,9 +2,9 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 16
-#define RAYS_PER_PIXEL 256
+#define RAYS_PER_PIXEL 32
 #define AREA_LIGHT_SAMPLES 2
-#define USE_DIRECT_LIGHT 0
+#define USE_DIRECT_LIGHT 1
 
 #define RR_THRESHOLD 0.08f
 
@@ -118,7 +118,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		//---- emission ----
 #if USE_DIRECT_LIGHT
 		// totally a hack...
-		if (!bsdf->is_emissive()) L += bsdf->Le;
+		if (ray_depth == 0 || ray.receive_le || !bsdf->is_emissive()) L += bsdf->Le;
 #else
 		L += bsdf->Le;
 #endif
@@ -128,7 +128,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		mat3 h2w = make_h2w(n);
 		mat3 w2h = transpose(h2w);
 
-#if USE_DIRECT_LIGHT
+#if 1//USE_DIRECT_LIGHT
 		//---- direct light contribution ----
 		if (!bsdf->is_delta) {
 			for (size_t i = 0; i < lights.size(); i++) {
@@ -140,6 +140,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 
 						// get ray to light
 						Ray ray_to_light;
+						// pdf in [0, INF)
 						float pdf = area_light->ray_to_light_pdf(ray_to_light, ray.o + float(t)*ray.d);
 
 						// test if ray to light hits anything other than the starting primitive and the light
@@ -158,7 +159,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 							// Thanks convexity?
 							float costheta_p = std::max(0.0f, dot(n, ray_to_light.d));
 							vec3 L_direct = area_light->get_emission() * bsdf->f(wi, wo) * costheta_p / pdf;
-							if (isinf(L_direct.x) || isinf(L_direct.y) || isinf(L_direct.z)) L_direct = vec3(0);
+							// correction for when above num and denom both 0. TODO: is this right?
+							if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
 							L += L_direct * (1.0f / AREA_LIGHT_SAMPLES);
 						}
 					}
@@ -170,7 +172,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		}
 #endif
 
-#if 1
+#if 1 // indirect lighting
 
 #if USE_DIRECT_LIGHT
 		if (!bsdf->is_emissive()) {
@@ -208,7 +210,10 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 			vec3 Li = vec3(0);
 			if (!terminate) {
 				vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
-				Ray ray_refl(ray.o + float(t)*ray.d + refl_offset, wi); // alright I give up for now...
+				Ray ray_refl(ray.o + float(t)*ray.d + refl_offset, wi); // alright I give up epsilon for now...
+#if USE_DIRECT_LIGHT
+				if (bsdf->is_delta) ray_refl.receive_le = true;
+#endif
 				// if it has some termination probability, weigh it more if it's not terminated
 				Li = trace_ray(ray_refl, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));
 			}

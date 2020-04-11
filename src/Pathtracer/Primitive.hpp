@@ -13,6 +13,7 @@ struct Ray {
   vec3 o, d;
   double tmin, tmax; 
 	float contribution; // TODO: why need tmin?
+	bool receive_le = false;
 };
 
 struct Primitive {

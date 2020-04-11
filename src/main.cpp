@@ -8,8 +8,8 @@ int main(int argc, const char * argv[]) {
 
   std::srand(time(nullptr));
 
-  uint w = 800;
-  uint h = 600;
+  uint w = 400;
+  uint h = 300;
 
   Program* program = new Program("niar", w, h);
   program->run();
