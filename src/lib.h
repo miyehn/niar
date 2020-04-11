@@ -90,6 +90,8 @@ inline void gl_errors(std::string const &where) {
 // other macros
 #define INF std::numeric_limits<float>::infinity()
 #define EPSILON 0.001f
-#define PI float(M_PI)
-#define TWO_PI float(M_PI * 2.0f)
+#define PI 3.14159265359f
+#define ONE_OVER_PI 0.31830988618f
+#define TWO_PI 6.28318530718f
+#define ONE_OVER_TWO_PI 0.15915494309f
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;

@@ -3,7 +3,7 @@
 #include "BSDF.hpp"
 
 #define USE_EMBEDDED_NORMAL 0
-#define USE_INTERPOLATED_NORMAL 0
+#define USE_INTERPOLATED_NORMAL 0 // slower, ofc
 
 Triangle::Triangle(
 		const mat4& o2w, 
@@ -16,12 +16,16 @@ Triangle::Triangle(
   vertices[1] = vec3(o2w * vec4(v2.position, 1));
   vertices[2] = vec3(o2w * vec4(v3.position, 1));
 
+	// two edges
+	e1 = vertices[1] - vertices[0];
+	e2 = vertices[2] - vertices[0];
+
   // precompute true normal and distance to origin
-  vec3 u = normalize(vertices[1] - vertices[0]);
-  vec3 v = normalize(vertices[2] - vertices[0]);
+  vec3 u = e1;
+  vec3 v = e2;
   if (dot(u, v) > 1.0f - 0.1f * EPSILON) { // if unfortunately picked a very sharp angle
-    u = normalize(vertices[2] - vertices[1]);
-    v = normalize(vertices[0] - vertices[1]);
+    u = vertices[2] - vertices[1];
+    v = vertices[0] - vertices[1];
   }
   plane_n = normalize(cross(u, v));
   plane_k = dot(vertices[0], plane_n);
@@ -38,8 +42,6 @@ Triangle::Triangle(
 #endif
 
 	// precompute area
-	vec3 e1 = vertices[1] - vertices[0];
-	vec3 e2 = vertices[2] - vertices[0];
 	area = length(cross(e1, e2)) * 0.5f;
 
   // precompute edge normals
@@ -63,8 +65,8 @@ Primitive* Triangle::intersect(Ray& ray, double& t, vec3& normal, bool modify_ra
   vec3 p0 = p - vertices[0];
 #if USE_INTERPOLATED_NORMAL // barycentric coords
   // also see: https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
-  float u = dot(p0, enormals[0]) / dot(vertices[2] - vertices[0], enormals[0]);
-  float v = dot(p0, enormals[2]) / dot(vertices[1] - vertices[0], enormals[2]);
+  float u = dot(p0, enormals[0]) / dot(e2, enormals[0]);
+  float v = dot(p0, enormals[2]) / dot(e1, enormals[2]);
   if (u < 0 || v < 0 || u + v > 1) return nullptr;
 #else // test sides for each edge
   // other early outs: intersection not in triangle TODO: precompute some of these

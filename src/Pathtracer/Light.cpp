@@ -8,7 +8,7 @@ AreaLight::AreaLight(Triangle* _triangle)
 }
 
 vec3 AreaLight::get_emission() {
-	return triangle->bsdf->Le;
+	return triangle->bsdf->get_emission();
 }
 
 float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {

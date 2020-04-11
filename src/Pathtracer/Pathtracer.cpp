@@ -19,16 +19,15 @@ Pathtracer::Pathtracer(
       height(_height), 
       Drawable(nullptr, _name) {
 
-#if 0
+#if 0 // small window
   float min_x = -0.96f; float min_y = -0.96f;
   float max_x = 0.0f; float max_y = 0.0f;
-#else
+#else // full window
   float min_x = -1.0f; float min_y = -1.0f;
   float max_x = 1.0f; float max_y = 1.0f;
 #endif
 
 	num_threads = NUM_THREADS;
-  pixels_per_frame = 3000;
 	tile_size = 16;
 
 	tiles_X = std::ceil(float(width) / tile_size);
@@ -41,9 +40,6 @@ Pathtracer::Pathtracer(
 	}
 
   enabled = false;
-
-  refresh_timer = 0.0f;
-  refresh_interval = 0.0f;
 
   //-------- opengl stuff setup --------
 
@@ -150,7 +146,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 				continue;
 			}
 
-			bool emissive = mesh->bsdf->is_emissive();
+			bool emissive = mesh->bsdf->is_emissive;
       for (int i=0; i<mesh->faces.size(); i+=3) {
 				// loop and load triangles
         Vertex v1 = mesh->vertices[mesh->faces[i]];
@@ -201,9 +197,9 @@ void Pathtracer::reset() {
   TRACE("reset pathtracer");
   memset(image_buffer, 40, width * height * 3);
   paused = true;
-  progress = 0;
 	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
+	raytrace_tasks.clear();
 	
 	//-------- threading stuff --------
 	
@@ -244,7 +240,6 @@ void Pathtracer::reset() {
 
 	//---------------------------------
 	
-  uploaded_rows = 0;
   upload_rows(0, height);
 }
 

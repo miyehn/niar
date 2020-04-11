@@ -93,13 +93,6 @@ struct Pathtracer : public Drawable {
   virtual void disable();
   void reset();
 
-  size_t pixels_per_frame;
-  size_t progress;
-
-  float refresh_timer;
-  float refresh_interval;
-  size_t uploaded_rows;
-
 	TimePoint last_begin_time;
 	float cumulative_render_time;
 
@@ -107,7 +100,7 @@ struct Pathtracer : public Drawable {
 	std::vector<Light*> lights;
   void load_scene(const Scene& scene);
 
-  std::vector<Ray> generate_rays(size_t index);
+  void generate_rays(std::vector<Ray>& rays, size_t index);
   vec3 raytrace_pixel(size_t index);
 	void raytrace_debug(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);

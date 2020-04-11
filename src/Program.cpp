@@ -90,7 +90,7 @@ void Program::setup() {
 	light->local_position += vec3(0, -400, 0);
 	*/
 	light->name = "light";
-	light->bsdf->Le = vec3(10.0f);
+	light->bsdf->set_emission(vec3(10.0f));
   scene->add_child(static_cast<Drawable*>(light));
 
 #if 0

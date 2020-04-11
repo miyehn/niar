@@ -32,6 +32,7 @@ struct Triangle : public Primitive {
   vec3 enormals[3]; // cached edge normals
 
   // other pre-computed values
+	vec3 e1, e2;
   vec3 plane_n;
   float plane_k;
 	float area;
