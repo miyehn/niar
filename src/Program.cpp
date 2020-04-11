@@ -110,10 +110,10 @@ void Program::setup() {
   Pathtracer::Instance->load_scene(*scene);
 
 #if 1
-	BSDF* sphere_bsdf_1 = new Diffuse(vec3(0.6));
+	BSDF* sphere_bsdf_1 = new Mirror();
 	Pathtracer::Instance->primitives.emplace_back(
 			static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));
-	BSDF* sphere_bsdf_2 = new Diffuse(vec3(0.6));
+	BSDF* sphere_bsdf_2 = new Glass();
 	Pathtracer::Instance->primitives.emplace_back(
 			static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
 #endif

@@ -16,10 +16,10 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 
 	ray.o = origin;
 	ray.d = normalize(light_p - origin);
-	float t; vec3 n;
+	double t; vec3 n;
 	triangle->intersect(ray, t, n, true);
 
-	float d2 = t * t;
+	double d2 = t * t;
 
 	// TODO: make more robust
 	float costheta_l = dot(-ray.d, n);

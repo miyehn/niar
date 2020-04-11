@@ -11,11 +11,12 @@ struct Ray {
 		contribution = 1.0f;
   }
   vec3 o, d;
-  float tmin, tmax, contribution; // TODO: why need tmin?
+  double tmin, tmax; 
+	float contribution; // TODO: why need tmin?
 };
 
 struct Primitive {
-  virtual Primitive* intersect(Ray& ray, float& t, vec3& normal, bool modify_ray = true) = 0;
+  virtual Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray = true) = 0;
 	virtual ~Primitive(){}
 	const BSDF* bsdf;
 };
@@ -34,7 +35,7 @@ struct Triangle : public Primitive {
   float plane_k;
 	float area;
 
-  Primitive* intersect(Ray& ray, float& t, vec3& normal, bool modify_ray);
+  Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray);
 
 	vec3 sample_point() const;
 
@@ -52,5 +53,5 @@ struct Sphere : public Primitive {
 	vec3 center;
 	float r;
 
-  Primitive* intersect(Ray& ray, float& t, vec3& normal, bool modify_ray);
+  Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray);
 };

@@ -19,7 +19,7 @@ Triangle::Triangle(
   // precompute true normal and distance to origin
   vec3 u = normalize(vertices[1] - vertices[0]);
   vec3 v = normalize(vertices[2] - vertices[0]);
-  if (dot(u, v) > 1.0f - 0.1f * EPS_F) { // if unfortunately picked a very sharp angle
+  if (dot(u, v) > 1.0f - 0.1f * EPSILON) { // if unfortunately picked a very sharp angle
     u = normalize(vertices[2] - vertices[1]);
     v = normalize(vertices[0] - vertices[1]);
   }
@@ -50,15 +50,15 @@ Triangle::Triangle(
   bsdf = _bsdf;
 }
 
-Primitive* Triangle::intersect(Ray& ray, float& t, vec3& normal, bool modify_ray = true) {
+Primitive* Triangle::intersect(Ray& ray, double& t, vec3& normal, bool modify_ray = true) {
   // ray parallel to plane
   float d_dot_n = dot(ray.d, plane_n);
   if (abs(d_dot_n) == 0.0f) return nullptr;
   // intersection out of range
-  float _t = (plane_k - dot(ray.o, plane_n)) / d_dot_n;
+  double _t = (plane_k - dot(ray.o, plane_n)) / d_dot_n;
   if (_t < ray.tmin || _t > ray.tmax) return nullptr;
 
-  vec3 p = ray.o + _t * ray.d;
+  vec3 p = ray.o + float(_t) * ray.d;
   // barycentric coordinate with axes v[1] - v[0], v[2] - v[0]
   vec3 p0 = p - vertices[0];
 #if USE_INTERPOLATED_NORMAL // barycentric coords
@@ -66,7 +66,7 @@ Primitive* Triangle::intersect(Ray& ray, float& t, vec3& normal, bool modify_ray
   float u = dot(p0, enormals[0]) / dot(vertices[2] - vertices[0], enormals[0]);
   float v = dot(p0, enormals[2]) / dot(vertices[1] - vertices[0], enormals[2]);
   if (u < 0 || v < 0 || u + v > 1) return nullptr;
-#else // test sides for each edge. Gives wrong uv though.
+#else // test sides for each edge
   // other early outs: intersection not in triangle TODO: precompute some of these
   if (dot(p - vertices[0], enormals[0]) < 0) return nullptr;
   if (dot(p - vertices[1], enormals[1]) < 0) return nullptr;
@@ -104,24 +104,24 @@ Sphere::~Sphere() {
 	delete bsdf;
 }
 
-Primitive* Sphere::intersect(Ray& ray, float& t, vec3& normal, bool modify_ray = true) {
+Primitive* Sphere::intersect(Ray& ray, double& t, vec3& normal, bool modify_ray = true) {
 	vec3 p = ray.o - center;
 	float r2 = r * r;
 	// a = 1
 	float b = 2 * dot(p, ray.d);
 	float c = dot(p, p) - r2;
-	float delta = b * b - 4 * c;
+	float det = b * b - 4 * c;
 
-	if (delta < 0) return nullptr; // no intersection
+	if (det < 0) return nullptr; // no intersection
 
-	float rt_delta = sqrt(delta);
-	float t_tmp = 0.5f * (-b - rt_delta); // t1
-	if (t_tmp < ray.tmin || t_tmp > ray.tmax) t_tmp = 0.5f * (-b + rt_delta); // t2
+	double rt_det = sqrt(det);
+	double t_tmp = 0.5f * (-b - rt_det); // t1
+	if (t_tmp < ray.tmin || t_tmp > ray.tmax) t_tmp = 0.5f * (-b + rt_det); // t2
 	if (t_tmp < ray.tmin || t_tmp > ray.tmax) return nullptr; // intersection(s) not valid
 
 	// outputs
 	t = t_tmp;
 	if (modify_ray) ray.tmax = t_tmp;
-	normal = normalize(ray.o + t * ray.d - center);
+	normal = normalize(ray.o + float(t) * ray.d - center);
 	return this;
 }

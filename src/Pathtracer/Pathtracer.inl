@@ -2,9 +2,9 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 16
-#define RAYS_PER_PIXEL 16
+#define RAYS_PER_PIXEL 256
 #define AREA_LIGHT_SAMPLES 2
-#define USE_DIRECT_LIGHT 1
+#define USE_DIRECT_LIGHT 0
 
 #define RR_THRESHOLD 0.08f
 
@@ -103,9 +103,9 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
   // info of closest hit
 	Primitive* primitive = nullptr;
   const BSDF* bsdf = nullptr;
-  float t; vec3 n;
+  double t; vec3 n;
   for (size_t i = 0; i < primitives.size(); i++) {
-    Primitive* prim_tmp = primitives[i]->intersect(ray, t, n);
+    Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
     if (prim_tmp) {
 			primitive = prim_tmp;
 			bsdf = primitive->bsdf;
@@ -133,17 +133,17 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		if (!bsdf->is_delta) {
 			for (size_t i = 0; i < lights.size(); i++) {
 
-				// Area lights
+				// Mesh lights
 				AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
 				if (area_light) {
 					for (size_t j = 0; j < AREA_LIGHT_SAMPLES; j++) {
 
 						// get ray to light
 						Ray ray_to_light;
-						float pdf = area_light->ray_to_light_pdf(ray_to_light, ray.o + t*ray.d);
+						float pdf = area_light->ray_to_light_pdf(ray_to_light, ray.o + float(t)*ray.d);
 
 						// test if ray to light hits anything other than the starting primitive and the light
-						float tmp_t; vec3 tmp_n;
+						double tmp_t; vec3 tmp_n;
 						bool in_shadow = false;
 						for (size_t j = 0; j < primitives.size(); j++) {
 							Primitive* hit_prim = primitives[j]->intersect(ray_to_light, tmp_t, tmp_n, false);
@@ -154,7 +154,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 						if (!in_shadow) {
 							vec3 wi = w2h * ray_to_light.d;
 							vec3 wo = -w2h * ray.d;
-							// NOTE: funny how spheres can technically cast self shadows, but this cosine theta gives the same effect
+							// NOTE: funny how spheres can technically cast self shadows but this cosine gives the same effect
+							// Thanks convexity?
 							float costheta_p = std::max(0.0f, dot(n, ray_to_light.d));
 							vec3 L_direct = area_light->get_emission() * bsdf->f(wi, wo) * costheta_p / pdf;
 							if (isinf(L_direct.x) || isinf(L_direct.y) || isinf(L_direct.z)) L_direct = vec3(0);
@@ -169,7 +170,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		}
 #endif
 
-#if 0
+#if 1
 
 #if USE_DIRECT_LIGHT
 		if (!bsdf->is_emissive()) {
@@ -187,7 +188,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 			float costheta = abs(dot(n, wi)); 
 
 			if (debug) {
-				vec3 hit = ray.o + t*ray.d;
+				vec3 hit = ray.o + float(t)*ray.d;
 				LOGF("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit.x, hit.y, hit.z);
 				LOGF("wo: %f %f %f (normalized to %f %f %f)", 
 						-ray.d.x, -ray.d.y, -ray.d.z, wo_hemi.x, wo_hemi.y, wo_hemi.z);
@@ -206,8 +207,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 			// recursive step: trace scattered ray in wi direction (if not terminated by RR)
 			vec3 Li = vec3(0);
 			if (!terminate) {
-				vec3 refl_o_offset = dot(wi,n)>0 ? n * EPSILON : -n * EPSILON; // offset to the side of wi
-				Ray ray_refl(ray.o + t*ray.d + refl_o_offset, wi);
+				vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
+				Ray ray_refl(ray.o + float(t)*ray.d + refl_offset, wi); // alright I give up for now...
 				// if it has some termination probability, weigh it more if it's not terminated
 				Li = trace_ray(ray_refl, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));
 			}
