@@ -2,11 +2,11 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 16
-#define RAYS_PER_PIXEL 32
+#define RAYS_PER_PIXEL 4
 #define AREA_LIGHT_SAMPLES 2
 #define USE_DIRECT_LIGHT 1
 
-#define RR_THRESHOLD 0.08f
+#define RR_THRESHOLD 0.05f
 
 std::vector<Ray> Pathtracer::generate_rays(size_t index) {
   size_t w = index % width;
@@ -140,7 +140,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 
 						// get ray to light
 						Ray ray_to_light;
-						// pdf in [0, INF)
+						// in this case not a real pdf, but just something to divide by?
 						float pdf = area_light->ray_to_light_pdf(ray_to_light, ray.o + float(t)*ray.d);
 
 						// test if ray to light hits anything other than the starting primitive and the light

@@ -7,9 +7,9 @@
 #include "Light.hpp"
 #include <chrono>
 
-#define DEBUG 1
+#define DEBUG 0
 #define NUM_THREADS 8
-#define MULTITHREADED 1
+#define MULTITHREADED 0
 
 Pathtracer::Pathtracer(
   size_t _width, 
