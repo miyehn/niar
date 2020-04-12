@@ -85,24 +85,26 @@ bool Camera::handle_event(SDL_Event event) {
 // Never really got how camera rotation control works but gonna settle for now...
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
-mat4 Camera::world_to_camera_rotation() {
-  return rotate(mat4(1), -roll, vec3(0, 1, 0)) *
+mat3 Camera::world_to_camera_rotation() {
+	mat4 m4 = rotate(mat4(1), -roll, vec3(0, 1, 0)) *
          rotate(mat4(1), -pitch, vec3(1, 0, 0)) * 
          rotate(mat4(1), -yaw, vec3(0, 0, 1));
+	return mat3(m4);
 }
 
 mat4 Camera::world_to_camera() {
-  return world_to_camera_rotation() * translate(mat4(1), -position);
+  return mat4(world_to_camera_rotation()) * translate(mat4(1), -position);
 }
 
-mat4 Camera::camera_to_world_rotation() {
-  return rotate(mat4(1), yaw, vec3(0, 0, 1)) *
+mat3 Camera::camera_to_world_rotation() {
+	mat4 m4 = rotate(mat4(1), yaw, vec3(0, 0, 1)) *
          rotate(mat4(1), pitch, vec3(1, 0, 0)) *
          rotate(mat4(1), roll, vec3(0, 1, 0));
+	return mat3(m4);
 }
 
 mat4 Camera::camera_to_world() {
-  return translate(mat4(1), position) * camera_to_world_rotation();
+  return translate(mat4(1), position) * mat4(camera_to_world_rotation());
 }
 
 mat4 Camera::world_to_clip() {
@@ -111,15 +113,15 @@ mat4 Camera::world_to_clip() {
 }
 
 vec3 Camera::right() {
-  return vec3(camera_to_world_rotation() * vec4(1, 0, 0, 1));
+  return camera_to_world_rotation() * vec3(1, 0, 0);
 }
 
 vec3 Camera::up() {
-  return vec3(camera_to_world_rotation() * vec4(0, 1, 0, 1));
+  return camera_to_world_rotation() * vec3(0, 1, 0);
 }
 
 vec3 Camera::forward() {
-  return vec3(camera_to_world_rotation() * vec4(0, 0, -1, 1));
+  return camera_to_world_rotation() * vec3(0, 0, -1);
 }
 
 void Camera::lock() {

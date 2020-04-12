@@ -27,14 +27,13 @@ struct Camera : Updatable {
   float aspect_ratio;
 
   // can move & rotate camera?
-  bool locked;
   void lock();
   void unlock();
 
   // functions
-  mat4 world_to_camera_rotation();
+  mat3 world_to_camera_rotation();
   mat4 world_to_camera();
-  mat4 camera_to_world_rotation();
+  mat3 camera_to_world_rotation();
   mat4 camera_to_world();
 
   mat4 world_to_clip();
@@ -46,5 +45,5 @@ struct Camera : Updatable {
 private:
   int prev_mouse_x;
   int prev_mouse_y;
-
+  bool locked;
 };

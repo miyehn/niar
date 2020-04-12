@@ -12,8 +12,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
   blend = false; // NOTE: see no reason why this should be enabled for 3D scenes 
 
   // fill / wireframe (/ point)
-  fill_effective_polygon = GL_FRONT_AND_BACK; // GL_FRONT_AND_BACK | GL_BACK | GL_FRONT
-  fill_mode = GL_LINE; // GL_FILL | GL_LINE | GL_POINT
+  fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
   
 }
 
@@ -36,7 +35,7 @@ void Scene::draw() {
   else glDisable(GL_BLEND);
 
   // fill mode
-  glPolygonMode(fill_effective_polygon, fill_mode);
+  glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
 
   // actually draw objects
   Drawable::draw();

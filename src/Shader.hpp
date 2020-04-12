@@ -22,34 +22,21 @@ struct Shader {
 
   //--------
 
-  void set_bool(const std::string &name, bool value) const {       
-    glUniform1i(uniform_loc(name), (int)value); 
-  }
+  void set_bool(const std::string &name, bool value) const;
 
-  void set_int(const std::string &name, int value) const {
-    glUniform1i(uniform_loc(name), value); 
-  }
+  void set_int(const std::string &name, int value) const;
 
-  void set_float(const std::string &name, float value) const { 
-    glUniform1f(uniform_loc(name), value); 
-  }
+  void set_float(const std::string &name, float value) const;
 
-  void set_vec2(const std::string &name, vec2 v) const { 
-    glUniform2f(uniform_loc(name), v.x, v.y); 
-  }
+  void set_vec2(const std::string &name, vec2 v) const;
 
-  void set_vec3(const std::string &name, vec3 v) const { 
-    glUniform3f(uniform_loc(name), v.x, v.y, v.z); 
-  }
+  void set_vec3(const std::string &name, vec3 v) const;
 
-  void set_vec4(const std::string &name, vec4 v) const { 
-    glUniform4f(uniform_loc(name), v.x, v.y, v.z, v.w); 
-  }
+  void set_vec4(const std::string &name, vec4 v) const;
 
-  void set_mat4(const std::string &name, mat4 mat) const {
-		//if (uniform_loc(name)==0) LOG("not found");
-    glUniformMatrix4fv(uniform_loc(name), 1, GL_FALSE, value_ptr(mat));
-  }
+  void set_mat3(const std::string &name, mat3 mat) const;
+
+  void set_mat4(const std::string &name, mat4 mat) const;
 
   void set_tex2D(uint texture_unit, uint texture_id);
 

@@ -66,6 +66,8 @@ void Program::setup() {
 	for (int i=0; i<meshes.size(); i++) { // 4 is floor
 		Mesh* mesh = meshes[i];
 		mesh->shader.set_parameters = [mesh](){
+			mat3 OBJECT_TO_CAM_ROT = mesh->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
+			mesh->shader.set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
 			mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
 			mesh->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
 		};
@@ -81,6 +83,8 @@ void Program::setup() {
   meshes = Mesh::LoadMeshes("../media/cornell_light.dae");
 	Mesh* light = meshes[0];
   light->shader.set_parameters = [light]() {
+		mat3 OBJECT_TO_CAM_ROT = light->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
+		light->shader.set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
     mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * light->object_to_world();
     light->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
@@ -110,6 +114,7 @@ void Program::setup() {
   Pathtracer::Instance->load_scene(*scene);
 
 #if 0
+	// the two spheres (classical cornell box)
 	BSDF* sphere_bsdf_1 = new Mirror();
 	Pathtracer::Instance->primitives.emplace_back(
 			static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));

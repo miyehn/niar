@@ -153,14 +153,6 @@ Shader::Shader(
 
 }
 
-void Shader::set_tex2D(uint texture_unit, uint texture_id) {
-  glActiveTexture(GL_TEXTURE0 + texture_unit);
-  glBindTexture(GL_TEXTURE_2D, texture_id);
-  glActiveTexture(GL_TEXTURE0);
-#if DEBUG
-  GL_ERRORS();
-#endif
-}
 
 uint Shader::uniform_loc(const std::string& uniformName) const {
   uint location = glGetUniformLocation(id, uniformName.c_str());
@@ -168,4 +160,45 @@ uint Shader::uniform_loc(const std::string& uniformName) const {
     WARN("unable to find location for uniform \"%s\"", uniformName.c_str());
   }
   return location;
+}
+
+void Shader::set_bool(const std::string &name, bool value) const {       
+	glUniform1i(uniform_loc(name), (int)value); 
+}
+
+void Shader::set_int(const std::string &name, int value) const {
+	glUniform1i(uniform_loc(name), value); 
+}
+
+void Shader::set_float(const std::string &name, float value) const { 
+	glUniform1f(uniform_loc(name), value); 
+}
+
+void Shader::set_vec2(const std::string &name, vec2 v) const { 
+	glUniform2f(uniform_loc(name), v.x, v.y); 
+}
+
+void Shader::set_vec3(const std::string &name, vec3 v) const { 
+	glUniform3f(uniform_loc(name), v.x, v.y, v.z); 
+}
+
+void Shader::set_vec4(const std::string &name, vec4 v) const { 
+	glUniform4f(uniform_loc(name), v.x, v.y, v.z, v.w); 
+}
+
+void Shader::set_mat3(const std::string &name, mat3 mat) const {
+	glUniformMatrix3fv(uniform_loc(name), 1, GL_FALSE, value_ptr(mat));
+}
+
+void Shader::set_mat4(const std::string &name, mat4 mat) const {
+	glUniformMatrix4fv(uniform_loc(name), 1, GL_FALSE, value_ptr(mat));
+}
+
+void Shader::set_tex2D(uint texture_unit, uint texture_id) {
+  glActiveTexture(GL_TEXTURE0 + texture_unit);
+  glBindTexture(GL_TEXTURE_2D, texture_id);
+  glActiveTexture(GL_TEXTURE0);
+#if DEBUG
+  GL_ERRORS();
+#endif
 }

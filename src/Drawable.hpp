@@ -36,6 +36,10 @@ struct Drawable: public Updatable {
   mat4 object_to_world();
   mat4 parent_to_object();
   mat4 world_to_object();
+	
+	mat3 object_to_world_rotation();
+	mat3 world_to_object_rotation();
+
   vec3 world_position();
 
   vec3 local_position;

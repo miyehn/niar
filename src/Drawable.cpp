@@ -92,6 +92,15 @@ mat4 Drawable::parent_to_object() {
   );
 }
 
+mat3 Drawable::object_to_world_rotation() {
+	if (!parent) return mat3_cast(rotation);
+	return mat3_cast(rotation) * parent->object_to_world_rotation();
+}
+
+mat3 Drawable::world_to_object_rotation() {
+	return transpose(object_to_world_rotation());
+}
+
 mat4 Drawable::world_to_object() {
   if (parent) return parent_to_object() * parent->world_to_object();
   else return parent_to_object();
