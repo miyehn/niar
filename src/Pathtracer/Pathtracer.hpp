@@ -60,7 +60,7 @@ struct RaytraceThread {
 
 	std::atomic<bool> finished;
 	std::atomic<Status> status;
-	int tile_index; // protected by m as well as the tile buffer
+	int tile_index; // protected by m just like the tile buffer
 
 };
 
@@ -100,11 +100,17 @@ struct Pathtracer : public Drawable {
 	std::vector<Light*> lights;
   void load_scene(const Scene& scene);
 
+	std::vector<vec2> pixel_offsets;
+	void generate_pixel_offsets();
+
   void generate_rays(std::vector<Ray>& rays, size_t index);
   vec3 raytrace_pixel(size_t index);
 	void raytrace_debug(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
   vec3 trace_ray(Ray& ray, int ray_depth, bool debug);
+
+	// for debug
+	std::vector<vec3> logged_rays;
 
 	//---- threading stuff ----
 
@@ -124,6 +130,10 @@ struct Pathtracer : public Drawable {
 	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
 
   uint texture, vbo, vao;
+
+	// for debug
+	Shader loggedrays_shader;
+	uint loggedrays_vbo, loggedrays_vao;
 
 };
 

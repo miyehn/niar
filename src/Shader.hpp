@@ -47,6 +47,7 @@ struct Shader {
   }
 
   void set_mat4(const std::string &name, mat4 mat) const {
+		//if (uniform_loc(name)==0) LOG("not found");
     glUniformMatrix4fv(uniform_loc(name), 1, GL_FALSE, value_ptr(mat));
   }
 

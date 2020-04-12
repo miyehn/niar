@@ -61,11 +61,11 @@ bool BSDF::compute_is_emissive() const {
 	return dot(Le, Le) >= EMISSIVE_THRESHOLD;
 }
 
-vec3 Diffuse::f(const vec3& wi, const vec3& wo) const {
+vec3 Diffuse::f(const vec3& wi, const vec3& wo, bool debug) const {
   return albedo * ONE_OVER_PI;
 }
 
-vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo) const {
+vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 #if USE_COS_WEIGHED
   wi = sample::hemisphere_cos_weighed();
 	pdf = wi.z * ONE_OVER_PI;
@@ -73,25 +73,25 @@ vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo) const {
   wi = sample::hemisphere_uniform();
 	pdf = ONE_OVER_TWO_PI;
 #endif
-	return f(wi, wo);
+	return f(wi, wo, debug);
 }
 
-vec3 Mirror::f(const vec3& wi, const vec3& wo) const {
+vec3 Mirror::f(const vec3& wi, const vec3& wo, bool debug) const {
 	return vec3(0.0f);
 }
 
-vec3 Mirror::sample_f(float& pdf, vec3& wi, vec3 wo) const {
+vec3 Mirror::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 	wi = -wo;
 	wi.z = wo.z;
 	pdf = 1.0f;
 	return albedo * (1.0f / wi.z);
 }
 
-vec3 Glass::f(const vec3& wi, const vec3& wo) const {
+vec3 Glass::f(const vec3& wi, const vec3& wo, bool debug) const {
 	return vec3(0.0f);
 }
 
-vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
+vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 	// will treat wo as in direction and wi as out direction, since it's bidirectional
 
 	bool trace_out = wo.z < 0; // the direction we're going to trace is into the medium
@@ -99,6 +99,7 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 	// IOR, assume container medium is air
 	float ni = trace_out ? IOR : 1.0f;
 	float nt = trace_out ? 1.0f : IOR;
+	if (debug) LOGF("ni: %f, nt: %F", ni, nt);
 
 	float cos_theta_i = abs(wo.z);
 	float sin_theta_i = sqrt(1.0f - pow(cos_theta_i, 2));
@@ -107,10 +108,11 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 	float cos_sq_theta_t = 1.0f - pow(ni/nt, 2) * (1.0f - wo.z * wo.z);
 	bool TIR = cos_sq_theta_t < 0;
 	if (TIR) { // total internal reflection
+		if (debug) LOG("TIR");
 		wi = -wo;
 		wi.z = wo.z;
 		pdf = 1.0f;
-		return albedo * (1.0f / wi.z);
+		return albedo * (1.0f / abs(wi.z));
 	}
 	
 	// then use angles to find reflectance
@@ -120,12 +122,14 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo) const {
 	// flip a biased coin to decide whether to reflect or refract
 	bool reflect = sample::rand01() <= reflectance;
 	if (reflect) {
+		if (debug) LOG("reflect");
 		wi = -wo;
 		wi.z = wo.z;
 		pdf = reflectance;
 		return albedo * (reflectance / cos_theta_i);
 
 	} else { // refract
+		if (debug) LOG("refract")
 		// remember we treat wi as "out direction"
 		float cos_theta_t = sqrt(cos_sq_theta_t);
 		float sin_theta_t = sqrt(1.0f - cos_sq_theta_t);

@@ -38,8 +38,8 @@ struct BSDF {
    * wo: light outgoing dir (input)
    * n: normal of the hit surface (input)
    */
-  virtual vec3 f(const vec3& wi, const vec3& wo) const = 0;
-	virtual vec3 sample_f(float& pdf, vec3& wi, vec3 wo) const = 0;
+  virtual vec3 f(const vec3& wi, const vec3& wo, bool debug = false) const = 0;
+	virtual vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug = false) const = 0;
 
 protected:
   // emission
@@ -54,8 +54,8 @@ struct Diffuse : public BSDF {
     albedo = _albedo;
 		set_emission(vec3(0));
   }
-  vec3 f(const vec3& wi, const vec3& wo) const;
-	vec3 sample_f(float& pdf, vec3& wi, vec3 wo) const;
+  vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
+	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
 };
 
 struct Mirror : public BSDF {
@@ -64,8 +64,8 @@ struct Mirror : public BSDF {
     albedo = vec3(1);
 		set_emission(vec3(0));
   }
-  vec3 f(const vec3& wi, const vec3& wo) const;
-	vec3 sample_f(float& pdf, vec3& wi, vec3 wo) const;
+  vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
+	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
 };
 
 struct Glass : public BSDF {
@@ -75,6 +75,6 @@ struct Glass : public BSDF {
 		albedo = vec3(1);
 		set_emission(vec3(0));
 	}
-  vec3 f(const vec3& wi, const vec3& wo) const;
-	vec3 sample_f(float& pdf, vec3& wi, vec3 wo) const;
+  vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
+	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
 };

@@ -9,20 +9,23 @@
 
 #define DEBUG 0
 #define NUM_THREADS 8
-#define MULTITHREADED 0
+#define MULTITHREADED 1
+#define SMALL_WINDOW 0
 
 Pathtracer::Pathtracer(
   size_t _width, 
   size_t _height, 
   std::string _name
-  ) : width(_width), 
-      height(_height), 
-      Drawable(nullptr, _name) {
+  ) : Drawable(nullptr, _name) {
 
-#if 0 // small window
+#if SMALL_WINDOW // small window
+	width = _width / 2;
+	height = _height / 2;
   float min_x = -0.96f; float min_y = -0.96f;
   float max_x = 0.0f; float max_y = 0.0f;
 #else // full window
+	width = _width;
+	height = _height;
   float min_x = -1.0f; float min_y = -1.0f;
   float max_x = 1.0f; float max_y = 1.0f;
 #endif
@@ -97,7 +100,61 @@ Pathtracer::Pathtracer(
   }
   glBindTexture(GL_TEXTURE_2D, 0);
 
+	// and for debug draw
+	loggedrays_shader = Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
+	loggedrays_shader.set_parameters = [this](){
+		loggedrays_shader.set_mat4("WORLD_TO_CLIP", Camera::Active->world_to_clip());
+	};
+	glGenBuffers(1, &loggedrays_vbo);
+	glGenVertexArrays(1, &loggedrays_vao);
+	glBindVertexArray(loggedrays_vao);
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
+    glVertexAttribPointer(
+        0, // atrib index
+        3, // num of data elems
+        GL_FLOAT, // data type
+        GL_FALSE, // normalized
+        3 * sizeof(float), // stride size
+        (void*)0); // offset in bytes since stride start
+    glEnableVertexAttribArray(0);
+	}
+	glBindVertexArray(0);
+#if DEBUG
+	GL_ERRORS();
+#endif
+
+#if MULTITHREADED
+  //------- -- threading ---------------
+	// define work for raytrace threads
+	auto task = [this](int tid) {
+		while (true) {
+			std::unique_lock<std::mutex> lock(threads[tid]->m);
+
+			// wait until main thread says it's okay to keep working
+			threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
+
+			// it now owns the lock, and main thread messaged it's okay to start tracing
+			size_t tile;
+			// try to get next tile to work on
+			if (raytrace_tasks.dequeue(tile)) {
+				threads[tid]->status = RaytraceThread::working;
+				threads[tid]->tile_index = tile;
+				raytrace_tile(tid, tile);
+				threads[tid]->status = RaytraceThread::pending_upload;
+			} else {
+				threads[tid]->status = RaytraceThread::all_done;
+				break;
+			}
+			
+		}
+	};
+
+	for (size_t i=0; i<num_threads; i++) {
+		threads.push_back(new RaytraceThread(task, i));
+	}
   //------------------------------------
+#endif
 
   reset();
 }
@@ -106,8 +163,13 @@ Pathtracer::~Pathtracer() {
   glDeleteTextures(1, &texture);
   glDeleteBuffers(1, &vbo);
   glDeleteVertexArrays(1, &vao);
+  glDeleteBuffers(1, &loggedrays_vbo);
+  glDeleteVertexArrays(1, &loggedrays_vao);
   delete image_buffer;
-	for (size_t i=0; i<num_threads; i++) delete subimage_buffers[i];
+	for (size_t i=0; i<num_threads; i++) {
+		delete subimage_buffers[i];
+		// TODO: cleanup the threads in a more elegant way instead of being forced terminated?
+	}
 	delete subimage_buffers;
 
 	for (auto l : lights) delete l;
@@ -199,47 +261,22 @@ void Pathtracer::reset() {
   paused = true;
 	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
-	raytrace_tasks.clear();
+	generate_pixel_offsets();
 	
+#if MULTITHREADED
 	//-------- threading stuff --------
-	
+	raytrace_tasks.clear();
+	// reset thread status
+	for (size_t i=0; i < threads.size(); i++) {
+		threads[i]->status = RaytraceThread::uninitialized;
+	}
 	// enqueue all tiles
 	for (size_t i=0; i < tiles_X * tiles_Y; i++) {
 		raytrace_tasks.enqueue(i);
 	}
-	
-	// define work for raytrace threads
-	auto task = [this](int tid) {
-		while (true) {
-			std::unique_lock<std::mutex> lock(threads[tid]->m);
-
-			// wait until main thread says it's okay to keep working
-			threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
-
-			// try to get next tile to work on
-			size_t tile;
-			if (raytrace_tasks.dequeue(tile)) {
-				// it now owns the lock, and main thread messaged it's okay to start tracing
-				threads[tid]->status = RaytraceThread::working;
-				threads[tid]->tile_index = tile;
-				raytrace_tile(tid, tile);
-				threads[tid]->status = RaytraceThread::pending_upload;
-			} else {
-				threads[tid]->status = RaytraceThread::all_done;
-				break;
-			}
-			
-		}
-	};
-
-	// start threads
-	threads.clear(); // TODO: what if not first time reset? (join them at some point before this?
-	for (size_t i=0; i<num_threads; i++) {
-		threads.push_back(new RaytraceThread(task, i));
-	}
-
 	//---------------------------------
-	
+#endif
+
   upload_rows(0, height);
 }
 
@@ -386,28 +423,33 @@ void Pathtracer::update(float elapsed) {
 
 void Pathtracer::draw() {
 	
+	//---- draw the image buffer first ----
 	// set fill
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
   // set shader
   glUseProgram(shader.id);
-
   // pass uniforms
   shader.set_parameters();
-
   // draw stuff
   glBindVertexArray(vao);
   glDrawArrays(GL_TRIANGLES, 0, 6);
-  glBindVertexArray(0);
 
+	//---- then draw the logged rays ----
+  glDisable(GL_DEPTH_TEST); // TODO: make this a state push & pop
+	glUseProgram(loggedrays_shader.id);
+	loggedrays_shader.set_parameters();
+	glBindVertexArray(loggedrays_vao);
+	glDrawArrays(GL_LINE_STRIP, 0, logged_rays.size());
+
+  glBindVertexArray(0);
   glUseProgram(0);
+	glEnable(GL_DEPTH_TEST);
 #if DEBUG
   GL_ERRORS();
 #endif
 
   Drawable::draw();
 }
-
 
 // file that contains the actual pathtracing meat
 #include "Pathtracer.inl"

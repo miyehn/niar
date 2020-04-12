@@ -2,11 +2,47 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 16
-#define RAYS_PER_PIXEL 4 // for profile: 4
+#define MIN_RAYS_PER_PIXEL 64 // for profile: 4
+#define USE_JITTERED_SAMPLING 1
 #define AREA_LIGHT_SAMPLES 2
 #define USE_DIRECT_LIGHT 1
 
 #define RR_THRESHOLD 0.05f
+
+void Pathtracer::generate_pixel_offsets() {
+	pixel_offsets.clear();
+	size_t sqk = std::ceil(sqrt(MIN_RAYS_PER_PIXEL));
+	size_t num_offsets = pow(sqk, 2);
+	TRACEF("generating %d pixel offsets", num_offsets);
+	
+	// canonical arrangement
+	for (int j=0; j<sqk; j++) {
+    for (int i=0; i<sqk; i++) {
+			vec2 p;
+      p.x = (i + (j + sample::rand01()) / sqk) / sqk;
+      p.y = (j + (i + sample::rand01()) / sqk) / sqk;
+			pixel_offsets.push_back(p);
+    }
+  }
+	// shuffle canonical arrangement
+	for (int j=0; j<sqk; j++) {
+    int k = std::floor(j + sample::rand01() * (sqk - j));
+    for (int i=0; i<sqk; i++) {
+      float tmp = pixel_offsets[j*sqk + i].x;
+      pixel_offsets[j*sqk + i].x = pixel_offsets[k*sqk + i].x;
+      pixel_offsets[k*sqk + i].x = tmp;
+    }
+  }
+	for (int i=0; i<sqk; i++) {
+    int k = floor(i + sample::rand01() * (sqk - i));
+    for (int j=0; j<sqk; j++) {
+      float tmp = pixel_offsets[j*sqk + i].y;
+      pixel_offsets[j*sqk + i].y = pixel_offsets[j*sqk + k].y;
+      pixel_offsets[j*sqk + k].y = tmp;
+    }
+  }
+
+}
 
 void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 	rays.clear();
@@ -24,10 +60,14 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 	ray.o = Camera::Active->position;
 	ray.tmin = 0.0;
 	ray.tmax = INF;
-
-	for (int i = 0; i < RAYS_PER_PIXEL; i++) {
-		// dx, dy: deviation from canvas center, normalized to range [-1, 1]
+#if USE_JITTERED_SAMPLING
+	for (int i = 0; i < pixel_offsets.size(); i++) {
+		vec2 offset = pixel_offsets[i];//sample::unit_square_uniform();
+#else
+	for (int i = 0; i < MIN_RAYS_PER_PIXEL; i++) {
 		vec2 offset = sample::unit_square_uniform();
+#endif
+		// dx, dy: deviation from canvas center, normalized to range [-1, 1]
 		float dx = (w + offset.x - half_width) / half_width;
 		float dy = (h + offset.y - half_height) / half_height;
 
@@ -54,6 +94,9 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 
 // DEBUG ONLY!!!
 void Pathtracer::raytrace_debug(size_t index) {
+	logged_rays.clear();
+	logged_rays.push_back(Camera::Active->position);
+
   size_t w = index % width;
   size_t h = index / width;
 	Ray ray;
@@ -77,7 +120,12 @@ void Pathtracer::raytrace_debug(size_t index) {
 
 	vec3 color = trace_ray(ray, 0, true);
 	LOGF("result color: %f %f %f", color.x, color.y, color.z);
-	LOG("---------------------");
+	
+	// upload ray vertices
+	glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
+	glBufferData(GL_ARRAY_BUFFER, logged_rays.size()*sizeof(vec3), logged_rays.data(), GL_STREAM_DRAW);
+
+	LOG("--------------------------------------");
 }
 
 void make_h2w(mat3& h2w, const vec3& z) { // TODO: make more robust
@@ -92,7 +140,7 @@ void make_h2w(mat3& h2w, const vec3& z) { // TODO: make more robust
 }
 
 // see: https://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
-float brightness(const vec3& color) {
+inline float brightness(const vec3& color) {
 	return 0.2989f * color.r + 0.587f * color.g + 0.114 * color.b;
 }
 
@@ -116,6 +164,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		// pre-compute (or declare) some common things to be used later
     vec3 L = vec3(0);
 		vec3 hit_p = ray.o + float(t) * ray.d;
+		if (debug) logged_rays.push_back(hit_p);
 		// construct transform from hemisphere space to world space;
 		mat3 h2w; 
 		make_h2w(h2w, n);
@@ -137,7 +186,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 #endif
 
 
-#if 1//USE_DIRECT_LIGHT
+#if USE_DIRECT_LIGHT
 		//---- direct light contribution ----
 		if (!bsdf->is_delta) {
 			for (size_t i = 0; i < lights.size(); i++) {
@@ -192,15 +241,18 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 #else
 		if (1) {
 #endif
+			if (debug) {
+				LOGF("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
+			}
+
 			float pdf;
-			vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi);
+			vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi, debug);
 
 			// transform wi back to world space
 			wi_world = h2w * wi_hemi;
 			costhetai = abs(dot(n, wi_world)); 
 
 			if (debug) {
-				LOGF("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
 				LOGF("wo: %f %f %f (normalized to %f %f %f)", 
 						wo_world.x, wo_world.y, wo_world.z, wo_hemi.x, wo_hemi.y, wo_hemi.z);
 				LOGF("wi: %f %f %f (normalized to %f %f %f)", 
@@ -225,6 +277,8 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 #endif
 				// if it has some termination probability, weigh it more if it's not terminated
 				Li = trace_ray(ray_refl, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));
+			} else if (debug) {
+				LOG("terminated by russian roulette");
 			}
 
 			L += Li * f * costhetai / pdf;
