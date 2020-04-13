@@ -1,14 +1,12 @@
 #pragma once
 #include "Drawable.hpp"
-#include <thread>
-#include <atomic>
-#include <condition_variable>
 #include <mutex>
 
 struct Scene;
 struct Ray;
 struct Primitive;
 struct Light;
+struct RaytraceThread;
 
 template <typename T>
 struct TaskQueue {
@@ -42,28 +40,6 @@ private:
 
 };
 
-struct RaytraceThread {
-
-	enum Status { uninitialized, working, pending_upload, ready_for_next, all_done };
-	
-	RaytraceThread(std::function<void(int)> work, int _tid) : tid(_tid) {
-		thread = std::thread(work, _tid);
-		finished = true;
-		tile_index = -1;
-		status = uninitialized;
-	}
-
-	int tid;
-	std::thread thread;
-	std::mutex m;
-	std::condition_variable cv;
-
-	std::atomic<bool> finished;
-	std::atomic<Status> status;
-	int tile_index; // protected by m just like the tile buffer
-
-};
-
 struct Pathtracer : public Drawable {
 
   static Pathtracer* Instance;
@@ -78,14 +54,11 @@ struct Pathtracer : public Drawable {
   virtual void update(float elapsed);
   virtual void draw();
 
-	size_t num_threads;
-
   // size for the pathtraced image - could be different from display window.
   size_t width, height;
 	size_t tile_size, tiles_X, tiles_Y;
-	size_t rendered_tiles;
 
-  // ray tracing state
+  // ray tracing state and control
   bool paused;
   void pause_trace();
   void continue_trace();
@@ -95,29 +68,43 @@ struct Pathtracer : public Drawable {
 
 	TimePoint last_begin_time;
 	float cumulative_render_time;
+	size_t rendered_tiles;
 
+	// scene
   std::vector<Primitive*> primitives;
 	std::vector<Light*> lights;
   void load_scene(const Scene& scene);
 
+	//---- pathtracing routine ----
+	
+	// multi-jittered sampling
 	std::vector<vec2> pixel_offsets;
 	void generate_pixel_offsets();
 
+	// depth of field
+	float aperture_radius;
+	float focal_distance;
+	float depth_of_first_hit(int x, int y);
+
+	// routine
+	void generate_one_ray(Ray& ray, int x, int y);
   void generate_rays(std::vector<Ray>& rays, size_t index);
   vec3 raytrace_pixel(size_t index);
-	void raytrace_debug(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
   vec3 trace_ray(Ray& ray, int ray_depth, bool debug);
 
-	// for debug
+	// for debug use
+	void raytrace_debug(size_t index);
 	std::vector<vec3> logged_rays;
 
 	//---- threading stuff ----
 
+	size_t num_threads;
+
 	std::vector<RaytraceThread*> threads;
 	TaskQueue<size_t> raytrace_tasks;
 
-  //---- buffer & opengl stuff ----
+  //---- buffers & opengl ----
 
   // an image buffer of size width * height * 3 (since it has rgb channels)
   unsigned char* image_buffer;

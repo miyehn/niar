@@ -2,10 +2,11 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 16
-#define MIN_RAYS_PER_PIXEL 64 // for profile: 4
+#define MIN_RAYS_PER_PIXEL 256 // for profile: 4
 #define USE_JITTERED_SAMPLING 1
 #define AREA_LIGHT_SAMPLES 2
 #define USE_DIRECT_LIGHT 1
+#define USE_DOF 1
 
 #define RR_THRESHOLD 0.05f
 
@@ -57,22 +58,35 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 	float k_x = k_y * Camera::Active->aspect_ratio;
 
 	Ray ray;
-	ray.o = Camera::Active->position;
-	ray.tmin = 0.0;
-	ray.tmax = INF;
 #if USE_JITTERED_SAMPLING
 	for (int i = 0; i < pixel_offsets.size(); i++) {
-		vec2 offset = pixel_offsets[i];//sample::unit_square_uniform();
+		vec2 offset = pixel_offsets[i];;
 #else
 	for (int i = 0; i < MIN_RAYS_PER_PIXEL; i++) {
 		vec2 offset = sample::unit_square_uniform();
 #endif
+		ray.o = Camera::Active->position;
+		ray.tmin = 0.0;
+		ray.tmax = INF;
+
 		// dx, dy: deviation from canvas center, normalized to range [-1, 1]
 		float dx = (w + offset.x - half_width) / half_width;
 		float dy = (h + offset.y - half_height) / half_height;
 
-		vec4 d_cam = vec4(normalize(vec3(k_x * dx, k_y * dy, -1)), 1);
-		ray.d = vec3(Camera::Active->camera_to_world_rotation() * d_cam);
+		vec3 d_unnormalized_c = vec3(k_x * dx, k_y * dy, -1);
+		vec3 d_unnormalized_w = Camera::Active->camera_to_world_rotation() * d_unnormalized_c;
+		ray.d = normalize(d_unnormalized_w);
+
+#if USE_DOF
+
+		vec3 focal_p = ray.o + focal_distance * d_unnormalized_w;
+
+		vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * aperture_radius, 0);
+		vec3 aperture_shift_world = Camera::Active->camera_to_world_rotation() * aperture_shift_cam;
+		ray.o = Camera::Active->position + aperture_shift_world;
+		ray.d = normalize(focal_p - ray.o);
+
+#endif
 
 		rays.push_back(ray);
 	}
@@ -97,26 +111,10 @@ void Pathtracer::raytrace_debug(size_t index) {
 	logged_rays.clear();
 	logged_rays.push_back(Camera::Active->position);
 
-  size_t w = index % width;
-  size_t h = index / width;
+  int w = index % width;
+  int h = index / width;
 	Ray ray;
-	ray.o = Camera::Active->position;
-	ray.tmin = 0.0f;
-	ray.tmax = INF;
-
-	float fov = Camera::Active->fov;
-	// dx, dy: deviation from canvas center, normalized to range [-1, 1]
-	vec2 offset = vec2(0.5f, 0.5f);
-	float half_width = float(width) / 2.0f;
-	float half_height = float(height) / 2.0f;
-	float dx = (w + offset.x - half_width) / half_width;
-	float dy = (h + offset.y - half_height) / half_height;
-	// the raytraced image plane is at plane z = -1. Supposed k is its size in half.
-	float k_y = tan(fov / 2.0f);
-	float k_x = k_y * Camera::Active->aspect_ratio;
-
-	vec4 d_cam = vec4(normalize(vec3(k_x * dx, k_y * dy, -1)), 1);
-	ray.d = vec3(Camera::Active->camera_to_world_rotation() * d_cam);
+	generate_one_ray(ray, w, h);
 
 	vec3 color = trace_ray(ray, 0, true);
 	LOGF("result color: %f %f %f", color.x, color.y, color.z);
@@ -126,6 +124,41 @@ void Pathtracer::raytrace_debug(size_t index) {
 	glBufferData(GL_ARRAY_BUFFER, logged_rays.size()*sizeof(vec3), logged_rays.data(), GL_STREAM_DRAW);
 
 	LOG("--------------------------------------");
+}
+
+void Pathtracer::generate_one_ray(Ray& ray, int x, int y) {
+	ray.o = Camera::Active->position;
+	ray.tmin = 0.0f;
+	ray.tmax = INF;
+
+	float fov = Camera::Active->fov;
+	// dx, dy: deviation from canvas center, normalized to range [-1, 1]
+	vec2 offset = vec2(0.5f, 0.5f);
+	float half_width = float(width) / 2.0f;
+	float half_height = float(height) / 2.0f;
+	float dx = (x + offset.x - half_width) / half_width;
+	float dy = (y + offset.y - half_height) / half_height;
+	// the raytraced image plane is at plane z = -1. Supposed k is its size in half.
+	float k_y = tan(fov / 2.0f);
+	float k_x = k_y * Camera::Active->aspect_ratio;
+
+	vec3 d_cam = normalize(vec3(k_x * dx, k_y * dy, -1));
+	ray.d = Camera::Active->camera_to_world_rotation() * d_cam;
+}
+
+float Pathtracer::depth_of_first_hit(int x, int y) {
+	Ray ray;
+	generate_one_ray(ray, x, y);
+	
+  // info of closest hit
+  double t; vec3 n;
+  for (size_t i = 0; i < primitives.size(); i++) {
+    primitives[i]->intersect(ray, t, n, true);
+  }
+
+	t *= dot(ray.d, Camera::Active->forward());
+
+	return float(t);
 }
 
 void make_h2w(mat3& h2w, const vec3& z) { // TODO: make more robust

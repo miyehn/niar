@@ -13,9 +13,14 @@ vec2 sample::unit_square_uniform() {
   return vec2(rand01(), rand01());
 }
 
-vec2 sample::unit_square_jittered() {
-	// TODO
-  return vec2(0);
+vec2 sample::unit_disc_uniform() {
+  float x = rand01() - 0.5f; 
+  float y = rand01() - 0.5f;  
+	while(length(vec2(x, y)) > 0.5f) {
+    x = rand01() - 0.5f;
+		y = rand01() - 0.5f;
+	}
+	return vec2(x, y) * 2.0f;
 }
 
 vec3 sample::hemisphere_uniform() {

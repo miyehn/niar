@@ -6,11 +6,37 @@
 #include "Primitive.hpp"
 #include "Light.hpp"
 #include <chrono>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
 
 #define DEBUG 0
 #define NUM_THREADS 8
 #define MULTITHREADED 1
 #define SMALL_WINDOW 0
+
+struct RaytraceThread {
+
+	enum Status { uninitialized, working, pending_upload, ready_for_next, all_done };
+	
+	RaytraceThread(std::function<void(int)> work, int _tid) : tid(_tid) {
+		thread = std::thread(work, _tid);
+		finished = true;
+		tile_index = -1;
+		status = uninitialized;
+	}
+
+	int tid;
+	std::thread thread;
+	std::mutex m;
+	std::condition_variable cv;
+
+	std::atomic<bool> finished;
+	std::atomic<Status> status;
+	int tile_index; // protected by m just like the tile buffer
+
+};
+
 
 Pathtracer::Pathtracer(
   size_t _width, 
@@ -32,6 +58,9 @@ Pathtracer::Pathtracer(
 
 	num_threads = NUM_THREADS;
 	tile_size = 16;
+
+	focal_distance = 500.0f;
+	aperture_radius = 8.0f;
 
 	tiles_X = std::ceil(float(width) / tile_size);
 	tiles_Y = std::ceil(float(height) / tile_size);
@@ -181,17 +210,28 @@ Pathtracer::~Pathtracer() {
 }
 
 bool Pathtracer::handle_event(SDL_Event event) {
-  if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_p) {
+  if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE) {
     if (paused) continue_trace();
     else pause_trace();
     return true;
+
   } else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
     reset();
+
   } else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
-		int x, y;
+		int x, y; // NOTE: y IS INVERSED!!!!!!!!!!!
 		SDL_GetMouseState(&x, &y);
-		size_t pixel_index = (height-y) * width + x;
-		raytrace_debug(pixel_index);
+		const uint8* state = SDL_GetKeyboardState(nullptr);
+
+		if (state[SDL_SCANCODE_LSHIFT]) {
+			size_t pixel_index = (height-y) * width + x;
+			raytrace_debug(pixel_index);
+
+		} else if (state[SDL_SCANCODE_LALT]) {
+			float d = depth_of_first_hit(x, height-y);
+			focal_distance = d;
+			TRACEF("setting focal distance to %f", d);
+		}
 	}
 
   return Drawable::handle_event(event);

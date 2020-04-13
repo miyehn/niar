@@ -7,7 +7,7 @@ float rand01();
 
 vec2 unit_square_uniform();
 
-vec2 unit_square_jittered();
+vec2 unit_disc_uniform();
 
 vec3 hemisphere_uniform();
 
