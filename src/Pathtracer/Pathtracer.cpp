@@ -5,15 +5,11 @@
 #include "BSDF.hpp"
 #include "Primitive.hpp"
 #include "Light.hpp"
+#include "Globals.hpp"
 #include <chrono>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
-
-#define DEBUG 0
-#define NUM_THREADS 8
-#define MULTITHREADED 1
-#define SMALL_WINDOW 0
 
 struct RaytraceThread {
 
@@ -43,13 +39,13 @@ Pathtracer::Pathtracer(
   std::string _name
   ) : Drawable(nullptr, _name) {
 
-#if SMALL_WINDOW // small window
-	width = _width / 2;
-	height = _height / 2;
-#else // full window
-	width = _width;
-	height = _height;
-#endif
+	if (Cfg.Pathtracer.SmallWindow) {
+		width = _width / 2;
+		height = _height / 2;
+	} else {
+		width = _width;
+		height = _height;
+	}
 
 	initialized = false;
   enabled = false;
@@ -71,25 +67,23 @@ Pathtracer::~Pathtracer() {
 
 	for (auto l : lights) delete l;
 	for (auto t : primitives) delete t;
-#if DEBUG
-  GL_ERRORS();
-#endif
   TRACE("deleted pathtracer");
 }
 
 void Pathtracer::initialize() {
 	TRACE("initializing pathtracer");
 
-#if SMALL_WINDOW
-  float min_x = -0.96f; float min_y = -0.96f;
-  float max_x = 0.0f; float max_y = 0.0f;
-#else
-  float min_x = -1.0f; float min_y = -1.0f;
-  float max_x = 1.0f; float max_y = 1.0f;
-#endif
+	float min_x, min_y, max_x, max_y;
+	if (Cfg.Pathtracer.SmallWindow) {
+		min_x = -0.96f; min_y = -0.96f;
+		max_x = 0.0f; max_y = 0.0f;
+	} else {
+		min_x = -1.0f; min_y = -1.0f;
+		max_x = 1.0f; max_y = 1.0f;
+	}
 
-	num_threads = NUM_THREADS;
-	tile_size = 16;
+	num_threads = Cfg.Pathtracer.NumThreads;
+	tile_size = Cfg.Pathtracer.TileSize;
 
 	focal_distance = 500.0f;
 	aperture_radius = 8.0f;
@@ -192,40 +186,37 @@ void Pathtracer::initialize() {
     glEnableVertexAttribArray(0);
 	}
 	glBindVertexArray(0);
-#if DEBUG
-	GL_ERRORS();
-#endif
 
-#if MULTITHREADED
-  //------- -- threading ---------------
-	// define work for raytrace threads
-	raytrace_task = [this](int tid) {
-		while (true) {
-			std::unique_lock<std::mutex> lock(threads[tid]->m);
+	if (Cfg.Pathtracer.Multithreaded) {
+		//------- -- threading ---------------
+		// define work for raytrace threads
+		raytrace_task = [this](int tid) {
+			while (true) {
+				std::unique_lock<std::mutex> lock(threads[tid]->m);
 
-			// wait until main thread says it's okay to keep working
-			threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
+				// wait until main thread says it's okay to keep working
+				threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
 
-			// it now owns the lock, and main thread messaged it's okay to start tracing
-			size_t tile;
-			// try to get next tile to work on
-			if (raytrace_tasks.dequeue(tile)) {
-				threads[tid]->status = RaytraceThread::working;
-				threads[tid]->tile_index = tile;
-				raytrace_tile(tid, tile);
-				threads[tid]->status = RaytraceThread::pending_upload;
-			} else {
-				threads[tid]->status = RaytraceThread::all_done;
-				break;
+				// it now owns the lock, and main thread messaged it's okay to start tracing
+				size_t tile;
+				// try to get next tile to work on
+				if (raytrace_tasks.dequeue(tile)) {
+					threads[tid]->status = RaytraceThread::working;
+					threads[tid]->tile_index = tile;
+					raytrace_tile(tid, tile);
+					threads[tid]->status = RaytraceThread::pending_upload;
+				} else {
+					threads[tid]->status = RaytraceThread::all_done;
+					break;
+				}
 			}
-		}
-	};
+		};
 
-	for (size_t i=0; i<num_threads; i++) {
-		threads.push_back(new RaytraceThread(raytrace_task, i));
+		for (size_t i=0; i<num_threads; i++) {
+			threads.push_back(new RaytraceThread(raytrace_task, i));
+		}
+		//------------------------------------
 	}
-  //------------------------------------
-#endif
 
   reset();
 
@@ -328,25 +319,25 @@ void Pathtracer::continue_trace() {
 void Pathtracer::reset() {
   TRACE("reset pathtracer");
 	
-#if MULTITHREADED
-	//-------- threading stuff --------
-	if (finished) {
-		threads.clear();
-		for (size_t i=0; i<num_threads; i++) {
-			threads.push_back(new RaytraceThread(raytrace_task, i));
+	if (Cfg.Pathtracer.Multithreaded) {
+		//-------- threading stuff --------
+		if (finished) {
+			threads.clear();
+			for (size_t i=0; i<num_threads; i++) {
+				threads.push_back(new RaytraceThread(raytrace_task, i));
+			}
 		}
+		raytrace_tasks.clear();
+		// reset thread status
+		for (size_t i=0; i < threads.size(); i++) {
+			threads[i]->status = RaytraceThread::uninitialized;
+		}
+		// enqueue all tiles
+		for (size_t i=0; i < tiles_X * tiles_Y; i++) {
+			raytrace_tasks.enqueue(i);
+		}
+		//---------------------------------
 	}
-	raytrace_tasks.clear();
-	// reset thread status
-	for (size_t i=0; i < threads.size(); i++) {
-		threads[i]->status = RaytraceThread::uninitialized;
-	}
-	// enqueue all tiles
-	for (size_t i=0; i < tiles_X * tiles_Y; i++) {
-		raytrace_tasks.enqueue(i);
-	}
-	//---------------------------------
-#endif
 
   paused = true;
 	finished = false;
@@ -359,9 +350,6 @@ void Pathtracer::reset() {
 }
 
 void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
-#if DEBUG
-  if (i >= width * height * 3) ERR("set_rgb indexing out of range!!");
-#endif
   image_buffer[3 * i] = char(rgb.r * 255.0f);
   image_buffer[3 * i + 1] = char(rgb.g * 255.0f);
   image_buffer[3 * i + 2] = char(rgb.b * 255.0f);
@@ -387,9 +375,6 @@ void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
 
   int percentage = int(float(begin + rows) / float(height) * 100.0f);
   TRACEF("refresh! updated %d rows, %d%% done.", rows, percentage);
-#if DEBUG
-  GL_ERRORS();
-#endif
 }
 
 void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h) {
@@ -402,9 +387,6 @@ void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, 
 			GL_RGB, GL_UNSIGNED_BYTE,
 			buffer);
 	glBindTexture(GL_TEXTURE_2D, 0);
-#if DEBUG
-  GL_ERRORS();
-#endif
 }
 
 void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
@@ -447,66 +429,66 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 
 void Pathtracer::update(float elapsed) {
 
-#if MULTITHREADED
-	if (!finished) {
-		int uploaded_threads = 0;
-		int finished_threads = 0;
+	if (Cfg.Pathtracer.Multithreaded) {
+		if (!finished) {
+			int uploaded_threads = 0;
+			int finished_threads = 0;
 
-		for (size_t i=0; i<threads.size(); i++) {
+			for (size_t i=0; i<threads.size(); i++) {
 
-			if (threads[i]->status == RaytraceThread::all_done) {
-				finished_threads++;
-				if (threads[i]->thread.joinable()) threads[i]->thread.join();
+				if (threads[i]->status == RaytraceThread::all_done) {
+					finished_threads++;
+					if (threads[i]->thread.joinable()) threads[i]->thread.join();
 
-			} else if (threads[i]->status == RaytraceThread::pending_upload) {
-				std::lock_guard<std::mutex> lock(threads[i]->m);
-				upload_tile(i, threads[i]->tile_index);
-				threads[i]->status = RaytraceThread::uploaded;
+				} else if (threads[i]->status == RaytraceThread::pending_upload) {
+					std::lock_guard<std::mutex> lock(threads[i]->m);
+					upload_tile(i, threads[i]->tile_index);
+					threads[i]->status = RaytraceThread::uploaded;
 
-			} else if (threads[i]->status == RaytraceThread::uploaded) {
-				uploaded_threads++;
-				if (!paused) {
-					threads[i]->status = RaytraceThread::ready_for_next;
-					threads[i]->cv.notify_one();
+				} else if (threads[i]->status == RaytraceThread::uploaded) {
+					uploaded_threads++;
+					if (!paused) {
+						threads[i]->status = RaytraceThread::ready_for_next;
+						threads[i]->cv.notify_one();
+					}
+					
+				} else if (threads[i]->status == RaytraceThread::uninitialized) {
+					if (!paused) {
+						threads[i]->status = RaytraceThread::ready_for_next;
+						threads[i]->cv.notify_one();
+					}
 				}
-				
-			} else if (threads[i]->status == RaytraceThread::uninitialized) {
-				if (!paused) {
-					threads[i]->status = RaytraceThread::ready_for_next;
-					threads[i]->cv.notify_one();
-				}
+
 			}
 
+			if (finished_threads == threads.size()) {
+				TRACE("Done!");
+				finished = true;
+				pause_trace();
+			} else if (paused && uploaded_threads == threads.size() && !notified_pause_finish) {
+				TRACE("pending tiles finished");
+				notified_pause_finish = true;
+			}
 		}
+	
+	} else {
+		if (!paused) {
+			if (rendered_tiles == tiles_X * tiles_Y) {
+				TRACE("Done!");
+				pause_trace();
+				//upload_rows(0, height);
 
-		if (finished_threads == threads.size()) {
-			TRACE("Done!");
-			finished = true;
-			pause_trace();
-		} else if (paused && uploaded_threads == threads.size() && !notified_pause_finish) {
-			TRACE("pending tiles finished");
-			notified_pause_finish = true;
+			} else {
+				size_t X = rendered_tiles % tiles_X;
+				size_t Y = rendered_tiles / tiles_X;
+
+				raytrace_tile(0, rendered_tiles);
+				upload_tile(0, rendered_tiles);
+
+				rendered_tiles++;
+			}
 		}
 	}
-
-#else
-  if (!paused) {
-		if (rendered_tiles == tiles_X * tiles_Y) {
-      TRACE("Done!");
-      pause_trace();
-			//upload_rows(0, height);
-
-		} else {
-			size_t X = rendered_tiles % tiles_X;
-			size_t Y = rendered_tiles / tiles_X;
-
-			raytrace_tile(0, rendered_tiles);
-			upload_tile(0, rendered_tiles);
-
-			rendered_tiles++;
-		}
-  }
-#endif
 
   Drawable::update(elapsed);
 }
@@ -534,9 +516,6 @@ void Pathtracer::draw() {
   glBindVertexArray(0);
   glUseProgram(0);
 	glEnable(GL_DEPTH_TEST);
-#if DEBUG
-  GL_ERRORS();
-#endif
 
   Drawable::draw();
 }

@@ -17,6 +17,7 @@ Scene* Scene::Active;
 void Program::load_resources() {
   
   LOG("loading resources...");
+	load_config();
 
   Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
@@ -109,10 +110,10 @@ void Program::setup() {
 #endif
 
   //Pathtracer::Instance->load_scene(*scene);
-	Scene::Active = scene;
 
 #endif
 
+	Scene::Active = scene;
   scenes.push_back(scene);
 }
 

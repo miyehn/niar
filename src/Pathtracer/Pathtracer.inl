@@ -1,18 +1,9 @@
 #include "Primitive.hpp"
 #include "Camera.hpp"
 
-#define MAX_RAY_DEPTH 16
-#define MIN_RAYS_PER_PIXEL 4 // for profile: 4
-#define USE_JITTERED_SAMPLING 1
-#define AREA_LIGHT_SAMPLES 2
-#define USE_DIRECT_LIGHT 1
-#define USE_DOF 1
-
-#define RR_THRESHOLD 0.05f
-
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
-	size_t sqk = std::ceil(sqrt(MIN_RAYS_PER_PIXEL));
+	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel.get()));
 	size_t num_offsets = pow(sqk, 2);
 	TRACEF("generating %d pixel offsets", num_offsets);
 	
@@ -58,13 +49,10 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 	float k_x = k_y * Camera::Active->aspect_ratio;
 
 	Ray ray;
-#if USE_JITTERED_SAMPLING
-	for (int i = 0; i < pixel_offsets.size(); i++) {
-		vec2 offset = pixel_offsets[i];;
-#else
-	for (int i = 0; i < MIN_RAYS_PER_PIXEL; i++) {
-		vec2 offset = sample::unit_square_uniform();
-#endif
+	bool jittered = Cfg.Pathtracer.UseJitteredSampling;
+	for (int i = 0; i < (jittered ? pixel_offsets.size() : Cfg.Pathtracer.MinRaysPerPixel.get()); i++) {
+		vec2 offset = jittered ? pixel_offsets[i] : sample::unit_square_uniform();
+
 		ray.o = Camera::Active->position;
 		ray.tmin = 0.0;
 		ray.tmax = INF;
@@ -77,16 +65,14 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 		vec3 d_unnormalized_w = Camera::Active->camera_to_world_rotation() * d_unnormalized_c;
 		ray.d = normalize(d_unnormalized_w);
 
-#if USE_DOF
+		if (Cfg.Pathtracer.UseDOF) {
+			vec3 focal_p = ray.o + focal_distance * d_unnormalized_w;
 
-		vec3 focal_p = ray.o + focal_distance * d_unnormalized_w;
-
-		vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * aperture_radius, 0);
-		vec3 aperture_shift_world = Camera::Active->camera_to_world_rotation() * aperture_shift_cam;
-		ray.o = Camera::Active->position + aperture_shift_world;
-		ray.d = normalize(focal_p - ray.o);
-
-#endif
+			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * aperture_radius, 0);
+			vec3 aperture_shift_world = Camera::Active->camera_to_world_rotation() * aperture_shift_cam;
+			ray.o = Camera::Active->position + aperture_shift_world;
+			ray.d = normalize(focal_p - ray.o);
+		}
 
 		rays.push_back(ray);
 	}
@@ -178,7 +164,7 @@ inline float brightness(const vec3& color) {
 }
 
 vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
-	if (ray_depth >= MAX_RAY_DEPTH) return vec3(0);
+	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return vec3(0);
 
   // info of closest hit
 	Primitive* primitive = nullptr;
@@ -211,69 +197,66 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		float costhetai; // some variation of dot(wi_world, n)
 
 		//---- emission ----
-#if USE_DIRECT_LIGHT
-		// totally a hack...
-		if (ray_depth == 0 || ray.receive_le || !bsdf->is_emissive) L += bsdf->get_emission();
-#else
-		L += bsdf->get_emission();
-#endif
+		if (Cfg.Pathtracer.UseDirectLight) {
+			// totally a hack...
+			if (ray_depth == 0 || ray.receive_le || !bsdf->is_emissive) L += bsdf->get_emission();
+		} else {
+			L += bsdf->get_emission();
+		}
 
 
-#if USE_DIRECT_LIGHT
-		//---- direct light contribution ----
-		if (!bsdf->is_delta) {
-			for (size_t i = 0; i < lights.size(); i++) {
+		if (Cfg.Pathtracer.UseDirectLight) {
+			//---- direct light contribution ----
+			if (!bsdf->is_delta) {
+				for (size_t i = 0; i < lights.size(); i++) {
 
-				// Mesh lights
-				AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
-				if (area_light) {
-					float each_sample_weight = 1.0f / AREA_LIGHT_SAMPLES;
-					for (size_t j = 0; j < AREA_LIGHT_SAMPLES; j++) {
+					// Mesh lights
+					AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
+					if (area_light) {
+						float each_sample_weight = 1.0f / Cfg.Pathtracer.AreaLightSamples;
+						for (size_t j = 0; j < Cfg.Pathtracer.AreaLightSamples; j++) {
 
-						// get ray to light
-						Ray ray_to_light;
-						// in this case not a real pdf, but just something to divide by?
-						float pdf = area_light->ray_to_light_pdf(ray_to_light, hit_p);
+							// get ray to light
+							Ray ray_to_light;
+							// in this case not a real pdf, but just something to divide by?
+							float pdf = area_light->ray_to_light_pdf(ray_to_light, hit_p);
 
-						// test if ray to light hits anything other than the starting primitive and the light
-						double tmp_t; vec3 tmp_n;
-						bool in_shadow = false;
-						for (size_t j = 0; j < primitives.size(); j++) {
-							Primitive* hit_prim = primitives[j]->intersect(ray_to_light, tmp_t, tmp_n, false);
-							if (hit_prim && hit_prim!=primitive && hit_prim!=area_light->triangle) {
-								in_shadow = true;
-								break;
+							// test if ray to light hits anything other than the starting primitive and the light
+							double tmp_t; vec3 tmp_n;
+							bool in_shadow = false;
+							for (size_t j = 0; j < primitives.size(); j++) {
+								Primitive* hit_prim = primitives[j]->intersect(ray_to_light, tmp_t, tmp_n, false);
+								if (hit_prim && hit_prim!=primitive && hit_prim!=area_light->triangle) {
+									in_shadow = true;
+									break;
+								}
+							}
+
+							// add contribution
+							if (!in_shadow) {
+								wi_world = ray_to_light.d;
+								wi_hemi = w2h * wi_world;
+								// funny how spheres can technically cast self shadows but clampint cosine gives same effect
+								// thanks convexity?
+								costhetai = std::max(0.0f, dot(n, wi_world));
+								vec3 L_direct = area_light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
+								// correction for when above num and denom both 0. TODO: is this right?
+								if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
+								L += L_direct * each_sample_weight;
 							}
 						}
-
-						// add contribution
-						if (!in_shadow) {
-							wi_world = ray_to_light.d;
-							wi_hemi = w2h * wi_world;
-							// funny how spheres can technically cast self shadows but clampint cosine gives same effect
-							// thanks convexity?
-							costhetai = std::max(0.0f, dot(n, wi_world));
-							vec3 L_direct = area_light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
-							// correction for when above num and denom both 0. TODO: is this right?
-							if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
-							L += L_direct * each_sample_weight;
-						}
 					}
+
+					// Other types of lights (TODO)
+
 				}
-
-				// Other types of lights (TODO)
-
 			}
 		}
-#endif
 
 #if 1 // indirect lighting (recursive)
 
-#if USE_DIRECT_LIGHT
-		if (!bsdf->is_emissive) {
-#else
-		if (1) {
-#endif
+		if ((Cfg.Pathtracer.UseDirectLight && !bsdf->is_emissive) ||
+			 !(Cfg.Pathtracer.UseDirectLight)) {
 			if (debug) {
 				LOGF("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
 			}
@@ -295,8 +278,9 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 			// russian roulette
 			float termination_prob = 0.0f;
 			ray.contribution *= brightness(f) * costhetai;
-			if (ray.contribution < RR_THRESHOLD) {
-				termination_prob = (RR_THRESHOLD - ray.contribution) / RR_THRESHOLD;
+			if (ray.contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
+				termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.contribution) 
+					/ Cfg.Pathtracer.RussianRouletteThreshold;
 			}
 			bool terminate = sample::rand01() < termination_prob;
 
@@ -305,9 +289,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 			if (!terminate) {
 				vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
 				Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
-#if USE_DIRECT_LIGHT
-				if (bsdf->is_delta) ray_refl.receive_le = true;
-#endif
+				if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
 				// if it has some termination probability, weigh it more if it's not terminated
 				Li = trace_ray(ray_refl, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));
 			} else if (debug) {

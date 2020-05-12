@@ -16,6 +16,7 @@ add_executable(niar
   src/Shader
   src/GrassField
   src/Cube
+	src/Globals
   src/Pathtracer/Primitive
   src/Pathtracer/Pathtracer
   src/Pathtracer/BSDF
@@ -32,4 +33,5 @@ target_link_libraries(niar
   ${CMAKE_SOURCE_DIR}/lib/stb_image.a 
   ${CMAKE_SOURCE_DIR}/lib/libzlibstatic.a
   ${CMAKE_SOURCE_DIR}/lib/libassimp.a
+	${CMAKE_SOURCE_DIR}/lib/libconfig++.a
 )

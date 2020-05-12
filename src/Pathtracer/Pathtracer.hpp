@@ -1,7 +1,6 @@
 #pragma once
 #include "Drawable.hpp"
 #include <mutex>
-#include <functional>
 
 struct Scene;
 struct Ray;
