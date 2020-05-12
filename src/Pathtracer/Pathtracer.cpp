@@ -17,7 +17,7 @@
 
 struct RaytraceThread {
 
-	enum Status { uninitialized, working, pending_upload, ready_for_next, all_done };
+	enum Status { uninitialized, working, pending_upload, uploaded, ready_for_next, all_done };
 	
 	RaytraceThread(std::function<void(int)> work, int _tid) : tid(_tid) {
 		thread = std::thread(work, _tid);
@@ -37,7 +37,6 @@ struct RaytraceThread {
 
 };
 
-
 Pathtracer::Pathtracer(
   size_t _width, 
   size_t _height, 
@@ -47,11 +46,44 @@ Pathtracer::Pathtracer(
 #if SMALL_WINDOW // small window
 	width = _width / 2;
 	height = _height / 2;
-  float min_x = -0.96f; float min_y = -0.96f;
-  float max_x = 0.0f; float max_y = 0.0f;
 #else // full window
 	width = _width;
 	height = _height;
+#endif
+
+	initialized = false;
+  enabled = false;
+}
+
+Pathtracer::~Pathtracer() {
+	if (!initialized) return;
+  glDeleteTextures(1, &texture);
+  glDeleteBuffers(1, &vbo);
+  glDeleteVertexArrays(1, &vao);
+  glDeleteBuffers(1, &loggedrays_vbo);
+  glDeleteVertexArrays(1, &loggedrays_vao);
+  delete image_buffer;
+	for (size_t i=0; i<num_threads; i++) {
+		delete subimage_buffers[i];
+		// TODO: cleanup the threads in a more elegant way instead of being forced terminated?
+	}
+	delete subimage_buffers;
+
+	for (auto l : lights) delete l;
+	for (auto t : primitives) delete t;
+#if DEBUG
+  GL_ERRORS();
+#endif
+  TRACE("deleted pathtracer");
+}
+
+void Pathtracer::initialize() {
+	TRACE("initializing pathtracer");
+
+#if SMALL_WINDOW
+  float min_x = -0.96f; float min_y = -0.96f;
+  float max_x = 0.0f; float max_y = 0.0f;
+#else
   float min_x = -1.0f; float min_y = -1.0f;
   float max_x = 1.0f; float max_y = 1.0f;
 #endif
@@ -71,7 +103,18 @@ Pathtracer::Pathtracer(
 		subimage_buffers[i] = new unsigned char[tile_size * tile_size * 3];
 	}
 
-  enabled = false;
+	//-------- load scene --------
+	
+	if (Scene::Active) load_scene(*Scene::Active);
+	else WARN("Pathtracer scene not loaded - no active scene");
+
+#if 1
+	// the two spheres (classical cornell box)
+	BSDF* sphere_bsdf_1 = new Mirror();
+	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));
+	BSDF* sphere_bsdf_2 = new Glass();
+	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
+#endif
 
   //-------- opengl stuff setup --------
 
@@ -156,7 +199,7 @@ Pathtracer::Pathtracer(
 #if MULTITHREADED
   //------- -- threading ---------------
 	// define work for raytrace threads
-	auto task = [this](int tid) {
+	raytrace_task = [this](int tid) {
 		while (true) {
 			std::unique_lock<std::mutex> lock(threads[tid]->m);
 
@@ -175,44 +218,27 @@ Pathtracer::Pathtracer(
 				threads[tid]->status = RaytraceThread::all_done;
 				break;
 			}
-			
 		}
 	};
 
 	for (size_t i=0; i<num_threads; i++) {
-		threads.push_back(new RaytraceThread(task, i));
+		threads.push_back(new RaytraceThread(raytrace_task, i));
 	}
   //------------------------------------
 #endif
 
   reset();
-}
 
-Pathtracer::~Pathtracer() {
-  glDeleteTextures(1, &texture);
-  glDeleteBuffers(1, &vbo);
-  glDeleteVertexArrays(1, &vao);
-  glDeleteBuffers(1, &loggedrays_vbo);
-  glDeleteVertexArrays(1, &loggedrays_vao);
-  delete image_buffer;
-	for (size_t i=0; i<num_threads; i++) {
-		delete subimage_buffers[i];
-		// TODO: cleanup the threads in a more elegant way instead of being forced terminated?
-	}
-	delete subimage_buffers;
-
-	for (auto l : lights) delete l;
-	for (auto t : primitives) delete t;
-#if DEBUG
-  GL_ERRORS();
-#endif
-  TRACE("deleted pathtracer");
+	initialized = true;
 }
 
 bool Pathtracer::handle_event(SDL_Event event) {
-  if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE) {
+  if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE && !finished) {
     if (paused) continue_trace();
-    else pause_trace();
+    else {
+  		TRACE("pausing - waiting for pending tiles");
+			pause_trace();
+		}
     return true;
 
   } else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
@@ -239,6 +265,9 @@ bool Pathtracer::handle_event(SDL_Event event) {
 
 // TODO: load scene recursively
 void Pathtracer::load_scene(const Scene& scene) {
+
+	primitives.clear();
+	lights.clear();
 
   for (Drawable* drawable : scene.children) {
     Mesh* mesh = dynamic_cast<Mesh*>(drawable);
@@ -270,6 +299,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 }
 
 void Pathtracer::enable() {
+	if (!initialized) initialize();
   TRACE("pathtracer enabled");
   Camera::Active->lock();
   Drawable::enable();
@@ -282,10 +312,10 @@ void Pathtracer::disable() {
 }
 
 void Pathtracer::pause_trace() {
-  TRACE("pause trace");
 	TimePoint end_time = std::chrono::high_resolution_clock::now();
 	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
 	TRACEF("rendered %f seconds so far.", cumulative_render_time);
+	notified_pause_finish = false;
   paused = true;
 }
 
@@ -297,14 +327,15 @@ void Pathtracer::continue_trace() {
 
 void Pathtracer::reset() {
   TRACE("reset pathtracer");
-  memset(image_buffer, 40, width * height * 3);
-  paused = true;
-	rendered_tiles = 0;
-	cumulative_render_time = 0.0f;
-	generate_pixel_offsets();
 	
 #if MULTITHREADED
 	//-------- threading stuff --------
+	if (finished) {
+		threads.clear();
+		for (size_t i=0; i<num_threads; i++) {
+			threads.push_back(new RaytraceThread(raytrace_task, i));
+		}
+	}
 	raytrace_tasks.clear();
 	// reset thread status
 	for (size_t i=0; i < threads.size(); i++) {
@@ -317,6 +348,13 @@ void Pathtracer::reset() {
 	//---------------------------------
 #endif
 
+  paused = true;
+	finished = false;
+	rendered_tiles = 0;
+	cumulative_render_time = 0.0f;
+	generate_pixel_offsets();
+
+  memset(image_buffer, 40, width * height * 3);
   upload_rows(0, height);
 }
 
@@ -408,9 +446,10 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 }
 
 void Pathtracer::update(float elapsed) {
-  if (!paused) {
 
 #if MULTITHREADED
+	if (!finished) {
+		int uploaded_threads = 0;
 		int finished_threads = 0;
 
 		for (size_t i=0; i<threads.size(); i++) {
@@ -420,26 +459,38 @@ void Pathtracer::update(float elapsed) {
 				if (threads[i]->thread.joinable()) threads[i]->thread.join();
 
 			} else if (threads[i]->status == RaytraceThread::pending_upload) {
-				{// block things when uploading data
-					std::lock_guard<std::mutex> lock(threads[i]->m);
-					upload_tile(i, threads[i]->tile_index);
+				std::lock_guard<std::mutex> lock(threads[i]->m);
+				upload_tile(i, threads[i]->tile_index);
+				threads[i]->status = RaytraceThread::uploaded;
+
+			} else if (threads[i]->status == RaytraceThread::uploaded) {
+				uploaded_threads++;
+				if (!paused) {
 					threads[i]->status = RaytraceThread::ready_for_next;
+					threads[i]->cv.notify_one();
 				}
-				threads[i]->cv.notify_one();
 				
 			} else if (threads[i]->status == RaytraceThread::uninitialized) {
-				threads[i]->status = RaytraceThread::ready_for_next;
-				threads[i]->cv.notify_one();
+				if (!paused) {
+					threads[i]->status = RaytraceThread::ready_for_next;
+					threads[i]->cv.notify_one();
+				}
 			}
 
 		}
 
 		if (finished_threads == threads.size()) {
 			TRACE("Done!");
+			finished = true;
 			pause_trace();
+		} else if (paused && uploaded_threads == threads.size() && !notified_pause_finish) {
+			TRACE("pending tiles finished");
+			notified_pause_finish = true;
 		}
+	}
 
 #else
+  if (!paused) {
 		if (rendered_tiles == tiles_X * tiles_Y) {
       TRACE("Done!");
       pause_trace();
@@ -454,10 +505,9 @@ void Pathtracer::update(float elapsed) {
 
 			rendered_tiles++;
 		}
-
+  }
 #endif
 
-  }
   Drawable::update(elapsed);
 }
 

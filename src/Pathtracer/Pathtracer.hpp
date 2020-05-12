@@ -1,6 +1,7 @@
 #pragma once
 #include "Drawable.hpp"
 #include <mutex>
+#include <functional>
 
 struct Scene;
 struct Ray;
@@ -60,10 +61,14 @@ struct Pathtracer : public Drawable {
 
   // ray tracing state and control
   bool paused;
+	bool notified_pause_finish;
+	bool finished;
   void pause_trace();
   void continue_trace();
   virtual void enable();
   virtual void disable();
+	bool initialized;
+	void initialize();
   void reset();
 
 	TimePoint last_begin_time;
@@ -100,6 +105,7 @@ struct Pathtracer : public Drawable {
 	//---- threading stuff ----
 
 	size_t num_threads;
+	std::function<void(int)> raytrace_task;
 
 	std::vector<RaytraceThread*> threads;
 	TaskQueue<size_t> raytrace_tasks;
@@ -123,4 +129,3 @@ struct Pathtracer : public Drawable {
 	uint loggedrays_vbo, loggedrays_vao;
 
 };
-

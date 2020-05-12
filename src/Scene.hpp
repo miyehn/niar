@@ -5,6 +5,8 @@
 /* a scene is a tree of drawables */
 struct Scene : public Drawable {
 
+	static Scene* Active;
+
   Scene(std::string _name = "[unnamed scene]");
 
   //-------- OpenGL configurations --------

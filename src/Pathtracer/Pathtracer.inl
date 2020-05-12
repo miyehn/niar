@@ -2,7 +2,7 @@
 #include "Camera.hpp"
 
 #define MAX_RAY_DEPTH 16
-#define MIN_RAYS_PER_PIXEL 256 // for profile: 4
+#define MIN_RAYS_PER_PIXEL 4 // for profile: 4
 #define USE_JITTERED_SAMPLING 1
 #define AREA_LIGHT_SAMPLES 2
 #define USE_DIRECT_LIGHT 1
