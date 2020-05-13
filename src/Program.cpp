@@ -8,6 +8,7 @@
 #include "Shader.hpp"
 #include "BSDF.hpp"
 #include "Primitive.hpp"
+#include "Globals.hpp"
 
 Shader Shader::Basic;
 Pathtracer* Pathtracer::Instance;
@@ -17,7 +18,7 @@ Scene* Scene::Active;
 void Program::load_resources() {
   
   LOG("loading resources...");
-	load_config();
+	initialize_config();
 
   Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");

@@ -1,24 +1,30 @@
 #include "lib.h"
 #include <mutex>
 
-void load_config();
+void initialize_config();
 
 template<typename T>
 struct CVar {
 
-	T get() {
-		if (!initialized) WARN("Getting value of an uninitialized cvar");
-		return value;
+	// default constructor
+	CVar() {}
+	// constructor with initialization
+	CVar(T _value) : value(_value) {}
+	// copy constructor
+	CVar(const CVar<T>& cvar) {
+		value = cvar.get();
 	}
 
+	// getter
+	T get() const { return value; }
+
+	// setter
 	void set(T _value) {
-		initialized = true;
 		std::lock_guard<std::mutex> lock(m);
 		value = _value;
 	}
 
 private:
-	bool initialized = false;
 	T value;
 	std::mutex m;
 };
@@ -36,12 +42,11 @@ struct ProgramConfig
 		int AreaLightSamples = 2;
 		int UseJitteredSampling = 1;
 		int UseDOF = 1;
-		CVar<int> MinRaysPerPixel;
 		int MaxRayDepth = 16;
 		float RussianRouletteThreshold = 0.05f;
+		CVar<int> MinRaysPerPixel = CVar<int>(4);
 	}
 	Pathtracer;
 };
 
-extern libconfig::Config config_src;
 extern ProgramConfig Cfg;

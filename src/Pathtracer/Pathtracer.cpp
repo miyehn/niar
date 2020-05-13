@@ -11,6 +11,9 @@
 #include <atomic>
 #include <condition_variable>
 
+CVar<float> FocalDistance(500);
+CVar<float> ApertureRadius(8);
+
 struct RaytraceThread {
 
 	enum Status { uninitialized, working, pending_upload, uploaded, ready_for_next, all_done };

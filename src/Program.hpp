@@ -1,6 +1,6 @@
 #pragma once
+#include "lib.h"
 #include <chrono>
-#include "Globals.hpp"
 
 struct Drawable;
 struct Scene;

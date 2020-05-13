@@ -24,8 +24,6 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
-#include "libconfig/libconfig.h++"
-
 using namespace glm;
 
 // from: https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
