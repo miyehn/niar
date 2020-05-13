@@ -1,4 +1,5 @@
 #include "Camera.hpp"
+#include "Program.hpp"
 
 Camera::Camera(size_t w, size_t h) {
   position = vec3(0);
@@ -23,7 +24,7 @@ Camera::Camera(size_t w, size_t h) {
 
 void Camera::update(float elapsed) {
 
-  if (!locked) {
+  if (!locked && !Program::Instance->receiving_text) {
     const Uint8* state = SDL_GetKeyboardState(nullptr);
 
     vec3 forward = this->forward();

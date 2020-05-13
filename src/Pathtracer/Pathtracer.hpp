@@ -54,8 +54,6 @@ struct Pathtracer : public Drawable {
 	void generate_pixel_offsets();
 
 	// depth of field
-	float aperture_radius;
-	float focal_distance;
 	float depth_of_first_hit(int x, int y);
 
 	// routine

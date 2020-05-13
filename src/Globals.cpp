@@ -32,7 +32,7 @@ void initialize_config() {
 		Cfg.Pathtracer.UseDOF = config_src.lookup("Pathtracer.UseDOF");
 		Cfg.Pathtracer.MaxRayDepth = config_src.lookup("Pathtracer.MaxRayDepth");
 		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
-		Cfg.Pathtracer.MinRaysPerPixel.set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
+		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
 
 		LOG("*** successfully loaded config from file! ***");
 
@@ -44,3 +44,23 @@ void initialize_config() {
 
 }
 
+std::vector<CVarBase*> cvars_list(CVarBase* new_cvar) {
+	static std::vector<CVarBase*> ConsoleVariables = std::vector<CVarBase*>();
+	if (new_cvar) ConsoleVariables.push_back(new_cvar);
+	return ConsoleVariables;
+}
+
+void list_cvars() {
+	auto ConsoleVariables = cvars_list();
+
+	LOGF("There are %d cvars total atm", ConsoleVariables.size());
+	for (int i=0; i<ConsoleVariables.size(); i++) {
+		if (CVar<int>* cvar = dynamic_cast<CVar<int>*>(ConsoleVariables[i])) {
+			LOGF("int, %s, %d", cvar->get_name().c_str(), cvar->get());
+
+		} else if (CVar<float>* cvar = dynamic_cast<CVar<float>*>(ConsoleVariables[i])) {
+			LOGF("float, %s, %f", cvar->get_name().c_str(), cvar->get());
+
+		}
+	}
+}

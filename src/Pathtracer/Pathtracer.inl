@@ -3,7 +3,7 @@
 
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
-	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel.get()));
+	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));
 	size_t num_offsets = pow(sqk, 2);
 	TRACEF("generating %d pixel offsets", num_offsets);
 	
@@ -50,7 +50,7 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 
 	Ray ray;
 	bool jittered = Cfg.Pathtracer.UseJitteredSampling;
-	for (int i = 0; i < (jittered ? pixel_offsets.size() : Cfg.Pathtracer.MinRaysPerPixel.get()); i++) {
+	for (int i = 0; i < (jittered ? pixel_offsets.size() : Cfg.Pathtracer.MinRaysPerPixel->get()); i++) {
 		vec2 offset = jittered ? pixel_offsets[i] : sample::unit_square_uniform();
 
 		ray.o = Camera::Active->position;
@@ -66,9 +66,9 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 		ray.d = normalize(d_unnormalized_w);
 
 		if (Cfg.Pathtracer.UseDOF) {
-			vec3 focal_p = ray.o + focal_distance * d_unnormalized_w;
+			vec3 focal_p = ray.o + FocalDistance->get() * d_unnormalized_w;
 
-			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * aperture_radius, 0);
+			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * ApertureRadius->get(), 0);
 			vec3 aperture_shift_world = Camera::Active->camera_to_world_rotation() * aperture_shift_cam;
 			ray.o = Camera::Active->position + aperture_shift_world;
 			ray.d = normalize(focal_p - ray.o);

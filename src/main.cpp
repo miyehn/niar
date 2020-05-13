@@ -3,6 +3,9 @@
 #include "Scene.hpp"
 #include "Camera.hpp"
 #include "Pathtracer.hpp"
+#include "Globals.hpp"
+
+Program* Program::Instance;
 
 int main(int argc, const char * argv[]) {
 
@@ -11,9 +14,9 @@ int main(int argc, const char * argv[]) {
   uint w = 400;
   uint h = 300;
 
-  Program* program = new Program("niar", w, h);
-  program->run();
-  delete program;
+	Program::Instance = new Program("niar", w, h);
+	Program::Instance->run();
+  delete Program::Instance;
   return 0;
 }
 
@@ -82,14 +85,30 @@ void Program::run() {
 
     // currently everything handles everything (except quit)
     while (SDL_PollEvent(&event)==1 && !quit) {
-      if (event.type == SDL_QUIT) { quit=true; break; }
 
+			// termination
+      if (event.type == SDL_QUIT) { quit=true; break; }
       else if (event.type==SDL_KEYUP && 
           event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-      else {
+			// start input
+			else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
+				input_str = "";
+				receiving_text = true;
+				std::cout << "[cmd] " << std::flush;
+			}
+			else if (event.type == SDL_TEXTINPUT && receiving_text) {
+				input_str += event.text.text;
+				std::cout << event.text.text << std::flush;
+			}
+			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_RETURN) {
+				receiving_text = false;
+				std::cout << std::endl;
+			}
+
+      else if (!receiving_text) {
         // toggle between rasterizer & pathtracer
-        if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
+        if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_b) {
           if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();
           else Pathtracer::Instance->enable();
         }

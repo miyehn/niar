@@ -6,6 +6,8 @@ struct Drawable;
 struct Scene;
 
 struct Program {
+
+	static Program* Instance;
   
   Program(
       std::string name, 
@@ -22,6 +24,10 @@ struct Program {
   SDL_Window* window;
   SDL_GLContext context;
   TimePoint previous_time;
+
+	// input
+	bool receiving_text = false;
+	std::string input_str;
 
   std::vector<Scene*> scenes;
   

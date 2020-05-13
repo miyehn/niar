@@ -11,8 +11,8 @@
 #include <atomic>
 #include <condition_variable>
 
-CVar<float> FocalDistance(500);
-CVar<float> ApertureRadius(8);
+CVar<float>* FocalDistance = new CVar<float>("FocalDistance", 500);
+CVar<float>* ApertureRadius = new CVar<float>("ApertureRadius", 8);
 
 struct RaytraceThread {
 
@@ -87,9 +87,6 @@ void Pathtracer::initialize() {
 
 	num_threads = Cfg.Pathtracer.NumThreads;
 	tile_size = Cfg.Pathtracer.TileSize;
-
-	focal_distance = 500.0f;
-	aperture_radius = 8.0f;
 
 	tiles_X = std::ceil(float(width) / tile_size);
 	tiles_Y = std::ceil(float(height) / tile_size);
@@ -249,7 +246,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 
 		} else if (state[SDL_SCANCODE_LALT]) {
 			float d = depth_of_first_hit(x, height-y);
-			focal_distance = d;
+			FocalDistance->set(d);
 			TRACEF("setting focal distance to %f", d);
 		}
 	}

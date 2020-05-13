@@ -1,21 +1,31 @@
 #include "lib.h"
+#include <functional>
+
+struct CVarBase;
 
 void initialize_config();
 
+std::vector<CVarBase*> cvars_list(CVarBase* new_cvar = nullptr);
+
+void list_cvars();
+
+struct CVarBase {
+	virtual void register_self() { cvars_list(this); }
+};
+
 template<typename T>
-struct CVar {
+struct CVar : CVarBase {
 
 	// default constructor
-	CVar() {}
+	CVar() { register_self(); }
 	// constructor with initialization
-	CVar(T _value) : value(_value) {}
-	// copy constructor
-	CVar(const CVar<T>& cvar) {
-		value = cvar.get();
+	CVar(std::string _name, T _value) : name(_name), value(_value) { 
+		register_self(); 
 	}
 
 	// getter
 	T get() const { return value; }
+	std::string get_name() const { return name; }
 
 	// setter
 	void set(T _value) {
@@ -25,6 +35,7 @@ struct CVar {
 
 private:
 	T value;
+	std::string name = "";
 	std::mutex m;
 };
 
@@ -43,7 +54,7 @@ struct ProgramConfig
 		int UseDOF = 1;
 		int MaxRayDepth = 16;
 		float RussianRouletteThreshold = 0.05f;
-		CVar<int> MinRaysPerPixel = CVar<int>(4);
+		CVar<int>* MinRaysPerPixel = new CVar<int>("MinRaysPerPixel", 4);
 	}
 	Pathtracer;
 };
