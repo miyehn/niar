@@ -9,6 +9,7 @@
 #include <string>
 #include <memory>
 #include <stdexcept>
+#include <mutex>
 
 #ifdef MACOS
 #include "glew/glew.h"
@@ -85,7 +86,40 @@ inline void gl_errors(std::string const &where) {
   }
 }
 #define GL_ERRORS() gl_errors(__FILE__  ":" STR(__LINE__) )
+
+//--------------- thread-safe queue -----------------------
+template <typename T>
+struct TaskQueue {
+	
+	size_t size() {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		return queue.size();
+	}
+
+	bool dequeue(T& out_task) {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		if (queue.size() == 0) return false;
+		out_task = queue.back();
+		queue.pop_back();
+		return true;
+	}
+
+	void enqueue(T task) {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		queue.insert(queue.begin(), task);
+	}
+
+	void clear() {
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		queue.clear();
+	}
+
+private:
+	std::vector<T> queue;
+	std::mutex queue_mutex;
+};
 //---------------------------------------------------------
+
 
 // other macros
 #define INF std::numeric_limits<float>::infinity()

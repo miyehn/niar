@@ -1,5 +1,4 @@
 #include "lib.h"
-#include <mutex>
 
 void initialize_config();
 
