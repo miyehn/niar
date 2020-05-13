@@ -28,6 +28,7 @@ struct Program {
 	// input
 	bool receiving_text = false;
 	std::string input_str;
+	void process_input();
 
   std::vector<Scene*> scenes;
   

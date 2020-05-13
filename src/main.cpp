@@ -95,15 +95,20 @@ void Program::run() {
 			else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
 				input_str = "";
 				receiving_text = true;
-				std::cout << "[cmd] " << std::flush;
+				std::cout << "> " << std::flush;
 			}
 			else if (event.type == SDL_TEXTINPUT && receiving_text) {
 				input_str += event.text.text;
 				std::cout << event.text.text << std::flush;
 			}
+			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_BACKSPACE) {
+				input_str = input_str.substr(0, input_str.length()-1);
+				std::cout << "\r> " << input_str << std::flush;
+			}
 			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_RETURN) {
 				receiving_text = false;
 				std::cout << std::endl;
+				process_input();
 			}
 
       else if (!receiving_text) {

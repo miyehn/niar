@@ -46,6 +46,10 @@ std::string string_format( const std::string& format, Args ... args ) {
 #define LOG(message) std::cout << "\033[32m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
   message << std::endl; 
 
+// raw logging (no prefix)
+#define LOGFR(...) std::cout << string_format(__VA_ARGS__) << std::endl;
+#define LOGR(message) std::cout << message << std::endl;
+
 #define WARNF(...) std::cout << "\033[33m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
   string_format(__VA_ARGS__) << std::endl;
 #define WARN(message, ...) std::cout << "\033[33m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \

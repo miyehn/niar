@@ -124,3 +124,33 @@ void Program::release_resources() {
   delete Pathtracer::Instance;
   if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
 }
+
+void Program::process_input() {
+	// split input string into tokens
+	std::vector<std::string> tokens;
+	char buf[128];
+	strncpy(buf, input_str.c_str(), 127);
+	char* token = strtok(buf, " ");
+	while (token) {
+		tokens.push_back(std::string(token));
+		token = strtok(nullptr, " ");
+	}
+	//for (int i=0; i<tokens.size(); i++) { LOGF("%s", tokens[i].c_str()); }
+
+	uint len = tokens.size();
+	if (len==0) return;
+	if (tokens[0] == "ls") {
+		if (len==1) list_cvars();
+		else if (len==2) {
+			log_cvar(tokens[1]);
+		}
+	}
+	else if (tokens[0] == "set" && len == 3) {
+		set_cvar(tokens[1], tokens[2]);
+	}
+
+
+	else {
+		LOGR("(invalid input, ignored..)");
+	}
+}
