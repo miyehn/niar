@@ -65,7 +65,7 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 		vec3 d_unnormalized_w = Camera::Active->camera_to_world_rotation() * d_unnormalized_c;
 		ray.d = normalize(d_unnormalized_w);
 
-		if (Cfg.Pathtracer.UseDOF) {
+		if (Cfg.Pathtracer.UseDOF->get()) {
 			vec3 focal_p = ray.o + FocalDistance->get() * d_unnormalized_w;
 
 			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * ApertureRadius->get(), 0);

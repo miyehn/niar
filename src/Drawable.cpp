@@ -39,14 +39,6 @@ void Drawable::draw() {
     if (children[i]->enabled) children[i]->draw();
 }
 
-void Drawable::enable() {
-  enabled = true;
-}
-
-void Drawable::disable() {
-  enabled = false;
-}
-
 bool Drawable::add_child(Drawable* child) {
   if (!child) {
     WARNF("trying to add a null child %s, skipping..", name.c_str());

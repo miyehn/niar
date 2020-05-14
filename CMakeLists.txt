@@ -17,10 +17,10 @@ add_executable(niar
   src/GrassField
   src/Cube
 	src/Globals
+	src/Light
   src/Pathtracer/Primitive
   src/Pathtracer/Pathtracer
   src/Pathtracer/BSDF
-	src/Pathtracer/Light
   )
 
 include_directories(include src src/Pathtracer)

@@ -30,7 +30,7 @@ void Program::setup() {
 
   Scene* scene = new Scene("my scene");
 
-#if 0 // cube with plane lighting
+#if 1 // cube with plane lighting
 	Camera::Active->move_speed = 4.0f;
 	Camera::Active->position = vec3(0, -6, 4);
 
@@ -38,6 +38,8 @@ void Program::setup() {
   std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
   Mesh* cube = meshes[0];
   cube->shader.set_parameters = [cube]() {
+		mat3 OBJECT_TO_CAM_ROT = cube->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
+		cube->shader.set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
     mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * cube->object_to_world();
     cube->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
   };
@@ -56,7 +58,7 @@ void Program::setup() {
   plane->local_position = vec3(0, 0, 3);
   plane->scale = vec3(4, 4, 1);
 	plane->bsdf = new Diffuse();
-	plane->bsdf->Le = vec3(1); // emissive plane
+	//plane->bsdf->Le = vec3(1); // emissive plane
   scene->add_child(static_cast<Drawable*>(plane));
 
   Pathtracer::Instance->load_scene(*scene);
@@ -110,8 +112,6 @@ void Program::setup() {
   scene->add_child(static_cast<Drawable*>(mesh));
 #endif
 
-  //Pathtracer::Instance->load_scene(*scene);
-
 #endif
 
 	Scene::Active = scene;
@@ -135,7 +135,6 @@ void Program::process_input() {
 		tokens.push_back(std::string(token));
 		token = strtok(nullptr, " ");
 	}
-	//for (int i=0; i<tokens.size(); i++) { LOGF("%s", tokens[i].c_str()); }
 
 	uint len = tokens.size();
 	if (len==0) return;
@@ -148,7 +147,6 @@ void Program::process_input() {
 	else if (tokens[0] == "set" && len == 3) {
 		set_cvar(tokens[1], tokens[2]);
 	}
-
 
 	else {
 		LOGR("(invalid input, ignored..)");
