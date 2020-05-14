@@ -14,6 +14,8 @@ struct Shader {
       const std::string& tesc_path = "",
       const std::string& tese_path = "");
 
+	Shader(const std::string& frag_path);
+
   std::function<void()> set_parameters = []() {
     WARN("using a shader without parameter function set!");
   };
@@ -43,5 +45,20 @@ struct Shader {
 private:
   uint uniform_loc(const std::string& uniformName) const;
 
+	uint quad_vert = 0;
+
 };
 
+struct Blit {
+
+	Blit(const std::string& frag_path);
+
+	Shader shader;
+
+	void draw();
+
+private:
+	static uint vao;
+	static uint vbo;
+
+};

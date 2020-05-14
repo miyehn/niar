@@ -163,10 +163,11 @@ void Program::update(float elapsed) {
 
 void Program::draw() {
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
   glClearColor(0.1f, 0.1f, 0.1f, 1);
-  glClear(GL_COLOR_BUFFER_BIT);
   glClearDepth(1);
-  glClear(GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   // pathtracer
   if (Pathtracer::Instance && Pathtracer::Instance->enabled) 

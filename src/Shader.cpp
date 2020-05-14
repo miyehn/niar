@@ -1,6 +1,79 @@
 #include "Shader.hpp"
 
-#define DEBUG 1
+Shader::Shader(const std::string& frag_path) {
+	id = glCreateProgram();
+	uint vertexShader, fragmentShader;
+	LOG("creating quad material");
+
+	int  success;
+	char infoLog[512];
+	if (quad_vert) vertexShader = quad_vert;
+	else {
+		LOG("first time creating quad vert");
+		// load vertex shader file
+		std::ifstream vIfs("../shaders/quad.vert");
+		std::string vContent( (std::istreambuf_iterator<char>(vIfs) ),
+												 (std::istreambuf_iterator<char>()     ));
+		const char* vertexShaderFile = vContent.c_str();
+		const GLchar** vertexShaderSource = { &vertexShaderFile };
+  
+		// create shader
+		vertexShader = glCreateShader(GL_VERTEX_SHADER);
+		
+		// attach to source
+		glShaderSource(vertexShader, 1, vertexShaderSource, NULL);
+		glCompileShader(vertexShader);
+		
+		// check if compilation successful
+		glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+		if (!success) {
+				glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+				std::cout << "vertex compile failed: \n" << infoLog << std::endl;
+				exit(1);
+		}
+		quad_vert = vertexShader;
+	}
+
+  // load fragment shader file
+  std::ifstream fIfs(frag_path);
+  std::string fContent( (std::istreambuf_iterator<char>(fIfs) ),
+                       (std::istreambuf_iterator<char>()     ));
+  const char* fragmentShaderFile = fContent.c_str();
+  const GLchar** fragmentShaderSource = { &fragmentShaderFile };
+  
+  // create shader
+  fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+  
+  // attach to source
+  glShaderSource(fragmentShader, 1, fragmentShaderSource, NULL);
+  glCompileShader(fragmentShader);
+  
+  // check if compilation successful
+  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+  if (!success) {
+      glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+      std::cout << "fragment compile failed: \n" << infoLog << std::endl;
+      exit(1);
+  }
+  
+  glAttachShader(id, vertexShader);
+  glAttachShader(id, fragmentShader);
+  
+  glLinkProgram(id);
+
+  // check for success
+  glGetProgramiv(id, GL_LINK_STATUS, &success);
+  if (!success) {
+      glGetProgramInfoLog(id, 512, NULL, infoLog);
+      std::cout << "shader link failed: \n" << infoLog << std::endl;
+      exit(1);
+  }
+
+  glDetachShader(id, vertexShader);
+  glDetachShader(id, fragmentShader);
+
+  glDeleteShader(fragmentShader);
+}
 
 Shader::Shader(
     const std::string& vert_path, 
@@ -8,9 +81,7 @@ Shader::Shader(
     const std::string& tesc_path, 
     const std::string& tese_path) {
 
-  LOG("---- creating shader program");
-  LOGF("  vert path: %s", vert_path.c_str());
-  LOGF("  frag path: %s", frag_path.c_str());
+  LOGF("-- shader program \"%s\", \"%s\"", vert_path.c_str(), frag_path.c_str());
 
   bool tessellate = tesc_path.length() > 0 && tese_path.length() > 0;
 
@@ -198,7 +269,73 @@ void Shader::set_tex2D(uint texture_unit, uint texture_id) {
   glActiveTexture(GL_TEXTURE0 + texture_unit);
   glBindTexture(GL_TEXTURE_2D, texture_id);
   glActiveTexture(GL_TEXTURE0);
-#if DEBUG
-  GL_ERRORS();
-#endif
+}
+
+//-------------------- Blit -------------------------
+
+float n = 0.8f;
+std::vector<float> quad_vertices = {
+	-n, n, 0, 1, // tl
+	-n, -n, 0, 0, // bl
+	n, -n, 1, 0, // br
+	-n, n, 0, 1, // tl
+	n, -n, 1, 0, // br
+	n, n, 1, 1 // tr
+};
+
+uint Blit::vao = 0;
+uint Blit::vbo = 0;
+
+Blit::Blit(const std::string& frag_path) {
+
+	if (!Blit::vao || !Blit::vbo) {
+		LOG("initializing Blit vao & vbo");
+		glGenBuffers(1, &Blit::vbo);
+		glGenVertexArrays(1, &Blit::vao);
+		glBindVertexArray(Blit::vao);
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
+			glBufferData(GL_ARRAY_BUFFER, 
+					quad_vertices.size() * sizeof(float), quad_vertices.data(), GL_STATIC_DRAW);
+		GL_ERRORS();
+
+			glVertexAttribPointer(
+					0, // atrib index
+					2, // num of data elems
+					GL_FLOAT, // data type
+					GL_FALSE, // normalized
+					4 * sizeof(float), // stride size
+					(void*)0); // offset in bytes since stride start
+			glEnableVertexAttribArray(0);
+
+			glVertexAttribPointer(
+					1, // atrib index
+					2, // num of data elems
+					GL_FLOAT, // data type
+					GL_FALSE, // normalized
+					4 * sizeof(float), // stride size
+					(void*)(2 * sizeof(float))); // offset in bytes since stride start
+			glEnableVertexAttribArray(1);
+		GL_ERRORS();
+		}
+		glBindVertexArray(0);
+
+	} 
+
+	shader = Shader(frag_path);
+}
+
+void Blit::draw() {
+	
+	glUseProgram(shader.id);
+	glBindVertexArray(Blit::vao);
+	glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+	glUseProgram(0);
+	GL_ERRORS();
+	
 }

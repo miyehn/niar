@@ -7,8 +7,6 @@ out vec4 FragColor;
 
 void main() {
 
-  float u = vf_uv.x;
-  float v = vf_uv.y;
   FragColor = texture(TEX, vf_uv);
 
 }
