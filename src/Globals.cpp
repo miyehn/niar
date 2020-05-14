@@ -34,6 +34,8 @@ void initialize_config() {
 		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
 		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
 
+		Cfg.UseDeferred = config_src.lookup("UseDeferred");
+
 		LOG("*** successfully loaded config from file! ***");
 
 	} catch (const SettingNotFoundException &nfex) {

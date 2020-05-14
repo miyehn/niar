@@ -2,6 +2,7 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 #include "BSDF.hpp"
+#include "Globals.hpp"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
@@ -48,7 +49,7 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   //---- OpenGL setup ----
   
   // copy construct a default shader
-  shader = Shader::Basic;
+  shader = Cfg.UseDeferred ? Shader::DeferredBasePass : Shader::Basic;
 
   // generate buffers & objects
   glGenBuffers(1, &vbo);

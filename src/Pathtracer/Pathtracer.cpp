@@ -112,9 +112,10 @@ void Pathtracer::initialize() {
 
   //-------- opengl stuff setup --------
 
+	// TODO: replace with a blit
   shader = Shader("../shaders/quad.vert", "../shaders/quad.frag");
   shader.set_parameters = [this]() {
-    shader.set_tex2D(0, texture);
+    shader.set_tex2D("TEX", 0, texture);
   };
 
   float quad_vertices[24] = {

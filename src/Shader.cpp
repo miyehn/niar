@@ -3,13 +3,13 @@
 Shader::Shader(const std::string& frag_path) {
 	id = glCreateProgram();
 	uint vertexShader, fragmentShader;
-	LOG("creating quad material");
+
+  LOGF("-- blit shader program \"%s\"", frag_path.c_str());
 
 	int  success;
 	char infoLog[512];
 	if (quad_vert) vertexShader = quad_vert;
 	else {
-		LOG("first time creating quad vert");
 		// load vertex shader file
 		std::ifstream vIfs("../shaders/quad.vert");
 		std::string vContent( (std::istreambuf_iterator<char>(vIfs) ),
@@ -225,10 +225,10 @@ Shader::Shader(
 }
 
 
-uint Shader::uniform_loc(const std::string& uniformName) const {
-  uint location = glGetUniformLocation(id, uniformName.c_str());
+int Shader::uniform_loc(const std::string& uniformName) const {
+  int location = glGetUniformLocation(id, uniformName.c_str());
   if (location < 0) {
-    WARN("unable to find location for uniform \"%s\"", uniformName.c_str());
+    WARNF("%s unable to find location for uniform \"%s\"", name.c_str(), uniformName.c_str());
   }
   return location;
 }
@@ -265,7 +265,8 @@ void Shader::set_mat4(const std::string &name, mat4 mat) const {
 	glUniformMatrix4fv(uniform_loc(name), 1, GL_FALSE, value_ptr(mat));
 }
 
-void Shader::set_tex2D(uint texture_unit, uint texture_id) {
+void Shader::set_tex2D(const std::string &name, uint texture_unit, uint texture_id) const {
+	glUniform1i(uniform_loc(name), texture_unit);
   glActiveTexture(GL_TEXTURE0 + texture_unit);
   glBindTexture(GL_TEXTURE_2D, texture_id);
   glActiveTexture(GL_TEXTURE0);
@@ -273,7 +274,7 @@ void Shader::set_tex2D(uint texture_unit, uint texture_id) {
 
 //-------------------- Blit -------------------------
 
-float n = 0.8f;
+float n = 1.0f;
 std::vector<float> quad_vertices = {
 	-n, n, 0, 1, // tl
 	-n, -n, 0, 0, // bl
@@ -297,7 +298,6 @@ Blit::Blit(const std::string& frag_path) {
 			glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
 			glBufferData(GL_ARRAY_BUFFER, 
 					quad_vertices.size() * sizeof(float), quad_vertices.data(), GL_STATIC_DRAW);
-		GL_ERRORS();
 
 			glVertexAttribPointer(
 					0, // atrib index
@@ -316,7 +316,6 @@ Blit::Blit(const std::string& frag_path) {
 					4 * sizeof(float), // stride size
 					(void*)(2 * sizeof(float))); // offset in bytes since stride start
 			glEnableVertexAttribArray(1);
-		GL_ERRORS();
 		}
 		glBindVertexArray(0);
 
@@ -325,17 +324,16 @@ Blit::Blit(const std::string& frag_path) {
 	shader = Shader(frag_path);
 }
 
-void Blit::draw() {
-	
+void Blit::begin_pass() {
 	glUseProgram(shader.id);
 	glBindVertexArray(Blit::vao);
 	glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
+}
 
+void Blit::end_pass() {
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glUseProgram(0);
-	GL_ERRORS();
-	
 }

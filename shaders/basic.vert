@@ -1,7 +1,7 @@
 #version 330 core
 
-uniform mat4 OBJECT_TO_CLIP;
-uniform mat3 OBJECT_TO_CAM_ROT;
+uniform mat4 OBJECT_TO_CLIP;//Camera::Active->world_to_clip() * cube->object_to_world();
+uniform mat3 OBJECT_TO_CAM_ROT;//obj->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;

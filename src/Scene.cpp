@@ -1,17 +1,32 @@
 #include "Scene.hpp"
 #include "Program.hpp"
+#include "Globals.hpp"
 
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 	int w, h;
 	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
 	
+	//-------- configurations --------
+  // depth test
+  use_depth_test = true;
+  // culling
+  cull_face = false;
+  cull_mode = GL_BACK;
+  // blending: "blend the computed fragment color values with the values in the color buffers."
+  blend = false; // NOTE: see no reason why this should be enabled for 3D scenes 
+  // fill / wireframe (/ point)
+  fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
+  
 	//-------- allocate bufers --------
+	
+	if (!Cfg.UseDeferred) return;
 	
 	glGenFramebuffers(1, &fbo_gbuffers);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
 
 	// G buffer color attachments
+	uint color_attachments[NUM_GBUFFERS];
 	glGenTextures(NUM_GBUFFERS, tex_gbuffers);
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		glBindTexture(GL_TEXTURE_2D, tex_gbuffers[i]);
@@ -26,7 +41,6 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 		glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments[i], GL_TEXTURE_2D, tex_gbuffers[i], 0);
 	}
 
-#if 1
 	// depth renderbuffer
 	glGenRenderbuffers(1, &buf_depth);
 	glBindRenderbuffer(GL_RENDERBUFFER, buf_depth);
@@ -38,22 +52,12 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
 		ERR("framebuffer not correctly initialized");
-#endif
 
-	copy_to_screen = new Blit("../shaders/quad.frag");
+	composition = new Blit("../shaders/deferred_composition.frag");
 
-	//-------- configurations --------
-  // depth test
-  use_depth_test = true;
-  // culling
-  cull_face = false;
-  cull_mode = GL_BACK;
-  // blending: "blend the computed fragment color values with the values in the color buffers."
-  blend = false; // NOTE: see no reason why this should be enabled for 3D scenes 
-  // fill / wireframe (/ point)
-  fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
-  
 }
+
+CVar<int>* GBuf = new CVar<int>("gbuf", 0);
 
 void Scene::draw() {
 
@@ -76,12 +80,34 @@ void Scene::draw() {
 
 	//-------- actual drawing --------
 	
+	if (!Cfg.UseDeferred) {
+		Drawable::draw();
+		return;
+	}
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	// bind output textures
+	for (int i=0; i<NUM_GBUFFERS; i++) {
+		glActiveTexture(GL_TEXTURE0+i);
+		glBindTexture(GL_TEXTURE_2D, tex_gbuffers[i]);
+	}
+	
+	// draw scene
   Drawable::draw();
+
+	// copy to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	copy_to_screen->shader.set_tex2D(0, tex_gbuffers[0]);
-	copy_to_screen->draw();
+	
+	composition->begin_pass();
+	{
+		//composition->shader.set_tex2D(0, tex_gbuffers[GBuf->get()]);
+		for (int i=0; i<NUM_GBUFFERS; i++) {
+			std::string name = "GBUF" + std::to_string(i);
+			composition->shader.set_tex2D(name, i, tex_gbuffers[i]);
+		}
+	}
+	composition->end_pass();
 
 }

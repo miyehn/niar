@@ -7,8 +7,9 @@ Camera::Camera(size_t w, size_t h) {
   pitch = radians(90.0f);
   roll = 0.0f;
 
+	// TODO: make these properties
   move_speed = 150.0f;
-  rotate_speed = 0.003f;
+  rotate_speed = 0.002f;
 
   fov = radians(30.0f);
   cutoffNear = 0.1f;
@@ -48,7 +49,7 @@ void Camera::update(float elapsed) {
       }
 
     } else {
-      // WASD movement; space - up
+      // WASD movement; E - up; Q - down
       if (state[SDL_SCANCODE_A]) {
         position -= move_speed * elapsed * right;
       }
@@ -61,9 +62,12 @@ void Camera::update(float elapsed) {
       if (state[SDL_SCANCODE_W]) {
         position += move_speed * elapsed * forward;
       }
-      if (state[SDL_SCANCODE_SPACE]) {
+      if (state[SDL_SCANCODE_E]) {
         position.z += move_speed * elapsed;
       }
+			if (state[SDL_SCANCODE_Q]) {
+				position.z -= move_speed * elapsed;
+			}
     }
 
     // rotation

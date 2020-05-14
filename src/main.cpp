@@ -11,8 +11,8 @@ int main(int argc, const char * argv[]) {
 
   std::srand(time(nullptr));
 
-  uint w = 400;
-  uint h = 300;
+  uint w = 800;
+  uint h = 600;
 
 	Program::Instance = new Program("niar", w, h);
 	Program::Instance->run();

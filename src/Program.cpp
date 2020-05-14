@@ -11,6 +11,7 @@
 #include "Globals.hpp"
 
 Shader Shader::Basic;
+Shader Shader::DeferredBasePass;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
@@ -21,6 +22,9 @@ void Program::load_resources() {
 	initialize_config();
 
   Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
+	Shader::Basic.name = "basic";
+	Shader::DeferredBasePass = Shader("../shaders/geometry.vert", "../shaders/geometry.frag");
+	Shader::DeferredBasePass.name = "deferred";
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
@@ -32,36 +36,36 @@ void Program::setup() {
 
 #if 1 // cube with plane lighting
 	Camera::Active->move_speed = 4.0f;
-	Camera::Active->position = vec3(0, -6, 4);
+	Camera::Active->position = vec3(0, -10, 1);
 
   // load and process mesh
   std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
   Mesh* cube = meshes[0];
   cube->shader.set_parameters = [cube]() {
-		mat3 OBJECT_TO_CAM_ROT = cube->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
-		cube->shader.set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
-    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * cube->object_to_world();
-    cube->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+		cube->shader.set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
+		mat4 o2w = cube->object_to_world();
+    cube->shader.set_mat4("OBJECT_TO_WORLD", o2w);
+		cube->shader.set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
   };
-	cube->local_position += vec3(1, 0, 6);
-	cube->scale = vec3(1.2f);
+	cube->local_position += vec3(0, 0, 1);
+	cube->scale = vec3(1, 1, 2);
 	cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
   scene->add_child(static_cast<Drawable*>(cube));
 
   meshes = Mesh::LoadMeshes("../media/plane.fbx");
   Mesh* plane = meshes[0];
   plane->shader.set_parameters = [plane]() {
-    mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * plane->object_to_world();
-    plane->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+		plane->shader.set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
+		mat4 o2w = plane->object_to_world();
+    plane->shader.set_mat4("OBJECT_TO_WORLD", o2w);
+		plane->shader.set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
   };
   //plane->bsdf->emission = vec3(1.0f);
-  plane->local_position = vec3(0, 0, 3);
-  plane->scale = vec3(4, 4, 1);
+  plane->local_position = vec3(0, 0, 0);
+  plane->scale = vec3(10, 10, 1);
 	plane->bsdf = new Diffuse();
 	//plane->bsdf->Le = vec3(1); // emissive plane
   scene->add_child(static_cast<Drawable*>(plane));
-
-  Pathtracer::Instance->load_scene(*scene);
 
 #else // cornell box, centered at (0, 400, 0)
 	Camera::Active->position = vec3(0, 0, 0);
@@ -70,6 +74,7 @@ void Program::setup() {
 	std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_box.dae");
 	for (int i=0; i<meshes.size(); i++) { // 4 is floor
 		Mesh* mesh = meshes[i];
+		mesh->shader = Shader::Basic;
 		mesh->shader.set_parameters = [mesh](){
 			mat3 OBJECT_TO_CAM_ROT = mesh->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
 			mesh->shader.set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
@@ -87,6 +92,7 @@ void Program::setup() {
 
   meshes = Mesh::LoadMeshes("../media/cornell_light.dae");
 	Mesh* light = meshes[0];
+	light->shader = Shader::Basic;
   light->shader.set_parameters = [light]() {
 		mat3 OBJECT_TO_CAM_ROT = light->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
 		light->shader.set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);

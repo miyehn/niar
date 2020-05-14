@@ -2,7 +2,7 @@
 
 #include "Drawable.hpp"
 
-#define NUM_GBUFFERS 1
+#define NUM_GBUFFERS 3
 
 /* a scene is a tree of drawables */
 struct Scene : public Drawable {
@@ -14,10 +14,9 @@ struct Scene : public Drawable {
 	//---- Rendering-related textures, buffers, shaders, etc. ----
 	uint fbo_gbuffers = 0;
 	uint tex_gbuffers[NUM_GBUFFERS];
-	uint color_attachments[NUM_GBUFFERS];
 	uint buf_depth = 0;
 
-	Blit* copy_to_screen = nullptr;
+	Blit* composition = nullptr;
 
   //-------- OpenGL configurations --------
   // depth test

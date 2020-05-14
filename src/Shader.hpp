@@ -6,6 +6,7 @@
 struct Shader {
 
   static Shader Basic;
+	static Shader DeferredBasePass;
 
   Shader() {}
   Shader(
@@ -40,10 +41,10 @@ struct Shader {
 
   void set_mat4(const std::string &name, mat4 mat) const;
 
-  void set_tex2D(uint texture_unit, uint texture_id);
+  void set_tex2D(const std::string &name, uint texture_unit, uint texture_id) const;
 
 private:
-  uint uniform_loc(const std::string& uniformName) const;
+  int uniform_loc(const std::string& uniformName) const;
 
 	uint quad_vert = 0;
 
@@ -55,7 +56,8 @@ struct Blit {
 
 	Shader shader;
 
-	void draw();
+	void begin_pass();
+	void end_pass();
 
 private:
 	static uint vao;
