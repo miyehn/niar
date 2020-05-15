@@ -1,5 +1,5 @@
 #include "Drawable.hpp"
-
+#include "Scene.hpp"
 
 Drawable::Drawable(Drawable* _parent, std::string _name) {
 
@@ -86,7 +86,7 @@ mat4 Drawable::parent_to_object() {
 
 mat3 Drawable::object_to_world_rotation() {
 	if (!parent) return mat3_cast(rotation);
-	return mat3_cast(rotation) * parent->object_to_world_rotation();
+	return parent->object_to_world_rotation() * mat3_cast(rotation);
 }
 
 mat3 Drawable::world_to_object_rotation() {
@@ -101,4 +101,10 @@ mat4 Drawable::world_to_object() {
 vec3 Drawable::world_position() {
   vec4 position = object_to_world() * vec4(local_position, 1);
   return vec3(position.x, position.y, position.z) / position.w;
+}
+
+Scene* Drawable::get_scene() {
+	Drawable* node = this;
+	while (node->parent) node = node->parent;
+	return static_cast<Scene*>(node);
 }

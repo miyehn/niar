@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 #include "Program.hpp"
 #include "Globals.hpp"
+#include "Light.hpp"
 
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
@@ -30,7 +31,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	glGenTextures(NUM_GBUFFERS, tex_gbuffers);
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		glBindTexture(GL_TEXTURE_2D, tex_gbuffers[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		// filtering parameters
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -86,6 +87,7 @@ void Scene::draw() {
 	}
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
+  glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// bind output textures
@@ -102,6 +104,7 @@ void Scene::draw() {
 	
 	composition->begin_pass();
 	{
+		pass_lights_to_composition_shader();
 		//composition->shader.set_tex2D(0, tex_gbuffers[GBuf->get()]);
 		for (int i=0; i<NUM_GBUFFERS; i++) {
 			std::string name = "GBUF" + std::to_string(i);
@@ -110,4 +113,28 @@ void Scene::draw() {
 	}
 	composition->end_pass();
 
+}
+
+void Scene::pass_lights_to_composition_shader() {
+
+	int dir_index = 0;
+	int point_index = 0;
+	for (int i=0; i<lights.size(); i++) {
+		
+		if (DirectionalLight* L = dynamic_cast<DirectionalLight*>(lights[i])) {
+			std::string prefix = "DirectionalLights[" + std::to_string(dir_index) + "].";
+			composition->shader.set_vec3(prefix+"direction", L->get_direction());
+			composition->shader.set_vec3(prefix+"color", L->get_emission());
+			dir_index++;
+
+		} else if (PointLight* L = dynamic_cast<PointLight*>(lights[i])) {
+			std::string prefix = "PointLights[" + std::to_string(point_index) + "].";
+			composition->shader.set_vec3(prefix+"position", L->world_position());
+			composition->shader.set_vec3(prefix+"color", L->get_emission());
+			point_index++;
+
+		}
+	}
+	composition->shader.set_int("NumDirectionalLights", dir_index);
+	composition->shader.set_int("NumPointLights", point_index);
 }

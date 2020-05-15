@@ -9,6 +9,7 @@
 #include "BSDF.hpp"
 #include "Primitive.hpp"
 #include "Globals.hpp"
+#include "Light.hpp"
 
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
@@ -47,8 +48,8 @@ void Program::setup() {
     cube->shader.set_mat4("OBJECT_TO_WORLD", o2w);
 		cube->shader.set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
   };
-	cube->local_position += vec3(0, 0, 1);
-	cube->scale = vec3(1, 1, 2);
+	cube->local_position += vec3(0.5f, 0, 1);
+	cube->scale = vec3(1, 5, 5);
 	cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
   scene->add_child(static_cast<Drawable*>(cube));
 
@@ -66,6 +67,16 @@ void Program::setup() {
 	plane->bsdf = new Diffuse();
 	//plane->bsdf->Le = vec3(1); // emissive plane
   scene->add_child(static_cast<Drawable*>(plane));
+
+	// create light(s)
+	Light* light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, vec3(1, 0, -1));
+	scene->add_child(static_cast<Drawable*>(light));
+	scene->lights.push_back(light);
+
+	light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 4.0f, vec3(-1, 0, 1));
+	scene->add_child(static_cast<Drawable*>(light));
+	scene->lights.push_back(light);
+
 
 #else // cornell box, centered at (0, 400, 0)
 	Camera::Active->position = vec3(0, 0, 0);

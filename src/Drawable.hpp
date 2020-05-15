@@ -2,6 +2,8 @@
 #include "Updatable.hpp"
 #include "Shader.hpp"
 
+struct Scene;
+
 struct Drawable: public Updatable {
 
   Drawable(
@@ -22,6 +24,7 @@ struct Drawable: public Updatable {
   // hierarchy
   Drawable* parent;
   std::vector<Drawable*> children = std::vector<Drawable*>();
+	Scene* get_scene();
   virtual bool add_child(Drawable* child);
 
   // transformation

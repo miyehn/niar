@@ -24,6 +24,7 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include "glm/gtx/quaternion.hpp"
 
 using namespace glm;
 
@@ -122,14 +123,18 @@ private:
 	std::vector<T> queue;
 	std::mutex queue_mutex;
 };
-//---------------------------------------------------------
-
 
 // other macros
 #define INF std::numeric_limits<float>::infinity()
 #define EPSILON 0.001f
 #define PI 3.14159265359f
+#define HALF_PI 1.57079632679f
 #define ONE_OVER_PI 0.31830988618f
 #define TWO_PI 6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
+
+//------------------ generic helper(s) --------------------
+
+// TODO: make more robust
+extern quat quat_from_dir(vec3 dir); 

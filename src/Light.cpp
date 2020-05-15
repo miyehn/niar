@@ -27,3 +27,6 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	return d2 / (triangle->area * costheta_l);
 }
 
+void DirectionalLight::set_direction(vec3 dir) {
+	rotation = quat_from_dir(normalize(dir));
+}
