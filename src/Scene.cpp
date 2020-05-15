@@ -1,10 +1,15 @@
 #include "Scene.hpp"
 #include "Program.hpp"
 #include "Globals.hpp"
+#include "Mesh.hpp"
 #include "Light.hpp"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
-CVar<int>* CurrentDebugTex = new CVar<int>("CurrentDebugTex", 0);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 0);
+CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
+CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
+
+CVar<int>* ShaderSet = new CVar<int>("ShaderSet", 0);
 
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
@@ -22,8 +27,6 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
   fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
   
 	//-------- allocate bufers --------
-	
-	if (!Cfg.UseDeferred) return;
 	
 	glGenFramebuffers(1, &fbo_gbuffers);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
@@ -58,10 +61,10 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	new NamedTex("Depth", tex_depth);
 
 	glDrawBuffers(NUM_GBUFFERS, color_attachments);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
 		ERR("framebuffer not correctly initialized");
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	composition = new Blit("../shaders/deferred_composition.frag");
 
@@ -88,12 +91,16 @@ void Scene::draw() {
 
 	//-------- actual drawing --------
 	
-	if (!Cfg.UseDeferred) {
+	glViewport(0, 0, w, h);
+	shader_set = ShaderSet->get();
+
+	if (shader_set != 0) {
 		Drawable::draw();
 		return;
 	}
 
-	glViewport(0, 0, w, h);
+	// deferred pipeline
+
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
   glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -111,22 +118,21 @@ void Scene::draw() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
 	composition->begin_pass();
-	{
-		pass_lights_to_composition_shader();
-		for (int i=0; i<NUM_GBUFFERS; i++) {
-			std::string name = "GBUF" + std::to_string(i);
-			composition->shader.set_tex2D(name, i, tex_gbuffers[i]);
-		}
+	pass_lights_to_composition_shader();
+	for (int i=0; i<NUM_GBUFFERS; i++) {
+		std::string name = "GBUF" + std::to_string(i);
+		composition->shader.set_tex2D(name, i, tex_gbuffers[i]);
 	}
 	composition->end_pass();
 
 	// draw debug texture
 	if (ShowDebugTex->get()) {
-		int debugtex = find_named_tex(CurrentDebugTex->get());
+		int debugtex = find_named_tex(DebugTex->get());
 		if (debugtex >= 0) {
-			Blit::Copy->begin_pass();
-			Blit::Copy->shader.set_tex2D("TEX", 0, debugtex);
-			Blit::Copy->end_pass();
+			Blit::CopyDebug->begin_pass();
+			Blit::CopyDebug->shader.set_tex2D("TEX", 0, debugtex);
+			Blit::CopyDebug->shader.set_vec2("MinMax", vec2(DebugTexMin->get(), DebugTexMax->get()));
+			Blit::CopyDebug->end_pass();
 		}
 	}
 
@@ -155,3 +161,4 @@ void Scene::pass_lights_to_composition_shader() {
 	composition->shader.set_int("NumDirectionalLights", dir_index);
 	composition->shader.set_int("NumPointLights", point_index);
 }
+

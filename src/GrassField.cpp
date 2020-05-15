@@ -40,14 +40,14 @@ GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): D
     glBindVertexArray(0);
 
     // shaders
-    shader = Shader(
+    shaders[0] = Shader(
         "../shaders/grass.vert",
         "../shaders/grass.frag",
         "../shaders/grass.tesc",
         "../shaders/grass.tese");
-    shader.set_parameters = [this]() {
+    shaders[0].set_parameters = [this]() {
       mat4 transformation = Camera::Active->world_to_clip() * object_to_world();
-      shader.set_mat4("transformation", transformation);
+      shaders[0].set_mat4("transformation", transformation);
     };
   }
 
@@ -58,7 +58,7 @@ GrassField::~GrassField() {
   vbo = 0;
   glDeleteVertexArrays(1, &vao);
   vao = 0;
-  glDeleteProgram(shader.id);
+  glDeleteProgram(shaders[0].id);
 }
 
 void GrassField::update(float elapsed) {
@@ -77,10 +77,10 @@ void GrassField::draw() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   // set shader
-  glUseProgram(shader.id);
+  glUseProgram(shaders[0].id);
 
   // upload transformation to shader
-  shader.set_parameters();
+  shaders[0].set_parameters();
 
   // use vao
   glBindVertexArray(vao);

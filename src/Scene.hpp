@@ -17,6 +17,8 @@ struct Scene : public Drawable {
 
 	std::vector<Light*> lights;
 
+	uint shader_set = 0;
+
 	//---- Rendering-related textures, buffers, shaders, etc. ----
 	uint fbo_gbuffers = 0;
 	uint tex_gbuffers[NUM_GBUFFERS];

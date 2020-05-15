@@ -78,8 +78,6 @@ struct ProgramConfig
 		CVar<int>* MinRaysPerPixel = new CVar<int>("MinRaysPerPixel", 4);
 	}
 	Pathtracer;
-
-	int UseDeferred = 1;
 };
 
 extern ProgramConfig Cfg;

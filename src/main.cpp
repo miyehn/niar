@@ -149,7 +149,7 @@ void Program::run() {
 void Program::update(float elapsed) {
   
   // camera
-  Camera::Active->update(elapsed);
+  Camera::Active->update_control(elapsed);
   // pathtracer
   if (Pathtracer::Instance && Pathtracer::Instance->enabled)
     Pathtracer::Instance->update(elapsed);

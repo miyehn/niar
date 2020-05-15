@@ -7,7 +7,6 @@ struct Primitive;
 struct Light;
 struct RaytraceThread;
 
-
 struct Pathtracer : public Drawable {
 
   static Pathtracer* Instance;

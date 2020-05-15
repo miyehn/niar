@@ -13,7 +13,8 @@
 
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
-Blit* Blit::Copy;
+Shader Shader::DepthOnly;
+Blit* Blit::CopyDebug;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
@@ -27,7 +28,9 @@ void Program::load_resources() {
 	Shader::Basic.name = "basic";
 	Shader::DeferredBasePass = Shader("../shaders/geometry.vert", "../shaders/geometry.frag");
 	Shader::DeferredBasePass.name = "deferred";
-	Blit::Copy = new Blit("../shaders/quad.frag");
+	Shader::DepthOnly = Shader("../shaders/position_only.vert", "../shaders/empty.frag");
+	Shader::DepthOnly.name = "depth only";
+	Blit::CopyDebug = new Blit("../shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
@@ -37,45 +40,65 @@ void Program::setup() {
 
   Scene* scene = new Scene("my scene");
 
-#if 1 // cube with plane lighting
+#if 1 // cube with plane
 	Camera::Active->move_speed = 4.0f;
 	Camera::Active->position = vec3(0, -10, 1);
 
   // load and process mesh
   std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
   Mesh* cube = meshes[0];
-  cube->shader.set_parameters = [cube]() {
-		cube->shader.set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
+  cube->shaders[0].set_parameters = [cube]() {
+		cube->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
 		mat4 o2w = cube->object_to_world();
-    cube->shader.set_mat4("OBJECT_TO_WORLD", o2w);
-		cube->shader.set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+    cube->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+		cube->shaders[0].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
   };
-	cube->local_position += vec3(0.5f, 0, 1);
-	cube->scale = vec3(1, 5, 5);
+	cube->shaders[1].set_parameters = [cube]() {
+		mat4 o2w = cube->object_to_world();
+		cube->shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
+	cube->shaders[2].set_parameters = [cube]() {
+		cube->shaders[2].set_mat3("OBJECT_TO_CAM_ROT", 
+				cube->object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
+		mat4 o2w = cube->object_to_world();
+		cube->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
+	cube->local_position += vec3(1.5f, 0, 0);
+	cube->scale = vec3(1, 8, 4);
 	cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
   scene->add_child(static_cast<Drawable*>(cube));
 
+
   meshes = Mesh::LoadMeshes("../media/plane.fbx");
   Mesh* plane = meshes[0];
-  plane->shader.set_parameters = [plane]() {
-		plane->shader.set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
+  plane->shaders[0].set_parameters = [plane]() {
+		plane->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
 		mat4 o2w = plane->object_to_world();
-    plane->shader.set_mat4("OBJECT_TO_WORLD", o2w);
-		plane->shader.set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+    plane->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+		plane->shaders[0].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
   };
-  //plane->bsdf->emission = vec3(1.0f);
+	plane->shaders[1].set_parameters = [plane]() {
+		mat4 o2w = plane->object_to_world();
+		plane->shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
+	plane->shaders[2].set_parameters = [plane]() {
+		plane->shaders[2].set_mat3("OBJECT_TO_CAM_ROT", 
+				plane->object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
+		mat4 o2w = plane->object_to_world();
+		plane->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
   plane->local_position = vec3(0, 0, 0);
-  plane->scale = vec3(10, 10, 1);
+  plane->scale = vec3(8, 8, 1);
 	plane->bsdf = new Diffuse();
-	//plane->bsdf->Le = vec3(1); // emissive plane
   scene->add_child(static_cast<Drawable*>(plane));
+
 
 	// create light(s)
 	Light* light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, vec3(1, 0, -1));
 	scene->add_child(static_cast<Drawable*>(light));
 	scene->lights.push_back(light);
 
-	light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 4.0f, vec3(-1, 0, 1));
+	light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
 	scene->add_child(static_cast<Drawable*>(light));
 	scene->lights.push_back(light);
 

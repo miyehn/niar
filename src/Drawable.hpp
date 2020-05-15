@@ -2,6 +2,8 @@
 #include "Updatable.hpp"
 #include "Shader.hpp"
 
+#define NUM_SHADER_SETS 3
+
 struct Scene;
 
 struct Drawable: public Updatable {
@@ -19,7 +21,7 @@ struct Drawable: public Updatable {
   virtual void draw();
 
   // material
-  Shader shader;
+  Shader shaders[NUM_SHADER_SETS];
 
   // hierarchy
   Drawable* parent;

@@ -339,5 +339,4 @@ void Blit::end_pass() {
 	glBindVertexArray(0);
 	glUseProgram(0);
 	if (cached_depth_test == GL_TRUE) glEnable(GL_DEPTH_TEST);
-	GL_ERRORS();
 }

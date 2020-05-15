@@ -1,8 +1,8 @@
 #include "Camera.hpp"
 #include "Program.hpp"
 
-Camera::Camera(size_t w, size_t h, bool _ortho) : 
-		orthonormal(_ortho), width(w), height(h) {
+Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) : 
+		orthonormal(_ortho), use_YPR(_use_YPR), width(w), height(h) {
   position = vec3(0);
   yaw = radians(0.0f);
   pitch = radians(90.0f);
@@ -24,7 +24,7 @@ Camera::Camera(size_t w, size_t h, bool _ortho) :
   int prev_mouse_y = 0;
 }
 
-void Camera::update(float elapsed) {
+void Camera::update_control(float elapsed) {
 
   if (!locked && !Program::Instance->receiving_text) {
     const Uint8* state = SDL_GetKeyboardState(nullptr);
@@ -88,10 +88,13 @@ void Camera::update(float elapsed) {
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
 mat3 Camera::world_to_camera_rotation() {
-	mat4 m4 = rotate(mat4(1), -roll, vec3(0, 1, 0)) *
+	if (use_YPR) {
+		mat4 m4 = rotate(mat4(1), -roll, vec3(0, 1, 0)) *
          rotate(mat4(1), -pitch, vec3(1, 0, 0)) * 
          rotate(mat4(1), -yaw, vec3(0, 0, 1));
-	return mat3(m4);
+		return mat3(m4);
+	}
+	return transpose(camera_to_world_rotation());
 }
 
 mat4 Camera::world_to_camera() {
@@ -99,9 +102,14 @@ mat4 Camera::world_to_camera() {
 }
 
 mat3 Camera::camera_to_world_rotation() {
-	mat4 m4 = rotate(mat4(1), yaw, vec3(0, 0, 1)) *
+	mat4 m4;
+	if (use_YPR) { 
+		m4 = rotate(mat4(1), yaw, vec3(0, 0, 1)) *
          rotate(mat4(1), pitch, vec3(1, 0, 0)) *
-         rotate(mat4(1), roll, vec3(0, 1, 0));
+         rotate(mat4(1), roll, vec3(0, 1, 0)); }
+	else {
+		m4 = mat4_cast(rotation);
+	}
 	return mat3(m4);
 }
 

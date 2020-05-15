@@ -7,8 +7,12 @@ struct Shader {
 
   static Shader Basic;
 	static Shader DeferredBasePass;
+	static Shader DepthOnly;
 
-  Shader() {}
+  Shader() { 
+		id = 0; 
+		name = "[unamed shader]";
+	}
   Shader(
       const std::string& vert_path, 
       const std::string& frag_path, 
@@ -17,11 +21,11 @@ struct Shader {
 
 	Shader(const std::string& frag_path);
 
-  std::function<void()> set_parameters = []() {
-    WARN("using a shader without parameter function set!");
+  std::function<void()> set_parameters = [this]() {
+    WARNF("%s: using shader without parameter function set!", name.c_str());
   };
   std::string name;
-  uint id = 0;
+  uint id;
 
   //--------
 
@@ -52,7 +56,7 @@ private:
 
 struct Blit {
 
-	static Blit* Copy;
+	static Blit* CopyDebug;
 
 	Blit(const std::string& frag_path);
 

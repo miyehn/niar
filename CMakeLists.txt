@@ -21,6 +21,7 @@ add_executable(niar
   src/Pathtracer/Primitive
   src/Pathtracer/Pathtracer
   src/Pathtracer/BSDF
+	src/Pathtracer/AreaLight
   )
 
 include_directories(include src src/Pathtracer)

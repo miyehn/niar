@@ -99,7 +99,7 @@ mat4 Drawable::world_to_object() {
 }
 
 vec3 Drawable::world_position() {
-  vec4 position = object_to_world() * vec4(local_position, 1);
+  vec4 position = object_to_world() * vec4(0, 0, 0, 1);
   return vec3(position.x, position.y, position.z) / position.w;
 }
 

@@ -3,6 +3,7 @@
 #include "Camera.hpp"
 #include "BSDF.hpp"
 #include "Globals.hpp"
+#include "Scene.hpp"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
@@ -49,7 +50,9 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   //---- OpenGL setup ----
   
   // copy construct a default shader
-  shader = Cfg.UseDeferred ? Shader::DeferredBasePass : Shader::Basic;
+  shaders[0] = Shader::DeferredBasePass;
+	shaders[1] = Shader::DepthOnly;
+	shaders[2] = Shader::Basic;
 
   // generate buffers & objects
   glGenBuffers(1, &vbo);
@@ -116,6 +119,9 @@ void Mesh::update(float elapsed) {
 void Mesh::draw() {
 
   // set shader
+	Shader shader = shaders[get_scene()->shader_set];
+	if (shader.id == 0) return;
+
   glUseProgram(shader.id);
 
   // upload uniform

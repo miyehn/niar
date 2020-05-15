@@ -5,12 +5,13 @@ struct Camera {
 
   static Camera* Active;
 
-  Camera(size_t w, size_t h, bool _ortho = false);
+  Camera(size_t w, size_t h, bool _ortho = false, bool use_YPR = true);
 
-  void update(float time_elapsed);
+  void update_control(float time_elapsed);
 
   // properties, can be set by the program
   vec3 position;
+	quat rotation;
   float yaw;
   float pitch;
   float roll;
@@ -26,6 +27,7 @@ struct Camera {
   float aspect_ratio;
 
 	bool orthonormal;
+	bool use_YPR;
 
   // can move & rotate camera?
   void lock();

@@ -4,7 +4,7 @@
 #include "Scene.hpp"
 #include "BSDF.hpp"
 #include "Primitive.hpp"
-#include "Light.hpp"
+#include "AreaLight.hpp"
 #include "Globals.hpp"
 #include <chrono>
 #include <thread>
@@ -113,9 +113,9 @@ void Pathtracer::initialize() {
   //-------- opengl stuff setup --------
 
 	// TODO: replace with a blit
-  shader = Shader("../shaders/quad.vert", "../shaders/quad.frag");
-  shader.set_parameters = [this]() {
-    shader.set_tex2D("TEX", 0, texture);
+  shaders[0] = Shader("../shaders/quad.vert", "../shaders/quad.frag");
+  shaders[0].set_parameters = [this]() {
+    shaders[0].set_tex2D("TEX", 0, texture);
   };
 
   float quad_vertices[24] = {
@@ -500,9 +500,9 @@ void Pathtracer::draw() {
 	// set fill
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   // set shader
-  glUseProgram(shader.id);
+  glUseProgram(shaders[0].id);
   // pass uniforms
-  shader.set_parameters();
+  shaders[0].set_parameters();
   // draw stuff
   glBindVertexArray(vao);
   glDrawArrays(GL_TRIANGLES, 0, 6);

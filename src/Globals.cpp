@@ -34,8 +34,6 @@ void initialize_config() {
 		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
 		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
 
-		Cfg.UseDeferred = config_src.lookup("UseDeferred");
-
 		LOG("*** successfully loaded config from file! ***");
 
 	} catch (const SettingNotFoundException &nfex) {
@@ -141,12 +139,12 @@ void set_cvar(std::string name, std::string val) {
 }
 
 quat quat_from_dir(vec3 dir) {
-	if (dot(dir, vec3(0, 0, 1)) > 1.0f - EPSILON) {
+	if (dot(dir, vec3(0, 0, -1)) > 1.0f - EPSILON) {
 		return quat();
 	}
-	float costheta = dot(dir, vec3(0, 0, 1));
-	float angle = acos(dot(dir, vec3(0, 0, 1)));
-	vec3 axis = normalize(cross(vec3(0, 0, 1), dir));
+	float costheta = dot(dir, vec3(0, 0, -1));
+	float angle = acos(dot(dir, vec3(0, 0, -1)));
+	vec3 axis = normalize(cross(vec3(0, 0, -1), dir));
 	//LOGF("angle: %f, axis: %f %f %f", angle, axis.x, axis.y, axis.z);
 	float c = cos(angle / 2);
 	float s = sin(angle / 2);
