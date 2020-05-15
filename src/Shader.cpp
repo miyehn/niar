@@ -325,6 +325,8 @@ Blit::Blit(const std::string& frag_path) {
 }
 
 void Blit::begin_pass() {
+	glGetBooleanv(GL_DEPTH_TEST, &cached_depth_test);
+	glDisable(GL_DEPTH_TEST);
 	glUseProgram(shader.id);
 	glBindVertexArray(Blit::vao);
 	glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
@@ -336,4 +338,6 @@ void Blit::end_pass() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glUseProgram(0);
+	if (cached_depth_test == GL_TRUE) glEnable(GL_DEPTH_TEST);
+	GL_ERRORS();
 }

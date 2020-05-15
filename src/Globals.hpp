@@ -2,16 +2,32 @@
 #include <functional>
 
 struct CVarBase;
+struct NamedTex;
 
 void initialize_config();
+
+std::vector<NamedTex*> namedtex_list(NamedTex* new_tex = nullptr);
 
 std::vector<CVarBase*> cvars_list(CVarBase* new_cvar = nullptr);
 
 void list_cvars();
 
+void list_textures();
+
+int find_named_tex(int index);
+
 void log_cvar(std::string name);
 
 void set_cvar(std::string name, std::string val);
+
+struct NamedTex {
+	NamedTex(std::string _name, uint _tex) : name(_name), tex(_tex) {
+		namedtex_list(this);
+	}
+	std::string name = "";
+	uint tex;
+	int index;
+};
 
 struct CVarBase {
 	virtual void register_self() { cvars_list(this); }

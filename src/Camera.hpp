@@ -1,15 +1,13 @@
 #pragma once
 #include "Updatable.hpp"
 
-struct Camera : Updatable {
+struct Camera {
 
   static Camera* Active;
 
-  Camera(size_t w, size_t h);
+  Camera(size_t w, size_t h, bool _ortho = false);
 
-  // inherited
-  virtual void update(float time_elapsed);
-  virtual bool handle_event(SDL_Event event);
+  void update(float time_elapsed);
 
   // properties, can be set by the program
   vec3 position;
@@ -24,7 +22,10 @@ struct Camera : Updatable {
   float cutoffNear;
   float cutoffFar;
 
+	float width, height;
   float aspect_ratio;
+
+	bool orthonormal;
 
   // can move & rotate camera?
   void lock();

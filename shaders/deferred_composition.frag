@@ -40,7 +40,7 @@ void main() {
 	
 	for (int i=0; i<NumDirectionalLights; i++) {
 		float NdotL = dot(normal, -DirectionalLights[i].direction);
-		FragColor.rgb += NdotL * DirectionalLights[i].color * color;
+		FragColor.rgb += max(vec3(0), NdotL * DirectionalLights[i].color * color);
 	}
 
 	for (int i=0; i<NumPointLights; i++) {
@@ -48,7 +48,7 @@ void main() {
 		float atten = 1.0f / dot(lightDir, lightDir);
 		lightDir = normalize(lightDir);
 		float NdotL = dot(normal, -lightDir);
-		FragColor.rgb += NdotL * PointLights[i].color * color * atten;
+		FragColor.rgb += max(vec3(0), NdotL * PointLights[i].color * color * atten);
 	}
 
 }

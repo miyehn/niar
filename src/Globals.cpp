@@ -52,6 +52,31 @@ std::vector<CVarBase*> cvars_list(CVarBase* new_cvar) {
 	return ConsoleVariables;
 }
 
+std::vector<NamedTex*> namedtex_list(NamedTex* new_tex) {
+	static std::vector<NamedTex*> NamedTextures = std::vector<NamedTex*>();
+	if (new_tex) {
+		new_tex->index = NamedTextures.size();
+		NamedTextures.push_back(new_tex);
+	}
+	return NamedTextures;
+}
+
+void list_textures() {
+	auto Textures = namedtex_list();
+	LOGFR("There are %d named textures:", Textures.size());
+	for (int i=0; i<Textures.size(); i++) {
+		LOGFR("\t%s %d", Textures[i]->name.c_str(), Textures[i]->index);
+	}
+}
+
+int find_named_tex(int index) {
+	auto Textures = namedtex_list();
+	for (int i=0; i<Textures.size(); i++) {
+		if (index == Textures[i]->index) return Textures[i]->tex;
+	}
+	return -1;
+}
+
 CVarBase* find_cvar(std::string name) {
 	auto ConsoleVariables = cvars_list();
 	for (int i=0; i<ConsoleVariables.size(); i++) {

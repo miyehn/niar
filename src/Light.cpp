@@ -1,6 +1,7 @@
 #include "Light.hpp"
 #include "Primitive.hpp"
 #include "BSDF.hpp"
+#include "Camera.hpp"
 
 AreaLight::AreaLight(Triangle* _triangle)
 	: triangle(_triangle) {
@@ -27,6 +28,14 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	return d2 / (triangle->area * costheta_l);
 }
 
-void DirectionalLight::set_direction(vec3 dir) {
-	rotation = quat_from_dir(normalize(dir));
+DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) : 
+		color(_color), intensity(_intensity) {
+	set_direction(dir);
+	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, true);
+}
+
+void DirectionalLight::render_shadow_map() {
+}
+
+void PointLight::render_shadow_map() {
 }

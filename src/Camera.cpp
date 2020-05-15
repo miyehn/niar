@@ -1,7 +1,8 @@
 #include "Camera.hpp"
 #include "Program.hpp"
 
-Camera::Camera(size_t w, size_t h) {
+Camera::Camera(size_t w, size_t h, bool _ortho) : 
+		orthonormal(_ortho), width(w), height(h) {
   position = vec3(0);
   yaw = radians(0.0f);
   pitch = radians(90.0f);
@@ -83,10 +84,6 @@ void Camera::update(float elapsed) {
   }
 }
 
-bool Camera::handle_event(SDL_Event event) {
-  return false;
-}
-
 // Never really got how camera rotation control works but gonna settle for now...
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
@@ -113,7 +110,9 @@ mat4 Camera::camera_to_world() {
 }
 
 mat4 Camera::world_to_clip() {
-  mat4 camera_to_clip = perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
+  mat4 camera_to_clip = orthonormal ?
+		ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
+		perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
   return camera_to_clip * world_to_camera();
 }
 

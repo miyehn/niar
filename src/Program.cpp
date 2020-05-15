@@ -13,6 +13,7 @@
 
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
+Blit* Blit::Copy;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
@@ -26,6 +27,7 @@ void Program::load_resources() {
 	Shader::Basic.name = "basic";
 	Shader::DeferredBasePass = Shader("../shaders/geometry.vert", "../shaders/geometry.frag");
 	Shader::DeferredBasePass.name = "deferred";
+	Blit::Copy = new Blit("../shaders/quad.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
@@ -158,7 +160,8 @@ void Program::process_input() {
 	if (tokens[0] == "ls") {
 		if (len==1) list_cvars();
 		else if (len==2) {
-			log_cvar(tokens[1]);
+			if (tokens[1]=="textures") list_textures();
+			else log_cvar(tokens[1]);
 		}
 	}
 	else if (tokens[0] == "set" && len == 3) {

@@ -3,9 +3,11 @@
 #include "Globals.hpp"
 #include "Light.hpp"
 
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* CurrentDebugTex = new CVar<int>("CurrentDebugTex", 0);
+
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
-	int w, h;
 	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
 	
 	//-------- configurations --------
@@ -40,13 +42,20 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 		// attach to fbo
 		color_attachments[i] = GL_COLOR_ATTACHMENT0+i;
 		glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments[i], GL_TEXTURE_2D, tex_gbuffers[i], 0);
+		// add to debug textures
+		new NamedTex("GBUF"+std::to_string(i), tex_gbuffers[i]);
 	}
 
-	// depth renderbuffer
-	glGenRenderbuffers(1, &buf_depth);
-	glBindRenderbuffer(GL_RENDERBUFFER, buf_depth);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, buf_depth);
+	// depth texture
+	glGenTextures(1, &tex_depth);
+	glBindTexture(GL_TEXTURE_2D, tex_depth);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, tex_depth, 0);
+	new NamedTex("Depth", tex_depth);
 
 	glDrawBuffers(NUM_GBUFFERS, color_attachments);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -57,8 +66,6 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	composition = new Blit("../shaders/deferred_composition.frag");
 
 }
-
-CVar<int>* GBuf = new CVar<int>("gbuf", 0);
 
 void Scene::draw() {
 
@@ -85,7 +92,8 @@ void Scene::draw() {
 		Drawable::draw();
 		return;
 	}
-	
+
+	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
   glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -105,13 +113,22 @@ void Scene::draw() {
 	composition->begin_pass();
 	{
 		pass_lights_to_composition_shader();
-		//composition->shader.set_tex2D(0, tex_gbuffers[GBuf->get()]);
 		for (int i=0; i<NUM_GBUFFERS; i++) {
 			std::string name = "GBUF" + std::to_string(i);
 			composition->shader.set_tex2D(name, i, tex_gbuffers[i]);
 		}
 	}
 	composition->end_pass();
+
+	// draw debug texture
+	if (ShowDebugTex->get()) {
+		int debugtex = find_named_tex(CurrentDebugTex->get());
+		if (debugtex >= 0) {
+			Blit::Copy->begin_pass();
+			Blit::Copy->shader.set_tex2D("TEX", 0, debugtex);
+			Blit::Copy->end_pass();
+		}
+	}
 
 }
 

@@ -52,6 +52,8 @@ private:
 
 struct Blit {
 
+	static Blit* Copy;
+
 	Blit(const std::string& frag_path);
 
 	Shader shader;
@@ -62,5 +64,6 @@ struct Blit {
 private:
 	static uint vao;
 	static uint vbo;
+	GLboolean cached_depth_test;
 
 };

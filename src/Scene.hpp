@@ -13,12 +13,14 @@ struct Scene : public Drawable {
 
   Scene(std::string _name = "[unnamed scene]");
 
+	int w, h;
+
 	std::vector<Light*> lights;
 
 	//---- Rendering-related textures, buffers, shaders, etc. ----
 	uint fbo_gbuffers = 0;
 	uint tex_gbuffers[NUM_GBUFFERS];
-	uint buf_depth = 0;
+	uint tex_depth = 0;
 
 	Blit* composition = nullptr;
 

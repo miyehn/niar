@@ -118,7 +118,6 @@ void Program::run() {
           else Pathtracer::Instance->enable();
         }
         // update singletons
-        Camera::Active->handle_event(event);
         if (Pathtracer::Instance->enabled) 
           Pathtracer::Instance->handle_event(event);
         // update scene(s)
