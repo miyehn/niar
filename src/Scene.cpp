@@ -4,8 +4,8 @@
 #include "Mesh.hpp"
 #include "Light.hpp"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 0);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 4);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
@@ -70,6 +70,13 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 }
 
+void Scene::update(float elapsed) {
+}
+
+void Scene::draw_content() {
+	Drawable::draw();
+}
+
 void Scene::draw() {
 
 	//-------- setup config --------
@@ -89,13 +96,19 @@ void Scene::draw() {
   // fill mode
   glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
 
+	//-------- make shadow maps --------
+	
+	for (int i=0; i<lights.size(); i++) {
+		lights[i]->render_shadow_map();
+	}
+
 	//-------- actual drawing --------
 	
 	glViewport(0, 0, w, h);
-	shader_set = ShaderSet->get();
 
+	shader_set = ShaderSet->get();
 	if (shader_set != 0) {
-		Drawable::draw();
+		draw_content();
 		return;
 	}
 
@@ -112,7 +125,7 @@ void Scene::draw() {
 	}
 	
 	// draw scene
-  Drawable::draw();
+	draw_content();
 
 	// copy to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);

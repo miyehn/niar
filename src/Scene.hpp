@@ -39,7 +39,10 @@ struct Scene : public Drawable {
   GLenum fill_mode; // GL_FILL | GL_LINE | GL_POINT
 
   //-------- where the configurations are being set before the scene is drawn --------
+  virtual void update(float elapsed);
   virtual void draw();
+
+	void draw_content();
 
 private:
 	void pass_lights_to_composition_shader();

@@ -16,6 +16,6 @@ struct AreaLight : public Light {
 	// returns pdf for sampling this particular ray among A' (area projected onto hemisphere)
 	float ray_to_light_pdf(Ray& ray, const vec3& origin);
 
-	virtual void render_shadow_map() { ERR("Area lights shouldn't need shadow maps"); }
+	virtual void render_shadow_map() {}
 };
 
