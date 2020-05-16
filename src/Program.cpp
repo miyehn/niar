@@ -14,6 +14,7 @@
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
 Shader Shader::DepthOnly;
+Shader Shader::ShadowPass;
 Blit* Blit::CopyDebug;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
@@ -30,6 +31,8 @@ void Program::load_resources() {
 	Shader::DeferredBasePass.name = "deferred";
 	Shader::DepthOnly = Shader("../shaders/position_only.vert", "../shaders/empty.frag");
 	Shader::DepthOnly.name = "depth only";
+	Shader::ShadowPass = Shader("../shaders/shadow_pass.vert", "../shaders/shadow_pass.frag");
+	Shader::ShadowPass.name = "cast shadow pass";
 	Blit::CopyDebug = new Blit("../shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
@@ -43,6 +46,30 @@ void Program::setup() {
 #if 1 // cube with plane
 	Camera::Active->move_speed = 4.0f;
 	Camera::Active->position = vec3(0, -10, 1);
+	
+	// create light(s)
+	Light* light;
+
+	light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.4f, normalize(vec3(-0.5f, 0.2f, -1)));
+	light->cast_shadow = true;
+	scene->add_child(static_cast<Drawable*>(light));
+	scene->lights.push_back(light);
+
+	light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
+	light->cast_shadow = true;
+	scene->add_child(static_cast<Drawable*>(light));
+	scene->lights.push_back(light);
+
+	light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
+	scene->add_child(static_cast<Drawable*>(light));
+	scene->lights.push_back(light);
+
+	// gather shadow casting lights
+	std::vector<Light*> shadow_casting_lights;
+	for (int i=0; i<scene->lights.size(); i++) {
+		if (scene->lights[i]->cast_shadow) shadow_casting_lights.push_back(scene->lights[i]);
+	}
+	if (shadow_casting_lights.size() > MAX_SHADOWCASTING_LIGHTS) ERR("Too many shadow casting lights");
 
   // load and process mesh
   std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
@@ -63,15 +90,38 @@ void Program::setup() {
 		mat4 o2w = cube->object_to_world();
 		cube->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 	};
+	cube->shaders[3].set_parameters = [cube, shadow_casting_lights]() {
+		mat4 o2w = cube->object_to_world();
+    cube->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+		cube->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+		cube->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
+		uint counter = 0;
+		for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+			if (i < shadow_casting_lights.size()) {
+				Light* L = shadow_casting_lights[i];
+				DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L);
+				std::string prefix = "LightInfos[" + std::to_string(i) + "].";
+				mat4 OBJECT_TO_LIGHT_CLIP = L->world_to_light_clip() * o2w;
+				cube->shaders[3].set_tex2D(prefix+"ShadowMap", counter, L->get_shadow_map());
+				cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
+				cube->shaders[3].set_bool(prefix+"Directional", DL != nullptr);
+				cube->shaders[3].set_vec3(prefix+"Position", L->world_position());
+				cube->shaders[3].set_vec3(prefix+"Direction", (DL==nullptr) ? vec3(0) : DL->get_direction());
+				counter++;
+			}
+		}
+	};
 	cube->local_position += vec3(1.5f, 0, 0);
 	cube->scale = vec3(1, 8, 4);
 	cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
   scene->add_child(static_cast<Drawable*>(cube));
 
 
+	// TODO: pass light matrices to shader
   meshes = Mesh::LoadMeshes("../media/plane.fbx");
   Mesh* plane = meshes[0];
-  plane->shaders[0].set_parameters = [plane]() {
+	plane->is_closed_mesh = false;
+  plane->shaders[0].set_parameters = [plane, shadow_casting_lights]() {
 		plane->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
 		mat4 o2w = plane->object_to_world();
     plane->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
@@ -87,20 +137,32 @@ void Program::setup() {
 		mat4 o2w = plane->object_to_world();
 		plane->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 	};
+	plane->shaders[3].set_parameters = [plane, shadow_casting_lights]() {
+		mat4 o2w = plane->object_to_world();
+    plane->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+		plane->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+		plane->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
+		uint counter = 0;
+		for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+			if (i < shadow_casting_lights.size()) {
+				Light* L = shadow_casting_lights[i];
+				DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L);
+				std::string prefix = "LightInfos[" + std::to_string(i) + "].";
+				mat4 OBJECT_TO_LIGHT_CLIP = shadow_casting_lights[i]->world_to_light_clip() * o2w;
+				plane->shaders[3].set_tex2D(prefix+"ShadowMap", counter, L->get_shadow_map());
+				plane->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
+				plane->shaders[3].set_bool(prefix+"Directional", DL != nullptr);
+				plane->shaders[3].set_vec3(prefix+"Position", L->world_position());
+				plane->shaders[3].set_vec3(prefix+"Direction", (DL==nullptr) ? vec3(0) : DL->get_direction());
+				counter++;
+			}
+		}
+	};
   plane->local_position = vec3(0, 0, 0);
   plane->scale = vec3(8, 8, 1);
 	plane->bsdf = new Diffuse();
   scene->add_child(static_cast<Drawable*>(plane));
 
-
-	// create light(s)
-	Light* light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-	scene->add_child(static_cast<Drawable*>(light));
-	scene->lights.push_back(light);
-
-	light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
-	scene->add_child(static_cast<Drawable*>(light));
-	scene->lights.push_back(light);
 
 
 #else // cornell box, centered at (0, 400, 0)

@@ -45,6 +45,8 @@ struct Camera {
   vec3 up();
   vec3 right();
 
+	vec4 ZBufferParams();
+
 private:
   int prev_mouse_x;
   int prev_mouse_y;

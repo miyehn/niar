@@ -2,20 +2,24 @@
 
 struct DirectionalLight {
 	vec3 direction;
+	bool castShadow;
 	vec3 color;
+	sampler2D shadowMask;
 };
 
 struct PointLight {
 	vec3 position;
+	bool castShadow;
 	vec3 color;
+	sampler2D shadowMask;
 };
 
-uniform sampler2D GBUF0;
-uniform sampler2D GBUF1;
-uniform sampler2D GBUF2;
+uniform sampler2D GBUF0; // world position
+uniform sampler2D GBUF1; // normal
+uniform sampler2D GBUF2; // base color
 
-const int MaxDirectionalLights = 4;
-const int MaxPointLights = 4;
+const int MaxDirectionalLights = 2;
+const int MaxPointLights = 2;
 
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
@@ -40,7 +44,11 @@ void main() {
 	
 	for (int i=0; i<NumDirectionalLights; i++) {
 		float NdotL = dot(normal, -DirectionalLights[i].direction);
-		FragColor.rgb += max(vec3(0), NdotL * DirectionalLights[i].color * color);
+		vec3 contrib = max(vec3(0), NdotL * DirectionalLights[i].color * color);
+		if (DirectionalLights[i].castShadow) {
+			contrib *= texture(DirectionalLights[i].shadowMask, vf_uv).r;
+		}
+		FragColor.rgb += contrib;
 	}
 
 	for (int i=0; i<NumPointLights; i++) {

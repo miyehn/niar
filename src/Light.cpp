@@ -2,6 +2,7 @@
 #include "Camera.hpp"
 #include "Globals.hpp"
 #include "Scene.hpp"
+#include "Program.hpp"
 
 DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) : 
 		color(_color), intensity(_intensity) {
@@ -12,14 +13,17 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) :
 	shadow_map_cam->lock();
 	shadow_map_cam->cutoffNear = 1.0f;
 
+	//------- buffer generations -------
+
+	// shadow map (framebuffer and output texture)
 	glGenFramebuffers(1, &shadow_map_fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbo);
 
 	glGenTextures(1, &shadow_map_tex);
 	glBindTexture(GL_TEXTURE_2D, shadow_map_tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadow_map_dim, shadow_map_dim, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_map_tex, 0);
@@ -28,10 +32,24 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) :
 	glReadBuffer(GL_NONE);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
-		ERR("framebuffer not correctly initialized");
+		ERR("shadow map framebuffer not correctly initialized");
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	new NamedTex("directional map", shadow_map_tex);
+	new NamedTex("directional light shadow map", shadow_map_tex);
+
+	// shadow mask (output)
+	int w, h;
+	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
+
+	glGenTextures(1, &shadow_mask_tex);
+	glBindTexture(GL_TEXTURE_2D, shadow_mask_tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	new NamedTex("directional light shadow mask", shadow_mask_tex);
 }
 
 DirectionalLight::~DirectionalLight() {
@@ -63,6 +81,10 @@ void DirectionalLight::render_shadow_map() {
 
 	Camera::Active = cached_camera;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+mat4 DirectionalLight::world_to_light_clip() {
+	return shadow_map_cam->world_to_clip();
 }
 
 void PointLight::render_shadow_map() {

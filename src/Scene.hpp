@@ -2,6 +2,7 @@
 
 #include "Drawable.hpp"
 
+#define MAX_SHADOWCASTING_LIGHTS 2
 #define NUM_GBUFFERS 3
 
 struct Light;
@@ -21,7 +22,12 @@ struct Scene : public Drawable {
 
 	//---- Rendering-related textures, buffers, shaders, etc. ----
 	uint fbo_gbuffers = 0;
+	uint color_attachments_gbuffers[NUM_GBUFFERS];
 	uint tex_gbuffers[NUM_GBUFFERS];
+
+	uint fbo_position_lights = 0;
+	uint color_attachments_position_lights[MAX_SHADOWCASTING_LIGHTS];
+	uint depthbuf_position_lights = 0;
 	uint tex_depth = 0;
 
 	Blit* composition = nullptr;
@@ -42,7 +48,7 @@ struct Scene : public Drawable {
   virtual void update(float elapsed);
   virtual void draw();
 
-	void draw_content();
+	void draw_content(bool shadow_pass = false);
 
 private:
 	void pass_lights_to_composition_shader();

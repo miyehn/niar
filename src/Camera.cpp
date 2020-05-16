@@ -143,3 +143,12 @@ void Camera::lock() {
 void Camera::unlock() {
   locked = false;
 }
+
+vec4 Camera::ZBufferParams() {
+	vec4 res;
+	res.x = cutoffNear;
+	res.y = cutoffFar;
+	res.z = (1.0f - cutoffFar/cutoffNear) / cutoffFar;
+	res.w = (cutoffFar / cutoffNear) / cutoffFar;
+	return res;
+}

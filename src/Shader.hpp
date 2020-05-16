@@ -8,6 +8,7 @@ struct Shader {
   static Shader Basic;
 	static Shader DeferredBasePass;
 	static Shader DepthOnly;
+	static Shader ShadowPass;
 
   Shader() { 
 		id = 0; 

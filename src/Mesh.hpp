@@ -30,6 +30,8 @@ struct Mesh : public Drawable {
   std::vector<uint> faces;
   uint get_num_triangles() { return faces.size() / 3; }
 
+	bool is_closed_mesh = true;
+
   // TODO: material info (BSDF*)
 	BSDF* bsdf = nullptr;
 

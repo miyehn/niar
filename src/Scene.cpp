@@ -5,7 +5,7 @@
 #include "Light.hpp"
 
 CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 4);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 5);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
@@ -28,23 +28,24 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
   
 	//-------- allocate bufers --------
 	
+	// G buffer
+	
 	glGenFramebuffers(1, &fbo_gbuffers);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
 
 	// G buffer color attachments
-	uint color_attachments[NUM_GBUFFERS];
 	glGenTextures(NUM_GBUFFERS, tex_gbuffers);
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		glBindTexture(GL_TEXTURE_2D, tex_gbuffers[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 		// filtering parameters
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		// attach to fbo
-		color_attachments[i] = GL_COLOR_ATTACHMENT0+i;
-		glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments[i], GL_TEXTURE_2D, tex_gbuffers[i], 0);
+		color_attachments_gbuffers[i] = GL_COLOR_ATTACHMENT0+i;
+		glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments_gbuffers[i], GL_TEXTURE_2D, tex_gbuffers[i], 0);
 		// add to debug textures
 		new NamedTex("GBUF"+std::to_string(i), tex_gbuffers[i]);
 	}
@@ -60,10 +61,29 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, tex_depth, 0);
 	new NamedTex("Depth", tex_depth);
 
-	glDrawBuffers(NUM_GBUFFERS, color_attachments);
+	glDrawBuffers(NUM_GBUFFERS, color_attachments_gbuffers);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
-		ERR("framebuffer not correctly initialized");
+		ERR("G buffer framebuffer not correctly initialized");
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// Light-space position framebuffer
+	
+	glGenFramebuffers(1, &fbo_position_lights);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
+	// color attachments (NOTE: they're not bound to any textures for now)
+	for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+		color_attachments_position_lights[i] = GL_COLOR_ATTACHMENT0 + i;
+	}
+	glDrawBuffers(MAX_SHADOWCASTING_LIGHTS, color_attachments_position_lights);
+	// depth renderbuffer
+	glGenRenderbuffers(1, &depthbuf_position_lights);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthbuf_position_lights);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuf_position_lights);
+	// finish
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+		ERR("Light-space position framebuffer not correctly initialized");
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	composition = new Blit("../shaders/deferred_composition.frag");
@@ -73,8 +93,25 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 void Scene::update(float elapsed) {
 }
 
-void Scene::draw_content() {
+void Scene::draw_content(bool shadow_pass) {
 	Drawable::draw();
+	/*
+	for (int i=0; i<children.size(); i++) {
+		if (!shadow_pass) {
+			children[i]->draw();
+			continue;
+		}
+		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) {
+			if (mesh->is_closed_mesh) {
+				glCullFace(GL_FRONT);
+				mesh->draw();
+				glCullFace(cull_mode);
+				continue;
+			}
+		}
+		children[i]->draw();
+	}
+	*/
 }
 
 void Scene::draw() {
@@ -112,22 +149,49 @@ void Scene::draw() {
 		return;
 	}
 
-	// deferred pipeline
+	// first draw geometry information, independent of lighting
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
   glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	// bind output textures
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		glActiveTexture(GL_TEXTURE0+i);
 		glBindTexture(GL_TEXTURE_2D, tex_gbuffers[i]);
 	}
-	
-	// draw scene
+	// draw scene to G buffer
+	shader_set = 0;
 	draw_content();
 
-	// copy to screen
+	// then draw shadow masks to corresponding buffers (managed by lights)
+	
+	uint shadow_casting_lights_counter = 0;
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
+  glClearColor(1, 1, 1, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	for (int i=0; i<lights.size(); i++) {
+		if (shadow_casting_lights_counter > MAX_SHADOWCASTING_LIGHTS) ERR("Too many shadow casters");
+		if (DirectionalLight* L = dynamic_cast<DirectionalLight*>(lights[i])) {
+			if (L->cast_shadow) {
+				glActiveTexture(GL_TEXTURE0 + shadow_casting_lights_counter);
+				glBindTexture(GL_TEXTURE_2D, L->get_shadow_mask());
+				glFramebufferTexture2D(
+						GL_FRAMEBUFFER, color_attachments_position_lights[i], GL_TEXTURE_2D, L->get_shadow_mask(), 0);
+
+				shadow_casting_lights_counter++;
+			}
+		} else if (PointLight* L = dynamic_cast<PointLight*>(lights[i])) {
+			if (L->cast_shadow) {
+
+				shadow_casting_lights_counter++;
+			}
+		}
+	}
+	shader_set = 3;
+	draw_content(true);
+
+	//-------- composition: copy to screen --------
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
 	composition->begin_pass();
@@ -155,19 +219,25 @@ void Scene::pass_lights_to_composition_shader() {
 
 	int dir_index = 0;
 	int point_index = 0;
+	int shadow_casting_light_index = 0;
 	for (int i=0; i<lights.size(); i++) {
 		
 		if (DirectionalLight* L = dynamic_cast<DirectionalLight*>(lights[i])) {
 			std::string prefix = "DirectionalLights[" + std::to_string(dir_index) + "].";
 			composition->shader.set_vec3(prefix+"direction", L->get_direction());
 			composition->shader.set_vec3(prefix+"color", L->get_emission());
+			composition->shader.set_bool(prefix+"castShadow", L->cast_shadow);
+			composition->shader.set_tex2D(prefix+"shadowMask", 
+					NUM_GBUFFERS + shadow_casting_light_index, L->get_shadow_mask());
 			dir_index++;
+			if (L->cast_shadow) shadow_casting_light_index++;
 
 		} else if (PointLight* L = dynamic_cast<PointLight*>(lights[i])) {
 			std::string prefix = "PointLights[" + std::to_string(point_index) + "].";
 			composition->shader.set_vec3(prefix+"position", L->world_position());
 			composition->shader.set_vec3(prefix+"color", L->get_emission());
 			point_index++;
+			if (L->cast_shadow) shadow_casting_light_index++;
 
 		}
 	}

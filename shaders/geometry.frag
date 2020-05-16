@@ -1,15 +1,17 @@
 #version 330 core
 
+const int MaxShadowCastingLights = 2;
+
 in vec4 vf_position;
 in vec3 vf_normal;
-in vec4 vf_color;
+in vec3 vf_color;
 
-layout(location=0) out vec4 Position;
-layout(location=1) out vec4 Normal;
-layout(location=2) out vec4 Color;
+layout(location=0) out vec3 Position;
+layout(location=1) out vec3 Normal;
+layout(location=2) out vec3 Color;
 
 void main() {
-	Position = vf_position;
-	Normal = vec4(vf_normal, 1);
+	Position = vf_position.xyz;
+	Normal = vf_normal;
 	Color = vf_color;
 }

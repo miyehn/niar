@@ -53,6 +53,7 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   shaders[0] = Shader::DeferredBasePass;
 	shaders[1] = Shader::DepthOnly;
 	shaders[2] = Shader::Basic;
+	shaders[3] = Shader::ShadowPass;
 
   // generate buffers & objects
   glGenBuffers(1, &vbo);

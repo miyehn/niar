@@ -17,5 +17,7 @@ struct AreaLight : public Light {
 	float ray_to_light_pdf(Ray& ray, const vec3& origin);
 
 	virtual void render_shadow_map() {}
+
+	virtual mat4 world_to_light_clip() { return mat4(1); }
 };
 

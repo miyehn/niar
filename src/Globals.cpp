@@ -63,7 +63,7 @@ void list_textures() {
 	auto Textures = namedtex_list();
 	LOGFR("There are %d named textures:", Textures.size());
 	for (int i=0; i<Textures.size(); i++) {
-		LOGFR("\t%s %d", Textures[i]->name.c_str(), Textures[i]->index);
+		LOGFR("\t%d - %s", Textures[i]->index, Textures[i]->name.c_str());
 	}
 }
 
