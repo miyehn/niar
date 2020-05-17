@@ -1,10 +1,9 @@
-#include "AreaLight.hpp"
+#include "PathtracerLight.hpp"
 #include "Primitive.hpp"
 #include "BSDF.hpp"
 
 AreaLight::AreaLight(Triangle* _triangle)
 	: triangle(_triangle) {
-	type = Area;
 }
 
 vec3 AreaLight::get_emission() {

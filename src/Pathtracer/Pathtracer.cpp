@@ -4,7 +4,7 @@
 #include "Scene.hpp"
 #include "BSDF.hpp"
 #include "Primitive.hpp"
-#include "AreaLight.hpp"
+#include "PathtracerLight.hpp"
 #include "Globals.hpp"
 #include <chrono>
 #include <thread>
@@ -280,7 +280,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 				
 				// also load as light if emissive
 				if (emissive) {
-					lights.push_back(static_cast<Light*>(new AreaLight(T)));
+					lights.push_back(static_cast<PathtracerLight*>(new AreaLight(T)));
 				}
       }
     }

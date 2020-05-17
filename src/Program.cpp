@@ -61,12 +61,12 @@ void Program::setup() {
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
-		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-		light->cast_shadow = true;
+		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
-		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
+		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
+		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
@@ -98,7 +98,7 @@ void Program::setup() {
 		};
 		cube->shaders[3].set_parameters = [cube, shadow_casting_lights]() {
 			mat4 o2w = cube->object_to_world();
-			cube->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+			cube->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
 			cube->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			cube->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
 			uint counter = 0;
@@ -145,7 +145,7 @@ void Program::setup() {
 		};
 		plane->shaders[3].set_parameters = [plane, shadow_casting_lights]() {
 			mat4 o2w = plane->object_to_world();
-			plane->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+			plane->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
 			plane->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			plane->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
 			uint counter = 0;
@@ -154,7 +154,7 @@ void Program::setup() {
 					Light* L = shadow_casting_lights[i];
 					DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L);
 					std::string prefix = "LightInfos[" + std::to_string(i) + "].";
-					mat4 OBJECT_TO_LIGHT_CLIP = shadow_casting_lights[i]->world_to_light_clip() * o2w;
+					mat4 OBJECT_TO_LIGHT_CLIP = L->world_to_light_clip() * o2w;
 					plane->shaders[3].set_tex2D(prefix+"ShadowMap", counter, L->get_shadow_map());
 					plane->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
 					plane->shaders[3].set_bool(prefix+"Directional", DL != nullptr);

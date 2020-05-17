@@ -136,13 +136,7 @@ void Scene::draw() {
   // fill mode
   glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
 
-	//-------- make shadow maps --------
-	
-	for (int i=0; i<lights.size(); i++) {
-		lights[i]->render_shadow_map();
-	}
-
-	//-------- actual drawing --------
+	//---------------- actual drawing ----------------
 	
 	glViewport(0, 0, w, h);
 
@@ -152,7 +146,7 @@ void Scene::draw() {
 		return;
 	}
 
-	// first draw geometry information, independent of lighting
+	//-------- draw geometry information, independent of lighting
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
   glClearColor(0, 0, 0, 0);
@@ -165,35 +159,38 @@ void Scene::draw() {
 	// draw scene to G buffer
 	shader_set = 0;
 	draw_content();
-
-	// then draw shadow masks to corresponding buffers (managed by lights)
 	
+	//-------- make shadow maps
+	
+	for (int i=0; i<lights.size(); i++) {
+		lights[i]->render_shadow_map();
+	}
+
+	//-------- draw shadow masks (in a one-pass MRT) by sampling shadow maps
+	
+	glViewport(0, 0, w, h);
+
 	uint shadow_casting_lights_counter = 0;
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
   glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// TODO: make lights manage separate fbos instead
 	for (int i=0; i<lights.size(); i++) {
 		if (shadow_casting_lights_counter > MAX_SHADOWCASTING_LIGHTS) ERR("Too many shadow casters");
-		if (DirectionalLight* L = dynamic_cast<DirectionalLight*>(lights[i])) {
-			if (L->cast_shadow) {
-				glActiveTexture(GL_TEXTURE0 + shadow_casting_lights_counter);
-				glBindTexture(GL_TEXTURE_2D, L->get_shadow_mask());
-				glFramebufferTexture2D(
-						GL_FRAMEBUFFER, color_attachments_position_lights[i], GL_TEXTURE_2D, L->get_shadow_mask(), 0);
+		if (lights[i]->cast_shadow) {
+			glFramebufferTexture2D(
+					GL_FRAMEBUFFER, 
+					color_attachments_position_lights[shadow_casting_lights_counter], 
+					GL_TEXTURE_2D, 
+					lights[i]->get_shadow_mask(), 0);
 
-				shadow_casting_lights_counter++;
-			}
-		} else if (PointLight* L = dynamic_cast<PointLight*>(lights[i])) {
-			if (L->cast_shadow) {
-
-				shadow_casting_lights_counter++;
-			}
+			shadow_casting_lights_counter++;
 		}
 	}
 	shader_set = 3;
 	draw_content();
 
-	//-------- composition: copy to screen --------
+	//-------- composition: copy to screen
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
@@ -216,6 +213,7 @@ void Scene::draw() {
 		}
 	}
 
+	GL_ERRORS();
 }
 
 void Scene::pass_lights_to_composition_shader() {

@@ -4,7 +4,7 @@
 struct Scene;
 struct Ray;
 struct Primitive;
-struct Light;
+struct PathtracerLight;
 struct RaytraceThread;
 
 struct Pathtracer : public Drawable {
@@ -43,7 +43,7 @@ struct Pathtracer : public Drawable {
 
 	// scene
   std::vector<Primitive*> primitives;
-	std::vector<Light*> lights;
+	std::vector<PathtracerLight*> lights;
   void load_scene(const Scene& scene);
 
 	//---- pathtracing routine ----

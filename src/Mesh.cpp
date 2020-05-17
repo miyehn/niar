@@ -106,7 +106,6 @@ Mesh::~Mesh() {
   glDeleteBuffers(1, &vbo);
   glDeleteBuffers(1, &ebo);
   glDeleteVertexArrays(1, &vao);
-  GL_ERRORS();
 }
 
 bool Mesh::handle_event(SDL_Event event) {
