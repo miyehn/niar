@@ -61,12 +61,12 @@ void Program::setup() {
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
-		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
+		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
+		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
-		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-		light->cast_shadow = true;
+		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
@@ -127,6 +127,7 @@ void Program::setup() {
 		scene->add_child(static_cast<Drawable*>(cube));
 
 
+		/*
 		// TODO: pass light matrices to shader
 		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
@@ -172,6 +173,7 @@ void Program::setup() {
 		plane->scale = vec3(8, 8, 1);
 		plane->bsdf = new Diffuse();
 		scene->add_child(static_cast<Drawable*>(plane));
+		*/
 	}
 
 	/* Classic cornell box

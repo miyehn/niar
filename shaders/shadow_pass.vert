@@ -17,8 +17,8 @@ struct DirectionalLight {
 };
 
 struct PointLight {
-	samplerCube ShadowMap;
 	vec3 Position;
+	sampler2D ShadowMap; // TODO!!!!!
 };
 
 uniform mat4 OBJECT_TO_CLIP;
@@ -38,13 +38,13 @@ layout (location = 2) in vec4 in_color;
 
 out vec3 vf_position;
 out vec3 vf_normal;
-out vec4 vf_PositionLights[MaxShadowCastingLights];
+out vec4 vf_DirectionalLightSpacePositions[MaxShadowCastingLights];
 
 void main() {
 	gl_Position = OBJECT_TO_CLIP * vec4(in_position, 1);
   vf_position = (OBJECT_TO_WORLD * vec4(in_position, 1)).xyz;
   vf_normal = OBJECT_TO_WORLD_ROT * in_normal;
 	for (int i=0; i<MaxShadowCastingLights; i++) {
-		vf_PositionLights[i] = LightInfos[i].OBJECT_TO_CLIP * vec4(in_position, 1);
+		vf_DirectionalLightSpacePositions[i] = LightInfos[i].OBJECT_TO_CLIP * vec4(in_position, 1);
 	}
 }

@@ -272,6 +272,14 @@ void Shader::set_tex2D(const std::string &name, uint texture_unit, uint texture_
   glActiveTexture(GL_TEXTURE0);
 }
 
+void Shader::set_texCube(const std::string &name, uint texture_unit, uint texture_id) const {
+	glUniform1i(uniform_loc(name), texture_unit);
+  glActiveTexture(GL_TEXTURE0 + texture_unit);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, texture_id);
+  glActiveTexture(GL_TEXTURE0);
+	GL_ERRORS();
+}
+
 //-------------------- Blit -------------------------
 
 float n = 1.0f;

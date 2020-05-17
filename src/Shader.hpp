@@ -48,6 +48,8 @@ struct Shader {
 
   void set_tex2D(const std::string &name, uint texture_unit, uint texture_id) const;
 
+  void set_texCube(const std::string &name, uint texture_unit, uint texture_id) const;
+
 private:
   int uniform_loc(const std::string& uniformName) const;
 
