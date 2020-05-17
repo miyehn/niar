@@ -10,10 +10,27 @@ struct LightInfo {
 	vec3 Direction;
 };
 
+struct DirectionalLight {
+	sampler2D ShadowMap;
+	mat4 OBJECT_TO_CLIP; // vertex
+	vec3 Direction;
+};
+
+struct PointLight {
+	samplerCube ShadowMap;
+	vec3 Position;
+};
+
 uniform mat4 OBJECT_TO_CLIP;
 uniform mat4 OBJECT_TO_WORLD;
 uniform mat3 OBJECT_TO_WORLD_ROT;
 uniform LightInfo LightInfos[MaxShadowCastingLights];
+
+uniform int NumDirectionalLights;
+uniform int NumPointLights;
+
+uniform DirectionalLight DirectionalLights[MaxShadowCastingLights];
+uniform PointLight PointLights[MaxShadowCastingLights];
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;

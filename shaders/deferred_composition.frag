@@ -18,14 +18,13 @@ uniform sampler2D GBUF0; // world position
 uniform sampler2D GBUF1; // normal
 uniform sampler2D GBUF2; // base color
 
-const int MaxDirectionalLights = 2;
-const int MaxPointLights = 2;
+const int MaxLights = 4;
 
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
 
-uniform DirectionalLight DirectionalLights[MaxDirectionalLights];
-uniform PointLight PointLights[MaxPointLights];
+uniform DirectionalLight DirectionalLights[MaxLights];
+uniform PointLight PointLights[MaxLights];
 
 in vec2 vf_uv;
 out vec4 FragColor;

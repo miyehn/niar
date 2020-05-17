@@ -105,14 +105,18 @@ void Program::setup() {
 			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
 				if (i < shadow_casting_lights.size()) {
 					Light* L = shadow_casting_lights[i];
-					DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L);
 					std::string prefix = "LightInfos[" + std::to_string(i) + "].";
-					mat4 OBJECT_TO_LIGHT_CLIP = L->world_to_light_clip() * o2w;
-					cube->shaders[3].set_tex2D(prefix+"ShadowMap", counter, L->get_shadow_map());
-					cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
-					cube->shaders[3].set_bool(prefix+"Directional", DL != nullptr);
-					cube->shaders[3].set_vec3(prefix+"Position", L->world_position());
-					cube->shaders[3].set_vec3(prefix+"Direction", (DL==nullptr) ? vec3(0) : DL->get_direction());
+					if (DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L)) {
+						//std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
+						mat4 OBJECT_TO_LIGHT_CLIP = DL->world_to_light_clip() * o2w;
+						cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
+						cube->shaders[3].set_tex2D(prefix+"ShadowMap", counter, DL->get_shadow_map());
+						cube->shaders[3].set_bool(prefix+"Directional", DL != nullptr);
+						cube->shaders[3].set_vec3(prefix+"Position", L->world_position());
+						cube->shaders[3].set_vec3(prefix+"Direction", (DL==nullptr) ? vec3(0) : DL->get_direction());
+					}
+					else if (PointLight* PL = dynamic_cast<PointLight*>(L)) {
+					}
 					counter++;
 				}
 			}

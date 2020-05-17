@@ -10,7 +10,25 @@ struct LightInfo {
 	vec3 Direction;
 };
 
+struct DirectionalLight {
+	sampler2D ShadowMap;
+	mat4 OBJECT_TO_CLIP; // vertex
+	vec3 Direction;
+};
+
+struct PointLight {
+	samplerCube ShadowMap;
+	vec3 Position;
+};
+
+// todo: remove
 uniform LightInfo LightInfos[MaxShadowCastingLights];
+
+uniform int NumDirectionalLights;
+uniform int NumPointLights;
+
+uniform DirectionalLight DirectionalLights[MaxShadowCastingLights];
+uniform PointLight PointLights[MaxShadowCastingLights];
 
 in vec3 vf_position;
 in vec3 vf_normal;
