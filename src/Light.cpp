@@ -13,19 +13,23 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) :
 	shadow_map_cam->lock();
 	shadow_map_cam->cutoffNear = 1.0f;
 
+	effective_radius = 10.0f;
+
 	//------- buffer generations -------
 
-	// shadow map (framebuffer and output texture)
+	// shadow map (framebuffer)
 	glGenFramebuffers(1, &shadow_map_fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbo);
 
 	glGenTextures(1, &shadow_map_tex);
 	glBindTexture(GL_TEXTURE_2D, shadow_map_tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadow_map_dim, shadow_map_dim, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_map_tex, 0);
 
 	glDrawBuffer(GL_NONE);
@@ -43,7 +47,7 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) :
 
 	glGenTextures(1, &shadow_mask_tex);
 	glBindTexture(GL_TEXTURE_2D, shadow_mask_tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -77,7 +81,7 @@ void DirectionalLight::render_shadow_map() {
 	Scene* scene = get_scene();
 	scene->shader_set = 1;
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
-	scene->draw_content();
+	scene->draw_content(true);
 
 	Camera::Active = cached_camera;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -32,9 +32,10 @@ void main() {
 		// offset
 		vec3 DirToLight = LightInfos[i].Directional ? 
 			-LightInfos[i].Direction : normalize(LightInfos[i].Position - vf_position);
-		float bias = clamp(0.05 * (1.0f - dot(vf_normal, DirToLight)), 0, 0.005);
+		float bias = clamp(0.005 * (1.0f - dot(vf_normal, DirToLight)), 0, 0.005);
 
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
+		if (DistToLight > 1) Occlusion = 1.0f;
 
 		PositionLights[i] = Occlusion;
 	}

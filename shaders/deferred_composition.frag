@@ -44,11 +44,12 @@ void main() {
 	
 	for (int i=0; i<NumDirectionalLights; i++) {
 		float NdotL = dot(normal, -DirectionalLights[i].direction);
-		vec3 contrib = max(vec3(0), NdotL * DirectionalLights[i].color * color);
+		vec3 Contrib = max(vec3(0), NdotL * DirectionalLights[i].color * color);
 		if (DirectionalLights[i].castShadow) {
-			contrib *= texture(DirectionalLights[i].shadowMask, vf_uv).r;
+			float Occlusion = texture(DirectionalLights[i].shadowMask, vf_uv).r;
+			Contrib *= Occlusion;
 		}
-		FragColor.rgb += contrib;
+		FragColor.rgb += Contrib;
 	}
 
 	for (int i=0; i<NumPointLights; i++) {

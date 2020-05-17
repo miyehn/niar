@@ -62,9 +62,9 @@ private:
 
 struct ProgramConfig
 {
+	int UseCornellBoxScene = 0;
 	struct 
 	{
-		int Debug = 0;
 		int SmallWindow = 0;
 		int Multithreaded = 1;
 		int NumThreads = 8;

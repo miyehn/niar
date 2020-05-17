@@ -22,7 +22,7 @@ void initialize_config() {
 	}
 
 	try {
-		Cfg.Pathtracer.Debug = config_src.lookup("Pathtracer.Debug");
+		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");
@@ -145,7 +145,7 @@ quat quat_from_dir(vec3 dir) {
 	float costheta = dot(dir, vec3(0, 0, -1));
 	float angle = acos(dot(dir, vec3(0, 0, -1)));
 	vec3 axis = normalize(cross(vec3(0, 0, -1), dir));
-	//LOGF("angle: %f, axis: %f %f %f", angle, axis.x, axis.y, axis.z);
+
 	float c = cos(angle / 2);
 	float s = sin(angle / 2);
 	/*

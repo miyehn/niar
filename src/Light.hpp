@@ -11,7 +11,7 @@ struct Light : public Drawable {
 	virtual void render_shadow_map() = 0;
 	virtual mat4 world_to_light_clip() = 0;
 	bool cast_shadow = false;
-	float effective_radius = 10.0f;
+	float effective_radius;
 
 	uint get_shadow_map(){ return shadow_map_tex; }
 	uint get_shadow_mask(){ return shadow_mask_tex; }

@@ -4,7 +4,7 @@
 #include "Mesh.hpp"
 #include "Light.hpp"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 5);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
@@ -94,8 +94,7 @@ void Scene::update(float elapsed) {
 }
 
 void Scene::draw_content(bool shadow_pass) {
-	Drawable::draw();
-	/*
+#if 1
 	for (int i=0; i<children.size(); i++) {
 		if (!shadow_pass) {
 			children[i]->draw();
@@ -103,15 +102,19 @@ void Scene::draw_content(bool shadow_pass) {
 		}
 		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) {
 			if (mesh->is_closed_mesh) {
+    		glEnable(GL_CULL_FACE);
 				glCullFace(GL_FRONT);
 				mesh->draw();
 				glCullFace(cull_mode);
+				if (!cull_face) glDisable(GL_CULL_FACE);
 				continue;
 			}
 		}
 		children[i]->draw();
 	}
-	*/
+#else
+	Drawable::draw();
+#endif
 }
 
 void Scene::draw() {
@@ -188,7 +191,7 @@ void Scene::draw() {
 		}
 	}
 	shader_set = 3;
-	draw_content(true);
+	draw_content();
 
 	//-------- composition: copy to screen --------
 	
