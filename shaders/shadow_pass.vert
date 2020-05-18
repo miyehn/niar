@@ -2,14 +2,6 @@
 
 const int MaxShadowCastingLights = 2;
 
-struct LightInfo {
-	mat4 OBJECT_TO_CLIP; // vertex
-	sampler2D ShadowMap;
-	vec3 Position;
-	bool Directional;
-	vec3 Direction;
-};
-
 struct DirectionalLight {
 	mat4 OBJECT_TO_CLIP; // vertex
 	sampler2D ShadowMap;
@@ -24,7 +16,6 @@ struct PointLight {
 uniform mat4 OBJECT_TO_CLIP;
 uniform mat4 OBJECT_TO_WORLD;
 uniform mat3 OBJECT_TO_WORLD_ROT;
-uniform LightInfo LightInfos[MaxShadowCastingLights];
 
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
