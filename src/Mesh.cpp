@@ -129,7 +129,9 @@ void Mesh::draw() {
 
   // bind vao and draw
   glBindVertexArray(vao);
+	GL_ERRORS();
   glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
+	GL_ERRORS();
   glBindVertexArray(0);
 
   glUseProgram(0);

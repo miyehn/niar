@@ -2,10 +2,12 @@
 
 #include "Drawable.hpp"
 
-#define MAX_SHADOWCASTING_LIGHTS 2
+#define MAX_SHADOWCASTING_LIGHTS 6
 #define NUM_GBUFFERS 3
 
 struct Light;
+struct DirectionalLight;
+struct PointLight;
 
 /* a scene is a tree of drawables */
 struct Scene : public Drawable {
@@ -17,6 +19,10 @@ struct Scene : public Drawable {
 	int w, h;
 
 	std::vector<Light*> lights;
+	std::vector<DirectionalLight*> d_lights;
+	std::vector<DirectionalLight*> ds_lights;
+	std::vector<PointLight*> p_lights;
+	std::vector<PointLight*> ps_lights;
 
 	uint shader_set = 0;
 

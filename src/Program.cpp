@@ -61,11 +61,12 @@ void Program::setup() {
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
-		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
+		light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
+		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
-		light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
+		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
 		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
@@ -101,33 +102,40 @@ void Program::setup() {
 			cube->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
 			cube->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			cube->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
-			int directional_counter = 0;
-			int point_counter = 0;
-			for (int i=0; i<shadow_casting_lights.size(); i++) {
-				Light* L = shadow_casting_lights[i];
-				std::string prefix;
-				if (DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L)) {
-					mat4 OBJECT_TO_LIGHT_CLIP = DL->world_to_light_clip() * o2w;
-					prefix = "DirectionalLights[" + std::to_string(directional_counter) + "].";
-					cube->shaders[3].set_tex2D(prefix+"ShadowMap", directional_counter, DL->get_shadow_map());
-					cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
-					cube->shaders[3].set_vec3(prefix+"Direction", DL->get_direction());
-					directional_counter++;
-				}
-				else if (PointLight* PL = dynamic_cast<PointLight*>(L)) {
 
-					point_counter++;
+			// TODO: set ALL texture uniforms regardless, in order to avoid conflicts
+			Scene* scene = cube->get_scene();
+			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+				std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
+				if (i < scene->ds_lights.size()) {
+					mat4 OBJECT_TO_LIGHT_CLIP = scene->ds_lights[i]->world_to_light_clip() * o2w;
+					cube->shaders[3].set_tex2D(prefix+"ShadowMap", i, scene->ds_lights[i]->get_shadow_map());
+					cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
+					cube->shaders[3].set_vec3(prefix+"Direction", scene->ds_lights[i]->get_direction());
+				} else {
+					cube->shaders[3].set_tex2D(prefix+"ShadowMap", i, 0);
 				}
 			}
-			cube->shaders[3].set_int("NumDirectionalLights", directional_counter);
-			cube->shaders[3].set_int("NumPointLights", point_counter);
+			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+				std::string prefix = "PointLights[" + std::to_string(i) + "].";
+				int i_offset = MAX_SHADOWCASTING_LIGHTS;
+				if (i < scene->ps_lights.size()) {
+					cube->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, scene->ps_lights[i]->get_shadow_map());
+					GL_ERRORS();
+					cube->shaders[3].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
+				} else {
+					cube->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, scene->ps_lights[0]->get_shadow_map());
+				}
+			}
+			cube->shaders[3].set_int("NumDirectionalLights", scene->ds_lights.size());
+			cube->shaders[3].set_int("NumPointLights", scene->ps_lights.size());
 		};
 		cube->local_position += vec3(1.5f, 0, 0);
 		cube->scale = vec3(1, 4, 4);
 		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
 		scene->add_child(static_cast<Drawable*>(cube));
 
-
+		/*
 		// TODO: pass light matrices to shader
 		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
@@ -153,31 +161,40 @@ void Program::setup() {
 			plane->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
 			plane->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			plane->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
-			int directional_counter = 0;
-			int point_counter = 0;
-			for (int i=0; i<shadow_casting_lights.size(); i++) {
-				Light* L = shadow_casting_lights[i];
-				std::string prefix;
-				if (DirectionalLight* DL = dynamic_cast<DirectionalLight*>(L)) {
-					mat4 OBJECT_TO_LIGHT_CLIP = DL->world_to_light_clip() * o2w;
-					prefix = "DirectionalLights[" + std::to_string(directional_counter) + "].";
-					plane->shaders[3].set_tex2D(prefix+"ShadowMap", directional_counter, DL->get_shadow_map());
-					plane->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
-					plane->shaders[3].set_vec3(prefix+"Direction", DL->get_direction());
-					directional_counter++;
-				}
-				else if (PointLight* PL = dynamic_cast<PointLight*>(L)) {
 
-					point_counter++;
+
+			// TODO: set ALL texture uniforms regardless, in order to avoid conflicts
+			Scene* scene = plane->get_scene();
+			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+				std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
+				if (i < scene->ds_lights.size()) {
+					mat4 OBJECT_TO_LIGHT_CLIP = scene->ds_lights[i]->world_to_light_clip() * o2w;
+					prefix = "DirectionalLights[" + std::to_string(i) + "].";
+					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, scene->ds_lights[i]->get_shadow_map());
+					plane->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
+					plane->shaders[3].set_vec3(prefix+"Direction", scene->ds_lights[i]->get_direction());
+				} else {
+					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, 0);
 				}
 			}
-			plane->shaders[3].set_int("NumDirectionalLights", directional_counter);
-			plane->shaders[3].set_int("NumPointLights", point_counter);
+			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+				std::string prefix = "PointLights[" + std::to_string(i) + "].";
+				int i_offset = MAX_SHADOWCASTING_LIGHTS;
+				if (i < scene->ps_lights.size()) {
+					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i+i_offset, scene->ps_lights[i]->get_shadow_map());
+					plane->shaders[3].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
+				} else {
+					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i+i_offset, 0);
+				}
+			}
+			plane->shaders[3].set_int("NumDirectionalLights", scene->ds_lights.size());
+			plane->shaders[3].set_int("NumPointLights", scene->ps_lights.size());
 		};
 		plane->local_position = vec3(0, 0, 0);
 		plane->scale = vec3(8, 8, 1);
 		plane->bsdf = new Diffuse();
 		scene->add_child(static_cast<Drawable*>(plane));
+		*/
 	}
 
 	/* Classic cornell box

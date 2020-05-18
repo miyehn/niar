@@ -1,7 +1,5 @@
 #version 330 core
 
-const int MaxShadowCastingLights = 2;
-
 uniform mat3 OBJECT_TO_WORLD_ROT;
 uniform mat4 OBJECT_TO_WORLD;
 uniform mat4 OBJECT_TO_CLIP;

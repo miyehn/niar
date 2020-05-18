@@ -266,6 +266,7 @@ void Shader::set_mat4(const std::string &name, mat4 mat) const {
 }
 
 void Shader::set_tex2D(const std::string &name, uint texture_unit, uint texture_id) const {
+	LOGF("[2D]setting %s to unit %d", name.c_str(), texture_unit);
 	glUniform1i(uniform_loc(name), texture_unit);
   glActiveTexture(GL_TEXTURE0 + texture_unit);
   glBindTexture(GL_TEXTURE_2D, texture_id);
@@ -273,6 +274,7 @@ void Shader::set_tex2D(const std::string &name, uint texture_unit, uint texture_
 }
 
 void Shader::set_texCube(const std::string &name, uint texture_unit, uint texture_id) const {
+	LOGF("[Cube]setting %s to unit %d", name.c_str(), texture_unit);
 	glUniform1i(uniform_loc(name), texture_unit);
   glActiveTexture(GL_TEXTURE0 + texture_unit);
   glBindTexture(GL_TEXTURE_CUBE_MAP, texture_id);

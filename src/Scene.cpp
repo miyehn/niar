@@ -91,6 +91,27 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 }
 
 void Scene::update(float elapsed) {
+
+	d_lights.clear();
+	ds_lights.clear();
+	p_lights.clear();
+	ps_lights.clear();
+
+	for (int i=0; i<lights.size(); i++) {
+		if (DirectionalLight* DL = dynamic_cast<DirectionalLight*>(lights[i])) {
+			d_lights.push_back(DL);
+			if (DL->cast_shadow) {
+				ds_lights.push_back(DL);
+			}
+		}
+		else if (PointLight* PL = dynamic_cast<PointLight*>(lights[i])) {
+			p_lights.push_back(PL);
+			if (PL->cast_shadow) {
+				ps_lights.push_back(PL);
+			}
+		}
+	}
+
 }
 
 void Scene::draw_content(bool shadow_pass) {
@@ -213,6 +234,7 @@ void Scene::draw() {
 		}
 	}
 
+	LOG("----");
 	GL_ERRORS();
 }
 

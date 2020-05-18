@@ -1,6 +1,6 @@
 #version 330 core
 
-const int MaxShadowCastingLights = 2;
+const int MaxLights = 6;
 
 struct DirectionalLight {
 	mat4 OBJECT_TO_CLIP; // vertex
@@ -10,37 +10,23 @@ struct DirectionalLight {
 
 struct PointLight {
 	vec3 Position;
-	sampler2D ShadowMap; // TODO!!!!!
+	samplerCube ShadowMap; // TODO!!!!!
 };
 
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
 
-uniform DirectionalLight DirectionalLights[MaxShadowCastingLights];
-uniform PointLight PointLights[MaxShadowCastingLights];
+uniform DirectionalLight DirectionalLights[MaxLights];
+uniform PointLight PointLights[MaxLights];
 
 in vec3 vf_position;
 in vec3 vf_normal;
-in vec4 vf_DirectionalLightSpacePositions[MaxShadowCastingLights];
+in vec4 vf_DirectionalLightSpacePositions[MaxLights];
 
-layout(location=0) out float PositionLights[MaxShadowCastingLights];
+layout(location=0) out float PositionLights[MaxLights];
 
 
 void main() {
-
-	for (int i=0; i<NumPointLights; i++) {
-		vec3 ViewDir = vec3(1);
-
-		// TODO!!
-		float NearestDistToLight = 0.0f;//texture(PointLights[i].ShadowMap, ViewDir).r;
-		float DistToLight = length(PointLights[i].Position - vf_position);
-
-		float bias = 0.005f;
-		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
-		if (DistToLight > 1) Occlusion = 1.0f;
-
-		PositionLights[i] = Occlusion;
-	}
 
 	for (int i=0; i<NumDirectionalLights; i++) {
 		vec3 LightSpacePosDivided = vf_DirectionalLightSpacePositions[i].xyz / vf_DirectionalLightSpacePositions[i].w;
@@ -55,6 +41,20 @@ void main() {
 		if (DistToLight > 1) Occlusion = 1.0f;
 
 		PositionLights[i] = Occlusion;
+	}
+
+	for (int i=0; i<NumPointLights; i++) {
+		vec3 ViewDir = vec3(1);
+
+		// TODO!!
+		float NearestDistToLight = texture(PointLights[i].ShadowMap, ViewDir).r;
+		float DistToLight = length(PointLights[i].Position - vf_position);
+
+		float bias = 0.005f;
+		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
+		if (DistToLight > 1) Occlusion = 1.0f;
+
+		PositionLights[NumDirectionalLights + i] = 0.0f;//Occlusion;
 	}
 
 }

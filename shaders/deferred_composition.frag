@@ -18,7 +18,7 @@ uniform sampler2D GBUF0; // world position
 uniform sampler2D GBUF1; // normal
 uniform sampler2D GBUF2; // base color
 
-const int MaxLights = 4;
+const int MaxLights = 6;
 
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
