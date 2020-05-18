@@ -10,8 +10,22 @@ struct DirectionalLight {
 
 struct PointLight {
 	vec3 Position;
-	samplerCube ShadowMap; // TODO!!!!!
+	samplerCube ShadowMap;
 };
+
+/* Ensure total number of lights <= MaxLights (now 3)
+ *
+ * Layout:
+ * 0 - 2D (directional)
+ * 1 - 2D (directional)
+ * 2 - 2D (dummy)
+ * 3 - 2D (dummy)
+ * ...
+ * 6 - Cube (point)
+ * 7 - Cube (dummy)
+ * 8 - Cube (dummy)
+ * ...
+ */
 
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
@@ -44,9 +58,9 @@ void main() {
 	}
 
 	for (int i=0; i<NumPointLights; i++) {
+		// TODO!!
 		vec3 ViewDir = vec3(1);
 
-		// TODO!!
 		float NearestDistToLight = texture(PointLights[i].ShadowMap, ViewDir).r;
 		float DistToLight = length(PointLights[i].Position - vf_position);
 

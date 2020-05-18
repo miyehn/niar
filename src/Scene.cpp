@@ -234,7 +234,6 @@ void Scene::draw() {
 		}
 	}
 
-	LOG("----");
 	GL_ERRORS();
 }
 

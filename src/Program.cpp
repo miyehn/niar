@@ -20,6 +20,9 @@ Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
 
+uint Light::dummy_2D;
+uint Light::dummy_Cube;
+
 void Program::load_resources() {
   
   LOG("loading resources...");
@@ -36,6 +39,9 @@ void Program::load_resources() {
 	Blit::CopyDebug = new Blit("../shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
+
+	glGenTextures(1, &Light::dummy_2D);
+	glGenTextures(1, &Light::dummy_Cube); 
 
 }
 
@@ -103,7 +109,6 @@ void Program::setup() {
 			cube->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			cube->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
 
-			// TODO: set ALL texture uniforms regardless, in order to avoid conflicts
 			Scene* scene = cube->get_scene();
 			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
 				std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
@@ -113,7 +118,7 @@ void Program::setup() {
 					cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
 					cube->shaders[3].set_vec3(prefix+"Direction", scene->ds_lights[i]->get_direction());
 				} else {
-					cube->shaders[3].set_tex2D(prefix+"ShadowMap", i, 0);
+					cube->shaders[3].set_tex2D(prefix+"ShadowMap", i, Light::dummy_2D);
 				}
 			}
 			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
@@ -124,7 +129,7 @@ void Program::setup() {
 					GL_ERRORS();
 					cube->shaders[3].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
 				} else {
-					cube->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, scene->ps_lights[0]->get_shadow_map());
+					cube->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, Light::dummy_Cube);
 				}
 			}
 			cube->shaders[3].set_int("NumDirectionalLights", scene->ds_lights.size());
@@ -135,7 +140,6 @@ void Program::setup() {
 		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
 		scene->add_child(static_cast<Drawable*>(cube));
 
-		/*
 		// TODO: pass light matrices to shader
 		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
@@ -169,22 +173,22 @@ void Program::setup() {
 				std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
 				if (i < scene->ds_lights.size()) {
 					mat4 OBJECT_TO_LIGHT_CLIP = scene->ds_lights[i]->world_to_light_clip() * o2w;
-					prefix = "DirectionalLights[" + std::to_string(i) + "].";
 					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, scene->ds_lights[i]->get_shadow_map());
 					plane->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
 					plane->shaders[3].set_vec3(prefix+"Direction", scene->ds_lights[i]->get_direction());
 				} else {
-					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, 0);
+					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, Light::dummy_2D);
 				}
 			}
 			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
 				std::string prefix = "PointLights[" + std::to_string(i) + "].";
 				int i_offset = MAX_SHADOWCASTING_LIGHTS;
 				if (i < scene->ps_lights.size()) {
-					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i+i_offset, scene->ps_lights[i]->get_shadow_map());
+					plane->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, scene->ps_lights[i]->get_shadow_map());
+					GL_ERRORS();
 					plane->shaders[3].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
 				} else {
-					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i+i_offset, 0);
+					plane->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, Light::dummy_Cube);
 				}
 			}
 			plane->shaders[3].set_int("NumDirectionalLights", scene->ds_lights.size());
@@ -194,7 +198,6 @@ void Program::setup() {
 		plane->scale = vec3(8, 8, 1);
 		plane->bsdf = new Diffuse();
 		scene->add_child(static_cast<Drawable*>(plane));
-		*/
 	}
 
 	/* Classic cornell box

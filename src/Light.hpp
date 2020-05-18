@@ -4,6 +4,10 @@
 struct Camera;
 
 struct Light : public Drawable {
+
+	static uint dummy_2D;
+	static uint dummy_Cube;
+
 	enum Type { Point, Directional };
 	Type type;
 	virtual ~Light() {}
