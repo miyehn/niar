@@ -11,8 +11,8 @@ struct LightInfo {
 };
 
 struct DirectionalLight {
-	sampler2D ShadowMap;
 	mat4 OBJECT_TO_CLIP; // vertex
+	sampler2D ShadowMap;
 	vec3 Direction;
 };
 
@@ -38,20 +38,6 @@ layout(location=0) out float PositionLights[MaxShadowCastingLights];
 
 
 void main() {
-
-	for (int i=0; i<NumDirectionalLights; i++) {
-		vec3 LightSpacePosDivided = vf_DirectionalLightSpacePositions[i].xyz / vf_DirectionalLightSpacePositions[i].w;
-		vec2 LightSpaceUV = (LightSpacePosDivided.xy + 1.0f) / 2.0f;
-
-		float NearestDistToLight = texture(DirectionalLights[i].ShadowMap, LightSpaceUV).r;
-		float DistToLight = (LightSpacePosDivided.z + 1.0f) / 2.0f;
-
-		float bias = 0.005f;
-		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
-		if (DistToLight > 1) Occlusion = 1.0f;
-
-		PositionLights[i] = Occlusion;
-	}
 
 	for (int i=0; i<NumPointLights; i++) {
 		vec3 ViewDir = vec3(1);
@@ -81,6 +67,22 @@ void main() {
 			-LightInfos[i].Direction : normalize(LightInfos[i].Position - vf_position);
 		float bias = clamp(0.005 * (1.0f - dot(vf_normal, DirToLight)), 0, 0.005);
 
+		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
+		if (DistToLight > 1) Occlusion = 1.0f;
+
+		PositionLights[i] = Occlusion;
+	}
+
+	// TODO: why wrong?
+	for (int i=0; i<NumDirectionalLights; i++) {
+		vec3 LightSpacePosDivided = vf_DirectionalLightSpacePositions[i].xyz / vf_DirectionalLightSpacePositions[i].w;
+		vec2 LightSpaceUV = (LightSpacePosDivided.xy + 1.0f) / 2.0f;
+
+		float NearestDistToLight = texture(DirectionalLights[i].ShadowMap, LightSpaceUV).r;
+		float DistToLight = (LightSpacePosDivided.z + 1.0f) / 2.0f;
+
+		vec3 DirToLight = -DirectionalLights[i].Direction;
+		float bias = clamp(0.005 * (1.0f - dot(vf_normal, DirToLight)), 0, 0.005);
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
 		if (DistToLight > 1) Occlusion = 1.0f;
 

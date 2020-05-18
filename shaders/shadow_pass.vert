@@ -11,8 +11,8 @@ struct LightInfo {
 };
 
 struct DirectionalLight {
-	sampler2D ShadowMap;
 	mat4 OBJECT_TO_CLIP; // vertex
+	sampler2D ShadowMap;
 	vec3 Direction;
 };
 
@@ -45,6 +45,6 @@ void main() {
   vf_position = (OBJECT_TO_WORLD * vec4(in_position, 1)).xyz;
   vf_normal = OBJECT_TO_WORLD_ROT * in_normal;
 	for (int i=0; i<MaxShadowCastingLights; i++) {
-		vf_DirectionalLightSpacePositions[i] = LightInfos[i].OBJECT_TO_CLIP * vec4(in_position, 1);
+		vf_DirectionalLightSpacePositions[i] = DirectionalLights[i].OBJECT_TO_CLIP * vec4(in_position, 1);
 	}
 }
