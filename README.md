@@ -1,8 +1,8 @@
 # niar
 
-An playground to test the limit of my patience.
+A playground to test my patience.
 
-**For offline stuff**, it has a multi-threaded CPU pathtracer; sort of a rebuilt of [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch. The actual pathtracing code is mostly in `src/Pathtracer/Pathtracer.inl`.
+**For offline stuff**, it has a multi-threaded CPU pathtracer - sort of rebuilt of [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch. The actual pathtracing code is mostly in `src/Pathtracer/Pathtracer.inl`.
 
 Can modify `config.ini` to customize some settings to be loaded at program startup (some properties can also be modified at runtime; will document this later)
 

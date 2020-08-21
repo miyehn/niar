@@ -170,7 +170,9 @@ void PointLight::render_shadow_map() {
 	scene->shader_set = 1;
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
+	// TODO: render these 6 faces
 	for (int i=0; i<6; i++) {
+		if (i==0) continue;
 		shadow_map_cam->rotation = quat_from_dir(shadow_map_normals[i]);
 		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
 		glClear(GL_DEPTH_BUFFER_BIT);

@@ -120,7 +120,7 @@ void Program::run() {
         // update singletons
         if (Pathtracer::Instance->enabled) 
           Pathtracer::Instance->handle_event(event);
-        // update scene(s)
+        // let all scene(s) handle the input
         for (uint i=0; i<scenes.size(); i++) {
           scenes[i]->handle_event(event);
         }
@@ -153,7 +153,7 @@ void Program::update(float elapsed) {
   // pathtracer
   if (Pathtracer::Instance && Pathtracer::Instance->enabled)
     Pathtracer::Instance->update(elapsed);
-  // scenes
+  // scenes (only the active one updates)
   if (Scene::Active && Scene::Active->enabled) {
 		Scene::Active->update(elapsed);
   }

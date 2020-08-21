@@ -56,7 +56,12 @@ void main() {
 		float atten = 1.0f / dot(lightDir, lightDir);
 		lightDir = normalize(lightDir);
 		float NdotL = dot(normal, -lightDir);
-		FragColor.rgb += max(vec3(0), NdotL * PointLights[i].color * color * atten);
+		vec3 Contrib = max(vec3(0), NdotL * PointLights[i].color * color * atten);
+		if (PointLights[i].castShadow) {
+			float Occlusion = texture(PointLights[i].shadowMask, vf_uv).r;
+			Contrib *= Occlusion;
+		}
+		FragColor.rgb += Contrib;
 	}
 
 }

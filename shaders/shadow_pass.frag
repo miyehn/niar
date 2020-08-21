@@ -27,6 +27,9 @@ struct PointLight {
  * ...
  */
 
+uniform vec4 CameraParams;
+uniform mat3 CAMERA_TO_WORLD_ROT;
+
 uniform int NumDirectionalLights;
 uniform int NumPointLights;
 
@@ -41,6 +44,14 @@ layout(location=0) out float PositionLights[MaxLights];
 
 
 void main() {
+
+	float aspectRatio = CameraParams.z;
+	float fov = CameraParams.w;
+	vec2 ViewCoords = (gl_FragCoord.xy / CameraParams.xy) * 2.0f - 1.0f;
+	ViewCoords.x *= aspectRatio;
+	ViewCoords *= tan(fov / 2.0f);
+	// ViewDir is working :)
+	vec3 ViewDir = CAMERA_TO_WORLD_ROT * normalize(vec3(ViewCoords, -1));
 
 	for (int i=0; i<NumDirectionalLights; i++) {
 		vec3 LightSpacePosDivided = vf_DirectionalLightSpacePositions[i].xyz / vf_DirectionalLightSpacePositions[i].w;
@@ -58,17 +69,19 @@ void main() {
 	}
 
 	for (int i=0; i<NumPointLights; i++) {
-		// TODO!!
-		vec3 ViewDir = vec3(1);
 
+		// TODO: should convert to eye depth
 		float NearestDistToLight = texture(PointLights[i].ShadowMap, ViewDir).r;
 		float DistToLight = length(PointLights[i].Position - vf_position);
 
 		float bias = 0.005f;
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
-		if (DistToLight > 1) Occlusion = 1.0f;
 
-		PositionLights[NumDirectionalLights + i] = 0.0f;//Occlusion;
+		// TODO: get rid of this temporary line
+		//Occlusion = DistToLight > 4 ? 0 : 1;
+		Occlusion = NearestDistToLight * 0.8;
+
+		PositionLights[NumDirectionalLights + i] = Occlusion;
 	}
 
 }

@@ -17,9 +17,6 @@ uniform mat4 OBJECT_TO_CLIP;
 uniform mat4 OBJECT_TO_WORLD;
 uniform mat3 OBJECT_TO_WORLD_ROT;
 
-uniform int NumDirectionalLights;
-uniform int NumPointLights;
-
 uniform DirectionalLight DirectionalLights[MaxLights];
 uniform PointLight PointLights[MaxLights];
 

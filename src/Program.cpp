@@ -49,6 +49,9 @@ void Program::setup() {
 
   Scene* scene = new Scene("my scene");
 
+	int w, h;
+	SDL_GL_GetDrawableSize(window, &w, &h);
+
 	/* Manually setup scene
 	 * Renders with specified shader set: defaults to 0 (deferred)
 	 *
@@ -103,11 +106,14 @@ void Program::setup() {
 			mat4 o2w = cube->object_to_world();
 			cube->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 		};
-		cube->shaders[3].set_parameters = [cube, shadow_casting_lights]() {
+		cube->shaders[3].set_parameters = [cube, shadow_casting_lights, w, h]() {
 			mat4 o2w = cube->object_to_world();
 			cube->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
 			cube->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			cube->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
+			cube->shaders[3].set_vec4("CameraParams", vec4(w, h, 
+						Camera::Active->aspect_ratio, Camera::Active->fov));
+			cube->shaders[3].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
 
 			Scene* scene = cube->get_scene();
 			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
@@ -160,12 +166,14 @@ void Program::setup() {
 			mat4 o2w = plane->object_to_world();
 			plane->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 		};
-		plane->shaders[3].set_parameters = [plane, shadow_casting_lights]() {
+		plane->shaders[3].set_parameters = [plane, shadow_casting_lights, w, h]() {
 			mat4 o2w = plane->object_to_world();
 			plane->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
 			plane->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 			plane->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
-
+			plane->shaders[3].set_vec4("CameraParams", vec4(w, h, 
+						Camera::Active->aspect_ratio, Camera::Active->fov));
+			plane->shaders[3].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
 
 			// TODO: set ALL texture uniforms regardless, in order to avoid conflicts
 			Scene* scene = plane->get_scene();
