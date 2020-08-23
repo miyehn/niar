@@ -1,5 +1,7 @@
 #include "Shader.hpp"
 
+uint Shader::quad_vert = 0;
+
 Shader::Shader(const std::string& frag_path) {
 	id = glCreateProgram();
 	uint vertexShader, fragmentShader;
@@ -8,8 +10,9 @@ Shader::Shader(const std::string& frag_path) {
 
 	int  success;
 	char infoLog[512];
-	if (quad_vert) vertexShader = quad_vert;
-	else {
+	if (Shader::quad_vert) {
+		vertexShader = Shader::quad_vert;
+	} else {
 		// load vertex shader file
 		std::ifstream vIfs("../shaders/quad.vert");
 		std::string vContent( (std::istreambuf_iterator<char>(vIfs) ),
@@ -31,7 +34,7 @@ Shader::Shader(const std::string& frag_path) {
 				std::cout << "vertex compile failed: \n" << infoLog << std::endl;
 				exit(1);
 		}
-		quad_vert = vertexShader;
+		Shader::quad_vert = vertexShader;
 	}
 
   // load fragment shader file

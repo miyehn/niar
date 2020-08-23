@@ -53,7 +53,7 @@ struct Shader {
 private:
   int uniform_loc(const std::string& uniformName) const;
 
-	uint quad_vert = 0;
+	static uint quad_vert; // vertex shader for drawing a quad
 
 };
 

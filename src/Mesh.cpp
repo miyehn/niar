@@ -119,7 +119,7 @@ void Mesh::update(float elapsed) {
 void Mesh::draw() {
 
   // set shader
-	Shader shader = shaders[get_scene()->shader_set];
+	Shader& shader = shaders[get_scene()->shader_set];
 	if (shader.id == 0) return;
 
   glUseProgram(shader.id);
@@ -129,9 +129,9 @@ void Mesh::draw() {
 
   // bind vao and draw
   glBindVertexArray(vao);
-	GL_ERRORS();
+	//GL_ERRORS();
   glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
-	GL_ERRORS();
+	//GL_ERRORS();
   glBindVertexArray(0);
 
   glUseProgram(0);
