@@ -36,7 +36,8 @@ struct Scene : public Drawable {
 	uint depthbuf_position_lights = 0;
 	uint tex_depth = 0;
 
-	Blit* composition = nullptr;
+	Blit* lighting_directional = nullptr;
+	Blit* lighting_point = nullptr;
 
   //-------- OpenGL configurations --------
   // depth test
@@ -44,8 +45,6 @@ struct Scene : public Drawable {
   // culling
   bool cull_face;
   GLenum cull_mode;
-  // blending: "blend the computed fragment color values with the values in the color buffers."
-  bool blend; // NOTE: see no reason why this should be enabled for 3D scenes 
   // fill / wireframe (/ point)
   GLenum fill_effective_polygon; // GL_FRONT_AND_BACK | GL_BACK | GL_FRONT
   GLenum fill_mode; // GL_FILL | GL_LINE | GL_POINT
@@ -57,7 +56,8 @@ struct Scene : public Drawable {
 	void draw_content(bool shadow_pass = false);
 
 private:
-	void pass_lights_to_composition_shader();
+	void pass_directional_lights_to_lighting_shader();
+	void pass_point_lights_to_lighting_shader();
   
 };
 

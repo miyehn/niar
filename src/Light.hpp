@@ -2,11 +2,12 @@
 #include "Drawable.hpp"
 
 struct Camera;
+struct Mesh;
 
 struct Light : public Drawable {
 
-	static uint dummy_2D;
-	static uint dummy_Cube;
+	static void set_directional_shadowpass_params_for_mesh(Mesh* mesh, int shader_index);
+	static void set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index);
 
 	enum Type { Point, Directional };
 	Type type;
@@ -14,7 +15,9 @@ struct Light : public Drawable {
 	vec3 get_emission() { return color * intensity; }
 	virtual void render_shadow_map() = 0;
 	virtual mat4 world_to_light_clip() = 0;
-	bool cast_shadow = false;
+
+	virtual void set_cast_shadow(bool cast) = 0;
+	bool get_cast_shadow() { return cast_shadow; }
 
 	uint get_shadow_map(){ return shadow_map_tex; }
 	uint get_shadow_mask(){ return shadow_mask_tex; }
@@ -23,6 +26,8 @@ protected:
 	vec3 color;
 	float intensity;
 
+	bool cast_shadow = false;
+	bool shadow_map_initialized = false;
 	uint shadow_map_dim;
 
 	float effective_radius;
@@ -42,6 +47,8 @@ struct DirectionalLight : public Light {
 			vec3 dir = vec3(0, 0, -1));
 
 	virtual ~DirectionalLight();
+
+	virtual void set_cast_shadow(bool cast);
 
 	void set_direction(vec3 dir) { rotation = quat_from_dir(normalize(dir)); }
 
@@ -67,6 +74,8 @@ struct PointLight: public Light {
 			vec3 _local_pos = vec3(0));
 
 	virtual void render_shadow_map();
+
+	virtual void set_cast_shadow(bool cast);
 
 	// since point lights don't need this at all
 	virtual mat4 world_to_light_clip() { return mat4(1); }

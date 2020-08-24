@@ -14,14 +14,12 @@
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
 Shader Shader::DepthOnly;
-Shader Shader::ShadowPass;
+Shader Shader::ShadowPassDirectional;
+Shader Shader::ShadowPassPoint;
 Blit* Blit::CopyDebug;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
-
-uint Light::dummy_2D;
-uint Light::dummy_Cube;
 
 void Program::load_resources() {
   
@@ -34,14 +32,13 @@ void Program::load_resources() {
 	Shader::DeferredBasePass.name = "deferred";
 	Shader::DepthOnly = Shader("../shaders/position_only.vert", "../shaders/empty.frag");
 	Shader::DepthOnly.name = "depth only";
-	Shader::ShadowPass = Shader("../shaders/shadow_pass.vert", "../shaders/shadow_pass.frag");
-	Shader::ShadowPass.name = "cast shadow pass";
+	Shader::ShadowPassDirectional = Shader("../shaders/shadow_pass_directional.vert", "../shaders/shadow_pass_directional.frag");
+	Shader::ShadowPassDirectional.name = "shadow pass directional";
+	Shader::ShadowPassPoint = Shader("../shaders/shadow_pass_point.vert", "../shaders/shadow_pass_point.frag");
+	Shader::ShadowPassPoint.name = "shadow pass point";
 	Blit::CopyDebug = new Blit("../shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
-
-	glGenTextures(1, &Light::dummy_2D);
-	glGenTextures(1, &Light::dummy_Cube); 
 
 }
 
@@ -50,7 +47,8 @@ void Program::setup() {
   Scene* scene = new Scene("my scene");
 
 	int w, h;
-	SDL_GL_GetDrawableSize(window, &w, &h);
+	w = drawable_width;
+	h = drawable_height;
 
 	/* Manually setup scene
 	 * Renders with specified shader set: defaults to 0 (deferred)
@@ -67,28 +65,21 @@ void Program::setup() {
 
 		// cool directional light
 		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-		light->cast_shadow = true;
+		light->set_cast_shadow(true);
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
 		// warm directional light
 		light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
-		light->cast_shadow = true;
+		light->set_cast_shadow(true);
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
 		// point light
 		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
-		light->cast_shadow = true;
+		light->set_cast_shadow(true);
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
-
-		// gather shadow casting lights
-		std::vector<Light*> shadow_casting_lights;
-		for (int i=0; i<scene->lights.size(); i++) {
-			if (scene->lights[i]->cast_shadow) shadow_casting_lights.push_back(scene->lights[i]);
-		}
-		if (shadow_casting_lights.size() > MAX_SHADOWCASTING_LIGHTS) ERR("Too many shadow casting lights");
 
 		// load and process mesh
 		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
@@ -109,40 +100,11 @@ void Program::setup() {
 			mat4 o2w = cube->object_to_world();
 			cube->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 		};
-		cube->shaders[3].set_parameters = [cube, shadow_casting_lights, w, h]() {
-			mat4 o2w = cube->object_to_world();
-			cube->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
-			cube->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-			cube->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
-			cube->shaders[3].set_vec4("CameraParams", vec4(w, h, 
-						Camera::Active->aspect_ratio, Camera::Active->fov));
-			cube->shaders[3].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
-
-			Scene* scene = cube->get_scene();
-			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-				std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
-				if (i < scene->ds_lights.size()) {
-					mat4 OBJECT_TO_LIGHT_CLIP = scene->ds_lights[i]->world_to_light_clip() * o2w;
-					cube->shaders[3].set_tex2D(prefix+"ShadowMap", i, scene->ds_lights[i]->get_shadow_map());
-					cube->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
-					cube->shaders[3].set_vec3(prefix+"Direction", scene->ds_lights[i]->get_direction());
-				} else {
-					cube->shaders[3].set_tex2D(prefix+"ShadowMap", i, Light::dummy_2D);
-				}
-			}
-			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-				std::string prefix = "PointLights[" + std::to_string(i) + "].";
-				int i_offset = MAX_SHADOWCASTING_LIGHTS;
-				if (i < scene->ps_lights.size()) {
-					cube->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, scene->ps_lights[i]->get_shadow_map());
-					GL_ERRORS();
-					cube->shaders[3].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
-				} else {
-					cube->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, Light::dummy_Cube);
-				}
-			}
-			cube->shaders[3].set_int("NumDirectionalLights", scene->ds_lights.size());
-			cube->shaders[3].set_int("NumPointLights", scene->ps_lights.size());
+		cube->shaders[3].set_parameters = [cube]() {
+			Light::set_directional_shadowpass_params_for_mesh(cube, 3);
+		};
+		cube->shaders[4].set_parameters = [cube]() {
+			Light::set_point_shadowpass_params_for_mesh(cube, 4);
 		};
 		cube->local_position += vec3(1.5f, 0, 0);
 		cube->scale = vec3(1, 4, 4);
@@ -153,7 +115,7 @@ void Program::setup() {
 		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
 		plane->is_closed_mesh = false;
-		plane->shaders[0].set_parameters = [plane, shadow_casting_lights]() {
+		plane->shaders[0].set_parameters = [plane]() {
 			plane->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
 			mat4 o2w = plane->object_to_world();
 			plane->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
@@ -169,41 +131,11 @@ void Program::setup() {
 			mat4 o2w = plane->object_to_world();
 			plane->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 		};
-		plane->shaders[3].set_parameters = [plane, shadow_casting_lights, w, h]() {
-			mat4 o2w = plane->object_to_world();
-			plane->shaders[3].set_mat4("OBJECT_TO_WORLD", o2w);
-			plane->shaders[3].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-			plane->shaders[3].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
-			plane->shaders[3].set_vec4("CameraParams", vec4(w, h, 
-						Camera::Active->aspect_ratio, Camera::Active->fov));
-			plane->shaders[3].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
-
-			// TODO: set ALL texture uniforms regardless, in order to avoid conflicts
-			Scene* scene = plane->get_scene();
-			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-				std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
-				if (i < scene->ds_lights.size()) {
-					mat4 OBJECT_TO_LIGHT_CLIP = scene->ds_lights[i]->world_to_light_clip() * o2w;
-					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, scene->ds_lights[i]->get_shadow_map());
-					plane->shaders[3].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
-					plane->shaders[3].set_vec3(prefix+"Direction", scene->ds_lights[i]->get_direction());
-				} else {
-					plane->shaders[3].set_tex2D(prefix+"ShadowMap", i, Light::dummy_2D);
-				}
-			}
-			for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-				std::string prefix = "PointLights[" + std::to_string(i) + "].";
-				int i_offset = MAX_SHADOWCASTING_LIGHTS;
-				if (i < scene->ps_lights.size()) {
-					plane->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, scene->ps_lights[i]->get_shadow_map());
-					GL_ERRORS();
-					plane->shaders[3].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
-				} else {
-					plane->shaders[3].set_texCube(prefix+"ShadowMap", i+i_offset, Light::dummy_Cube);
-				}
-			}
-			plane->shaders[3].set_int("NumDirectionalLights", scene->ds_lights.size());
-			plane->shaders[3].set_int("NumPointLights", scene->ps_lights.size());
+		plane->shaders[3].set_parameters = [plane]() {
+			Light::set_directional_shadowpass_params_for_mesh(plane, 3);
+		};
+		plane->shaders[4].set_parameters = [plane]() {
+			Light::set_point_shadowpass_params_for_mesh(plane, 4);
 		};
 		plane->local_position = vec3(0, 0, 0);
 		plane->scale = vec3(8, 8, 1);

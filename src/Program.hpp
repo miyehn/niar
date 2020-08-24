@@ -20,6 +20,8 @@ struct Program {
   std::string name;
   size_t width;
   size_t height;
+	int drawable_width;
+	int drawable_height;
   
   SDL_Window* window;
   SDL_GLContext context;

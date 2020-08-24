@@ -3,6 +3,7 @@
 #include "Globals.hpp"
 #include "Scene.hpp"
 #include "Program.hpp"
+#include "Mesh.hpp"
 
 DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
 
@@ -10,55 +11,11 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
 	
 	color = _color;
 	intensity = _intensity;
-	shadow_map_dim = 1024;
 	set_direction(dir);
 
 	effective_radius = 10.0f;
 
-	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, true, false);
-	shadow_map_cam->lock();
-	shadow_map_cam->cutoffNear = 1.0f;
-
-	//------- buffer generations -------
-
-	// shadow map (framebuffer)
-	glGenFramebuffers(1, &shadow_map_fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbo);
-	{
-		glGenTextures(1, &shadow_map_tex);
-		glBindTexture(GL_TEXTURE_2D, shadow_map_tex);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadow_map_dim, shadow_map_dim, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-		float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
-		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_map_tex, 0);
-
-		glDrawBuffer(GL_NONE);
-		glReadBuffer(GL_NONE);
-
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
-			ERR("directional light shadow map framebuffer not correctly initialized");
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	new NamedTex("directional light shadow map", shadow_map_tex);
-
-	// shadow mask (output)
-	int w, h;
-	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
-
 	glGenTextures(1, &shadow_mask_tex);
-	glBindTexture(GL_TEXTURE_2D, shadow_mask_tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	new NamedTex("directional light shadow mask", shadow_mask_tex);
 }
 
 DirectionalLight::~DirectionalLight() {
@@ -66,6 +23,8 @@ DirectionalLight::~DirectionalLight() {
 }
 
 void DirectionalLight::render_shadow_map() {
+
+	if (!cast_shadow) return;
 	
 	// set camera properties
 	// TODO: make this change dynamically based on scene content
@@ -97,6 +56,67 @@ mat4 DirectionalLight::world_to_light_clip() {
 	return shadow_map_cam->world_to_clip();
 }
 
+void DirectionalLight::set_cast_shadow(bool cast) {
+	if (!cast) {
+		cast_shadow = false;
+		return;
+	}
+	if (shadow_map_initialized) {
+		cast_shadow = true;
+		return;
+	}
+
+	// cast == true; shadow map needs initialization
+	cast_shadow = true;
+	shadow_map_initialized = true;
+
+	shadow_map_dim = 1024;
+
+	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, true, false);
+	shadow_map_cam->lock();
+	shadow_map_cam->cutoffNear = 1.0f;
+	
+	// shadow map (framebuffer)
+	glGenFramebuffers(1, &shadow_map_fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbo);
+	{
+		glGenTextures(1, &shadow_map_tex);
+		glBindTexture(GL_TEXTURE_2D, shadow_map_tex);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadow_map_dim, shadow_map_dim, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
+		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_map_tex, 0);
+
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+			ERR("directional light shadow map framebuffer not correctly initialized");
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	new NamedTex("directional light shadow map", shadow_map_tex);
+
+	// shadow mask (output)
+	int w = Program::Instance->drawable_width;
+	int h = Program::Instance->drawable_height;
+
+	glBindTexture(GL_TEXTURE_2D, shadow_mask_tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	new NamedTex("directional light shadow mask", shadow_mask_tex);
+}
+
+//-------- point light --------
+
 PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
 	
 	type = Point;
@@ -105,8 +125,6 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
 	intensity = _intensity;
 	local_position = _local_pos;
 	shadow_map_dim = 512;
-
-	effective_radius = 16.0f; // where intensity 1 attenuates to 1/255
 
 	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, false, false);
 	shadow_map_cam->lock();
@@ -174,11 +192,6 @@ void PointLight::render_shadow_map() {
 
 	// TODO: render these 6 faces
 	for (int i=0; i<6; i++) {
-		//if (i==4) continue;
-		// TODO: use glm::lookAt here
-		// see: https://learnopengl.com/Advanced-Lighting/Shadows/Point-Shadows
-		// also make sure orientation is correct: https://www.khronos.org/opengl/wiki/Cubemap_Texture#Upload_and_orientation
-		//shadow_map_cam->rotation = quat_from_dir(shadow_map_normals[i]);
 		vec3 up;
 		vec3 dir;
 		if (i==2) up = vec3(0, 0, -1);
@@ -200,4 +213,56 @@ void PointLight::render_shadow_map() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	Camera::Active = cached_camera;
+}
+
+void PointLight::set_cast_shadow(bool cast) {
+	cast_shadow = cast;
+}
+
+//-------- utilities --------
+
+void Light::set_directional_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
+	mat4 o2w = mesh->object_to_world();
+	mesh->shaders[shader_index].set_mat4("OBJECT_TO_WORLD", o2w);
+	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
+
+	Scene* scene = mesh->get_scene();
+	int num_shadow_casters = 0;
+	for (int i=0; i<scene->d_lights.size(); i++) {
+		DirectionalLight* L = scene->d_lights[i];
+		if (!L->get_cast_shadow()) continue;
+
+		std::string prefix = "DirectionalLights[" + std::to_string(num_shadow_casters) + "].";
+		mat4 OBJECT_TO_LIGHT_CLIP = L->world_to_light_clip() * o2w;
+		mesh->shaders[shader_index].set_tex2D(prefix+"ShadowMap", i, L->get_shadow_map());
+		mesh->shaders[shader_index].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
+		mesh->shaders[shader_index].set_vec3(prefix+"Direction", L->get_direction());
+		num_shadow_casters++;
+	}
+	mesh->shaders[shader_index].set_int("NumDirectionalLights", num_shadow_casters);
+}
+
+void Light::set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
+	mat4 o2w = mesh->object_to_world();
+	mesh->shaders[shader_index].set_mat4("OBJECT_TO_WORLD", o2w);
+	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
+	mesh->shaders[shader_index].set_vec4("CameraParams", vec4(
+				Program::Instance->drawable_width, Program::Instance->drawable_height,
+				Camera::Active->aspect_ratio, Camera::Active->fov));
+	mesh->shaders[shader_index].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
+
+	Scene* scene = mesh->get_scene();
+	int num_shadow_casters = 0;
+	for (int i=0; i<scene->p_lights.size(); i++) {
+		PointLight* L = scene->p_lights[i];
+		if (!L->get_cast_shadow()) continue;
+
+		std::string prefix = "PointLights[" + std::to_string(i) + "].";
+		mesh->shaders[shader_index].set_texCube(prefix+"ShadowMap", i, scene->ps_lights[i]->get_shadow_map());
+		mesh->shaders[shader_index].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
+		num_shadow_casters++;
+	}
+	mesh->shaders[shader_index].set_int("NumPointLights", num_shadow_casters);
 }

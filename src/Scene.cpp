@@ -4,7 +4,7 @@
 #include "Mesh.hpp"
 #include "Light.hpp"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 8);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.6f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
@@ -21,8 +21,6 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
   // culling
   cull_face = false;
   cull_mode = GL_BACK;
-  // blending: "blend the computed fragment color values with the values in the color buffers."
-  blend = false; // NOTE: see no reason why this should be enabled for 3D scenes 
   // fill / wireframe (/ point)
   fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
   
@@ -88,7 +86,8 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	composition = new Blit("../shaders/deferred_composition.frag");
+	lighting_directional = new Blit("../shaders/deferred_lighting_directional.frag");
+	lighting_point = new Blit("../shaders/deferred_lighting_point.frag");
 
 }
 
@@ -102,13 +101,13 @@ void Scene::update(float elapsed) {
 	for (int i=0; i<lights.size(); i++) {
 		if (DirectionalLight* DL = dynamic_cast<DirectionalLight*>(lights[i])) {
 			d_lights.push_back(DL);
-			if (DL->cast_shadow) {
+			if (DL->get_cast_shadow()) {
 				ds_lights.push_back(DL);
 			}
 		}
 		else if (PointLight* PL = dynamic_cast<PointLight*>(lights[i])) {
 			p_lights.push_back(PL);
-			if (PL->cast_shadow) {
+			if (PL->get_cast_shadow()) {
 				ps_lights.push_back(PL);
 			}
 		}
@@ -152,9 +151,6 @@ void Scene::draw() {
   } else {
     glDisable(GL_CULL_FACE);
   }
-  // blending
-  if (blend) glEnable(GL_BLEND);
-  else glDisable(GL_BLEND);
   // fill mode
   glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
 
@@ -190,40 +186,90 @@ void Scene::draw() {
 	}
 
 	//-------- draw shadow masks (in a one-pass MRT) by sampling shadow maps
+	// if a light doesn't cast shadow, will NOT draw to its shadow mask (it will contain garbage data)
 	
 	glViewport(0, 0, w, h);
-
-	uint shadow_casting_lights_counter = 0;
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
+
+	//---- directional lights
+	uint shadow_caster_counter = 0;
+	for (int i=0; i<d_lights.size(); i++) {
+		DirectionalLight* L = d_lights[i];
+		if (!L->get_cast_shadow()) continue;
+
+		glFramebufferTexture2D(
+				GL_FRAMEBUFFER, 
+				color_attachments_position_lights[shadow_caster_counter], 
+				GL_TEXTURE_2D, 
+				L->get_shadow_mask(), 0);
+
+		shadow_caster_counter++;
+	}
+	// set the rest of output buffers to dummy (necessary?)
+	for (int i=shadow_caster_counter; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+		glFramebufferTexture2D(
+				GL_FRAMEBUFFER, 
+				color_attachments_position_lights[i], 
+				GL_TEXTURE_2D, 
+				0, 0);
+	}
   glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// TODO: make lights manage separate fbos instead
-	for (int i=0; i<lights.size(); i++) {
-		if (shadow_casting_lights_counter > MAX_SHADOWCASTING_LIGHTS) ERR("Too many shadow casters");
-		if (lights[i]->cast_shadow) {
-			glFramebufferTexture2D(
-					GL_FRAMEBUFFER, 
-					color_attachments_position_lights[shadow_casting_lights_counter], 
-					GL_TEXTURE_2D, 
-					lights[i]->get_shadow_mask(), 0);
-
-			shadow_casting_lights_counter++;
-		}
-	}
 	shader_set = 3;
 	draw_content();
 
-	//-------- composition: copy to screen
+	//---- point lights
+	shadow_caster_counter = 0;
+	for (int i=0; i<p_lights.size(); i++) {
+		PointLight* L = p_lights[i];
+		if (!L->get_cast_shadow()) continue;
+
+		glFramebufferTexture2D(
+				GL_FRAMEBUFFER, 
+				color_attachments_position_lights[shadow_caster_counter], 
+				GL_TEXTURE_2D, 
+				L->get_shadow_mask(), 0);
+
+		shadow_caster_counter++;
+	}
+	for (int i=shadow_caster_counter; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+		glFramebufferTexture2D(
+				GL_FRAMEBUFFER, 
+				color_attachments_position_lights[i], 
+				GL_TEXTURE_2D, 
+				0, 0);
+	}
+  glClearColor(1, 1, 1, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	shader_set = 4;
+	draw_content();
+
+	//-------- lighting passes: copy to screen
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
-	composition->begin_pass();
-	pass_lights_to_composition_shader();
+	// directional lights
+	lighting_directional->begin_pass();
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		std::string name = "GBUF" + std::to_string(i);
-		composition->shader.set_tex2D(name, i, tex_gbuffers[i]);
+		lighting_directional->shader.set_tex2D(name, i, tex_gbuffers[i]);
 	}
-	composition->end_pass();
+	pass_directional_lights_to_lighting_shader();
+	lighting_directional->end_pass();
+
+	// point lights (TODO)
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+	lighting_point->begin_pass();
+	for (int i=0; i<NUM_GBUFFERS; i++) {
+		std::string name = "GBUF" + std::to_string(i);
+		lighting_point->shader.set_tex2D(name, i, tex_gbuffers[i]);
+	}
+	pass_point_lights_to_lighting_shader();
+	lighting_point->end_pass();
+
+	glDisable(GL_BLEND);
 
 	// draw debug texture
 	if (ShowDebugTex->get()) {
@@ -239,35 +285,26 @@ void Scene::draw() {
 	GL_ERRORS();
 }
 
-void Scene::pass_lights_to_composition_shader() {
-
-	int dir_index = 0;
-	int point_index = 0;
-	int shadow_casting_light_index = 0;
-	for (int i=0; i<lights.size(); i++) {
-		
-		if (DirectionalLight* L = dynamic_cast<DirectionalLight*>(lights[i])) {
-			std::string prefix = "DirectionalLights[" + std::to_string(dir_index) + "].";
-			composition->shader.set_vec3(prefix+"direction", L->get_direction());
-			composition->shader.set_vec3(prefix+"color", L->get_emission());
-			composition->shader.set_bool(prefix+"castShadow", L->cast_shadow);
-			composition->shader.set_tex2D(prefix+"shadowMask", 
-					NUM_GBUFFERS + shadow_casting_light_index, L->get_shadow_mask());
-			dir_index++;
-			if (L->cast_shadow) shadow_casting_light_index++;
-
-		} else if (PointLight* L = dynamic_cast<PointLight*>(lights[i])) {
-			std::string prefix = "PointLights[" + std::to_string(point_index) + "].";
-			composition->shader.set_vec3(prefix+"position", L->world_position());
-			composition->shader.set_vec3(prefix+"color", L->get_emission());
-			//composition->shader.set_bool(prefix+"castShadow", L->cast_shadow);
-			//composition->shader.set_tex2D(prefix+"shadowMask", 
-			point_index++;
-			if (L->cast_shadow) shadow_casting_light_index++;
-
-		}
+void Scene::pass_directional_lights_to_lighting_shader() {
+	for (int i=0; i<d_lights.size(); i++) {
+		DirectionalLight* L = d_lights[i];
+		std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
+		lighting_directional->shader.set_vec3(prefix+"direction", L->get_direction());
+		lighting_directional->shader.set_vec3(prefix+"color", L->get_emission());
+		lighting_directional->shader.set_bool(prefix+"castShadow", L->get_cast_shadow());
+		lighting_directional->shader.set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
 	}
-	composition->shader.set_int("NumDirectionalLights", dir_index);
-	composition->shader.set_int("NumPointLights", point_index);
+	lighting_directional->shader.set_int("NumDirectionalLights", d_lights.size());
 }
 
+void Scene::pass_point_lights_to_lighting_shader() {
+	for (int i=0; i<p_lights.size(); i++) {
+		PointLight* L = p_lights[i];
+		std::string prefix = "PointLights[" + std::to_string(i) + "].";
+		lighting_point->shader.set_vec3(prefix+"position", L->world_position());
+		lighting_point->shader.set_vec3(prefix+"color", L->get_emission());
+		lighting_point->shader.set_bool(prefix+"castShadow", L->get_cast_shadow());
+		lighting_point->shader.set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
+	}
+	lighting_point->shader.set_int("NumPointLights", p_lights.size());
+}

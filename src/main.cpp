@@ -45,6 +45,9 @@ Program::Program(std::string name, int width, int height) {
     std::cerr << "Error creating SDL window: " << SDL_GetError() << std::endl;
     exit(1);
   }
+
+	// store drawable sizes
+	SDL_GL_GetDrawableSize(window, &drawable_width, &drawable_height);
   
   // create context
   this->context = SDL_GL_CreateContext(window);
