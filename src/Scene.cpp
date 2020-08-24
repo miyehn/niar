@@ -6,7 +6,7 @@
 
 CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 8);
-CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
+CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.6f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
 CVar<int>* ShaderSet = new CVar<int>("ShaderSet", 0);
@@ -49,6 +49,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 		// add to debug textures
 		new NamedTex("GBUF"+std::to_string(i), tex_gbuffers[i]);
 	}
+	glDrawBuffers(NUM_GBUFFERS, color_attachments_gbuffers);
 
 	// depth texture
 	glGenTextures(1, &tex_depth);
@@ -61,29 +62,30 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, tex_depth, 0);
 	new NamedTex("Depth", tex_depth);
 
-	glDrawBuffers(NUM_GBUFFERS, color_attachments_gbuffers);
-
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
 		ERR("G buffer framebuffer not correctly initialized");
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// Light-space position framebuffer
+	// TODO: make these per-light properties
 	
 	glGenFramebuffers(1, &fbo_position_lights);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
-	// color attachments (NOTE: they're not bound to any textures for now)
-	for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-		color_attachments_position_lights[i] = GL_COLOR_ATTACHMENT0 + i;
+	{
+		// color attachments (NOTE: they're not bound to any textures for now)
+		for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
+			color_attachments_position_lights[i] = GL_COLOR_ATTACHMENT0 + i;
+		}
+		glDrawBuffers(MAX_SHADOWCASTING_LIGHTS, color_attachments_position_lights);
+		// depth renderbuffer
+		glGenRenderbuffers(1, &depthbuf_position_lights);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthbuf_position_lights);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuf_position_lights);
+		// finish
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+			ERR("Light-space position framebuffer not correctly initialized");
 	}
-	glDrawBuffers(MAX_SHADOWCASTING_LIGHTS, color_attachments_position_lights);
-	// depth renderbuffer
-	glGenRenderbuffers(1, &depthbuf_position_lights);
-	glBindRenderbuffer(GL_RENDERBUFFER, depthbuf_position_lights);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuf_position_lights);
-	// finish
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
-		ERR("Light-space position framebuffer not correctly initialized");
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	composition = new Blit("../shaders/deferred_composition.frag");
@@ -115,12 +117,13 @@ void Scene::update(float elapsed) {
 }
 
 void Scene::draw_content(bool shadow_pass) {
-#if 1
 	for (int i=0; i<children.size(); i++) {
 		if (!shadow_pass) {
 			children[i]->draw();
 			continue;
 		}
+		//---- shadow pass ----
+		// for each child of type Mesh and is closed mesh
 		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) {
 			if (mesh->is_closed_mesh) {
     		glEnable(GL_CULL_FACE);
@@ -131,11 +134,9 @@ void Scene::draw_content(bool shadow_pass) {
 				continue;
 			}
 		}
+		// non-mesh or not-closed mesh
 		children[i]->draw();
 	}
-#else
-	Drawable::draw();
-#endif
 }
 
 void Scene::draw() {
@@ -164,6 +165,7 @@ void Scene::draw() {
 	shader_set = ShaderSet->get();
 	if (shader_set != 0) {
 		draw_content();
+		// if it's not drawing deferred base pass, skip the rest of deferred pipeline
 		return;
 	}
 
@@ -258,6 +260,8 @@ void Scene::pass_lights_to_composition_shader() {
 			std::string prefix = "PointLights[" + std::to_string(point_index) + "].";
 			composition->shader.set_vec3(prefix+"position", L->world_position());
 			composition->shader.set_vec3(prefix+"color", L->get_emission());
+			//composition->shader.set_bool(prefix+"castShadow", L->cast_shadow);
+			//composition->shader.set_tex2D(prefix+"shadowMask", 
 			point_index++;
 			if (L->cast_shadow) shadow_casting_light_index++;
 

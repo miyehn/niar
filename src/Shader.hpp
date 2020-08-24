@@ -20,6 +20,7 @@ struct Shader {
       const std::string& tesc_path = "",
       const std::string& tese_path = "");
 
+	// should likely only be called from Blit; uses a singleton vertex shader to draw full-screen quad
 	Shader(const std::string& frag_path);
 
   std::function<void()> set_parameters = [this]() {

@@ -51,15 +51,18 @@ void main() {
 	ViewCoords.x *= aspectRatio;
 	ViewCoords *= tan(fov / 2.0f);
 	// ViewDir is working :)
-	vec3 ViewDir = CAMERA_TO_WORLD_ROT * normalize(vec3(ViewCoords, -1));
+	vec3 ViewDir = CAMERA_TO_WORLD_ROT * vec3(ViewCoords, -1);
+	//vec3 ViewDir = CAMERA_TO_WORLD_ROT * normalize(vec3(ViewCoords, -1));
 
 	for (int i=0; i<NumDirectionalLights; i++) {
-		vec3 LightSpacePosDivided = vf_DirectionalLightSpacePositions[i].xyz / vf_DirectionalLightSpacePositions[i].w;
-		vec2 LightSpaceUV = (LightSpacePosDivided.xy + 1.0f) / 2.0f;
+		vec3 LightSpacePos = vf_DirectionalLightSpacePositions[i].xyz;
+		vec2 LightSpaceUV = (LightSpacePos.xy + 1.0f) / 2.0f;
 
+		// both linear because it's orthographic projection
 		float NearestDistToLight = texture(DirectionalLights[i].ShadowMap, LightSpaceUV).r;
-		float DistToLight = (LightSpacePosDivided.z + 1.0f) / 2.0f;
+		float DistToLight = (LightSpacePos.z + 1.0f) / 2.0f;
 
+		// some corrections for acne and peter-panning...
 		vec3 DirToLight = -DirectionalLights[i].Direction;
 		float bias = clamp(0.005 * (1.0f - dot(vf_normal, DirToLight)), 0, 0.005);
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
@@ -78,8 +81,8 @@ void main() {
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
 
 		// TODO: get rid of this temporary line
-		//Occlusion = DistToLight > 4 ? 0 : 1;
-		Occlusion = NearestDistToLight * 0.8;
+		//Occlusion = DistToLight > 4 ? 0 : 0.5;
+		Occlusion = NearestDistToLight * 0.9f;
 
 		PositionLights[NumDirectionalLights + i] = Occlusion;
 	}

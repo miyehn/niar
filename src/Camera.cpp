@@ -12,7 +12,7 @@ Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) :
   move_speed = 150.0f;
   rotate_speed = 0.002f;
 
-  fov = radians(30.0f);
+  fov = radians(40.0f);
   cutoffNear = 0.1f;
   cutoffFar = 1000.0f;
 

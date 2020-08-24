@@ -65,16 +65,19 @@ void Program::setup() {
 		// create light(s)
 		Light* light;
 
+		// cool directional light
 		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
 		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
+		// warm directional light
 		light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
 		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
 		scene->lights.push_back(light);
 
+		// point light
 		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
 		light->cast_shadow = true;
 		scene->add_child(static_cast<Drawable*>(light));
