@@ -4,7 +4,7 @@
 #include "Mesh.hpp"
 #include "Light.hpp"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 8);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.6f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
@@ -115,6 +115,16 @@ void Scene::update(float elapsed) {
 
 }
 
+// TODO
+std::vector<Mesh*> Scene::get_meshes() {
+	std::vector<Mesh*> meshes;
+	for (int i=0; i<children.size(); i++) {
+		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) meshes.push_back(mesh);
+	}
+	return meshes;
+}
+
+// TODO: make this support parenting hierarchy
 void Scene::draw_content(bool shadow_pass) {
 	for (int i=0; i<children.size(); i++) {
 		if (!shadow_pass) {
@@ -257,7 +267,7 @@ void Scene::draw() {
 	pass_directional_lights_to_lighting_shader();
 	lighting_directional->end_pass();
 
-	// point lights (TODO)
+	// point lights
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 

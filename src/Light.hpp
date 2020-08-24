@@ -1,6 +1,7 @@
 #pragma once
 #include "Drawable.hpp"
 
+struct Scene;
 struct Camera;
 struct Mesh;
 
@@ -88,5 +89,8 @@ private:
 		vec3(0, 1, 0), vec3(0, -1, 0),
 		vec3(0, 0, 1), vec3(0, 0, -1)
 	};
+	uint shadow_map_depth_rbo = 0;
+
+	void set_location_to_all_shaders(Scene* scene, int shader_index);
 
 };

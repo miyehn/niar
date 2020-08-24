@@ -8,6 +8,7 @@
 struct Light;
 struct DirectionalLight;
 struct PointLight;
+struct Mesh;
 
 /* a scene is a tree of drawables */
 struct Scene : public Drawable {
@@ -53,6 +54,7 @@ struct Scene : public Drawable {
   virtual void update(float elapsed);
   virtual void draw();
 
+	std::vector<Mesh*> get_meshes();
 	void draw_content(bool shadow_pass = false);
 
 private:

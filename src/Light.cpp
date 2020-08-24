@@ -124,56 +124,8 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
 	color = _color;
 	intensity = _intensity;
 	local_position = _local_pos;
-	shadow_map_dim = 512;
-
-	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, false, false);
-	shadow_map_cam->lock();
-	shadow_map_cam->cutoffNear = 0.5f;
-	shadow_map_cam->fov = radians(90.0f);
-	shadow_map_cam->aspect_ratio = 1.0f;
-
-	//------- buffer generations -------
-
-	// shadow map framebuffers
-	glGenFramebuffers(6, shadow_map_fbos);
-
-	// generate cube map and bind each face to an fbo (to be rendered to later)
-	glGenTextures(1, &shadow_map_tex); 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, shadow_map_tex);
-
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	for (int i=0; i<6; i++) {
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
-				shadow_map_dim, shadow_map_dim, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-		// set a face of cube map to an fbo
-		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
-		glFramebufferTexture2D(
-				GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, shadow_map_tex, 0);
-		glDrawBuffer(GL_NONE);
-		glReadBuffer(GL_NONE);
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
-			ERR("point light shadow map framebuffer not correctly initialized");
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	// shadow mask (output)
-	int w, h;
-	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
 
 	glGenTextures(1, &shadow_mask_tex);
-	glBindTexture(GL_TEXTURE_2D, shadow_mask_tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	new NamedTex("point light shadow mask", shadow_mask_tex);
 }
 
 void PointLight::render_shadow_map() {
@@ -187,10 +139,10 @@ void PointLight::render_shadow_map() {
 	Camera::Active = shadow_map_cam;
 
 	Scene* scene = get_scene();
-	scene->shader_set = 1;
+	scene->shader_set = 5;
+	set_location_to_all_shaders(scene, 5);
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
-	// TODO: render these 6 faces
 	for (int i=0; i<6; i++) {
 		vec3 up;
 		vec3 dir;
@@ -207,7 +159,7 @@ void PointLight::render_shadow_map() {
 				up);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
-		glClear(GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene->draw_content(true);
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -216,7 +168,75 @@ void PointLight::render_shadow_map() {
 }
 
 void PointLight::set_cast_shadow(bool cast) {
-	cast_shadow = cast;
+	if (!cast) {
+		cast_shadow = false;
+		return;
+	}
+	if (shadow_map_initialized) {
+		cast_shadow = true;
+		return;
+	}
+
+	// cast == true; shadow map needs initialization
+	cast_shadow = true;
+	shadow_map_initialized = true;
+
+	shadow_map_dim = 512;
+
+	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, false, false);
+	shadow_map_cam->lock();
+	shadow_map_cam->cutoffNear = 0.5f;
+	shadow_map_cam->fov = radians(90.0f);
+	shadow_map_cam->aspect_ratio = 1.0f;
+
+	//------- buffer generations -------
+
+	// shadow map framebuffers
+	glGenFramebuffers(6, shadow_map_fbos);
+
+	// shadow map depth (non-readable)
+	glGenRenderbuffers(1, &shadow_map_depth_rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, shadow_map_depth_rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, shadow_map_dim, shadow_map_dim);
+
+	// generate cube map and bind each face to an fbo (to be rendered to later)
+	glGenTextures(1, &shadow_map_tex); 
+	glBindTexture(GL_TEXTURE_CUBE_MAP, shadow_map_tex);
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	for (int i=0; i<6; i++) {
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_R16F, 
+				shadow_map_dim, shadow_map_dim, 0, GL_RED, GL_FLOAT, NULL);
+		// set a face of cube map to an fbo
+		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
+		glFramebufferTexture2D(
+				GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, shadow_map_tex, 0);
+		// set depth
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, shadow_map_depth_rbo);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+			ERR("point light shadow map framebuffer not correctly initialized");
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// shadow mask (output)
+	int w = Program::Instance->drawable_width;
+	int h = Program::Instance->drawable_height;
+
+	glBindTexture(GL_TEXTURE_2D, shadow_mask_tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	new NamedTex("point light shadow mask", shadow_mask_tex);
+
 }
 
 //-------- utilities --------
@@ -248,10 +268,12 @@ void Light::set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
 	mesh->shaders[shader_index].set_mat4("OBJECT_TO_WORLD", o2w);
 	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
+	/*
 	mesh->shaders[shader_index].set_vec4("CameraParams", vec4(
 				Program::Instance->drawable_width, Program::Instance->drawable_height,
 				Camera::Active->aspect_ratio, Camera::Active->fov));
 	mesh->shaders[shader_index].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
+	*/
 
 	Scene* scene = mesh->get_scene();
 	int num_shadow_casters = 0;
@@ -265,4 +287,13 @@ void Light::set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
 		num_shadow_casters++;
 	}
 	mesh->shaders[shader_index].set_int("NumPointLights", num_shadow_casters);
+}
+
+void PointLight::set_location_to_all_shaders(Scene* scene, int shader_index) {
+	std::vector<Mesh*> meshes = scene->get_meshes();
+	for (int i=0; i<meshes.size(); i++) {
+  	glUseProgram(meshes[i]->shaders[shader_index].id);
+		meshes[i]->shaders[shader_index].set_vec3("FIXED_POINT", world_position());
+	}
+	glUseProgram(0);
 }

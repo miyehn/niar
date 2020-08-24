@@ -2,7 +2,7 @@
 #include "Updatable.hpp"
 #include "Shader.hpp"
 
-#define NUM_SHADER_SETS 5
+#define NUM_SHADER_SETS 6
 
 struct Scene;
 

@@ -16,6 +16,8 @@ Shader Shader::DeferredBasePass;
 Shader Shader::DepthOnly;
 Shader Shader::ShadowPassDirectional;
 Shader Shader::ShadowPassPoint;
+Shader Shader::Distance;
+
 Blit* Blit::CopyDebug;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
@@ -30,12 +32,14 @@ void Program::load_resources() {
 	Shader::Basic.name = "basic";
 	Shader::DeferredBasePass = Shader("../shaders/geometry.vert", "../shaders/geometry.frag");
 	Shader::DeferredBasePass.name = "deferred";
-	Shader::DepthOnly = Shader("../shaders/position_only.vert", "../shaders/empty.frag");
+	Shader::DepthOnly = Shader("../shaders/clip_position.vert", "../shaders/empty.frag");
 	Shader::DepthOnly.name = "depth only";
 	Shader::ShadowPassDirectional = Shader("../shaders/shadow_pass_directional.vert", "../shaders/shadow_pass_directional.frag");
 	Shader::ShadowPassDirectional.name = "shadow pass directional";
 	Shader::ShadowPassPoint = Shader("../shaders/shadow_pass_point.vert", "../shaders/shadow_pass_point.frag");
 	Shader::ShadowPassPoint.name = "shadow pass point";
+	Shader::Distance = Shader("../shaders/world_clip_position.vert", "../shaders/distance.frag");
+	Shader::Distance.name = "distance (for point light shadow map)";
 	Blit::CopyDebug = new Blit("../shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
@@ -106,15 +110,20 @@ void Program::setup() {
 		cube->shaders[4].set_parameters = [cube]() {
 			Light::set_point_shadowpass_params_for_mesh(cube, 4);
 		};
+		cube->shaders[5].set_parameters = [cube]() {
+			mat4 o2w = cube->object_to_world();
+			cube->shaders[5].set_mat4("OBJECT_TO_WORLD", o2w);
+			cube->shaders[5].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+		};
 		cube->local_position += vec3(1.5f, 0, 0);
 		cube->scale = vec3(1, 4, 4);
 		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
 		scene->add_child(static_cast<Drawable*>(cube));
 
 		// TODO: pass light matrices to shader
-		meshes = Mesh::LoadMeshes("../media/plane.fbx");
+		meshes = Mesh::LoadMeshes("../media/cube.fbx");
 		Mesh* plane = meshes[0];
-		plane->is_closed_mesh = false;
+		plane->is_closed_mesh = true;
 		plane->shaders[0].set_parameters = [plane]() {
 			plane->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
 			mat4 o2w = plane->object_to_world();
@@ -137,8 +146,13 @@ void Program::setup() {
 		plane->shaders[4].set_parameters = [plane]() {
 			Light::set_point_shadowpass_params_for_mesh(plane, 4);
 		};
+		plane->shaders[5].set_parameters = [plane]() {
+			mat4 o2w = plane->object_to_world();
+			plane->shaders[5].set_mat4("OBJECT_TO_WORLD", o2w);
+			plane->shaders[5].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+		};
 		plane->local_position = vec3(0, 0, 0);
-		plane->scale = vec3(8, 8, 1);
+		plane->scale = vec3(8, 8, 0.1);
 		plane->bsdf = new Diffuse();
 		scene->add_child(static_cast<Drawable*>(plane));
 	}

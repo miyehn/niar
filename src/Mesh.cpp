@@ -55,6 +55,7 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	shaders[2] = Shader::Basic;
 	shaders[3] = Shader::ShadowPassDirectional;
 	shaders[4] = Shader::ShadowPassPoint;
+	shaders[5] = Shader::Distance;
 
   // generate buffers & objects
   glGenBuffers(1, &vbo);

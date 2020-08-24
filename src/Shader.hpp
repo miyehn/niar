@@ -7,11 +7,12 @@ struct Shader {
 
   static Shader Basic;
 	static Shader DeferredBasePass;
-	static Shader DepthOnly;
+	static Shader DepthOnly; // for directional light shadow map
 	static Shader ShadowPassDirectional;
 	static Shader ShadowPassPoint;
+	static Shader Distance; // for point light shadow map
 
-  Shader() { 
+  Shader() {
 		id = 0; 
 		name = "[unamed shader]";
 	}
