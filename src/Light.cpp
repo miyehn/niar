@@ -5,8 +5,17 @@
 #include "Program.hpp"
 #include "Mesh.hpp"
 
+// TODO
+Light::~Light() {
+	delete shadow_map_cam;
+}
+
 DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
 
+	LOGF("col: %f %f %f", _color.x, _color.y, _color.z);
+	LOGF("dir: %f %f %f", dir.x, dir.y, dir.z);
+
+	name = "[unnamed directional light]";
 	type = Directional;
 	
 	color = _color;
@@ -18,8 +27,8 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
 	glGenTextures(1, &shadow_mask_tex);
 }
 
+// TODO
 DirectionalLight::~DirectionalLight() {
-	delete shadow_map_cam;
 }
 
 void DirectionalLight::render_shadow_map() {
@@ -119,6 +128,7 @@ void DirectionalLight::set_cast_shadow(bool cast) {
 
 PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
 	
+	name = "[unnamed point light]";
 	type = Point;
 
 	color = _color;
@@ -126,6 +136,10 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
 	local_position = _local_pos;
 
 	glGenTextures(1, &shadow_mask_tex);
+}
+
+// TODO
+PointLight::~PointLight() {
 }
 
 void PointLight::render_shadow_map() {
@@ -143,6 +157,7 @@ void PointLight::render_shadow_map() {
 	set_location_to_all_shaders(scene, 5);
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
+	// TODO: merge these 6 calls into one (MRT)
 	for (int i=0; i<6; i++) {
 		vec3 up;
 		vec3 dir;
@@ -268,12 +283,6 @@ void Light::set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
 	mesh->shaders[shader_index].set_mat4("OBJECT_TO_WORLD", o2w);
 	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
-	/*
-	mesh->shaders[shader_index].set_vec4("CameraParams", vec4(
-				Program::Instance->drawable_width, Program::Instance->drawable_height,
-				Camera::Active->aspect_ratio, Camera::Active->fov));
-	mesh->shaders[shader_index].set_mat3("CAMERA_TO_WORLD_ROT", Camera::Active->camera_to_world_rotation());
-	*/
 
 	Scene* scene = mesh->get_scene();
 	int num_shadow_casters = 0;
@@ -282,8 +291,8 @@ void Light::set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
 		if (!L->get_cast_shadow()) continue;
 
 		std::string prefix = "PointLights[" + std::to_string(i) + "].";
-		mesh->shaders[shader_index].set_texCube(prefix+"ShadowMap", i, scene->ps_lights[i]->get_shadow_map());
-		mesh->shaders[shader_index].set_vec3(prefix+"Position", scene->ps_lights[i]->world_position());
+		mesh->shaders[shader_index].set_texCube(prefix+"ShadowMap", i, L->get_shadow_map());
+		mesh->shaders[shader_index].set_vec3(prefix+"Position", L->world_position());
 		num_shadow_casters++;
 	}
 	mesh->shaders[shader_index].set_int("NumPointLights", num_shadow_casters);

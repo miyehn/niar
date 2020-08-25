@@ -6,6 +6,7 @@ struct Camera {
   static Camera* Active;
 
   Camera(size_t w, size_t h, bool _ortho = false, bool use_YPR = true);
+	~Camera();
 
   void update_control(float time_elapsed);
 

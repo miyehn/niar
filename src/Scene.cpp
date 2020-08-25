@@ -4,7 +4,7 @@
 #include "Mesh.hpp"
 #include "Light.hpp"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 7);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
@@ -12,6 +12,8 @@ CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 CVar<int>* ShaderSet = new CVar<int>("ShaderSet", 0);
 
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
+
+	name = "[unnamed scene]";
 
 	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
 	
@@ -91,31 +93,65 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 }
 
-void Scene::update(float elapsed) {
+// OMG MIND BLOWN: https://stackoverflow.com/questions/677620/do-i-need-to-explicitly-call-the-base-virtual-destructor
+Scene::~Scene() {
+}
 
-	d_lights.clear();
-	ds_lights.clear();
-	p_lights.clear();
-	ps_lights.clear();
+void Scene::load(std::string source, bool y_up, bool preserve_existing_objects) {
+	if (!preserve_existing_objects) {
+		d_lights.clear();
+		p_lights.clear();
+		for (int i=0; i<children.size(); i++) delete children[i];
+		children.clear();
+	}
 
-	for (int i=0; i<lights.size(); i++) {
-		if (DirectionalLight* DL = dynamic_cast<DirectionalLight*>(lights[i])) {
-			d_lights.push_back(DL);
-			if (DL->get_cast_shadow()) {
-				ds_lights.push_back(DL);
-			}
-		}
-		else if (PointLight* PL = dynamic_cast<PointLight*>(lights[i])) {
-			p_lights.push_back(PL);
-			if (PL->get_cast_shadow()) {
-				ps_lights.push_back(PL);
-			}
+	LOG("loading scene..");
+  Assimp::Importer importer;
+  const aiScene* scene = importer.ReadFile(source,
+      aiProcess_GenSmoothNormals |
+      aiProcess_CalcTangentSpace |
+      aiProcess_Triangulate |
+      aiProcess_JoinIdenticalVertices |
+      aiProcess_SortByPType);
+  if (!scene) {
+    ERR(importer.GetErrorString());
+  }
+	LOGF(" - num meshes: %d", scene->mNumMeshes);
+	LOGF(" - num lights: %d", scene->mNumLights);
+	LOGF(" - num cameras: %d", scene->mNumCameras);
+
+#if 1
+	// meshes
+	for (int i=0; i<scene->mNumMeshes; i++) {
+		aiMesh* mesh = scene->mMeshes[i];
+		if (mesh) {
+			Mesh* m = new Mesh(mesh, y_up);
+			add_child(m);
 		}
 	}
 
+	// lights
+	for (int i=0; i<scene->mNumLights; i++) {
+		aiLight* light = scene->mLights[i];
+		if (light->mType == aiLightSource_DIRECTIONAL) {
+			aiColor3D col = light->mColorDiffuse;
+			aiVector3D dir = light->mDirection;
+			const char* name = light->mName.C_Str();
+			DirectionalLight* d_light = new DirectionalLight(vec3(col.r, col.g, col.b), 1.0f, vec3(dir.x, dir.y, dir.z));
+			d_light->name = name;
+			d_lights.push_back(d_light);
+			add_child(d_light);
+			
+		} else if (light->mType == aiLightSource_POINT) {
+			LOG("p light");
+		} else {
+			WARN("unrecognized light type, skipping..");
+		}
+	}
+#endif
 }
 
-// TODO
+// TODO: make this support parenting hierarchy
 std::vector<Mesh*> Scene::get_meshes() {
 	std::vector<Mesh*> meshes;
 	for (int i=0; i<children.size(); i++) {
@@ -195,8 +231,11 @@ void Scene::draw() {
 	
 	//-------- make shadow maps
 	
-	for (int i=0; i<lights.size(); i++) {
-		lights[i]->render_shadow_map();
+	for (int i=0; i<d_lights.size(); i++) {
+		d_lights[i]->render_shadow_map();
+	}
+	for (int i=0; i<p_lights.size(); i++) {
+		p_lights[i]->render_shadow_map();
 	}
 
 	//-------- draw shadow masks (in a one-pass MRT) by sampling shadow maps

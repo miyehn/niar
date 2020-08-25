@@ -64,42 +64,49 @@ void Program::setup() {
 		Camera::Active->move_speed = 6.0f;
 		Camera::Active->position = vec3(0, -10, 1);
 		Camera::Active->cutoffFar = 100.0f;
+
+		scene->load("../media/with_light.dae");
 		
+#if 0
 		// create light(s)
-		Light* light;
+		DirectionalLight* d_light;
+		PointLight* p_light;
 
 		// cool directional light
-		light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-		light->set_cast_shadow(true);
-		scene->add_child(static_cast<Drawable*>(light));
-		scene->lights.push_back(light);
+		d_light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
+		d_light->set_cast_shadow(true);
+		scene->add_child(static_cast<Drawable*>(d_light));
+		scene->d_lights.push_back(d_light);
 
 		// warm directional light
-		light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
-		light->set_cast_shadow(true);
-		scene->add_child(static_cast<Drawable*>(light));
-		scene->lights.push_back(light);
+		d_light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
+		d_light->set_cast_shadow(true);
+		scene->add_child(static_cast<Drawable*>(d_light));
+		scene->d_lights.push_back(d_light);
 
 		// point light
-		light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
-		light->set_cast_shadow(true);
-		scene->add_child(static_cast<Drawable*>(light));
-		scene->lights.push_back(light);
+		p_light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
+		p_light->set_cast_shadow(true);
+		scene->add_child(static_cast<Drawable*>(p_light));
+		scene->p_lights.push_back(p_light);
+#endif
 
+#if 0
 		// load and process mesh
-		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
+		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx", false);
 		Mesh* cube = meshes[0];
 		cube->local_position += vec3(1.5f, 0, 0);
 		cube->scale = vec3(1, 4, 4);
 		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
 		scene->add_child(static_cast<Drawable*>(cube));
 
-		meshes = Mesh::LoadMeshes("../media/plane.fbx");
+		meshes = Mesh::LoadMeshes("../media/plane.fbx", false);
 		Mesh* plane = meshes[0];
 		plane->local_position = vec3(0, 0, 0);
-		plane->scale = vec3(8, 8, 0.1);
+		plane->scale = vec3(8, 8, 1);
 		plane->bsdf = new Diffuse();
 		scene->add_child(static_cast<Drawable*>(plane));
+#endif
 	}
 
 	/* Classic cornell box
@@ -166,7 +173,10 @@ void Program::setup() {
 }
 
 void Program::release_resources() {
-  LOG("release resources");
+  LOG("releasing resources..");
+  for (uint i=0; i<scenes.size(); i++) {
+    delete scenes[i];
+  }
   delete Camera::Active;
   delete Pathtracer::Instance;
   if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
@@ -184,7 +194,10 @@ void Program::process_input() {
 	}
 
 	uint len = tokens.size();
-	if (len==0) return;
+	if (len==0) {
+		LOGR("(invalid input, ignored..)");
+		return;
+	}
 	if (tokens[0] == "ls") {
 		if (len==1) list_cvars();
 		else if (len==2) {

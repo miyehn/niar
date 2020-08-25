@@ -84,6 +84,9 @@ void Camera::update_control(float elapsed) {
   }
 }
 
+Camera::~Camera() {
+}
+
 // Never really got how camera rotation control works but gonna settle for now...
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp

@@ -69,10 +69,6 @@ Program::Program(std::string name, int width, int height) {
 }
 
 Program::~Program() {
-  LOG("cleaning up...");
-  for (uint i=0; i<scenes.size(); i++) {
-    delete scenes[i];
-  }
   release_resources();
 }
 

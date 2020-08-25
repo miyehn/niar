@@ -14,10 +14,11 @@ static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4), "vertex struct shou
 
 struct Mesh : public Drawable {
 
-  static std::vector<Mesh*> LoadMeshes(const std::string& source);
+  static std::vector<Mesh*> LoadMeshes(const std::string& source, bool y_up = true);
   
   Mesh(
       aiMesh* mesh = nullptr, 
+			bool y_up = true,
       Drawable* _parent = nullptr, 
       std::string _name = "[unnamed mesh]");
   virtual ~Mesh();

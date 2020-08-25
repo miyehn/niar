@@ -16,14 +16,13 @@ struct Scene : public Drawable {
 	static Scene* Active;
 
   Scene(std::string _name = "[unnamed scene]");
+	virtual ~Scene();
 
 	int w, h;
 
-	std::vector<Light*> lights;
+	void load(std::string source, bool y_up = true, bool preserve_existing_objects = false);
 	std::vector<DirectionalLight*> d_lights;
-	std::vector<DirectionalLight*> ds_lights;
 	std::vector<PointLight*> p_lights;
-	std::vector<PointLight*> ps_lights;
 
 	uint shader_set = 0;
 
@@ -51,7 +50,6 @@ struct Scene : public Drawable {
   GLenum fill_mode; // GL_FILL | GL_LINE | GL_POINT
 
   //-------- where the configurations are being set before the scene is drawn --------
-  virtual void update(float elapsed);
   virtual void draw();
 
 	std::vector<Mesh*> get_meshes();

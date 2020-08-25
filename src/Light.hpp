@@ -12,7 +12,7 @@ struct Light : public Drawable {
 
 	enum Type { Point, Directional };
 	Type type;
-	virtual ~Light() {}
+	virtual ~Light();
 	vec3 get_emission() { return color * intensity; }
 	virtual void render_shadow_map() = 0;
 	virtual mat4 world_to_light_clip() = 0;
@@ -73,6 +73,8 @@ struct PointLight: public Light {
 			vec3 _color = vec3(1), 
 			float _intensity = 1.0f, 
 			vec3 _local_pos = vec3(0));
+
+	virtual ~PointLight();
 
 	virtual void render_shadow_map();
 

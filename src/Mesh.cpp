@@ -6,7 +6,7 @@
 #include "Scene.hpp"
 #include "Light.hpp"
 
-Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
+Mesh::Mesh(aiMesh* mesh, bool y_up, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
   if (!mesh->HasPositions() || !mesh->HasFaces() || !mesh->HasNormals()) {
     ERR("creating a mesh that has some data missing.");
@@ -35,6 +35,14 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
     v.position = vec3(position.x, position.y, position.z);
     v.normal = vec3(normal.x, normal.y, normal.z);
     v.color = vec4(color.r, color.g, color.b, color.a);
+		if (y_up) {
+			mat3 y_up_to_z_up = mat3(
+					vec3(1, 0, 0),
+					vec3(0, 0, 1),
+					vec3(0, -1, 0));
+			v.position = y_up_to_z_up * v.position;
+			v.normal = y_up_to_z_up * v.normal;
+		}
     // push into vertex array
     vertices.push_back(v);
   }
@@ -146,7 +154,7 @@ void Mesh::draw() {
   Drawable::draw();
 }
 
-std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
+std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool y_up) {
   // import mesh from source
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(source,
@@ -163,7 +171,7 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
   std::vector<Mesh*> meshes;
   for (int i=0; i<scene->mNumMeshes; i++) {
     aiMesh* mesh = scene->mMeshes[i];
-    if (mesh) meshes.push_back(new Mesh(mesh));
+    if (mesh) meshes.push_back(new Mesh(mesh, y_up));
   }
 
   LOGF("loaded %d meshe(s)", meshes.size());
