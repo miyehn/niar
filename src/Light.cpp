@@ -181,7 +181,7 @@ void PointLight::set_cast_shadow(bool cast) {
 	cast_shadow = true;
 	shadow_map_initialized = true;
 
-	shadow_map_dim = 512;
+	shadow_map_dim = 256;
 
 	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, false, false);
 	shadow_map_cam->lock();

@@ -28,7 +28,7 @@ void main() {
 		float NearestDistToLight = texture(DirectionalLights[i].ShadowMap, LightSpaceUV).r;
 		float DistToLight = (LightSpacePos.z + 1.0f) / 2.0f;
 
-		// some corrections for acne and peter-panning...
+		// slope-based bias
 		float slope = abs(1.0f - dot(vf_normal, -DirectionalLights[i].Direction));
 		float bias = mix(0.003, 0.01, slope);
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;

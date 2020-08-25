@@ -63,6 +63,7 @@ void Program::setup() {
 
 		Camera::Active->move_speed = 6.0f;
 		Camera::Active->position = vec3(0, -10, 1);
+		Camera::Active->cutoffFar = 100.0f;
 		
 		// create light(s)
 		Light* light;
@@ -88,69 +89,13 @@ void Program::setup() {
 		// load and process mesh
 		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
 		Mesh* cube = meshes[0];
-		cube->shaders[0].set_parameters = [cube]() {
-			cube->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", cube->object_to_world_rotation());
-			mat4 o2w = cube->object_to_world();
-			cube->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
-			cube->shaders[0].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
-		cube->shaders[1].set_parameters = [cube]() {
-			mat4 o2w = cube->object_to_world();
-			cube->shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
-		cube->shaders[2].set_parameters = [cube]() {
-			cube->shaders[2].set_mat3("OBJECT_TO_CAM_ROT", 
-					cube->object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
-			mat4 o2w = cube->object_to_world();
-			cube->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
-		cube->shaders[3].set_parameters = [cube]() {
-			Light::set_directional_shadowpass_params_for_mesh(cube, 3);
-		};
-		cube->shaders[4].set_parameters = [cube]() {
-			Light::set_point_shadowpass_params_for_mesh(cube, 4);
-		};
-		cube->shaders[5].set_parameters = [cube]() {
-			mat4 o2w = cube->object_to_world();
-			cube->shaders[5].set_mat4("OBJECT_TO_WORLD", o2w);
-			cube->shaders[5].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
 		cube->local_position += vec3(1.5f, 0, 0);
 		cube->scale = vec3(1, 4, 4);
 		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
 		scene->add_child(static_cast<Drawable*>(cube));
 
-		// TODO: pass light matrices to shader
 		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
-		plane->is_closed_mesh = true;
-		plane->shaders[0].set_parameters = [plane]() {
-			plane->shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", plane->object_to_world_rotation());
-			mat4 o2w = plane->object_to_world();
-			plane->shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
-			plane->shaders[0].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
-		plane->shaders[1].set_parameters = [plane]() {
-			mat4 o2w = plane->object_to_world();
-			plane->shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
-		plane->shaders[2].set_parameters = [plane]() {
-			plane->shaders[2].set_mat3("OBJECT_TO_CAM_ROT", 
-					plane->object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
-			mat4 o2w = plane->object_to_world();
-			plane->shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
-		plane->shaders[3].set_parameters = [plane]() {
-			Light::set_directional_shadowpass_params_for_mesh(plane, 3);
-		};
-		plane->shaders[4].set_parameters = [plane]() {
-			Light::set_point_shadowpass_params_for_mesh(plane, 4);
-		};
-		plane->shaders[5].set_parameters = [plane]() {
-			mat4 o2w = plane->object_to_world();
-			plane->shaders[5].set_mat4("OBJECT_TO_WORLD", o2w);
-			plane->shaders[5].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		};
 		plane->local_position = vec3(0, 0, 0);
 		plane->scale = vec3(8, 8, 0.1);
 		plane->bsdf = new Diffuse();

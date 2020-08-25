@@ -4,6 +4,7 @@
 #include "BSDF.hpp"
 #include "Globals.hpp"
 #include "Scene.hpp"
+#include "Light.hpp"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
@@ -101,6 +102,9 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   }
   glBindVertexArray(0);
 
+  //---- shader params ----
+	
+	set_all_shader_param_funcs();
 }
 
 Mesh::~Mesh() {
@@ -167,4 +171,34 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
   // importer seems to automatically handle memory release for scene
   return meshes;
 
+}
+
+void Mesh::set_all_shader_param_funcs() {
+	shaders[0].set_parameters = [this]() {
+		shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", object_to_world_rotation());
+		mat4 o2w = object_to_world();
+		shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
+		shaders[0].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
+	shaders[1].set_parameters = [this]() {
+		mat4 o2w = object_to_world();
+		shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
+	shaders[2].set_parameters = [this]() {
+		shaders[2].set_mat3("OBJECT_TO_CAM_ROT", 
+				object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
+		mat4 o2w = object_to_world();
+		shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
+	shaders[3].set_parameters = [this]() {
+		Light::set_directional_shadowpass_params_for_mesh(this, 3);
+	};
+	shaders[4].set_parameters = [this]() {
+		Light::set_point_shadowpass_params_for_mesh(this, 4);
+	};
+	shaders[5].set_parameters = [this]() {
+		mat4 o2w = object_to_world();
+		shaders[5].set_mat4("OBJECT_TO_WORLD", o2w);
+		shaders[5].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+	};
 }

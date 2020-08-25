@@ -24,8 +24,9 @@ void main() {
 		float NearestDistToLight = texture(PointLights[i].ShadowMap, normalize(LightToWorldPos)).r;
 		float DistToLight = length(LightToWorldPos);
 
+		// slope-based bias
 		float slope = abs(1.0f - dot(vf_normal, normalize(-LightToWorldPos)));
-		float bias = mix(0.003, 0.01, slope);
+		float bias = mix(0.005, 0.01, slope);
 		float Occlusion = DistToLight > NearestDistToLight+bias ? 0 : 1;
 
 		PositionLights[i] = Occlusion;
