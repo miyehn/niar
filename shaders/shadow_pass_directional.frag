@@ -29,8 +29,8 @@ void main() {
 		float DistToLight = (LightSpacePos.z + 1.0f) / 2.0f;
 
 		// some corrections for acne and peter-panning...
-		vec3 DirToLight = -DirectionalLights[i].Direction;
-		float bias = clamp(0.005 * (1.0f - dot(vf_normal, DirToLight)), 0, 0.005);
+		float slope = abs(1.0f - dot(vf_normal, -DirectionalLights[i].Direction));
+		float bias = mix(0.003, 0.01, slope);
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
 		if (DistToLight > 1) Occlusion = 1.0f;
 

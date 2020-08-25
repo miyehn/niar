@@ -5,8 +5,8 @@
 #include "Light.hpp"
 
 CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 8);
-CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.6f);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 7);
+CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
 CVar<int>* ShaderSet = new CVar<int>("ShaderSet", 0);
@@ -127,6 +127,7 @@ std::vector<Mesh*> Scene::get_meshes() {
 // TODO: make this support parenting hierarchy
 void Scene::draw_content(bool shadow_pass) {
 	for (int i=0; i<children.size(); i++) {
+#if 0
 		if (!shadow_pass) {
 			children[i]->draw();
 			continue;
@@ -145,6 +146,9 @@ void Scene::draw_content(bool shadow_pass) {
 		}
 		// non-mesh or not-closed mesh
 		children[i]->draw();
+#else
+		children[i]->draw();
+#endif
 	}
 }
 

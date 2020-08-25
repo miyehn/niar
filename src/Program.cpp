@@ -121,7 +121,7 @@ void Program::setup() {
 		scene->add_child(static_cast<Drawable*>(cube));
 
 		// TODO: pass light matrices to shader
-		meshes = Mesh::LoadMeshes("../media/cube.fbx");
+		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
 		plane->is_closed_mesh = true;
 		plane->shaders[0].set_parameters = [plane]() {
