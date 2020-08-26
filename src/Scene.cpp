@@ -5,7 +5,7 @@
 #include "Light.hpp"
 
 CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 7);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 4);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
@@ -28,7 +28,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
   
 	//-------- allocate bufers --------
 	
-	// G buffer
+	// G buffers
 	
 	glGenFramebuffers(1, &fbo_gbuffers);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
@@ -97,7 +97,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 Scene::~Scene() {
 }
 
-void Scene::load(std::string source, bool y_up, bool preserve_existing_objects) {
+void Scene::load(std::string source, bool preserve_existing_objects) {
 	if (!preserve_existing_objects) {
 		d_lights.clear();
 		p_lights.clear();
@@ -125,25 +125,28 @@ void Scene::load(std::string source, bool y_up, bool preserve_existing_objects) 
 	for (int i=0; i<scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
 		if (mesh) {
-			Mesh* m = new Mesh(mesh, y_up);
+			Mesh* m = new Mesh(mesh);
 			add_child(m);
 		}
 	}
+#endif
 
+#if 1
 	// lights
 	for (int i=0; i<scene->mNumLights; i++) {
 		aiLight* light = scene->mLights[i];
 		if (light->mType == aiLightSource_DIRECTIONAL) {
-			aiColor3D col = light->mColorDiffuse;
-			aiVector3D dir = light->mDirection;
-			const char* name = light->mName.C_Str();
-			DirectionalLight* d_light = new DirectionalLight(vec3(col.r, col.g, col.b), 1.0f, vec3(dir.x, dir.y, dir.z));
-			d_light->name = name;
+			DirectionalLight* d_light = new DirectionalLight(light, scene->mRootNode);
 			d_lights.push_back(d_light);
+			d_light->set_cast_shadow(true);
 			add_child(d_light);
 			
 		} else if (light->mType == aiLightSource_POINT) {
-			LOG("p light");
+			PointLight* p_light = new PointLight(light, scene->mRootNode);
+			p_lights.push_back(p_light);
+			p_light->set_cast_shadow(true);
+			add_child(p_light);
+
 		} else {
 			WARN("unrecognized light type, skipping..");
 		}
@@ -163,7 +166,7 @@ std::vector<Mesh*> Scene::get_meshes() {
 // TODO: make this support parenting hierarchy
 void Scene::draw_content(bool shadow_pass) {
 	for (int i=0; i<children.size(); i++) {
-#if 0
+#if 1
 		if (!shadow_pass) {
 			children[i]->draw();
 			continue;
@@ -171,7 +174,7 @@ void Scene::draw_content(bool shadow_pass) {
 		//---- shadow pass ----
 		// for each child of type Mesh and is closed mesh
 		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) {
-			if (mesh->is_closed_mesh) {
+			if (!mesh->is_thin_mesh) {
     		glEnable(GL_CULL_FACE);
 				glCullFace(GL_FRONT);
 				mesh->draw();

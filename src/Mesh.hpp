@@ -14,11 +14,10 @@ static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4), "vertex struct shou
 
 struct Mesh : public Drawable {
 
-  static std::vector<Mesh*> LoadMeshes(const std::string& source, bool y_up = true);
+  static std::vector<Mesh*> LoadMeshes(const std::string& source);
   
   Mesh(
       aiMesh* mesh = nullptr, 
-			bool y_up = true,
       Drawable* _parent = nullptr, 
       std::string _name = "[unnamed mesh]");
   virtual ~Mesh();
@@ -34,6 +33,8 @@ struct Mesh : public Drawable {
 
   // TODO: material info (BSDF*)
 	BSDF* bsdf = nullptr;
+
+	bool is_thin_mesh;
 
   //---- opengl stuff ----
   uint vbo, ebo, vao = 0;

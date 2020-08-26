@@ -15,7 +15,6 @@ in vec3 vf_normal;
 
 layout(location=0) out float PositionLights[MaxLights];
 
-
 void main() {
 
 	for (int i=0; i<NumPointLights; i++) {
@@ -25,8 +24,8 @@ void main() {
 		float DistToLight = length(LightToWorldPos);
 
 		// slope-based bias
-		float slope = abs(1.0f - dot(vf_normal, normalize(-LightToWorldPos)));
-		float bias = mix(0.005, 0.01, slope);
+		float slope = 1.0f - clamp(dot(vf_normal, normalize(-LightToWorldPos)), 0, 1);
+		float bias = mix(0.004, 0.01, slope);
 		float Occlusion = DistToLight > NearestDistToLight+bias ? 0 : 1;
 
 		PositionLights[i] = Occlusion;

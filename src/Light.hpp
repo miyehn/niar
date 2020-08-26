@@ -46,6 +46,7 @@ struct DirectionalLight : public Light {
 			vec3 _color = vec3(1), 
 			float _intensity = 1.0f, 
 			vec3 dir = vec3(0, 0, -1));
+	DirectionalLight(aiLight* light, aiNode* mRootNode);
 
 	virtual ~DirectionalLight();
 
@@ -61,6 +62,8 @@ struct DirectionalLight : public Light {
 
 private:
 
+	void init(vec3 _color, float _intensity, vec3 dir);
+
 	uint shadow_map_fbo = 0;
 
 	Blit* shadow_map_blit = nullptr;
@@ -74,6 +77,8 @@ struct PointLight: public Light {
 			float _intensity = 1.0f, 
 			vec3 _local_pos = vec3(0));
 
+	PointLight(aiLight* light, aiNode* mRootNode);
+
 	virtual ~PointLight();
 
 	virtual void render_shadow_map();
@@ -84,6 +89,8 @@ struct PointLight: public Light {
 	virtual mat4 world_to_light_clip() { return mat4(1); }
 
 private:
+
+	void init(vec3 _color, float _intensity, vec3 _local_pos);
 
 	uint shadow_map_fbos[6];
 	vec3 shadow_map_normals[6] = {

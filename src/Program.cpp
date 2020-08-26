@@ -65,42 +65,46 @@ void Program::setup() {
 		Camera::Active->position = vec3(0, -10, 1);
 		Camera::Active->cutoffFar = 100.0f;
 
-		scene->load("../media/with_light.dae");
+		scene->load("../media/with_light.fbx", false);
 		
 #if 0
 		// create light(s)
 		DirectionalLight* d_light;
 		PointLight* p_light;
 
+		#if 1
 		// cool directional light
 		d_light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-		d_light->set_cast_shadow(true);
+		//d_light->set_cast_shadow(true);
 		scene->add_child(static_cast<Drawable*>(d_light));
 		scene->d_lights.push_back(d_light);
 
 		// warm directional light
 		d_light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
-		d_light->set_cast_shadow(true);
+		//d_light->set_cast_shadow(true);
 		scene->add_child(static_cast<Drawable*>(d_light));
 		scene->d_lights.push_back(d_light);
+		#endif
 
+		#if 1
 		// point light
-		p_light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(-1, 0, 2));
+		p_light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(0, -2, 2));
 		p_light->set_cast_shadow(true);
 		scene->add_child(static_cast<Drawable*>(p_light));
 		scene->p_lights.push_back(p_light);
+		#endif
 #endif
 
 #if 0
 		// load and process mesh
-		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx", false);
+		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
 		Mesh* cube = meshes[0];
 		cube->local_position += vec3(1.5f, 0, 0);
 		cube->scale = vec3(1, 4, 4);
 		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
 		scene->add_child(static_cast<Drawable*>(cube));
 
-		meshes = Mesh::LoadMeshes("../media/plane.fbx", false);
+		meshes = Mesh::LoadMeshes("../media/plane.fbx");
 		Mesh* plane = meshes[0];
 		plane->local_position = vec3(0, 0, 0);
 		plane->scale = vec3(8, 8, 1);
@@ -122,7 +126,7 @@ void Program::setup() {
 		set_cvar("ShaderSet", "2");
 		
 		// cornell box
-		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_box.dae");
+		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_box.fbx");
 		for (int i=0; i<meshes.size(); i++) { // 4 is floor
 			Mesh* mesh = meshes[i];
 			mesh->shaders[2].set_parameters = [mesh](){
@@ -140,7 +144,7 @@ void Program::setup() {
 			scene->add_child(static_cast<Drawable*>(mesh));
 		}
 
-		meshes = Mesh::LoadMeshes("../media/cornell_light.dae");
+		meshes = Mesh::LoadMeshes("../media/cornell_light.fbx");
 		Mesh* light = meshes[0];
 		light->shaders[2].set_parameters = [light]() {
 			mat3 OBJECT_TO_CAM_ROT = light->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
@@ -155,11 +159,11 @@ void Program::setup() {
 
 #if 0
 		// add another item to it
-		meshes = Mesh::LoadMeshes("../media/prism.dae");
+		meshes = Mesh::LoadMeshes("../media/prism.fbx");
 		Mesh* mesh = meshes[0];
-		mesh->shader.set_parameters = [mesh]() {
+		mesh->shaders[2].set_parameters = [mesh]() {
 			mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
-			mesh->shader.set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+			mesh->shaders[2].set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
 		};
 		mesh->bsdf = new Diffuse(vec3(0.6f));
 		mesh->bsdf->albedo = vec3(1, 1, 1);

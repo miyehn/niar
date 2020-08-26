@@ -12,9 +12,18 @@ out vec4 vf_position;
 out vec3 vf_normal;
 out vec3 vf_color;
 
+out float Z;
+
 void main() {
 	gl_Position = OBJECT_TO_CLIP * vec4(in_position, 1);
   vf_position = OBJECT_TO_WORLD * vec4(in_position, 1);
-  vf_normal = OBJECT_TO_WORLD_ROT * in_normal;
-  vf_color = in_color.rgb;
+
+	vec3 normal = OBJECT_TO_WORLD_ROT * in_normal;
+	vec3 color = in_color.rgb;
+
+	// perspective-correct lerp: http://15462.courses.cs.cmu.edu/spring2019/lecture/texture/slide_033
+	float z = gl_Position.z / gl_Position.w;
+  vf_normal = normal / z;
+  vf_color = color / z;
+	Z = 1.0f / z;
 }

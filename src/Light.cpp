@@ -10,12 +10,7 @@ Light::~Light() {
 	delete shadow_map_cam;
 }
 
-DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
-
-	LOGF("col: %f %f %f", _color.x, _color.y, _color.z);
-	LOGF("dir: %f %f %f", dir.x, dir.y, dir.z);
-
-	name = "[unnamed directional light]";
+void DirectionalLight::init(vec3 _color, float _intensity, vec3 dir) {
 	type = Directional;
 	
 	color = _color;
@@ -25,6 +20,34 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
 	effective_radius = 10.0f;
 
 	glGenTextures(1, &shadow_mask_tex);
+}
+
+DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
+	init(_color, _intensity, dir);
+	name = "[unnamed directional light]";
+}
+
+DirectionalLight::DirectionalLight(aiLight* light, aiNode* mRootNode) {
+	if (!mRootNode) ERR("trying to create light without giving root node");
+
+	const char* inName = light->mName.C_Str();
+	aiColor3D col = light->mColorDiffuse;
+	aiVector3D dir = light->mDirection;
+
+	// transformation (direction)
+	aiNode* node = mRootNode->FindNode(inName);
+	for (int i=0; i<3; i++) {
+		if (node==nullptr) {
+			ERR("directional light import: has less than 3 parent (rotation) nodes");
+			break;
+		}
+		dir = node->mTransformation * dir;
+		node = node->mParent;
+	}
+	vec3 dir_gl = normalize(vec3(dir.x, dir.y, dir.z));
+
+	init(vec3(col.r, col.g, col.b), 1.0f, dir_gl);
+	name = inName;
 }
 
 // TODO
@@ -108,8 +131,6 @@ void DirectionalLight::set_cast_shadow(bool cast) {
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	new NamedTex("directional light shadow map", shadow_map_tex);
-
 	// shadow mask (output)
 	int w = Program::Instance->drawable_width;
 	int h = Program::Instance->drawable_height;
@@ -121,14 +142,14 @@ void DirectionalLight::set_cast_shadow(bool cast) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	new NamedTex("directional light shadow mask", shadow_mask_tex);
+	new NamedTex(name + " shadow mask", shadow_mask_tex);
 }
 
 //-------- point light --------
 
-PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
-	
-	name = "[unnamed point light]";
+void PointLight::init(vec3 _color, float _intensity, vec3 _local_pos) {
+	LOGF("pos: %f %f %f", _local_pos.x, _local_pos.y, _local_pos.z);
+
 	type = Point;
 
 	color = _color;
@@ -138,11 +159,35 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
 	glGenTextures(1, &shadow_mask_tex);
 }
 
+PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos) {
+	init(_color, _intensity, _local_pos);
+	name = "[unnamed point light]";
+}
+
+PointLight::PointLight(aiLight* light, aiNode* mRootNode) {
+	if (!mRootNode) ERR("trying to create light without giving root node");
+
+	const char* inName = light->mName.C_Str();
+	aiColor3D col = light->mColorDiffuse;
+	aiVector3D pos = aiVector3D();
+
+	// transformation (position)
+	aiNode* node = mRootNode->FindNode(inName);
+	while (node != nullptr) {
+		pos = node->mTransformation * pos;
+		node = node->mParent;
+	}
+	init(vec3(col.r, col.g, col.b), 1.0f, vec3(pos.x, pos.y, pos.z));
+	name = inName;
+}
+
 // TODO
 PointLight::~PointLight() {
 }
 
 void PointLight::render_shadow_map() {
+
+	if (!cast_shadow) return;
 
 	effective_radius = sqrt(255.0f * intensity); // a heuristic
 
@@ -250,7 +295,7 @@ void PointLight::set_cast_shadow(bool cast) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	new NamedTex("point light shadow mask", shadow_mask_tex);
+	new NamedTex(name + " shadow mask", shadow_mask_tex);
 
 }
 
