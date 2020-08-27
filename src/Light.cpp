@@ -194,6 +194,14 @@ void PointLight::init(vec3 _color, float _intensity, vec3 _local_pos) {
 
 	color = _color;
 	intensity = _intensity;
+
+	float factor = 1.0f;
+	if (color.r > 1 || color.g > 1 || color.b > 1) {
+		factor = max(color.r, max(color.g, color.b));
+		color *= (1.0f / factor);
+		intensity = factor;
+	}
+
 	set_local_position(_local_pos);
 
 	glGenTextures(1, &shadow_mask_tex);
@@ -229,7 +237,7 @@ void PointLight::render_shadow_map() {
 
 	if (!cast_shadow) return;
 
-	effective_radius = sqrt(255.0f * intensity); // a heuristic
+	float effective_radius = sqrt(255.0f * intensity); // a heuristic
 
 	shadow_map_cam->position = world_position();
 	shadow_map_cam->cutoffFar = effective_radius;
@@ -242,7 +250,13 @@ void PointLight::render_shadow_map() {
 	set_location_to_all_shaders(scene, 5);
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
-	// TODO: merge these 6 calls into one (MRT)
+#define POINT_LIGHT_OPTIMIZE 0
+
+	// TODO: merge these 6 calls into one (using MRT)
+#if POINT_LIGHT_OPTIMIZE
+	// dynamic bounds based on scene aabb and light effective radius (can also add frustum)
+	std::vector<vec3> sc = scene->aabb.corners();
+#endif
 	for (int i=0; i<6; i++) {
 		vec3 up;
 		vec3 dir;
@@ -258,6 +272,18 @@ void PointLight::render_shadow_map() {
 				shadow_map_cam->position + dir,
 				up);
 
+#if POINT_LIGHT_OPTIMIZE
+		// z far bound (is this effective at all??)
+		float minz = INF;
+		mat4 w2c0 = shadow_map_cam->world_to_camera();
+		for (int i=0; i<8; i++) {
+			vec3 v = w2c0 * vec4(sc[i], 1);
+			minz = min(minz, v.z);
+		}
+		shadow_map_cam->cutoffFar = min(-minz, effective_radius);
+#endif
+
+		// draw
 		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene->draw_content(true);
@@ -283,9 +309,9 @@ void PointLight::set_cast_shadow(bool cast) {
 
 	shadow_map_dim = 256;
 
-	shadow_map_cam = new Camera(effective_radius*2, effective_radius*2, false, false);
+	shadow_map_cam = new Camera(0, 0, false, false);
 	shadow_map_cam->lock();
-	shadow_map_cam->cutoffNear = 0.5f;
+	shadow_map_cam->cutoffNear = 0.1f;
 	shadow_map_cam->fov = radians(90.0f);
 	shadow_map_cam->aspect_ratio = 1.0f;
 

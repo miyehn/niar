@@ -94,8 +94,6 @@ struct PointLight: public Light {
 
 private:
 
-	float effective_radius;
-
 	void init(vec3 _color, float _intensity, vec3 _local_pos);
 
 	uint shadow_map_fbos[6];

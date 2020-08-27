@@ -8,8 +8,8 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 4);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 6);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
@@ -179,7 +179,7 @@ void Scene::generate_aabb() {
 // TODO: make this support parenting hierarchy
 void Scene::draw_content(bool shadow_pass) {
 	for (int i=0; i<children.size(); i++) {
-#if 0
+#if 0 // front face culling
 		if (!shadow_pass) {
 			children[i]->draw();
 			continue;
