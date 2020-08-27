@@ -33,18 +33,23 @@ void main() {
 		float NearestDistToLight = texture(PointLights[i].ShadowMap, normalize(LightToWorldPos)).r;
 		float DistToLight = length(LightToWorldPos);
 
+#if 0
 		// slope-based bias
-		//float slope = 1.0f - clamp(dot(vf_normal, normalize(-LightToWorldPos)), 0, 1);
-		float bias = 0.05;//mix(0.03, 0.08, slope);
+		float slope = 1.0f - clamp(dot(vf_normal, normalize(-LightToWorldPos)), 0, 1);
+		float bias = mix(0.04, 0.08, slope);
+#else
+		float bias = 0.03f;
+#endif
 
 		float Occlusion = float(DistToLight > NearestDistToLight + bias) * WEIGHT;
 		for (int j=0; j<NUM_OFFSETS; j++) {
-			LightToWorldPos = vf_position - PointLights[i].Position + offsets[j]*0.02;
+			LightToWorldPos = vf_position - PointLights[i].Position + offsets[j]*0.03;
 			NearestDistToLight = texture(PointLights[i].ShadowMap, LightToWorldPos).r;
 			Occlusion += float(DistToLight > NearestDistToLight + bias) * WEIGHT;
 		}
 
-		PositionLights[i] = 1.0f - Occlusion;
+		float Lit2 = 1 - Occlusion;//sqrt(1 - Occlusion);
+		PositionLights[i] = Lit2 > 0.5 ? 1 : mix(0, 1, Lit2*2);
 	}
 
 }

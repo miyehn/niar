@@ -8,7 +8,7 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 1);
+CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 6);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);

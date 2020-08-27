@@ -250,7 +250,7 @@ void PointLight::render_shadow_map() {
 	set_location_to_all_shaders(scene, 5);
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
-#define POINT_LIGHT_OPTIMIZE 0
+#define POINT_LIGHT_OPTIMIZE 1
 
 	// TODO: merge these 6 calls into one (using MRT)
 #if POINT_LIGHT_OPTIMIZE
