@@ -1,7 +1,9 @@
 #pragma once
 #include "Drawable.hpp"
+#include "Utils.hpp"
 
 struct BSDF;
+struct aiMesh;
 
 struct Vertex {
   Vertex() {}
@@ -12,7 +14,7 @@ struct Vertex {
 };
 static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4), "vertex struct should be packed");
 
-struct Mesh : public Drawable {
+struct Mesh : Drawable {
 
   static std::vector<Mesh*> LoadMeshes(const std::string& source);
   
@@ -26,15 +28,23 @@ struct Mesh : public Drawable {
   virtual void update(float elapsed);
   virtual void draw();
 
+	virtual void set_local_position(vec3 _local_position);
+	virtual void set_rotation(quat _rotation);
+	virtual void set_scale(vec3 _scale);
+
   std::vector<Vertex> vertices;
   std::vector<uint> faces;
   uint get_num_triangles() { return faces.size() / 3; }
 	void set_all_shader_param_funcs();
 
-  // TODO: material info (BSDF*)
+	AABB aabb;
 	BSDF* bsdf = nullptr;
 
+private:
+
 	bool is_thin_mesh;
+	bool locked = false;
+	void generate_aabb();
 
   //---- opengl stuff ----
   uint vbo, ebo, vao = 0;

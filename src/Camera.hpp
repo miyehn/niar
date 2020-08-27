@@ -1,6 +1,8 @@
 #pragma once
 #include "Updatable.hpp"
 
+typedef std::vector<vec3> Frustum;
+
 struct Camera {
 
   static Camera* Active;
@@ -27,8 +29,10 @@ struct Camera {
 	float width, height;
   float aspect_ratio;
 
-	bool orthonormal;
+	bool orthographic;
 	bool use_YPR;
+
+	Frustum frustum();
 
   // can move & rotate camera?
   void lock();

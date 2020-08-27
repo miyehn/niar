@@ -15,9 +15,9 @@ add_executable(niar
   src/Mesh
   src/Shader
   src/GrassField
-  src/Cube
-	src/Globals
+	src/Input
 	src/Light
+	src/Utils
   src/Pathtracer/Primitive
   src/Pathtracer/Pathtracer
   src/Pathtracer/BSDF

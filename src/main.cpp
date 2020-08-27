@@ -3,7 +3,7 @@
 #include "Scene.hpp"
 #include "Camera.hpp"
 #include "Pathtracer.hpp"
-#include "Globals.hpp"
+#include "Input.hpp"
 
 Program* Program::Instance;
 

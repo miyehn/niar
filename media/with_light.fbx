@@ -8,10 +8,10 @@ FBXHeaderExtension:  {
 		Version: 1000
 		Year: 2020
 		Month: 8
-		Day: 26
-		Hour: 21
-		Minute: 40
-		Second: 14
+		Day: 27
+		Hour: 20
+		Minute: 44
+		Second: 0
 		Millisecond: 0
 	}
 	Creator: "FBX SDK/FBX Plugins version 2020.0"
@@ -37,13 +37,13 @@ FBXHeaderExtension:  {
 			P: "Original|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "Original|ApplicationName", "KString", "", "", "Maya"
 			P: "Original|ApplicationVersion", "KString", "", "", "202000"
-			P: "Original|DateTime_GMT", "DateTime", "", "", "26/08/2020 21:40:14.000"
+			P: "Original|DateTime_GMT", "DateTime", "", "", "27/08/2020 20:44:00.000"
 			P: "Original|FileName", "KString", "", "", "/Users/miyehn/Documents/playground/niar/media/with_light.fbx"
 			P: "LastSaved", "Compound", "", ""
 			P: "LastSaved|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "LastSaved|ApplicationName", "KString", "", "", "Maya"
 			P: "LastSaved|ApplicationVersion", "KString", "", "", "202000"
-			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "26/08/2020 21:40:14.000"
+			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "27/08/2020 20:44:00.000"
 			P: "Original|ApplicationActiveProject", "KString", "", "", "/Users/miyehn/Documents/playground/niar/media"
 			P: "Original|ApplicationNativeFile", "KString", "", "", "/Users/miyehn/Documents/playground/niar/media/test_export.mb"
 		}
@@ -80,7 +80,7 @@ GlobalSettings:  {
 
 Documents:  {
 	Count: 1
-	Document: 105553418451248, "", "Scene" {
+	Document: 105553418260224, "", "Scene" {
 		Properties70:  {
 			P: "SourceObject", "object", "", ""
 			P: "ActiveAnimStackName", "KString", "", "", "Take 001"
@@ -259,7 +259,7 @@ Definitions:  {
 ;------------------------------------------------------------------
 
 Objects:  {
-	NodeAttribute: 140366631585680, "NodeAttribute::", "Light" {
+	NodeAttribute: 140367152489840, "NodeAttribute::", "Light" {
 		Properties70:  {
 			P: "Color", "Color", "", "A",1,0.800000011920929,0.5
 			P: "LightType", "enum", "", "",1
@@ -269,11 +269,11 @@ Objects:  {
 		TypeFlags: "Light"
 		GeometryVersion: 124
 	}
-	NodeAttribute: 140368206148096, "NodeAttribute::camera1", "Camera" {
+	NodeAttribute: 140369354761216, "NodeAttribute::camera1", "Camera" {
 		Properties70:  {
-			P: "Position", "Vector", "", "A",2.93320305488401,-8.62081189717118,4.83605381916321
-			P: "UpVector", "Vector", "", "A",-0.187068878141871,0.45386311829024,0.87121381112021
-			P: "InterestPosition", "Vector", "", "A",0.482067739958431,-2.67391186530289,1.21167403333193
+			P: "Position", "Vector", "", "A",1.6344801088534,-13.9907958674056,5.28739032287931
+			P: "UpVector", "Vector", "", "A",-0.0566094504840618,0.383358448268983,0.921863151588505
+			P: "InterestPosition", "Vector", "", "A",0.0381506143804244,-3.18047369161506,0.693871574705447
 			P: "BackgroundColor", "Color", "", "A",0,0,0
 			P: "AspectWidth", "double", "Number", "",960
 			P: "AspectHeight", "double", "Number", "",540
@@ -290,15 +290,15 @@ Objects:  {
 		}
 		TypeFlags: "Camera"
 		GeometryVersion: 124
-		Position: 2.93320305488401,-8.62081189717118,4.83605381916321
-		Up: -0.187068878141871,0.45386311829024,0.87121381112021
-		LookAt: 0.482067739958431,-2.67391186530289,1.21167403333193
+		Position: 1.6344801088534,-13.9907958674056,5.28739032287931
+		Up: -0.0566094504840618,0.383358448268983,0.921863151588505
+		LookAt: 0.0381506143804244,-3.18047369161506,0.693871574705447
 		ShowInfoOnMoving: 1
 		ShowAudio: 0
 		AudioColor: 0,1,0
 		CameraOrthoZoom: 1
 	}
-	Geometry: 140368204737984, "Geometry::", "Mesh" {
+	Geometry: 140369303462912, "Geometry::", "Mesh" {
 		Vertices: *126 {
 			a: 0.353553354740143,0.353553354740143,0.609933197498322,0,0.499999940395355,0.609933197498322,-0.353553354740143,0.353553354740143,0.609933197498322,-0.499999940395355,-1.92296265186978e-16,0.609933197498322,-0.353553354740143,-0.353553354740143,0.609933197498322,0,-0.499999970197678,0.609933197498322,0.353553384542465,-0.353553384542465,0.609933197498322,0.5,-1.92296265186978e-16,0.609933197498322,0.612372398376465,0.612372398376465,0.975958585739136,0,0.866025328636169,0.975958585739136,-0.612372398376465,0.612372398376465,0.975958585739136,-0.866025328636169,-1.11022295845071e-16,0.975958585739136,-0.612372398376465,-0.612372398376465,0.975958585739136,0,-0.866025388240814,0.975958585739136,0.61237245798111,-0.61237245798111,0.975958585739136,0.866025447845459,-1.11022295845071e-16,0.975958585739136,0.707106709480286,0.707106709480286,1.47595858573914,0,0.99999988079071,1.47595858573914,-0.707106709480286,0.707106709480286,1.47595858573914,-0.99999988079071,0,1.47595858573914,-0.707106709480286,-0.707106709480286,1.47595858573914,0,-0.999999940395355,1.47595858573914,0.70710676908493,-0.70710676908493,1.47595858573914,1,0,1.47595858573914,0.612372398376465,0.612372398376465,1.97595858573914,0,0.866025328636169,1.97595858573914,-0.612372398376465,0.612372398376465,1.97595858573914,-0.866025328636169,1.11022295845071e-16,1.97595858573914,-0.612372398376465,-0.612372398376465,1.97595858573914,0,-0.866025388240814,1.97595858573914,0.61237245798111,-0.61237245798111,1.97595858573914,0.866025447845459,1.11022295845071e-16,1.97595858573914,0.353553354740143,0.353553354740143,2.34198403358459,0,0.499999940395355,2.34198403358459,-0.353553354740143,0.353553354740143,2.34198403358459,-0.499999940395355,1.92296265186978e-16,2.34198403358459,-0.353553354740143,-0.353553354740143,2.34198403358459,0,-0.499999970197678,2.34198403358459,0.353553384542465,-0.353553384542465,2.34198403358459,0.5,1.92296265186978e-16,2.34198403358459,0,-2.22044604925031e-16,0.475958585739136,0,2.22044604925031e-16,2.47595858573914
 		} 
@@ -359,7 +359,7 @@ Objects:  {
 			}
 		}
 	}
-	Geometry: 140368202247632, "Geometry::", "Mesh" {
+	Geometry: 140369303256864, "Geometry::", "Mesh" {
 		Vertices: *24 {
 			a: -5.28628826141357,4.34812545776367,-1,2.40399742126465,6.40873146057129,-1,-2.40399742126465,-6.40873146057129,-1,5.28628826141357,-4.34812545776367,-1,-2.40399742126465,-6.40873146057129,0,5.28628826141357,-4.34812545776367,0,-5.28628826141357,4.34812545776367,0,2.40399742126465,6.40873146057129,0
 		} 
@@ -419,7 +419,7 @@ Objects:  {
 			}
 		}
 	}
-	NodeAttribute: 140368204803536, "NodeAttribute::", "Light" {
+	NodeAttribute: 140368202791392, "NodeAttribute::", "Light" {
 		Properties70:  {
 			P: "Intensity", "Number", "", "A",200
 			P: "CastShadows", "bool", "", "",1
@@ -427,7 +427,7 @@ Objects:  {
 		TypeFlags: "Light"
 		GeometryVersion: 124
 	}
-	Geometry: 140368204826992, "Geometry::", "Mesh" {
+	Geometry: 140368202765120, "Geometry::", "Mesh" {
 		Vertices: *12 {
 			a: -1.41931414604187,-1.02517020702362,3.12192249298096,-2.27328300476074,-0.504846096038818,3.12192249298096,-1.41931414604187,-1.02517020702362,-0.197584986686707,-2.27328300476074,-0.504846096038818,-0.197584986686707
 		} 
@@ -487,7 +487,7 @@ Objects:  {
 			}
 		}
 	}
-	Model: 140368467121152, "Model::directionalLight1", "Light" {
+	Model: 140368503711232, "Model::directionalLight1", "Light" {
 		Version: 232
 		Properties70:  {
 			P: "RotationOffset", "Vector3D", "Vector", "",-2.54253181767004e-16,2.82995021395668e-16,3.29150464616336e-16
@@ -499,14 +499,14 @@ Objects:  {
 			P: "InheritType", "enum", "", "",1
 			P: "ScalingMax", "Vector3D", "Vector", "",0,0,0
 			P: "DefaultAttributeIndex", "int", "Integer", "",0
-			P: "Lcl Translation", "Lcl Translation", "", "A",2.13405260462726,-2.27294310871111,1.50405027068985
-			P: "Lcl Rotation", "Lcl Rotation", "", "A",-10.8697555784984,20.7913733107047,110.111365848317
+			P: "Lcl Translation", "Lcl Translation", "", "AL7",0,0,0
+			P: "Lcl Rotation", "Lcl Rotation", "", "A",27.6978466127428,-25.012574945337,19.6981326979645
 			P: "Lcl Scaling", "Lcl Scaling", "", "A",1,1,1
 		}
 		Shading: Y
 		Culling: "CullingOff"
 	}
-	Model: 140368206318592, "Model::camera1", "Camera" {
+	Model: 140368205542912, "Model::camera1", "Camera" {
 		Version: 232
 		Properties70:  {
 			P: "RotationOffset", "Vector3D", "Vector", "",-0.766517044524617,8.83285190755833,4.47899411581256
@@ -518,14 +518,14 @@ Objects:  {
 			P: "InheritType", "enum", "", "",1
 			P: "ScalingMax", "Vector3D", "Vector", "",0,0,0
 			P: "DefaultAttributeIndex", "int", "Integer", "",0
-			P: "Lcl Translation", "Lcl Translation", "", "A",0.392846227279048,-9.0325479697869,5.19539446518815
-			P: "Lcl Rotation", "Lcl Rotation", "", "A",60.6000000000024,-1.59027734073176e-15,22.4000000000001
+			P: "Lcl Translation", "Lcl Translation", "", "A",1.05004372774631,-13.2670038661869,6.6815727181245
+			P: "Lcl Rotation", "Lcl Rotation", "", "A",67.2000000000006,-7.95138670365879e-16,8.40000000000015
 			P: "Lcl Scaling", "Lcl Scaling", "", "A",1,1,1
 		}
 		Shading: Y
 		Culling: "CullingOff"
 	}
-	Model: 140368206151680, "Model::pSphere1", "Mesh" {
+	Model: 140368208056832, "Model::pSphere1", "Mesh" {
 		Version: 232
 		Properties70:  {
 			P: "RotationPivot", "Vector3D", "Vector", "",0,0,1.47595863693675
@@ -539,7 +539,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Model: 140369361421824, "Model::pCube1", "Mesh" {
+	Model: 140368208385536, "Model::pCube1", "Mesh" {
 		Version: 232
 		Properties70:  {
 			P: "RotationPivot", "Vector3D", "Vector", "",0,0,-0.5
@@ -553,7 +553,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Model: 140368206286336, "Model::pointLight1", "Light" {
+	Model: 140368208389632, "Model::pointLight1", "Light" {
 		Version: 232
 		Properties70:  {
 			P: "RotationActive", "bool", "", "",1
@@ -565,7 +565,7 @@ Objects:  {
 		Shading: Y
 		Culling: "CullingOff"
 	}
-	Model: 140369361519616, "Model::thin_pPlane1", "Mesh" {
+	Model: 140368205551104, "Model::thin_pPlane1", "Mesh" {
 		Version: 232
 		Properties70:  {
 			P: "RotationPivot", "Vector3D", "Vector", "",-1.8462984805521,-0.76500822087725,1.46216881443273
@@ -579,7 +579,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 140368204129344, "Material::lambert1", "" {
+	Material: 140369303460224, "Material::lambert1", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -602,47 +602,47 @@ Objects:  {
 Connections:  {
 	
 	;Model::directionalLight1, Model::RootNode
-	C: "OO",140368467121152,0
+	C: "OO",140368503711232,0
 	
 	;Model::camera1, Model::RootNode
-	C: "OO",140368206318592,0
+	C: "OO",140368205542912,0
 	
 	;Model::pSphere1, Model::RootNode
-	C: "OO",140368206151680,0
+	C: "OO",140368208056832,0
 	
 	;Model::pCube1, Model::RootNode
-	C: "OO",140369361421824,0
+	C: "OO",140368208385536,0
 	
 	;Model::pointLight1, Model::RootNode
-	C: "OO",140368206286336,0
+	C: "OO",140368208389632,0
 	
 	;Model::thin_pPlane1, Model::RootNode
-	C: "OO",140369361519616,0
+	C: "OO",140368205551104,0
 	
 	;NodeAttribute::, Model::directionalLight1
-	C: "OO",140366631585680,140368467121152
+	C: "OO",140367152489840,140368503711232
 	
 	;NodeAttribute::camera1, Model::camera1
-	C: "OO",140368206148096,140368206318592
+	C: "OO",140369354761216,140368205542912
 	
 	;Geometry::, Model::pSphere1
-	C: "OO",140368204737984,140368206151680
+	C: "OO",140369303462912,140368208056832
 	
 	;Material::lambert1, Model::pSphere1
-	C: "OO",140368204129344,140368206151680
+	C: "OO",140369303460224,140368208056832
 	
 	;Geometry::, Model::pCube1
-	C: "OO",140368202247632,140369361421824
+	C: "OO",140369303256864,140368208385536
 	
 	;Material::lambert1, Model::pCube1
-	C: "OO",140368204129344,140369361421824
+	C: "OO",140369303460224,140368208385536
 	
 	;NodeAttribute::, Model::pointLight1
-	C: "OO",140368204803536,140368206286336
+	C: "OO",140368202791392,140368208389632
 	
 	;Geometry::, Model::thin_pPlane1
-	C: "OO",140368204826992,140369361519616
+	C: "OO",140368202765120,140368205551104
 	
 	;Material::lambert1, Model::thin_pPlane1
-	C: "OO",140368204129344,140369361519616
+	C: "OO",140369303460224,140368205551104
 }

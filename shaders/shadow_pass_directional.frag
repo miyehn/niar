@@ -30,9 +30,8 @@ void main() {
 
 		// slope-based bias
 		float slope = 1.0f - clamp(dot(vf_normal, -DirectionalLights[i].Direction), 0, 1);
-		float bias = mix(0.001, 0.02, slope);
+		float bias = mix(0.001, 0.01, slope);
 		float Occlusion = DistToLight-NearestDistToLight >= bias ? 0.0f : 1.0f;
-		//if (DistToLight > 1) Occlusion = 1.0f;
 
 		PositionLights[i] = Occlusion;
 	}

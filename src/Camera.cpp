@@ -2,7 +2,7 @@
 #include "Program.hpp"
 
 Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) : 
-		orthonormal(_ortho), use_YPR(_use_YPR), width(w), height(h) {
+		orthographic(_ortho), use_YPR(_use_YPR), width(w), height(h) {
   position = vec3(0);
   yaw = radians(0.0f);
   pitch = radians(90.0f);
@@ -12,9 +12,9 @@ Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) :
   move_speed = 150.0f;
   rotate_speed = 0.002f;
 
-  fov = radians(40.0f);
-  cutoffNear = 0.1f;
-  cutoffFar = 1000.0f;
+  fov = radians(60.0f);
+  cutoffNear = 0.5f;
+  cutoffFar = 40.0f;
 
   aspect_ratio = (float)w / (float)h;
 
@@ -22,6 +22,7 @@ Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) :
 
   int prev_mouse_x = 0;
   int prev_mouse_y = 0;
+
 }
 
 void Camera::update_control(float elapsed) {
@@ -87,6 +88,31 @@ void Camera::update_control(float elapsed) {
 Camera::~Camera() {
 }
 
+Frustum Camera::frustum() {
+	if (orthographic) WARN("creating a frustum for orthographic camera (which is meanlingless)");
+	Frustum frus(8);
+	vec3 f = forward();
+	vec3 u = up();
+	vec3 r = right();
+	vec3 cnear = position + f * cutoffNear;
+	vec3 cfar = position + f * cutoffFar;
+	float yraw = std::atan(fov);
+	vec3 ynear = u * yraw * cutoffNear;
+	vec3 xnear = r * yraw * cutoffNear * aspect_ratio;
+	vec3 yfar = u * yraw * cutoffFar;
+	vec3 xfar = r * yraw * cutoffFar * aspect_ratio;
+
+	frus[0] = cnear - ynear - xnear;
+	frus[1] = cnear - ynear + xnear;
+	frus[2] = cnear + ynear - xnear;
+	frus[3] = cnear + ynear + xnear;
+	frus[4] = cfar - yfar - xfar;
+	frus[5] = cfar - yfar + xfar;
+	frus[6] = cfar + yfar - xfar;
+	frus[7] = cfar + yfar + xfar;
+	return frus;
+}
+
 // Never really got how camera rotation control works but gonna settle for now...
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
@@ -121,7 +147,7 @@ mat4 Camera::camera_to_world() {
 }
 
 mat4 Camera::world_to_clip() {
-  mat4 camera_to_clip = orthonormal ?
+  mat4 camera_to_clip = orthographic ?
 		ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
 		perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
   return camera_to_clip * world_to_camera();

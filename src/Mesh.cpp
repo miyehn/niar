@@ -2,9 +2,13 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 #include "BSDF.hpp"
-#include "Globals.hpp"
+#include "Input.hpp"
 #include "Scene.hpp"
 #include "Light.hpp"
+
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
@@ -28,11 +32,8 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   for (int i=0; i<AI_MAX_NUMBER_OF_COLOR_SETS; i++) {
     if (first_color_channel == -1 && mesh->HasVertexColors(i)) first_color_channel = i;
   }
-  if (first_color_channel < 0) {
-    WARN("creating a mesh without vertex color. using white instead.");
-  }
 
-  // iterate through vertices to get p, n, c
+  // iterate through vertices
   for (int i=0; i<mesh->mNumVertices; i++) {
     // access p, n, c data
     aiVector3D position = mesh->mVertices[i];
@@ -46,9 +47,9 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
     v.position = vec3(position.x, position.y, position.z);
     v.normal = vec3(normal.x, normal.y, normal.z);
     v.color = vec4(color.r, color.g, color.b, color.a);
-    // push into vertex array
     vertices.push_back(v);
   }
+	generate_aabb();
 
   // iterate through faces indices and store them
   for (int j=0; j<mesh->mNumFaces; j++) {
@@ -57,7 +58,6 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
     faces.push_back(face.mIndices[1]);
     faces.push_back(face.mIndices[2]);
   }
-  LOGF("loaded mesh %s of %d vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 
   //---- OpenGL setup ----
   
@@ -116,6 +116,16 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
   //---- shader params ----
 	
 	set_all_shader_param_funcs();
+
+  LOGF("loaded mesh %s of %d vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
+}
+
+void Mesh::generate_aabb() {
+	mat4 o2w = object_to_world();
+	aabb = AABB();
+	for (int i=0; i<vertices.size(); i++) {
+		aabb.add_point(o2w * vec4(vertices[i].position, 1));
+	}
 }
 
 Mesh::~Mesh() {
@@ -131,6 +141,7 @@ bool Mesh::handle_event(SDL_Event event) {
 
 void Mesh::update(float elapsed) {
   Drawable::update(elapsed);
+	locked = true;
 }
 
 void Mesh::draw() {
@@ -146,15 +157,37 @@ void Mesh::draw() {
 
   // bind vao and draw
   glBindVertexArray(vao);
-	//GL_ERRORS();
   glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
-	//GL_ERRORS();
   glBindVertexArray(0);
 
   glUseProgram(0);
 
   // draw children
   Drawable::draw();
+}
+
+void Mesh::set_local_position(vec3 _local_position) {
+	if (!locked) {
+		local_position_value = _local_position;
+		generate_aabb();
+		get_scene()->generate_aabb();
+	}
+}
+
+void Mesh::set_rotation(quat _rotation) {
+	if (!locked) {
+		rotation_value = _rotation;
+		generate_aabb();
+		get_scene()->generate_aabb();
+	}
+}
+
+void Mesh::set_scale(vec3 _scale) {
+	if (!locked) {
+		scale_value = _scale;
+		generate_aabb();
+		get_scene()->generate_aabb();
+	}
 }
 
 std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {

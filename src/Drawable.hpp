@@ -39,9 +39,17 @@ struct Drawable: public Updatable {
 	mat3 world_to_object_rotation();
 
   vec3 world_position();
+	vec3 local_position() { return local_position_value; }
+	quat rotation() { return rotation_value; }
+	vec3 scale() { return scale_value; }
 
-  vec3 local_position;
-  quat rotation;
-  vec3 scale;
+	virtual void set_local_position(vec3 _local_position) = 0;
+	virtual void set_rotation(quat _rotation) = 0;
+	virtual void set_scale(vec3 _scale) = 0;
+
+protected:
+  vec3 local_position_value;
+  quat rotation_value;
+  vec3 scale_value;
 
 };

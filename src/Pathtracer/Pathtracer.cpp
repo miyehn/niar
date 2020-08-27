@@ -5,7 +5,7 @@
 #include "BSDF.hpp"
 #include "Primitive.hpp"
 #include "PathtracerLight.hpp"
-#include "Globals.hpp"
+#include "Input.hpp"
 #include <chrono>
 #include <thread>
 #include <atomic>

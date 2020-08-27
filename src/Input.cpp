@@ -1,4 +1,4 @@
-#include "Globals.hpp"
+#include "Input.hpp"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
@@ -136,23 +136,4 @@ void set_cvar(std::string name, std::string val) {
 	} else {
 		LOGR("cvar not found.");
 	}
-}
-
-quat quat_from_dir(vec3 dir) {
-	if (dot(dir, vec3(0, 0, -1)) > 1.0f - EPSILON) {
-		return quat();
-	}
-	float costheta = dot(dir, vec3(0, 0, -1));
-	float angle = acos(dot(dir, vec3(0, 0, -1)));
-	vec3 axis = normalize(cross(vec3(0, 0, -1), dir));
-
-	float c = cos(angle / 2);
-	float s = sin(angle / 2);
-	/*
-	float csq = (1.0f + costheta) / 2;
-	float c = sqrt(csq);//cos(angle/2); 
-	if (costheta > HALF_PI) c = -c;
-	float s = sqrt(1.0f - csq);//sin(angle/2);
-	*/
-	return quat(c, s*axis.x, s*axis.y, s*axis.z);
 }

@@ -11,9 +11,9 @@ Drawable::Drawable(Drawable* _parent, std::string _name) {
 
   enabled = true;
 
-  local_position = vec3(0, 0, 0);
-  rotation = quat(1, 0, 0, 0);
-  scale = vec3(1, 1, 1);
+  local_position_value = vec3(0, 0, 0);
+  rotation_value = quat(1, 0, 0, 0);
+  scale_value = vec3(1, 1, 1);
 }
 
 Drawable::~Drawable() {
@@ -58,16 +58,17 @@ bool Drawable::add_child(Drawable* child) {
 }
 
 mat4 Drawable::object_to_parent() {
+	vec3 sc = scale();
   return mat4( // translate
     vec4(1, 0, 0, 0),
     vec4(0, 1, 0, 0),
     vec4(0, 0, 1, 0),
-    vec4(local_position, 1)
-  ) * mat4_cast(rotation) // rotate
+    vec4(local_position(), 1)
+  ) * mat4_cast(rotation()) // rotate
     * mat4 ( // scale
-    vec4(scale.x, 0, 0, 0),
-    vec4(0, scale.y, 0, 0),
-    vec4(0, 0, scale.z, 0),
+    vec4(sc.x, 0, 0, 0),
+    vec4(0, sc.y, 0, 0),
+    vec4(0, 0, sc.z, 0),
     vec4(0, 0, 0, 1)
   );
 }
@@ -78,23 +79,24 @@ mat4 Drawable::object_to_world() {
 }
 
 mat4 Drawable::parent_to_object() {
+	vec3 sc = scale();
   return mat4( // inv scale
-    vec4(1.0f / scale.x, 0, 0, 0),
-    vec4(0, 1.0f / scale.y, 0, 0),
-    vec4(0, 0, 1.0f / scale.z, 0),
+    vec4(1.0f / sc.x, 0, 0, 0),
+    vec4(0, 1.0f / sc.y, 0, 0),
+    vec4(0, 0, 1.0f / sc.z, 0),
     vec4(0, 0, 0, 1)
-  ) * mat4_cast(inverse(rotation)) // inv rotate
+  ) * mat4_cast(inverse(rotation())) // inv rotate
     * mat4( // un-translate
     vec4(1, 0, 0, 0),
     vec4(0, 1, 0, 0),
     vec4(0, 0, 1, 0),
-    vec4(-local_position, 1)
+    vec4(-local_position(), 1)
   );
 }
 
 mat3 Drawable::object_to_world_rotation() {
-	if (!parent) return mat3_cast(rotation);
-	return parent->object_to_world_rotation() * mat3_cast(rotation);
+	if (!parent) return mat3_cast(rotation());
+	return parent->object_to_world_rotation() * mat3_cast(rotation());
 }
 
 mat3 Drawable::world_to_object_rotation() {

@@ -1,5 +1,6 @@
 #pragma once
 #include "Drawable.hpp"
+#include "Utils.hpp"
 
 struct Scene;
 struct Ray;
@@ -21,6 +22,11 @@ struct Pathtracer : public Drawable {
   virtual void update(float elapsed);
   virtual void draw();
 
+  void enable();
+  void disable();
+
+private:
+
   // size for the pathtraced image - could be different from display window.
   size_t width, height;
 	size_t tile_size, tiles_X, tiles_Y;
@@ -31,8 +37,6 @@ struct Pathtracer : public Drawable {
 	bool finished;
   void pause_trace();
   void continue_trace();
-  virtual void enable();
-  virtual void disable();
 	bool initialized;
 	void initialize();
   void reset();
@@ -91,5 +95,9 @@ struct Pathtracer : public Drawable {
 	// for debug
 	Shader loggedrays_shader;
 	uint loggedrays_vbo, loggedrays_vao;
+
+	virtual void set_local_position(vec3 _local_position) {}
+	virtual void set_rotation(quat _rotation) {}
+	virtual void set_scale(vec3 _scale) {}
 
 };

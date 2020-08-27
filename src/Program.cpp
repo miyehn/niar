@@ -2,13 +2,12 @@
 #include "Camera.hpp"
 #include "Scene.hpp"
 #include "GrassField.hpp"
-#include "Cube.hpp"
 #include "Mesh.hpp"
 #include "Pathtracer.hpp"
 #include "Shader.hpp"
 #include "BSDF.hpp"
 #include "Primitive.hpp"
-#include "Globals.hpp"
+#include "Input.hpp"
 #include "Light.hpp"
 
 Shader Shader::Basic;
@@ -54,8 +53,8 @@ void Program::setup() {
 	w = drawable_width;
 	h = drawable_height;
 
-	/* Manually setup scene
-	 * Renders with specified shader set: defaults to 0 (deferred)
+	/* Load from file or manually setup scene
+	 * Renders with specified shader set: defaults to 0 (full deferred)
 	 *
 	 * TODO: organize this mess... load from file maybe
 	 */
@@ -63,54 +62,8 @@ void Program::setup() {
 
 		Camera::Active->move_speed = 6.0f;
 		Camera::Active->position = vec3(0, -10, 1);
-		Camera::Active->cutoffFar = 100.0f;
 
 		scene->load("../media/with_light.fbx", false);
-		
-#if 0
-		// create light(s)
-		DirectionalLight* d_light;
-		PointLight* p_light;
-
-		#if 1
-		// cool directional light
-		d_light = new DirectionalLight(vec3(0.7f, 0.8f, 0.9f), 0.2f, normalize(vec3(0.2, 0.4, -1)));
-		//d_light->set_cast_shadow(true);
-		scene->add_child(static_cast<Drawable*>(d_light));
-		scene->d_lights.push_back(d_light);
-
-		// warm directional light
-		d_light = new DirectionalLight(vec3(0.9, 0.8, 0.7), 0.8f, normalize(vec3(-1.5f, 0.6f, -1.0f)));
-		//d_light->set_cast_shadow(true);
-		scene->add_child(static_cast<Drawable*>(d_light));
-		scene->d_lights.push_back(d_light);
-		#endif
-
-		#if 1
-		// point light
-		p_light = new PointLight(vec3(1.0f, 0.8f, 0.5f), 2.0f, vec3(0, -2, 2));
-		p_light->set_cast_shadow(true);
-		scene->add_child(static_cast<Drawable*>(p_light));
-		scene->p_lights.push_back(p_light);
-		#endif
-#endif
-
-#if 0
-		// load and process mesh
-		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cube.fbx");
-		Mesh* cube = meshes[0];
-		cube->local_position += vec3(1.5f, 0, 0);
-		cube->scale = vec3(1, 4, 4);
-		cube->bsdf = new Diffuse(vec3(1.0f, 0.4f, 0.4f));
-		scene->add_child(static_cast<Drawable*>(cube));
-
-		meshes = Mesh::LoadMeshes("../media/plane.fbx");
-		Mesh* plane = meshes[0];
-		plane->local_position = vec3(0, 0, 0);
-		plane->scale = vec3(8, 8, 1);
-		plane->bsdf = new Diffuse();
-		scene->add_child(static_cast<Drawable*>(plane));
-#endif
 	}
 
 	/* Classic cornell box

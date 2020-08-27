@@ -1,8 +1,12 @@
 #include "Scene.hpp"
 #include "Program.hpp"
-#include "Globals.hpp"
+#include "Input.hpp"
 #include "Mesh.hpp"
 #include "Light.hpp"
+
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
 
 CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
 CVar<int>* DebugTex = new CVar<int>("DebugTex", 4);
@@ -105,7 +109,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		children.clear();
 	}
 
-	LOG("loading scene..");
+	LOG("loading scene containing..");
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(source,
       aiProcess_GenSmoothNormals |
@@ -116,9 +120,9 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
   if (!scene) {
     ERR(importer.GetErrorString());
   }
-	LOGF(" - num meshes: %d", scene->mNumMeshes);
-	LOGF(" - num lights: %d", scene->mNumLights);
-	LOGF(" - num cameras: %d", scene->mNumCameras);
+	LOGF(" - %d meshes", scene->mNumMeshes);
+	LOGF(" - %d lights", scene->mNumLights);
+	//LOGF(" - %d cameras", scene->mNumCameras);
 
 #if 1
 	// meshes
@@ -129,6 +133,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			add_child(m);
 		}
 	}
+	generate_aabb();
 #endif
 
 #if 1
@@ -163,10 +168,18 @@ std::vector<Mesh*> Scene::get_meshes() {
 	return meshes;
 }
 
+void Scene::generate_aabb() {
+	std::vector<Mesh*> meshes = get_meshes();
+	aabb = AABB();
+	for (int i=0; i<meshes.size(); i++) {
+		aabb.merge(meshes[i]->aabb);
+	}
+}
+
 // TODO: make this support parenting hierarchy
 void Scene::draw_content(bool shadow_pass) {
 	for (int i=0; i<children.size(); i++) {
-#if 1
+#if 0
 		if (!shadow_pass) {
 			children[i]->draw();
 			continue;

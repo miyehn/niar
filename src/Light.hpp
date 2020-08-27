@@ -4,6 +4,8 @@
 struct Scene;
 struct Camera;
 struct Mesh;
+struct aiLight;
+struct aiNode;
 
 struct Light : public Drawable {
 
@@ -23,6 +25,10 @@ struct Light : public Drawable {
 	uint get_shadow_map(){ return shadow_map_tex; }
 	uint get_shadow_mask(){ return shadow_mask_tex; }
 
+	virtual void set_local_position(vec3 _local_position) { local_position_value = _local_position; }
+	virtual void set_rotation(quat _rotation) { rotation_value = _rotation; }
+	virtual void set_scale(vec3 _scale) { scale_value = _scale; }
+
 protected:
 	vec3 color;
 	float intensity;
@@ -30,8 +36,6 @@ protected:
 	bool cast_shadow = false;
 	bool shadow_map_initialized = false;
 	uint shadow_map_dim;
-
-	float effective_radius;
 
 	//-------- opengl stuff --------
 	uint shadow_map_tex = 0; // GL_TEXTURE_2D || GL_TEXTURE_CUBE_MAP
@@ -52,7 +56,7 @@ struct DirectionalLight : public Light {
 
 	virtual void set_cast_shadow(bool cast);
 
-	void set_direction(vec3 dir) { rotation = quat_from_dir(normalize(dir)); }
+	void set_direction(vec3 dir) { set_rotation(quat_from_dir(normalize(dir))); }
 
 	vec3 get_direction() { return object_to_world_rotation() * vec3(0, 0, -1); }
 
@@ -89,6 +93,8 @@ struct PointLight: public Light {
 	virtual mat4 world_to_light_clip() { return mat4(1); }
 
 private:
+
+	float effective_radius;
 
 	void init(vec3 _color, float _intensity, vec3 _local_pos);
 
