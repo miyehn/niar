@@ -76,18 +76,13 @@ void Program::setup() {
 	 */
 	else {
 		Camera::Active->position = vec3(0, 0, 0);
+		Camera::Active->cutoffFar = 1000.0f;
 		set_cvar("ShaderSet", "2");
 		
 		// cornell box
 		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_box.fbx");
 		for (int i=0; i<meshes.size(); i++) { // 4 is floor
 			Mesh* mesh = meshes[i];
-			mesh->shaders[2].set_parameters = [mesh](){
-				mat3 OBJECT_TO_CAM_ROT = mesh->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
-				mesh->shaders[2].set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
-				mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
-				mesh->shaders[2].set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
-			};
 			mesh->bsdf = new Diffuse(vec3(0.6f));
 			if (i==1) {// right
 				mesh->bsdf->albedo = vec3(0.4f, 0.4f, 0.6f); 
@@ -99,12 +94,6 @@ void Program::setup() {
 
 		meshes = Mesh::LoadMeshes("../media/cornell_light.fbx");
 		Mesh* light = meshes[0];
-		light->shaders[2].set_parameters = [light]() {
-			mat3 OBJECT_TO_CAM_ROT = light->object_to_world_rotation() * Camera::Active->world_to_camera_rotation();
-			light->shaders[2].set_mat3("OBJECT_TO_CAM_ROT", OBJECT_TO_CAM_ROT);
-			mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * light->object_to_world();
-			light->shaders[2].set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
-		};
 		light->bsdf = new Diffuse();
 		light->name = "light";
 		light->bsdf->set_emission(vec3(10.0f));
