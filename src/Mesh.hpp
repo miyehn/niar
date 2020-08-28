@@ -10,9 +10,9 @@ struct Vertex {
   Vertex(vec3 _position) : position(_position) {}
   vec3 position = vec3(0, 0, 0);
   vec3 normal = vec3(0, 0, 1);
-  vec4 color = vec4(1, 1, 1, 1);
+  vec2 uv = vec2(0.5f, 0.5f);
 };
-static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4), "vertex struct should be packed");
+static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 2), "vertex struct should be packed");
 
 struct Mesh : Drawable {
 
@@ -39,6 +39,8 @@ struct Mesh : Drawable {
 
 	AABB aabb;
 	BSDF* bsdf = nullptr;
+
+	Texture* texture = nullptr;
 
 private:
 

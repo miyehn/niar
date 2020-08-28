@@ -137,6 +137,7 @@ void Program::release_resources() {
   delete Camera::Active;
   delete Pathtracer::Instance;
   if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
+	Texture::cleanup();
 }
 
 void Program::process_input() {
