@@ -1,5 +1,8 @@
 #include "Utils.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image/stb_image.h"
+
 void AABB::add_point(vec3 p) {
 	min.x = glm::min(min.x, p.x);
 	min.y = glm::min(min.y, p.y);
@@ -56,4 +59,9 @@ quat quat_from_dir(vec3 dir) {
 
 std::string s3(vec3 v) { 
 	return ("(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", "  + std::to_string(v.z) + ")").c_str();
+}
+
+unsigned char* load_image(const std::string& path, int& width, int& height, int& nChannels) {
+	unsigned char* data = stbi_load(path.c_str(), &width, &height, &nChannels, 0);
+	return data;
 }

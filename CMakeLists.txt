@@ -31,7 +31,7 @@ target_link_libraries(niar
   ${OPENGL_gl_LIBRARY}
   ${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
   ${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
-  ${CMAKE_SOURCE_DIR}/lib/stb_image.a 
+	# ${CMAKE_SOURCE_DIR}/lib/stb_image.a 
   ${CMAKE_SOURCE_DIR}/lib/libzlibstatic.a
 	${CMAKE_SOURCE_DIR}/lib/libIrrXML.a
   ${CMAKE_SOURCE_DIR}/lib/libassimp.a

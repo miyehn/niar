@@ -47,3 +47,5 @@ struct AABB {
 
 	vec3 min, max;
 };
+
+unsigned char* load_image(const std::string& path, int& width, int& height, int& nChannels);
