@@ -1,0 +1,6 @@
+.idea/
+.ccls-cache/
+build/
+src/tags
+dist/
+objs/
