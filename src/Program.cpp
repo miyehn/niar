@@ -27,19 +27,19 @@ void Program::load_resources() {
   LOG("loading resources...");
 	initialize_config();
 
-  Shader::Basic = Shader("../shaders/basic.vert", "../shaders/basic.frag");
+  Shader::Basic = Shader(ROOT_DIR"/shaders/basic.vert", ROOT_DIR"/shaders/basic.frag");
 	Shader::Basic.name = "basic";
-	Shader::DeferredBasePass = Shader("../shaders/geometry.vert", "../shaders/geometry.frag");
+	Shader::DeferredBasePass = Shader(ROOT_DIR"/shaders/geometry.vert", ROOT_DIR"/shaders/geometry.frag");
 	Shader::DeferredBasePass.name = "deferred";
-	Shader::DepthOnly = Shader("../shaders/clip_position.vert", "../shaders/empty.frag");
+	Shader::DepthOnly = Shader(ROOT_DIR"/shaders/clip_position.vert", ROOT_DIR"/shaders/empty.frag");
 	Shader::DepthOnly.name = "depth only";
-	Shader::ShadowPassDirectional = Shader("../shaders/shadow_pass_directional.vert", "../shaders/shadow_pass_directional.frag");
+	Shader::ShadowPassDirectional = Shader(ROOT_DIR"/shaders/shadow_pass_directional.vert", ROOT_DIR"/shaders/shadow_pass_directional.frag");
 	Shader::ShadowPassDirectional.name = "shadow pass directional";
-	Shader::ShadowPassPoint = Shader("../shaders/shadow_pass_point.vert", "../shaders/shadow_pass_point.frag");
+	Shader::ShadowPassPoint = Shader(ROOT_DIR"/shaders/shadow_pass_point.vert", ROOT_DIR"/shaders/shadow_pass_point.frag");
 	Shader::ShadowPassPoint.name = "shadow pass point";
-	Shader::Distance = Shader("../shaders/world_clip_position.vert", "../shaders/distance.frag");
+	Shader::Distance = Shader(ROOT_DIR"/shaders/world_clip_position.vert", ROOT_DIR"/shaders/distance.frag");
 	Shader::Distance.name = "distance (for point light shadow map)";
-	Blit::CopyDebug = new Blit("../shaders/blit_debug.frag");
+	Blit::CopyDebug = new Blit(ROOT_DIR"/shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
@@ -63,7 +63,7 @@ void Program::setup() {
 		Camera::Active->move_speed = 6.0f;
 		Camera::Active->position = vec3(0, -10, 1);
 
-		scene->load("../media/with_light.fbx", false);
+		scene->load(ROOT_DIR"/media/with_light.fbx", false);
 	}
 
 	/* Classic cornell box
@@ -80,7 +80,7 @@ void Program::setup() {
 		set_cvar("ShaderSet", "2");
 		
 		// cornell box
-		std::vector<Mesh*> meshes = Mesh::LoadMeshes("../media/cornell_box.fbx");
+		std::vector<Mesh*> meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx");
 		for (int i=0; i<meshes.size(); i++) { // 4 is floor
 			Mesh* mesh = meshes[i];
 			mesh->bsdf = new Diffuse(vec3(0.6f));
@@ -92,7 +92,7 @@ void Program::setup() {
 			scene->add_child(static_cast<Drawable*>(mesh));
 		}
 
-		meshes = Mesh::LoadMeshes("../media/cornell_light.fbx");
+		meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_light.fbx");
 		Mesh* light = meshes[0];
 		light->bsdf = new Diffuse();
 		light->name = "light";
@@ -101,7 +101,7 @@ void Program::setup() {
 
 #if 0
 		// add another item to it
-		meshes = Mesh::LoadMeshes("../media/prism.fbx");
+		meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx");
 		Mesh* mesh = meshes[0];
 		mesh->shaders[2].set_parameters = [mesh]() {
 			mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();

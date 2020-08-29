@@ -9,7 +9,6 @@ struct DirectionalLight {
 };
 
 uniform mat4 OBJECT_TO_CLIP;
-uniform mat4 OBJECT_TO_WORLD;
 uniform mat3 OBJECT_TO_WORLD_ROT;
 
 uniform int NumDirectionalLights;
@@ -25,7 +24,6 @@ out vec4 vf_DirectionalLightSpacePositions[MaxLights];
 
 void main() {
 	gl_Position = OBJECT_TO_CLIP * vec4(in_position, 1);
-  vf_position = (OBJECT_TO_WORLD * vec4(in_position, 1)).xyz;
   vf_normal = OBJECT_TO_WORLD_ROT * in_normal;
 	for (int i=0; i<NumDirectionalLights; i++) {
 		vf_DirectionalLightSpacePositions[i] = DirectionalLights[i].OBJECT_TO_CLIP * vec4(in_position, 1);

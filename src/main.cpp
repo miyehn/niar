@@ -57,12 +57,10 @@ Program::Program(std::string name, int width, int height) {
     exit(1);
   }
   
-  #ifdef MACOS
-  // glew setup (not sure why necessary)
+  // glew setup
   // https://open.gl/context#Onemorething
   glewExperimental = GL_TRUE;
   glewInit();
-  #endif
 
   this->previous_time = std::chrono::high_resolution_clock::now();
 

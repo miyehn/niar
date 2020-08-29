@@ -11,7 +11,6 @@ struct DirectionalLight {
 uniform int NumDirectionalLights;
 uniform DirectionalLight DirectionalLights[MaxLights];
 
-in vec3 vf_position;
 in vec3 vf_normal;
 in vec4 vf_DirectionalLightSpacePositions[MaxLights];
 

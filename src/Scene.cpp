@@ -92,8 +92,8 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	lighting_directional = new Blit("../shaders/deferred_lighting_directional.frag");
-	lighting_point = new Blit("../shaders/deferred_lighting_point.frag");
+	lighting_directional = new Blit(ROOT_DIR"/shaders/deferred_lighting_directional.frag");
+	lighting_point = new Blit(ROOT_DIR"/shaders/deferred_lighting_point.frag");
 
 }
 

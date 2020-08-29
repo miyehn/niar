@@ -33,10 +33,10 @@ void main() {
 		float NearestDistToLight = texture(PointLights[i].ShadowMap, normalize(LightToWorldPos)).r;
 		float DistToLight = length(LightToWorldPos);
 
-#if 0
+#if 1
 		// slope-based bias
 		float slope = 1.0f - clamp(dot(vf_normal, normalize(-LightToWorldPos)), 0, 1);
-		float bias = mix(0.04, 0.08, slope);
+		float bias = mix(0.03, 0.04, slope);
 #else
 		float bias = 0.03f;
 #endif

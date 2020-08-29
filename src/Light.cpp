@@ -369,7 +369,6 @@ void PointLight::set_cast_shadow(bool cast) {
 
 void Light::set_directional_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
 	mat4 o2w = mesh->object_to_world();
-	mesh->shaders[shader_index].set_mat4("OBJECT_TO_WORLD", o2w);
 	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
 

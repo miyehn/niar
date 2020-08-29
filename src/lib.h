@@ -1,5 +1,4 @@
 #pragma once
-#define MACOS
 
 #include <iostream>
 #include <math.h>
@@ -11,10 +10,7 @@
 #include <stdexcept>
 #include <mutex>
 
-#ifdef MACOS
 #include "glew/glew.h"
-#endif
-
 #include "SDL2/SDL.h"
 
 #include "glm/glm.hpp"

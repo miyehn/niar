@@ -14,7 +14,7 @@ Shader::Shader(const std::string& frag_path) {
 		vertexShader = Shader::quad_vert;
 	} else {
 		// load vertex shader file
-		std::ifstream vIfs("../shaders/quad.vert");
+		std::ifstream vIfs(ROOT_DIR"/shaders/quad.vert");
 		std::string vContent( (std::istreambuf_iterator<char>(vIfs) ),
 												 (std::istreambuf_iterator<char>()     ));
 		const char* vertexShaderFile = vContent.c_str();

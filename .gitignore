@@ -4,3 +4,5 @@ build/
 src/tags
 dist/
 objs/
+.vs
+out

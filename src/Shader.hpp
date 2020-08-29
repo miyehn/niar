@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lib.h"
+#include <functional>
 
 // took from: https://learnopengl.com/Getting-started/Shaders
 struct Shader {

@@ -12,7 +12,7 @@ void initialize_config() {
 	Config config_src;
 
 	try {
-		config_src.readFile("../config.ini");
+		config_src.readFile(ROOT_DIR"/config.ini");
 	} catch (const FileIOException &fioex) {
 		ERR("I/O error while reading config.ini");
 		return;
