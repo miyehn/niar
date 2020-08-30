@@ -3,6 +3,8 @@
 #include <unordered_map>
 
 struct Texture {
+
+	CONST_PTR(Texture, white);
 	
 	static Texture* get(const std::string& name);
 	static void set_path(const std::string& name, const std::string& path);
@@ -23,7 +25,5 @@ private:
 
 	static std::unordered_map<std::string, std::string> texture_paths;
 	static std::unordered_map<std::string, Texture*> texture_pool;
-
-	static Texture* white_value;
 	
 };

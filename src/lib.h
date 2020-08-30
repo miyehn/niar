@@ -94,6 +94,13 @@ inline void gl_errors(std::string const &where) {
 #define ONE_OVER_TWO_PI 0.15915494309f
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
 
+#define CONST_PTR(T, NAME) \
+	public: \
+	static T* NAME(); \
+	private: \
+	static T* NAME##_value; \
+	public:
+
 //------------------ generic helper(s) --------------------
 
 // TODO: make more robust

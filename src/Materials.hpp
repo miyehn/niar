@@ -15,6 +15,8 @@
 struct Drawable;
 
 struct Material {
+
+	CONST_PTR(Material, mat_depth);
 	
 	Material (const std::string& shader_name) {
 		shader = Shader::get(shader_name);
@@ -25,13 +27,10 @@ struct Material {
 	virtual void use(const Drawable* obj);
 
 	// material constants (owned by mateiral class)
-	static Material* mat_depth(); // generic
 	static void cleanup();
 
 	Shader* shader = nullptr;
 
-protected:
-	static Material* mat_depth_value;
 };
 
 // materials whose object-dependent uniforms are just the transformations
@@ -43,7 +42,7 @@ struct MatGeneric : Material {
 
 struct MatBasic : Material {
 	MatBasic() : Material("basic") {
-		base_color = Texture::get("white");
+		base_color = Texture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatBasic() {}
@@ -54,7 +53,7 @@ struct MatBasic : Material {
 
 struct MatDeferredGeometry : Material {
 	MatDeferredGeometry() : Material("geometry") {
-		base_color = Texture::get("white");
+		base_color = Texture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatDeferredGeometry() {}

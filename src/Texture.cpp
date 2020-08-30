@@ -27,8 +27,6 @@ Texture* Texture::create_texture_8bit(unsigned char* data, int w, int h, int nc)
 	return tex;
 }
 
-Texture* Texture::white_value = nullptr;
-
 std::unordered_map<std::string, Texture*> Texture::texture_pool;
 std::unordered_map<std::string, std::string> Texture::texture_paths;
 
@@ -36,17 +34,18 @@ void Texture::set_path(const std::string& name, const std::string& path) {
 	texture_paths[name] = path;
 }
 
-Texture* Texture::get(const std::string& name) {
-
-	if (name == "white") {
-		if (white_value) return white_value;
-		std::vector<u8vec3> white_data(4 * 4 * 3);
-		for (int i=0; i<white_data.size(); i++) {
-			white_data[i] = u8vec3(255, 255, 255);
-		}
-		white_value = create_texture_8bit((unsigned char*)white_data.data(), 4, 4, 3);
-		return white_value;
+Texture* Texture::white_value = nullptr;
+Texture* Texture::white() {
+	if (white_value) return white_value;
+	std::vector<u8vec3> white_data(4 * 4 * 3);
+	for (int i=0; i<white_data.size(); i++) {
+		white_data[i] = u8vec3(255, 255, 255);
 	}
+	white_value = create_texture_8bit((unsigned char*)white_data.data(), 4, 4, 3);
+	return white_value;
+}
+
+Texture* Texture::get(const std::string& name) {
 
 	std::string path;
 	auto path_pair = texture_paths.find(name);

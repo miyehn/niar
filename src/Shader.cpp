@@ -383,51 +383,20 @@ void Blit::end_pass() {
 	if (cached_depth_test == GL_TRUE) glEnable(GL_DEPTH_TEST);
 }
 
-Blit* Blit::copy_debug_value = nullptr;
-Blit* Blit::copy_debug() {
-	if (copy_debug_value) return copy_debug_value;
-	copy_debug_value = dynamic_cast<Blit*>(Shader::get("copyDebug"));
-	if (!copy_debug_value) ERR("copyDebug blit is not correctly loaded!");
-	return copy_debug_value;
-}
+#define IMPLEMENT_BLIT(NAME, SHADER_NAME) \
+	Blit* Blit::NAME##_value = nullptr; \
+	Blit* Blit::NAME() { \
+		if (NAME##_value) return NAME##_value; \
+		NAME##_value = dynamic_cast<Blit*>(Shader::get(SHADER_NAME)); \
+		if (!NAME##_value) ERR(SHADER_NAME" blit is not correctly loaded!"); \
+		return NAME##_value; \
+	}
 
-Blit* Blit::shadow_mask_directional_value = nullptr;
-Blit* Blit::shadow_mask_directional() {
-	if (shadow_mask_directional_value) return shadow_mask_directional_value;
-	shadow_mask_directional_value = dynamic_cast<Blit*>(Shader::get("shadowMaskDirectional"));
-	if (!shadow_mask_directional_value) ERR("shadowMaskDirectional blit is not correctly loaded!");
-	return shadow_mask_directional_value;
-}
+IMPLEMENT_BLIT(copy_debug, "copyDebug");
 
-Blit* Blit::shadow_mask_point_value = nullptr;
-Blit* Blit::shadow_mask_point() {
-	if (shadow_mask_point_value) return shadow_mask_point_value;
-	shadow_mask_point_value = dynamic_cast<Blit*>(Shader::get("shadowMaskPoint"));
-	if (!shadow_mask_point_value) ERR("shadowMaskPoint blit is not correctly loaded!");
-	return shadow_mask_point_value;
-}
+IMPLEMENT_BLIT(shadow_mask_directional, "shadowMaskDirectional");
+IMPLEMENT_BLIT(shadow_mask_point, "shadowMaskPoint");
+IMPLEMENT_BLIT(lighting_directional, "lightingDirectional");
+IMPLEMENT_BLIT(lighting_point, "lightingPoint");
 
-Blit* Blit::lighting_directional_value = nullptr;
-Blit* Blit::lighting_directional() {
-	if (lighting_directional_value) return lighting_directional_value;
-	lighting_directional_value = dynamic_cast<Blit*>(Shader::get("lightingDirectional"));
-	if (!lighting_directional_value) ERR("lightingDirectional blit is not correctly loaded!");
-	return lighting_directional_value;
-}
-
-Blit* Blit::lighting_point_value = nullptr;
-Blit* Blit::lighting_point() {
-	if (lighting_point_value) return lighting_point_value;
-	lighting_point_value = dynamic_cast<Blit*>(Shader::get("lightingPoint"));
-	if (!lighting_point_value) ERR("lightingPoint blit is not correctly loaded!");
-	return lighting_point_value;
-}
-
-Blit* Blit::blit_value = nullptr;
-Blit* Blit::blit() {
-	if (blit_value) return blit_value;
-	blit_value = dynamic_cast<Blit*>(Shader::get("blit"));
-	if (!blit_value) ERR("blit blit is not correctly loaded!");
-	return blit_value;
-}
-
+IMPLEMENT_BLIT(blit, "blit");

@@ -7,13 +7,6 @@
 // took from: https://learnopengl.com/Getting-started/Shaders
 struct Shader {
 
-  static Shader Basic;
-	static Shader DeferredBasePass;
-	static Shader ShadowPassDirectional;
-	static Shader ShadowPassPoint;
-
-	//------
-
   Shader(
       const std::string& vert_path, 
       const std::string& frag_path, 
@@ -79,12 +72,12 @@ private:
 
 struct Blit : Shader {
 
-	static Blit* copy_debug();
-	static Blit* blit();
-	static Blit* shadow_mask_directional();
-	static Blit* shadow_mask_point();
-	static Blit* lighting_directional();
-	static Blit* lighting_point();
+	CONST_PTR(Blit, copy_debug);
+	CONST_PTR(Blit, blit);
+	CONST_PTR(Blit, shadow_mask_directional);
+	CONST_PTR(Blit, shadow_mask_point);
+	CONST_PTR(Blit, lighting_directional);
+	CONST_PTR(Blit, lighting_point);
 
 	Blit(const std::string& shader_name);
 
@@ -95,12 +88,5 @@ private:
 	static uint vao;
 	static uint vbo;
 	GLboolean cached_depth_test;
-
-	static Blit* copy_debug_value;
-	static Blit* blit_value;
-	static Blit* shadow_mask_directional_value;
-	static Blit* shadow_mask_point_value;
-	static Blit* lighting_directional_value;
-	static Blit* lighting_point_value;
 
 };

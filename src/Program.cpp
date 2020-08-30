@@ -12,9 +12,6 @@
 #include "Texture.hpp"
 #include "Materials.hpp"
 
-Shader Shader::Basic;
-Shader Shader::DeferredBasePass;
-
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
@@ -24,10 +21,6 @@ void Program::load_resources() {
   LOG("loading resources...");
 	initialize_config();
 
-  Shader::Basic = Shader(ROOT_DIR"/shaders/basic.vert", ROOT_DIR"/shaders/basic.frag");
-	Shader::Basic.name = "basic";
-	Shader::DeferredBasePass = Shader(ROOT_DIR"/shaders/geometry.vert", ROOT_DIR"/shaders/geometry.frag");
-	Shader::DeferredBasePass.name = "deferred";
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
@@ -113,7 +106,6 @@ void Program::release_resources() {
   }
   delete Camera::Active;
   delete Pathtracer::Instance;
-  if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
 	Texture::cleanup();
 	Shader::cleanup();
 	Material::cleanup();
