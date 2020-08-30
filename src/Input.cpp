@@ -1,6 +1,7 @@
 #include "Input.hpp"
 #include "Utils.hpp"
 #include "Shader.hpp"
+#include "Texture.hpp"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
@@ -119,7 +120,7 @@ int find_named_tex(int index) {
 CVarBase* find_cvar(std::string name) {
 	auto ConsoleVariables = cvars_list();
 	for (int i=0; i<ConsoleVariables.size(); i++) {
-		if (ConsoleVariables[i]->name == name) {
+		if (lower(ConsoleVariables[i]->name) == lower(name)) {
 			return ConsoleVariables[i];
 		}
 	}

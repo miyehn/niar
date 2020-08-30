@@ -2,6 +2,8 @@
 
 #include "Drawable.hpp"
 
+struct MatGrass;
+
 struct Blade{
   Blade(vec3 root);
   vec4 root_w; // v0, width
@@ -24,8 +26,14 @@ struct GrassField : public Drawable {
   virtual bool handle_event(SDL_Event event);
   virtual void draw();
 
+	virtual void set_local_position(vec3 _local_position);
+	virtual void set_rotation(quat _rotation);
+	virtual void set_scale(vec3 _scale);
+
   // properties and methods
   std::vector<Blade> blades;
+
+	MatGrass* material;
 
   uint vbo;
   uint vao;

@@ -100,3 +100,5 @@ typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
 extern quat quat_from_dir(vec3 dir); 
 
 extern std::string s3(vec3 v);
+
+extern std::string lower(const std::string& s);

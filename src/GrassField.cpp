@@ -2,6 +2,7 @@
 #include "Camera.hpp"
 #include "Shader.hpp"
 #include "Program.hpp"
+#include "Materials.hpp"
 
 GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): Drawable(_parent, _name) {
 
@@ -10,7 +11,7 @@ GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): D
   for (uint i=0; i<num_blades; i++) {
     Blade b = Blade(vec3(-10.0f + i*3.0f, 0.0f, 0.0f));
     blades.push_back(b);
-  }  
+  }
 
   { // create vao and shaders
     // generate 1 vbo
@@ -36,29 +37,20 @@ GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): D
     glPatchParameteri(GL_PATCH_VERTICES, 4);
 
     // done refering to vbo and vao, unbind them
-    glBindBuffer(vbo, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
     // shaders
-    shaders[0] = Shader(
-        "../shaders/grass.vert",
-        "../shaders/grass.frag",
-        "../shaders/grass.tesc",
-        "../shaders/grass.tese");
-    shaders[0].set_parameters = [this]() {
-      mat4 transformation = Camera::Active->world_to_clip() * object_to_world();
-      shaders[0].set_mat4("transformation", transformation);
-    };
+		material = new MatGrass();
   }
-
 }
 
 GrassField::~GrassField() {
+	if (material) delete material;
   glDeleteBuffers(1, &vbo);
   vbo = 0;
   glDeleteVertexArrays(1, &vao);
   vao = 0;
-  glDeleteProgram(shaders[0].id);
 }
 
 void GrassField::update(float elapsed) {
@@ -76,11 +68,8 @@ void GrassField::draw() {
   glBufferData(GL_ARRAY_BUFFER, blades.size() * sizeof(Blade), blades.data(), GL_STREAM_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  // set shader
-  glUseProgram(shaders[0].id);
-
-  // upload transformation to shader
-  shaders[0].set_parameters();
+	// set material
+	material->use(this);
 
   // use vao
   glBindVertexArray(vao);
@@ -97,6 +86,31 @@ void GrassField::draw() {
   Drawable::draw();
   
 }
+
+void GrassField::set_local_position(vec3 _local_position) {
+	local_position_value = _local_position;
+	/*
+	generate_aabb();
+	get_scene()->generate_aabb();
+	*/
+}
+
+void GrassField::set_rotation(quat _rotation) {
+	rotation_value = _rotation;
+	/*
+	generate_aabb();
+	get_scene()->generate_aabb();
+	*/
+}
+
+void GrassField::set_scale(vec3 _scale) {
+	scale_value = _scale;
+	/*
+	generate_aabb();
+	get_scene()->generate_aabb();
+	*/
+}
+
 
 Blade::Blade(vec3 root) {
   this->up_o = vec4(0.0f, 0.0f, 1.0f, radians(65.0f));

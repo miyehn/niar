@@ -90,7 +90,7 @@ private:
   void set_mainbuffer_rgb(size_t i, vec3 rgb);
 	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
 
-  uint texture, vbo, vao;
+  uint texture;
 
 	// for debug
 	Shader loggedrays_shader;

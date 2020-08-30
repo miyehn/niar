@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include "Shader.hpp"
+#include "Texture.hpp"
 
 /* Two types of materials:
  *
@@ -19,11 +20,13 @@ struct Material {
 		shader = Shader::get(shader_name);
 		shader->set_static_parameters = [](){};
 	}
+	virtual ~Material() {}
 
 	virtual void use(const Drawable* obj);
 
-	// material constants
+	// material constants (owned by mateiral class)
 	static Material* mat_depth(); // generic
+	static void cleanup();
 
 	Shader* shader = nullptr;
 
@@ -34,17 +37,34 @@ protected:
 // materials whose object-dependent uniforms are just the transformations
 struct MatGeneric : Material {
 	MatGeneric(const std::string& shader_name) : Material(shader_name) {}
+	virtual ~MatGeneric() {}
 	virtual void use(const Drawable* obj);
 };
 
 struct MatBasic : Material {
+	MatBasic() : Material("basic") {
+		base_color = Texture::get("white");
+		tint = vec3(1);
+	}
+	virtual ~MatBasic() {}
+	virtual void use(const Drawable* obj);
+	Texture* base_color;
+	vec3 tint;
 };
 
 struct MatDeferredGeometry : Material {
+	MatDeferredGeometry() : Material("geometry") {
+		base_color = Texture::get("white");
+		tint = vec3(1);
+	}
+	virtual ~MatDeferredGeometry() {}
+	virtual void use(const Drawable* obj);
+	Texture* base_color;
+	vec3 tint;
 };
 
-struct MatDeferredLightingDirectional : Material {
-};
-
-struct MatDeferredLightingPoint : Material {
+struct MatGrass : Material {
+	MatGrass() : Material("grass") {}
+	virtual ~MatGrass(){}
+	virtual void use(const Drawable* obj);
 };

@@ -406,3 +406,28 @@ Blit* Blit::shadow_mask_point() {
 	if (!shadow_mask_point_value) ERR("shadowMaskPoint blit is not correctly loaded!");
 	return shadow_mask_point_value;
 }
+
+Blit* Blit::lighting_directional_value = nullptr;
+Blit* Blit::lighting_directional() {
+	if (lighting_directional_value) return lighting_directional_value;
+	lighting_directional_value = dynamic_cast<Blit*>(Shader::get("lightingDirectional"));
+	if (!lighting_directional_value) ERR("lightingDirectional blit is not correctly loaded!");
+	return lighting_directional_value;
+}
+
+Blit* Blit::lighting_point_value = nullptr;
+Blit* Blit::lighting_point() {
+	if (lighting_point_value) return lighting_point_value;
+	lighting_point_value = dynamic_cast<Blit*>(Shader::get("lightingPoint"));
+	if (!lighting_point_value) ERR("lightingPoint blit is not correctly loaded!");
+	return lighting_point_value;
+}
+
+Blit* Blit::blit_value = nullptr;
+Blit* Blit::blit() {
+	if (blit_value) return blit_value;
+	blit_value = dynamic_cast<Blit*>(Shader::get("blit"));
+	if (!blit_value) ERR("blit blit is not correctly loaded!");
+	return blit_value;
+}
+

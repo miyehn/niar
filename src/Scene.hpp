@@ -26,7 +26,7 @@ struct Scene : public Drawable {
 	std::vector<DirectionalLight*> d_lights;
 	std::vector<PointLight*> p_lights;
 
-	uint shader_set = 0;
+	uint material_set = 1;
 
 	//---- Rendering-related textures, buffers, shaders, etc. ----
 	uint fbo_gbuffers = 0;
@@ -37,9 +37,6 @@ struct Scene : public Drawable {
 	uint color_attachments_position_lights[MAX_SHADOWCASTING_LIGHTS];
 	uint depthbuf_position_lights = 0;
 	uint tex_depth = 0;
-
-	Blit* lighting_directional = nullptr;
-	Blit* lighting_point = nullptr;
 
 	Material* replacement_material = nullptr;
 
@@ -62,9 +59,6 @@ struct Scene : public Drawable {
 	void draw_content(bool shadow_pass = false);
 
 private:
-
-	void pass_directional_lights_to_lighting_shader();
-	void pass_point_lights_to_lighting_shader();
 
 	virtual void set_local_position(vec3 _local_position) {}
 	virtual void set_rotation(quat _rotation) {}

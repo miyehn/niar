@@ -1,8 +1,5 @@
 #include "Utils.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image/stb_image.h"
-
 void AABB::add_point(vec3 p) {
 	min.x = glm::min(min.x, p.x);
 	min.y = glm::min(min.y, p.y);
@@ -61,67 +58,12 @@ std::string s3(vec3 v) {
 	return ("(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", "  + std::to_string(v.z) + ")").c_str();
 }
 
-//------------------------------------------------
-
-std::unordered_map<std::string, Texture*> Texture::texture_pool;
-std::unordered_map<std::string, std::string> Texture::texture_paths;
-
-void Texture::set_path(const std::string& name, const std::string& path) {
-	texture_paths[name] = path;
+std::string lower(const std::string& s) {
+	std::string res = "";
+	std::locale loc;
+	for(int i=0; i<s.length(); i++) {
+		res += std::tolower(s[i], loc);
+	}
+	return res;
 }
 
-Texture* Texture::get(const std::string& name) {
-
-	std::string path;
-	auto path_pair = texture_paths.find(name);
-	if (path_pair == texture_paths.end()) {
-		ERRF("There isn't a texture called %s", name.c_str());
-		return nullptr;
-	} else {
-		path = path_pair->second;
-	}
-
-	auto found_tex = texture_pool.find(path);
-	if (found_tex != texture_pool.end()) {
-		return found_tex->second;
-	}
-	// make texture instance
-	Texture* tex = new Texture();
-	unsigned char* data = stbi_load(path.c_str(), 
-			&tex->width_value, &tex->height_value, &tex->num_channels_value, 0);
-	if (!data) {
-		ERRF("could not load image at path: %s", path.c_str());
-		return tex;
-	}
-
-	glGenTextures(1, &tex->id_value);
-	glBindTexture(GL_TEXTURE_2D, tex->id());
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	if (tex->num_channels() == 3) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex->width(), tex->height(), 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-	} else if (tex->num_channels() == 4) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex->width(), tex->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	} else {
-		WARN("trying to create a texture neither 3 channels nor 4 channels??");
-	}
-	glGenerateMipmap(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	stbi_image_free(data);
-
-	texture_pool[path] = tex;
-	GL_ERRORS();
-
-	LOGF("created texture of size %dx%d with %d channels", tex->width(), tex->height(), tex->num_channels());
-	return tex;
-}
-
-void Texture::cleanup() {
-	for (auto tex : texture_pool) {
-		glDeleteTextures(1, &tex.second->id_value);
-		GL_ERRORS();
-		delete tex.second;
-	}
-}

@@ -10,11 +10,11 @@
 #include "assimp/postprocess.h"
 
 CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 6);
+CVar<int>* DebugTex = new CVar<int>("DebugTex", 0);
 CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
 CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
-CVar<int>* ShaderSet = new CVar<int>("ShaderSet", 0);
+CVar<int>* MaterialSet = new CVar<int>("MaterialSet", 1);
 
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
@@ -93,9 +93,6 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	lighting_directional = new Blit(ROOT_DIR"/shaders/deferred_lighting_directional.frag");
-	lighting_point = new Blit(ROOT_DIR"/shaders/deferred_lighting_point.frag");
-
 }
 
 // OMG MIND BLOWN: https://stackoverflow.com/questions/677620/do-i-need-to-explicitly-call-the-base-virtual-destructor
@@ -125,7 +122,6 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 	LOGF(" - %d lights", scene->mNumLights);
 	//LOGF(" - %d cameras", scene->mNumCameras);
 
-#if 1
 	// meshes
 	for (int i=0; i<scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
@@ -135,9 +131,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		}
 	}
 	generate_aabb();
-#endif
 
-#if 1
 	// lights
 	for (int i=0; i<scene->mNumLights; i++) {
 		aiLight* light = scene->mLights[i];
@@ -157,7 +151,6 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			WARN("unrecognized light type, skipping..");
 		}
 	}
-#endif
 }
 
 // TODO: make this support parenting hierarchy
@@ -225,8 +218,8 @@ void Scene::draw() {
 	
 	glViewport(0, 0, w, h);
 
-	shader_set = ShaderSet->get();
-	if (shader_set != 0) {
+	material_set = MaterialSet->get();
+	if (material_set != 1) {
 		draw_content();
 		// if it's not drawing deferred base pass, skip the rest of deferred pipeline
 		return;
@@ -243,7 +236,6 @@ void Scene::draw() {
 		glBindTexture(GL_TEXTURE_2D, tex_gbuffers[i]);
 	}
 	// draw scene to G buffer
-	shader_set = 0;
 	draw_content();
 	
 	//-------- make shadow maps
@@ -275,14 +267,6 @@ void Scene::draw() {
 				L->get_shadow_mask(), 0);
 
 		shadow_caster_counter++;
-	}
-	// set the rest of output buffers to dummy (necessary?)
-	for (int i=shadow_caster_counter; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-		glFramebufferTexture2D(
-				GL_FRAMEBUFFER, 
-				color_attachments_position_lights[i], 
-				GL_TEXTURE_2D, 
-				0, 0);
 	}
   glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -322,14 +306,6 @@ void Scene::draw() {
 
 		shadow_caster_counter++;
 	}
-	// set the rest of output buffers to dummy (necessary?)
-	for (int i=shadow_caster_counter; i<MAX_SHADOWCASTING_LIGHTS; i++) {
-		glFramebufferTexture2D(
-				GL_FRAMEBUFFER, 
-				color_attachments_position_lights[i], 
-				GL_TEXTURE_2D, 
-				0, 0);
-	}
   glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -356,25 +332,51 @@ void Scene::draw() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
 	// directional lights
-	lighting_directional->begin_pass();
-	for (int i=0; i<NUM_GBUFFERS; i++) {
-		std::string name = "GBUF" + std::to_string(i);
-		lighting_directional->set_tex2D(name, i, tex_gbuffers[i]);
+	blit = Blit::lighting_directional();
+	blit->begin_pass();
+	{ 
+		// g buffers
+		for (int i=0; i<NUM_GBUFFERS; i++) {
+			std::string name = "GBUF" + std::to_string(i);
+			blit->set_tex2D(name, i, tex_gbuffers[i]);
+		}
+		// light-related
+		for (int i=0; i<d_lights.size(); i++) {
+			DirectionalLight* L = d_lights[i];
+			std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
+			blit->set_vec3(prefix+"direction", L->get_direction());
+			blit->set_vec3(prefix+"color", L->get_emission());
+			blit->set_bool(prefix+"castShadow", L->get_cast_shadow());
+			blit->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
+		}
+		blit->set_int("NumDirectionalLights", d_lights.size());
 	}
-	pass_directional_lights_to_lighting_shader();
-	lighting_directional->end_pass();
+	blit->end_pass();
 
 	// point lights
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-	lighting_point->begin_pass();
-	for (int i=0; i<NUM_GBUFFERS; i++) {
-		std::string name = "GBUF" + std::to_string(i);
-		lighting_point->set_tex2D(name, i, tex_gbuffers[i]);
+	blit = Blit::lighting_point();
+	blit->begin_pass();
+	{
+		// g buffers
+		for (int i=0; i<NUM_GBUFFERS; i++) {
+			std::string name = "GBUF" + std::to_string(i);
+			blit->set_tex2D(name, i, tex_gbuffers[i]);
+		}
+		// light-related
+		for (int i=0; i<p_lights.size(); i++) {
+			PointLight* L = p_lights[i];
+			std::string prefix = "PointLights[" + std::to_string(i) + "].";
+			blit->set_vec3(prefix+"position", L->world_position());
+			blit->set_vec3(prefix+"color", L->get_emission());
+			blit->set_bool(prefix+"castShadow", L->get_cast_shadow());
+			blit->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
+		}
+		blit->set_int("NumPointLights", p_lights.size());
 	}
-	pass_point_lights_to_lighting_shader();
-	lighting_point->end_pass();
+	blit->end_pass();
 
 	glDisable(GL_BLEND);
 
@@ -392,26 +394,3 @@ void Scene::draw() {
 	GL_ERRORS();
 }
 
-void Scene::pass_directional_lights_to_lighting_shader() {
-	for (int i=0; i<d_lights.size(); i++) {
-		DirectionalLight* L = d_lights[i];
-		std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
-		lighting_directional->set_vec3(prefix+"direction", L->get_direction());
-		lighting_directional->set_vec3(prefix+"color", L->get_emission());
-		lighting_directional->set_bool(prefix+"castShadow", L->get_cast_shadow());
-		lighting_directional->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
-	}
-	lighting_directional->set_int("NumDirectionalLights", d_lights.size());
-}
-
-void Scene::pass_point_lights_to_lighting_shader() {
-	for (int i=0; i<p_lights.size(); i++) {
-		PointLight* L = p_lights[i];
-		std::string prefix = "PointLights[" + std::to_string(i) + "].";
-		lighting_point->set_vec3(prefix+"position", L->world_position());
-		lighting_point->set_vec3(prefix+"color", L->get_emission());
-		lighting_point->set_bool(prefix+"castShadow", L->get_cast_shadow());
-		lighting_point->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
-	}
-	lighting_point->set_int("NumPointLights", p_lights.size());
-}

@@ -2,8 +2,12 @@
 #include "Drawable.hpp"
 #include "Utils.hpp"
 
+#define NUM_MATERIAL_SETS 2
+
 struct BSDF;
 struct aiMesh;
+struct Texture;
+struct Material;
 
 struct Vertex {
   Vertex() {}
@@ -35,12 +39,12 @@ struct Mesh : Drawable {
   std::vector<Vertex> vertices;
   std::vector<uint> faces;
   uint get_num_triangles() { return faces.size() / 3; }
-	void set_all_shader_param_funcs();
 
 	AABB aabb;
 	BSDF* bsdf = nullptr;
 
 	Texture* texture = nullptr;
+	Material* materials[NUM_MATERIAL_SETS];
 
 private:
 

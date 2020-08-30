@@ -6,6 +6,7 @@
 #include "Scene.hpp"
 #include "Light.hpp"
 #include "Materials.hpp"
+#include "Texture.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -55,10 +56,11 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	texture = Texture::get("checkerboard");
 
 	//---- OpenGL setup ----
-	
-	// copy construct a default shader
-	shaders[0] = Shader::DeferredBasePass;
-	shaders[1] = Shader::Basic;
+
+	for (int i=0; i<NUM_MATERIAL_SETS; i++) materials[i] = nullptr;
+	materials[0] = new MatBasic();
+	materials[1] = new MatDeferredGeometry();
+	dynamic_cast<MatDeferredGeometry*>(materials[1])->base_color = Texture::get("checkerboard");
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);
@@ -104,10 +106,6 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	}
 	glBindVertexArray(0);
 
-	//---- shader params ----
-	
-	set_all_shader_param_funcs();
-
 	LOGF("loaded mesh %s of %d vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 }
 
@@ -121,6 +119,9 @@ void Mesh::generate_aabb() {
 
 Mesh::~Mesh() {
 	if (bsdf) delete bsdf;
+	for (int i=0; i<NUM_MATERIAL_SETS; i++) {
+		if (materials[i]) delete materials[i];
+	}
 	glDeleteBuffers(1, &vbo);
 	glDeleteBuffers(1, &ebo);
 	glDeleteVertexArrays(1, &vao);
@@ -139,16 +140,11 @@ void Mesh::draw() {
 
 	Scene* scene = get_scene();
 
-	// set shader
-	Shader& shader = shaders[scene->shader_set];
-	if (shader.id == 0) return;
-
+	// set material
 	if (scene->replacement_material) {
 		scene->replacement_material->use(this);
 	} else {
-		glUseProgram(shader.id);
-		// upload uniform
-		shader.set_parameters();
+		materials[scene->material_set]->use(this);
 	}
 
 	// bind vao and draw
@@ -211,21 +207,4 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
 	// importer seems to automatically handle memory release for scene
 	return meshes;
 
-}
-
-void Mesh::set_all_shader_param_funcs() {
-	shaders[0].set_parameters = [this]() {
-		shaders[0].set_mat3("OBJECT_TO_WORLD_ROT", object_to_world_rotation());
-		mat4 o2w = object_to_world();
-		shaders[0].set_mat4("OBJECT_TO_WORLD", o2w);
-		shaders[0].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-		shaders[0].set_vec3("Tint", vec3(1));
-		shaders[0].set_tex2D("BaseColor", 0, texture->id());
-	};
-	shaders[1].set_parameters = [this]() {
-		shaders[1].set_mat3("OBJECT_TO_CAM_ROT", 
-				object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
-		mat4 o2w = object_to_world();
-		shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-	};
 }

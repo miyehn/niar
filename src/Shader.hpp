@@ -80,8 +80,11 @@ private:
 struct Blit : Shader {
 
 	static Blit* copy_debug();
+	static Blit* blit();
 	static Blit* shadow_mask_directional();
 	static Blit* shadow_mask_point();
+	static Blit* lighting_directional();
+	static Blit* lighting_point();
 
 	Blit(const std::string& shader_name);
 
@@ -94,7 +97,10 @@ private:
 	GLboolean cached_depth_test;
 
 	static Blit* copy_debug_value;
+	static Blit* blit_value;
 	static Blit* shadow_mask_directional_value;
 	static Blit* shadow_mask_point_value;
+	static Blit* lighting_directional_value;
+	static Blit* lighting_point_value;
 
 };

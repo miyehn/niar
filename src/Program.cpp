@@ -9,6 +9,8 @@
 #include "Primitive.hpp"
 #include "Input.hpp"
 #include "Light.hpp"
+#include "Texture.hpp"
+#include "Materials.hpp"
 
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
@@ -41,8 +43,6 @@ void Program::setup() {
 
 	/* Load from file or manually setup scene
 	 * Renders with specified shader set: defaults to 0 (full deferred)
-	 *
-	 * TODO: organize this mess... load from file maybe
 	 */
 	if (!Cfg.UseCornellBoxScene) {
 
@@ -63,7 +63,7 @@ void Program::setup() {
 	else {
 		Camera::Active->position = vec3(0, 0, 0);
 		Camera::Active->cutoffFar = 1000.0f;
-		set_cvar("ShaderSet", "1");
+		set_cvar("MaterialSet", "0");
 		
 		// cornell box
 		std::vector<Mesh*> meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx");
@@ -72,8 +72,10 @@ void Program::setup() {
 			mesh->bsdf = new Diffuse(vec3(0.6f));
 			if (i==1) {// right
 				mesh->bsdf->albedo = vec3(0.4f, 0.4f, 0.6f); 
+				dynamic_cast<MatBasic*>(mesh->materials[0])->tint = vec3(0.4f, 0.4f, 0.6f);
 			} else if (i==2) {// left
 				mesh->bsdf->albedo = vec3(0.6f, 0.4f, 0.4f); 
+				dynamic_cast<MatBasic*>(mesh->materials[0])->tint = vec3(0.6f, 0.4f, 0.4f);
 			}
 			scene->add_child(static_cast<Drawable*>(mesh));
 		}
@@ -114,6 +116,7 @@ void Program::release_resources() {
   if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
 	Texture::cleanup();
 	Shader::cleanup();
+	Material::cleanup();
 }
 
 void Program::process_input() {
@@ -135,11 +138,11 @@ void Program::process_input() {
 	if (tokens[0] == "ls") {
 		if (len==1) list_cvars();
 		else if (len==2) {
-			if (tokens[1]=="textures") list_textures();
+			if (tokens[1]=="textures" || tokens[1]=="t") list_textures();
 			else log_cvar(tokens[1]);
 		}
 	}
-	else if (tokens[0] == "set" && len == 3) {
+	else if ((tokens[0] == "set" || tokens[0] == "s") && len == 3) {
 		set_cvar(tokens[1], tokens[2]);
 	}
 

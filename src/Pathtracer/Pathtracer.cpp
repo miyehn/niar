@@ -57,8 +57,6 @@ Pathtracer::Pathtracer(
 Pathtracer::~Pathtracer() {
 	if (!initialized) return;
   glDeleteTextures(1, &texture);
-  glDeleteBuffers(1, &vbo);
-  glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &loggedrays_vbo);
   glDeleteVertexArrays(1, &loggedrays_vao);
   delete image_buffer;
@@ -111,49 +109,6 @@ void Pathtracer::initialize() {
 #endif
 
   //-------- opengl stuff setup --------
-
-	// TODO: replace with a blit
-  shaders[0] = Shader("../shaders/quad.vert", "../shaders/quad.frag");
-  shaders[0].set_parameters = [this]() {
-    shaders[0].set_tex2D("TEX", 0, texture);
-  };
-
-  float quad_vertices[24] = {
-    min_x, max_y, 0.0f, 1.0f, // tl
-    min_x, min_y, 0.0f, 0.0f, // bl
-    max_x, min_y, 1.0f, 0.0f, // br
-    min_x, max_y, 0.0f, 1.0f, // tl
-    max_x, min_y, 1.0f, 0.0f, // br
-    max_x, max_y, 1.0f, 1.0f, // tr
-  };
-
-  glGenBuffers(1, &vbo);
-  glGenVertexArrays(1, &vao);
-
-  glBindVertexArray(vao);
-  {
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(
-        0, // atrib index
-        2, // num of data elems
-        GL_FLOAT, // data type
-        GL_FALSE, // normalized
-        4 * sizeof(float), // stride size
-        (void*)0); // offset in bytes since stride start
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(
-        1, // atrib index
-        2, // num of data elems
-        GL_FLOAT, // data type
-        GL_FALSE, // normalized
-        4 * sizeof(float), // stride size
-        (void*)(2 * sizeof(float))); // offset in bytes since stride start
-    glEnableVertexAttribArray(1);
-  }
-  glBindVertexArray(0);
 
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
@@ -477,7 +432,6 @@ void Pathtracer::update(float elapsed) {
 			if (rendered_tiles == tiles_X * tiles_Y) {
 				TRACE("Done!");
 				pause_trace();
-				//upload_rows(0, height);
 
 			} else {
 				size_t X = rendered_tiles % tiles_X;
@@ -497,15 +451,13 @@ void Pathtracer::update(float elapsed) {
 void Pathtracer::draw() {
 	
 	//---- draw the image buffer first ----
-	// set fill
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  // set shader
-  glUseProgram(shaders[0].id);
-  // pass uniforms
-  shaders[0].set_parameters();
-  // draw stuff
-  glBindVertexArray(vao);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
+  glClearDepth(0);
+  glClear(GL_DEPTH_BUFFER_BIT);
+
+	Blit* blit = Blit::blit();
+	blit->begin_pass();
+	blit->set_tex2D("TEX", 0, texture);
+	blit->end_pass();
 
 	//---- then draw the logged rays ----
   glDisable(GL_DEPTH_TEST); // TODO: make this a state push & pop
