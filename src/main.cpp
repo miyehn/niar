@@ -6,7 +6,11 @@
 #include "Input.hpp"
 
 Program* Program::Instance;
-
+#ifdef WIN32
+#ifdef main
+#undef main
+#endif
+#endif
 int main(int argc, const char * argv[]) {
 
   std::srand(time(nullptr));
@@ -136,11 +140,12 @@ void Program::run() {
 
     SDL_GL_SwapWindow(window);
   }
-  
+#ifndef WIN32 // for whatever reason, on Windows including any of these lines makes SDL unable to close the window and quit properly
   // tear down
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(window);
   SDL_Quit();
+#endif
 }
 
 void Program::update(float elapsed) {
