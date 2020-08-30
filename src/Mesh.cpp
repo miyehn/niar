@@ -5,6 +5,7 @@
 #include "Input.hpp"
 #include "Scene.hpp"
 #include "Light.hpp"
+#include "Materials.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -37,7 +38,7 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 		Vertex v;
 		v.position = vec3(position.x, position.y, position.z);
 		v.normal = vec3(normal.x, normal.y, normal.z);
-		v.uv = vec2(uv.x, uv.y); // TODO!!!!!!!!
+		v.uv = vec2(uv.x, uv.y);
 		vertices.push_back(v);
 	}
 	generate_aabb();
@@ -50,18 +51,14 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 		faces.push_back(face.mIndices[2]);
 	}
 
-	// texture (TODO
-	texture = Texture::get("../media/checkerboard.jpg");
+	// texture (TODO)
+	texture = Texture::get("checkerboard");
 
 	//---- OpenGL setup ----
 	
 	// copy construct a default shader
 	shaders[0] = Shader::DeferredBasePass;
-	shaders[1] = Shader::DepthOnly;
-	shaders[2] = Shader::Basic;
-	shaders[3] = Shader::ShadowPassDirectional;
-	shaders[4] = Shader::ShadowPassPoint;
-	shaders[5] = Shader::Distance;
+	shaders[1] = Shader::Basic;
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);
@@ -140,14 +137,19 @@ void Mesh::update(float elapsed) {
 
 void Mesh::draw() {
 
+	Scene* scene = get_scene();
+
 	// set shader
-	Shader& shader = shaders[get_scene()->shader_set];
+	Shader& shader = shaders[scene->shader_set];
 	if (shader.id == 0) return;
 
-	glUseProgram(shader.id);
-
-	// upload uniform
-	shader.set_parameters();
+	if (scene->replacement_material) {
+		scene->replacement_material->use(this);
+	} else {
+		glUseProgram(shader.id);
+		// upload uniform
+		shader.set_parameters();
+	}
 
 	// bind vao and draw
 	glBindVertexArray(vao);
@@ -221,24 +223,9 @@ void Mesh::set_all_shader_param_funcs() {
 		shaders[0].set_tex2D("BaseColor", 0, texture->id());
 	};
 	shaders[1].set_parameters = [this]() {
-		mat4 o2w = object_to_world();
-		shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-	};
-	shaders[2].set_parameters = [this]() {
-		shaders[2].set_mat3("OBJECT_TO_CAM_ROT", 
+		shaders[1].set_mat3("OBJECT_TO_CAM_ROT", 
 				object_to_world_rotation() * Camera::Active->world_to_camera_rotation());
 		mat4 o2w = object_to_world();
-		shaders[2].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-	};
-	shaders[3].set_parameters = [this]() {
-		Light::set_directional_shadowpass_params_for_mesh(this, 3);
-	};
-	shaders[4].set_parameters = [this]() {
-		Light::set_point_shadowpass_params_for_mesh(this, 4);
-	};
-	shaders[5].set_parameters = [this]() {
-		mat4 o2w = object_to_world();
-		shaders[5].set_mat4("OBJECT_TO_WORLD", o2w);
-		shaders[5].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
+		shaders[1].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
 	};
 }

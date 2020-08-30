@@ -10,6 +10,7 @@ struct Light;
 struct DirectionalLight;
 struct PointLight;
 struct Mesh;
+struct Material;
 
 /* a scene is a tree of drawables */
 struct Scene : public Drawable {
@@ -39,6 +40,8 @@ struct Scene : public Drawable {
 
 	Blit* lighting_directional = nullptr;
 	Blit* lighting_point = nullptr;
+
+	Material* replacement_material = nullptr;
 
   //-------- OpenGL configurations --------
   // depth test

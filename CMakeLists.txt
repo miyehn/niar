@@ -18,6 +18,7 @@ set(SRC
 	src/Input
 	src/Light
 	src/Utils
+	src/Materials
 	src/Pathtracer/Primitive
 	src/Pathtracer/Pathtracer
 	src/Pathtracer/BSDF

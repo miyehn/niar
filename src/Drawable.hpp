@@ -2,7 +2,7 @@
 #include "Updatable.hpp"
 #include "Shader.hpp"
 
-#define NUM_SHADER_SETS 6
+#define NUM_SHADER_SETS 2
 
 struct Scene;
 
@@ -30,18 +30,18 @@ struct Drawable: public Updatable {
   virtual bool add_child(Drawable* child);
 
   // transformation
-  mat4 object_to_parent();
-  mat4 object_to_world();
-  mat4 parent_to_object();
-  mat4 world_to_object();
+  mat4 object_to_parent() const;
+  mat4 object_to_world() const;
+  mat4 parent_to_object() const;
+  mat4 world_to_object() const;
 	
-	mat3 object_to_world_rotation();
-	mat3 world_to_object_rotation();
+	mat3 object_to_world_rotation() const;
+	mat3 world_to_object_rotation() const;
 
-  vec3 world_position();
-	vec3 local_position() { return local_position_value; }
-	quat rotation() { return rotation_value; }
-	vec3 scale() { return scale_value; }
+  vec3 world_position() const;
+	vec3 local_position() const { return local_position_value; }
+	quat rotation() const { return rotation_value; }
+	vec3 scale() const { return scale_value; }
 
 	virtual void set_local_position(vec3 _local_position) = 0;
 	virtual void set_rotation(quat _rotation) = 0;

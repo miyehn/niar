@@ -57,7 +57,7 @@ bool Drawable::add_child(Drawable* child) {
   return true;
 }
 
-mat4 Drawable::object_to_parent() {
+mat4 Drawable::object_to_parent() const {
 	vec3 sc = scale();
   return mat4( // translate
     vec4(1, 0, 0, 0),
@@ -73,12 +73,12 @@ mat4 Drawable::object_to_parent() {
   );
 }
 
-mat4 Drawable::object_to_world() {
+mat4 Drawable::object_to_world() const {
   if (parent) return parent->object_to_world() * object_to_parent();
   else return object_to_parent();
 }
 
-mat4 Drawable::parent_to_object() {
+mat4 Drawable::parent_to_object() const {
 	vec3 sc = scale();
   return mat4( // inv scale
     vec4(1.0f / sc.x, 0, 0, 0),
@@ -94,21 +94,21 @@ mat4 Drawable::parent_to_object() {
   );
 }
 
-mat3 Drawable::object_to_world_rotation() {
+mat3 Drawable::object_to_world_rotation() const {
 	if (!parent) return mat3_cast(rotation());
 	return parent->object_to_world_rotation() * mat3_cast(rotation());
 }
 
-mat3 Drawable::world_to_object_rotation() {
+mat3 Drawable::world_to_object_rotation() const {
 	return transpose(object_to_world_rotation());
 }
 
-mat4 Drawable::world_to_object() {
+mat4 Drawable::world_to_object() const {
   if (parent) return parent_to_object() * parent->world_to_object();
   else return parent_to_object();
 }
 
-vec3 Drawable::world_position() {
+vec3 Drawable::world_position() const {
   vec4 position = object_to_world() * vec4(0, 0, 0, 1);
   return vec3(position.x, position.y, position.z) / position.w;
 }

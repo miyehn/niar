@@ -49,16 +49,10 @@ struct AABB {
 	vec3 min, max;
 };
 
-/* use Texture.Get to get a texture. Returns one if it's already there, load and add to pool if not
- * has private constructor
- * is passed around by ptr
- * stores related info (width, height, format, etc.) as private member, has public getters
- * keeps a pool of textures, has a static cleanup function that releases it (gets called on program exit)
- */
 struct Texture {
 	
-	static Texture* Checker;
-	static Texture* get(const std::string& path);
+	static Texture* get(const std::string& name);
+	static void set_path(const std::string& name, const std::string& path);
 	static void cleanup();
 
 	uint id() { return id_value; }
@@ -72,8 +66,7 @@ private:
 	int height_value = 0;
 	int num_channels_value = 0;
 
+	static std::unordered_map<std::string, std::string> texture_paths;
 	static std::unordered_map<std::string, Texture*> texture_pool;
 	
 };
-
-unsigned char* load_image(const std::string& path, int& width, int& height, int& nChannels);

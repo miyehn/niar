@@ -3,16 +3,17 @@
 const int MaxLights = 6;
 
 struct DirectionalLight {
-	mat4 OBJECT_TO_CLIP; // vertex
+	mat4 WORLD_TO_LIGHT_CLIP;
 	sampler2D ShadowMap;
 	vec3 Direction;
 };
 
-uniform int NumDirectionalLights;
-uniform DirectionalLight DirectionalLights[MaxLights];
+in vec2 vf_uv;
 
-in vec3 vf_normal;
-in vec4 vf_DirectionalLightSpacePositions[MaxLights];
+uniform DirectionalLight DirectionalLights[MaxLights];
+uniform sampler2D Position;
+uniform sampler2D Normal;
+uniform int NumDirectionalLights;
 
 layout(location=0) out float PositionLights[MaxLights];
 
@@ -25,8 +26,11 @@ const vec2 offsets[NUM_OFFSETS] = vec2[] (
 
 void main() {
 
+	vec3 normal = texture(Normal, vf_uv).xyz;
+
 	for (int i=0; i<NumDirectionalLights; i++) {
-		vec3 LightSpacePos = vf_DirectionalLightSpacePositions[i].xyz;
+		vec4 LightSpacePos4 = DirectionalLights[i].WORLD_TO_LIGHT_CLIP * vec4(texture(Position, vf_uv).xyz, 1);
+		vec3 LightSpacePos = LightSpacePos4.xyz / LightSpacePos4.w;
 		vec2 LightSpaceUV = (LightSpacePos.xy + 1.0f) / 2.0f;
 
 		// both linear because it's orthographic projection
@@ -34,7 +38,7 @@ void main() {
 		float DistToLight = (LightSpacePos.z + 1.0f) / 2.0f;
 
 		// slope-based bias
-		float slope = 1.0f - clamp(dot(vf_normal, -DirectionalLights[i].Direction), 0, 1);
+		float slope = 1.0f - clamp(dot(normal, -DirectionalLights[i].Direction), 0, 1);
 		float bias = mix(0.001, 0.01, slope);
 
 		float Occlusion = float(DistToLight-NearestDistToLight >= bias) * WEIGHT;

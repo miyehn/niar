@@ -4,6 +4,7 @@
 #include "Scene.hpp"
 #include "Program.hpp"
 #include "Mesh.hpp"
+#include "Materials.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -116,9 +117,10 @@ void DirectionalLight::render_shadow_map() {
 	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbo);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	scene->shader_set = 1;
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
+	scene->replacement_material = Material::mat_depth();
 	scene->draw_content(true);
+	scene->replacement_material = nullptr;
 
 	Camera::Active = cached_camera;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -246,8 +248,6 @@ void PointLight::render_shadow_map() {
 	Camera::Active = shadow_map_cam;
 
 	Scene* scene = get_scene();
-	scene->shader_set = 5;
-	set_location_to_all_shaders(scene, 5);
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
 #define POINT_LIGHT_OPTIMIZE 1
@@ -286,7 +286,9 @@ void PointLight::render_shadow_map() {
 		// draw
 		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		scene->replacement_material = distance_to_light_mat;
 		scene->draw_content(true);
+		scene->replacement_material = nullptr;
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -314,6 +316,11 @@ void PointLight::set_cast_shadow(bool cast) {
 	shadow_map_cam->cutoffNear = 0.1f;
 	shadow_map_cam->fov = radians(90.0f);
 	shadow_map_cam->aspect_ratio = 1.0f;
+
+	distance_to_light_mat = new MatGeneric("distance");
+	distance_to_light_mat->shader->set_static_parameters = [this]() {
+		distance_to_light_mat->shader->set_vec3("FIXED_POINT", world_position());
+	};
 
 	//------- buffer generations -------
 
@@ -365,54 +372,3 @@ void PointLight::set_cast_shadow(bool cast) {
 
 }
 
-//-------- utilities --------
-
-void Light::set_directional_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
-	mat4 o2w = mesh->object_to_world();
-	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
-
-	Scene* scene = mesh->get_scene();
-	int num_shadow_casters = 0;
-	for (int i=0; i<scene->d_lights.size(); i++) {
-		DirectionalLight* L = scene->d_lights[i];
-		if (!L->get_cast_shadow()) continue;
-
-		std::string prefix = "DirectionalLights[" + std::to_string(num_shadow_casters) + "].";
-		mat4 OBJECT_TO_LIGHT_CLIP = L->world_to_light_clip() * o2w;
-		mesh->shaders[shader_index].set_tex2D(prefix+"ShadowMap", i, L->get_shadow_map());
-		mesh->shaders[shader_index].set_mat4(prefix+"OBJECT_TO_CLIP", OBJECT_TO_LIGHT_CLIP);
-		mesh->shaders[shader_index].set_vec3(prefix+"Direction", L->get_direction());
-		num_shadow_casters++;
-	}
-	mesh->shaders[shader_index].set_int("NumDirectionalLights", num_shadow_casters);
-}
-
-void Light::set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index) {
-	mat4 o2w = mesh->object_to_world();
-	mesh->shaders[shader_index].set_mat4("OBJECT_TO_WORLD", o2w);
-	mesh->shaders[shader_index].set_mat4("OBJECT_TO_CLIP", Camera::Active->world_to_clip() * o2w);
-	mesh->shaders[shader_index].set_mat3("OBJECT_TO_WORLD_ROT", mesh->object_to_world_rotation());
-
-	Scene* scene = mesh->get_scene();
-	int num_shadow_casters = 0;
-	for (int i=0; i<scene->p_lights.size(); i++) {
-		PointLight* L = scene->p_lights[i];
-		if (!L->get_cast_shadow()) continue;
-
-		std::string prefix = "PointLights[" + std::to_string(i) + "].";
-		mesh->shaders[shader_index].set_texCube(prefix+"ShadowMap", i, L->get_shadow_map());
-		mesh->shaders[shader_index].set_vec3(prefix+"Position", L->world_position());
-		num_shadow_casters++;
-	}
-	mesh->shaders[shader_index].set_int("NumPointLights", num_shadow_casters);
-}
-
-void PointLight::set_location_to_all_shaders(Scene* scene, int shader_index) {
-	std::vector<Mesh*> meshes = scene->get_meshes();
-	for (int i=0; i<meshes.size(); i++) {
-  	glUseProgram(meshes[i]->shaders[shader_index].id);
-		meshes[i]->shaders[shader_index].set_vec3("FIXED_POINT", world_position());
-	}
-	glUseProgram(0);
-}

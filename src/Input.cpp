@@ -1,4 +1,6 @@
 #include "Input.hpp"
+#include "Utils.hpp"
+#include "Shader.hpp"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
@@ -22,6 +24,7 @@ void initialize_config() {
 	}
 
 	try {
+		// pathtracer
 		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
@@ -33,6 +36,44 @@ void initialize_config() {
 		Cfg.Pathtracer.MaxRayDepth = config_src.lookup("Pathtracer.MaxRayDepth");
 		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
 		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
+
+		// shaders
+		const Setting& shaders = config_src.getRoot()["Shaders"];
+		LOG("---- loading shaders ----");
+		for (int i=0; i<shaders.getLength(); i++) {
+			int type = shaders[i].lookup("Type");
+			std::string name = shaders[i].lookup("Name");
+			Shader* shader;
+			if (type == 1) {
+				std::string fs = shaders[i].lookup("FS");
+				shader = new Blit(ROOT_DIR"/" + fs);
+			} else if (type == 2) {
+				std::string vs = shaders[i].lookup("VS");
+				std::string fs = shaders[i].lookup("FS");
+				shader = new Shader(ROOT_DIR"/" + vs, ROOT_DIR"/" + fs);
+			} else if (type == 4) {
+				std::string vs = shaders[i].lookup("VS");
+				std::string fs = shaders[i].lookup("FS");
+				std::string tc = shaders[i].lookup("TC");
+				std::string te = shaders[i].lookup("TE");
+				shader = new Shader(
+							ROOT_DIR"/" + vs, 
+							ROOT_DIR"/" + fs,
+							ROOT_DIR"/" + tc,
+							ROOT_DIR"/" + te);
+			}
+			Shader::add(name, shader);
+			shader->name = name;
+		}
+		LOG("-------------------------");
+
+		// textures
+		const Setting& textures = config_src.getRoot()["Textures"];
+		for (int i=0; i<textures.getLength(); i++) {
+			std::string name = textures[i].lookup("Name");
+			std::string path = textures[i].lookup("Path");
+			Texture::set_path(name, ROOT_DIR"/" + path);
+		}
 
 		LOG("*** successfully loaded config from file! ***");
 

@@ -3,6 +3,7 @@
 #include "Input.hpp"
 #include "Mesh.hpp"
 #include "Light.hpp"
+#include "Materials.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -261,7 +262,8 @@ void Scene::draw() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
 
 	//---- directional lights
-	uint shadow_caster_counter = 0;
+	// configure output buffers
+	int shadow_caster_counter = 0;
 	for (int i=0; i<d_lights.size(); i++) {
 		DirectionalLight* L = d_lights[i];
 		if (!L->get_cast_shadow()) continue;
@@ -284,10 +286,29 @@ void Scene::draw() {
 	}
   glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	shader_set = 3;
-	draw_content();
+
+	// then blit
+	Blit* blit = Blit::shadow_mask_directional();
+	blit->begin_pass();
+	{
+		int num_shadow_casters = 0;
+		for (int i=0; i<d_lights.size(); i++) {
+			DirectionalLight* L = d_lights[i];
+			if (!L->get_cast_shadow()) continue;
+			std::string prefix = "DirectionalLights[" + std::to_string(num_shadow_casters) + "].";
+			blit->set_mat4(prefix + "WORLD_TO_LIGHT_CLIP", L->world_to_light_clip());
+			blit->set_tex2D(prefix + "ShadowMap", num_shadow_casters, L->get_shadow_map());
+			blit->set_vec3(prefix + "Direction", L->get_direction());
+			num_shadow_casters++;
+		}
+		blit->set_tex2D("Position", num_shadow_casters, tex_gbuffers[0]);
+		blit->set_tex2D("Normal", num_shadow_casters+1, tex_gbuffers[1]);
+		blit->set_int("NumDirectionalLights", num_shadow_casters);
+	}
+	blit->end_pass();
 
 	//---- point lights
+	// configure output buffers
 	shadow_caster_counter = 0;
 	for (int i=0; i<p_lights.size(); i++) {
 		PointLight* L = p_lights[i];
@@ -301,6 +322,7 @@ void Scene::draw() {
 
 		shadow_caster_counter++;
 	}
+	// set the rest of output buffers to dummy (necessary?)
 	for (int i=shadow_caster_counter; i<MAX_SHADOWCASTING_LIGHTS; i++) {
 		glFramebufferTexture2D(
 				GL_FRAMEBUFFER, 
@@ -310,8 +332,24 @@ void Scene::draw() {
 	}
   glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	shader_set = 4;
-	draw_content();
+
+	blit = Blit::shadow_mask_point();
+	blit->begin_pass();
+	{
+		int num_shadow_casters = 0;
+		for (int i=0; i<p_lights.size(); i++) {
+			PointLight* L = p_lights[i];
+			if (!L->get_cast_shadow()) continue;
+			std::string prefix = "PointLights[" + std::to_string(num_shadow_casters) + "].";
+			blit->set_vec3(prefix + "Position", L->world_position());
+			blit->set_texCube(prefix + "ShadowMap", num_shadow_casters, L->get_shadow_map());
+			num_shadow_casters++;
+		}
+		blit->set_tex2D("Position", num_shadow_casters, tex_gbuffers[0]);
+		blit->set_tex2D("Normal", num_shadow_casters+1, tex_gbuffers[1]);
+		blit->set_int("NumPointLights", num_shadow_casters);
+	}
+	blit->end_pass();
 
 	//-------- lighting passes: copy to screen
 	
@@ -321,7 +359,7 @@ void Scene::draw() {
 	lighting_directional->begin_pass();
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		std::string name = "GBUF" + std::to_string(i);
-		lighting_directional->shader.set_tex2D(name, i, tex_gbuffers[i]);
+		lighting_directional->set_tex2D(name, i, tex_gbuffers[i]);
 	}
 	pass_directional_lights_to_lighting_shader();
 	lighting_directional->end_pass();
@@ -333,7 +371,7 @@ void Scene::draw() {
 	lighting_point->begin_pass();
 	for (int i=0; i<NUM_GBUFFERS; i++) {
 		std::string name = "GBUF" + std::to_string(i);
-		lighting_point->shader.set_tex2D(name, i, tex_gbuffers[i]);
+		lighting_point->set_tex2D(name, i, tex_gbuffers[i]);
 	}
 	pass_point_lights_to_lighting_shader();
 	lighting_point->end_pass();
@@ -344,10 +382,10 @@ void Scene::draw() {
 	if (ShowDebugTex->get()) {
 		int debugtex = find_named_tex(DebugTex->get());
 		if (debugtex >= 0) {
-			Blit::CopyDebug->begin_pass();
-			Blit::CopyDebug->shader.set_tex2D("TEX", 0, debugtex);
-			Blit::CopyDebug->shader.set_vec2("MinMax", vec2(DebugTexMin->get(), DebugTexMax->get()));
-			Blit::CopyDebug->end_pass();
+			Blit::copy_debug()->begin_pass();
+			Blit::copy_debug()->set_tex2D("TEX", 0, debugtex);
+			Blit::copy_debug()->set_vec2("MinMax", vec2(DebugTexMin->get(), DebugTexMax->get()));
+			Blit::copy_debug()->end_pass();
 		}
 	}
 
@@ -358,22 +396,22 @@ void Scene::pass_directional_lights_to_lighting_shader() {
 	for (int i=0; i<d_lights.size(); i++) {
 		DirectionalLight* L = d_lights[i];
 		std::string prefix = "DirectionalLights[" + std::to_string(i) + "].";
-		lighting_directional->shader.set_vec3(prefix+"direction", L->get_direction());
-		lighting_directional->shader.set_vec3(prefix+"color", L->get_emission());
-		lighting_directional->shader.set_bool(prefix+"castShadow", L->get_cast_shadow());
-		lighting_directional->shader.set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
+		lighting_directional->set_vec3(prefix+"direction", L->get_direction());
+		lighting_directional->set_vec3(prefix+"color", L->get_emission());
+		lighting_directional->set_bool(prefix+"castShadow", L->get_cast_shadow());
+		lighting_directional->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
 	}
-	lighting_directional->shader.set_int("NumDirectionalLights", d_lights.size());
+	lighting_directional->set_int("NumDirectionalLights", d_lights.size());
 }
 
 void Scene::pass_point_lights_to_lighting_shader() {
 	for (int i=0; i<p_lights.size(); i++) {
 		PointLight* L = p_lights[i];
 		std::string prefix = "PointLights[" + std::to_string(i) + "].";
-		lighting_point->shader.set_vec3(prefix+"position", L->world_position());
-		lighting_point->shader.set_vec3(prefix+"color", L->get_emission());
-		lighting_point->shader.set_bool(prefix+"castShadow", L->get_cast_shadow());
-		lighting_point->shader.set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
+		lighting_point->set_vec3(prefix+"position", L->world_position());
+		lighting_point->set_vec3(prefix+"color", L->get_emission());
+		lighting_point->set_bool(prefix+"castShadow", L->get_cast_shadow());
+		lighting_point->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
 	}
-	lighting_point->shader.set_int("NumPointLights", p_lights.size());
+	lighting_point->set_int("NumPointLights", p_lights.size());
 }

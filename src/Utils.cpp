@@ -64,13 +64,23 @@ std::string s3(vec3 v) {
 //------------------------------------------------
 
 std::unordered_map<std::string, Texture*> Texture::texture_pool;
+std::unordered_map<std::string, std::string> Texture::texture_paths;
 
-unsigned char* load_image(const std::string& path, int& width, int& height, int& nChannels) {
-	unsigned char* data = stbi_load(path.c_str(), &width, &height, &nChannels, 0);
-	return data;
+void Texture::set_path(const std::string& name, const std::string& path) {
+	texture_paths[name] = path;
 }
 
-Texture* Texture::get(const std::string& path) {
+Texture* Texture::get(const std::string& name) {
+
+	std::string path;
+	auto path_pair = texture_paths.find(name);
+	if (path_pair == texture_paths.end()) {
+		ERRF("There isn't a texture called %s", name.c_str());
+		return nullptr;
+	} else {
+		path = path_pair->second;
+	}
+
 	auto found_tex = texture_pool.find(path);
 	if (found_tex != texture_pool.end()) {
 		return found_tex->second;

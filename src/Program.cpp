@@ -12,12 +12,7 @@
 
 Shader Shader::Basic;
 Shader Shader::DeferredBasePass;
-Shader Shader::DepthOnly;
-Shader Shader::ShadowPassDirectional;
-Shader Shader::ShadowPassPoint;
-Shader Shader::Distance;
 
-Blit* Blit::CopyDebug;
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
@@ -31,15 +26,6 @@ void Program::load_resources() {
 	Shader::Basic.name = "basic";
 	Shader::DeferredBasePass = Shader(ROOT_DIR"/shaders/geometry.vert", ROOT_DIR"/shaders/geometry.frag");
 	Shader::DeferredBasePass.name = "deferred";
-	Shader::DepthOnly = Shader(ROOT_DIR"/shaders/clip_position.vert", ROOT_DIR"/shaders/empty.frag");
-	Shader::DepthOnly.name = "depth only";
-	Shader::ShadowPassDirectional = Shader(ROOT_DIR"/shaders/shadow_pass_directional.vert", ROOT_DIR"/shaders/shadow_pass_directional.frag");
-	Shader::ShadowPassDirectional.name = "shadow pass directional";
-	Shader::ShadowPassPoint = Shader(ROOT_DIR"/shaders/shadow_pass_point.vert", ROOT_DIR"/shaders/shadow_pass_point.frag");
-	Shader::ShadowPassPoint.name = "shadow pass point";
-	Shader::Distance = Shader(ROOT_DIR"/shaders/world_clip_position.vert", ROOT_DIR"/shaders/distance.frag");
-	Shader::Distance.name = "distance (for point light shadow map)";
-	Blit::CopyDebug = new Blit(ROOT_DIR"/shaders/blit_debug.frag");
   Pathtracer::Instance = new Pathtracer(width, height, "Niar");
   Camera::Active = new Camera(width, height);
 
@@ -77,7 +63,7 @@ void Program::setup() {
 	else {
 		Camera::Active->position = vec3(0, 0, 0);
 		Camera::Active->cutoffFar = 1000.0f;
-		set_cvar("ShaderSet", "2");
+		set_cvar("ShaderSet", "1");
 		
 		// cornell box
 		std::vector<Mesh*> meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx");
@@ -127,6 +113,7 @@ void Program::release_resources() {
   delete Pathtracer::Instance;
   if (Shader::Basic.id) glDeleteProgram(Shader::Basic.id);
 	Texture::cleanup();
+	Shader::cleanup();
 }
 
 void Program::process_input() {

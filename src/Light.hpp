@@ -6,18 +6,15 @@ struct Camera;
 struct Mesh;
 struct aiLight;
 struct aiNode;
+struct Material;
 
 struct Light : public Drawable {
-
-	static void set_directional_shadowpass_params_for_mesh(Mesh* mesh, int shader_index);
-	static void set_point_shadowpass_params_for_mesh(Mesh* mesh, int shader_index);
 
 	enum Type { Point, Directional };
 	Type type;
 	virtual ~Light();
 	vec3 get_emission() { return color * intensity; }
 	virtual void render_shadow_map() = 0;
-	virtual mat4 world_to_light_clip() = 0;
 
 	virtual void set_cast_shadow(bool cast) = 0;
 	bool get_cast_shadow() { return cast_shadow; }
@@ -62,15 +59,13 @@ struct DirectionalLight : public Light {
 
 	virtual void render_shadow_map();
 
-	virtual mat4 world_to_light_clip();
+	mat4 world_to_light_clip();
 
 private:
 
 	void init(vec3 _color, float _intensity, vec3 dir);
 
 	uint shadow_map_fbo = 0;
-
-	Blit* shadow_map_blit = nullptr;
 
 };
 
@@ -89,9 +84,6 @@ struct PointLight: public Light {
 
 	virtual void set_cast_shadow(bool cast);
 
-	// since point lights don't need this at all
-	virtual mat4 world_to_light_clip() { return mat4(1); }
-
 private:
 
 	void init(vec3 _color, float _intensity, vec3 _local_pos);
@@ -104,6 +96,6 @@ private:
 	};
 	uint shadow_map_depth_rbo = 0;
 
-	void set_location_to_all_shaders(Scene* scene, int shader_index);
+	Material* distance_to_light_mat = nullptr;
 
 };
