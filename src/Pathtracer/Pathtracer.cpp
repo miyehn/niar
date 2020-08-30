@@ -74,15 +74,6 @@ Pathtracer::~Pathtracer() {
 void Pathtracer::initialize() {
 	TRACE("initializing pathtracer");
 
-	float min_x, min_y, max_x, max_y;
-	if (Cfg.Pathtracer.SmallWindow) {
-		min_x = -0.96f; min_y = -0.96f;
-		max_x = 0.0f; max_y = 0.0f;
-	} else {
-		min_x = -1.0f; min_y = -1.0f;
-		max_x = 1.0f; max_y = 1.0f;
-	}
-
 	num_threads = Cfg.Pathtracer.NumThreads;
 	tile_size = Cfg.Pathtracer.TileSize;
 
@@ -205,6 +196,8 @@ bool Pathtracer::handle_event(SDL_Event event) {
 			FocalDistance->set(d);
 			TRACEF("setting focal distance to %f", d);
 		}
+	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
+		logged_rays.clear();
 	}
 
   return Drawable::handle_event(event);
@@ -451,8 +444,8 @@ void Pathtracer::update(float elapsed) {
 void Pathtracer::draw() {
 	
 	//---- draw the image buffer first ----
-  glClearDepth(0);
-  glClear(GL_DEPTH_BUFFER_BIT);
+
+	glViewport(0, 0, width*2, height*2);
 
 	Blit* blit = Blit::blit();
 	blit->begin_pass();

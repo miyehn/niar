@@ -42,7 +42,7 @@ void Program::setup() {
 		Camera::Active->move_speed = 6.0f;
 		Camera::Active->position = vec3(0, -10, 1);
 
-		scene->load(ROOT_DIR"/media/with_light.fbx", false);
+		scene->load(Cfg.SceneSource, false);
 	}
 
 	/* Classic cornell box

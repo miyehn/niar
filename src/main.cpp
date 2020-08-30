@@ -165,12 +165,12 @@ void Program::draw() {
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  // pathtracer
-  if (Pathtracer::Instance && Pathtracer::Instance->enabled) 
-		Pathtracer::Instance->draw();
   // scenes
   if (Scene::Active && Scene::Active->enabled) {
 		Scene::Active->draw();
   }
+  // pathtracer
+  if (Pathtracer::Instance && Pathtracer::Instance->enabled) 
+		Pathtracer::Instance->draw();
     
 }

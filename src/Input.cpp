@@ -27,6 +27,8 @@ void initialize_config() {
 	try {
 		// pathtracer
 		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
+		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
+
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");
@@ -37,6 +39,15 @@ void initialize_config() {
 		Cfg.Pathtracer.MaxRayDepth = config_src.lookup("Pathtracer.MaxRayDepth");
 		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
 		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
+
+		Cfg.ShowDebugTex->set(config_src.lookup("ShowDebugTex"));
+		Cfg.DebugTex->set(config_src.lookup("DebugTex"));
+		Cfg.DebugTexMin->set(config_src.lookup("DebugTexMin"));
+		Cfg.DebugTexMax->set(config_src.lookup("DebugTexMax"));
+
+		Cfg.MaterialSet->set(config_src.lookup("MaterialSet"));
+
+		//---------------- ASSETS -------------------
 
 		// shaders
 		const Setting& shaders = config_src.getRoot()["Shaders"];

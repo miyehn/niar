@@ -63,6 +63,7 @@ private:
 struct ProgramConfig
 {
 	int UseCornellBoxScene = 0;
+	std::string SceneSource = "";
 	struct 
 	{
 		int SmallWindow = 0;
@@ -78,6 +79,13 @@ struct ProgramConfig
 		CVar<int>* MinRaysPerPixel = new CVar<int>("MinRaysPerPixel", 4);
 	}
 	Pathtracer;
+
+	CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
+	CVar<int>* DebugTex = new CVar<int>("DebugTex", 0);
+	CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
+	CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
+
+	CVar<int>* MaterialSet = new CVar<int>("MaterialSet", 1);
 };
 
 extern ProgramConfig Cfg;

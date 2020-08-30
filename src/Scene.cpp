@@ -9,13 +9,6 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-CVar<int>* ShowDebugTex = new CVar<int>("ShowDebugTex", 0);
-CVar<int>* DebugTex = new CVar<int>("DebugTex", 0);
-CVar<float>* DebugTexMin = new CVar<float>("DebugTexMin", 0.0f);
-CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
-
-CVar<int>* MaterialSet = new CVar<int>("MaterialSet", 1);
-
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 	name = "[unnamed scene]";
@@ -218,7 +211,7 @@ void Scene::draw() {
 	
 	glViewport(0, 0, w, h);
 
-	material_set = MaterialSet->get();
+	material_set = Cfg.MaterialSet->get();
 	if (material_set != 1) {
 		draw_content();
 		// if it's not drawing deferred base pass, skip the rest of deferred pipeline
@@ -381,12 +374,12 @@ void Scene::draw() {
 	glDisable(GL_BLEND);
 
 	// draw debug texture
-	if (ShowDebugTex->get()) {
-		int debugtex = find_named_tex(DebugTex->get());
+	if (Cfg.ShowDebugTex->get()) {
+		int debugtex = find_named_tex(Cfg.DebugTex->get());
 		if (debugtex >= 0) {
 			Blit::copy_debug()->begin_pass();
 			Blit::copy_debug()->set_tex2D("TEX", 0, debugtex);
-			Blit::copy_debug()->set_vec2("MinMax", vec2(DebugTexMin->get(), DebugTexMax->get()));
+			Blit::copy_debug()->set_vec2("MinMax", vec2(Cfg.DebugTexMin->get(), Cfg.DebugTexMax->get()));
 			Blit::copy_debug()->end_pass();
 		}
 	}
