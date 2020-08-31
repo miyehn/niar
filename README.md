@@ -2,15 +2,88 @@
 
 A playground to test my patience.
 
-**For offline stuff**, it has a multi-threaded CPU pathtracer - sort of rebuilt of [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch. The actual pathtracing code is mostly in `src/Pathtracer/Pathtracer.inl`.
-
-Can modify `config.ini` to customize some settings to be loaded at program startup (some properties can also be modified at runtime; will document this later)
+**For offline stuff**, it has a multi-threaded CPU pathtracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch. 
 
 <img src="img/dof.jpeg" width=400></img>
 
-**For real-time rendering**, I'm recently working on building a deferred pipeline. Currently it supports only diffuse material, only point and directional lights, and only directional lights can cast shadows (with artifact).
+**For real-time rendering**, so far it supports point and directional lights, both can cast shadows, and has some very basic optimizations in addition to plain shadow mapping (automatic adjustments of light camera and its frustrum based on scene AABB and view frustrum, percentage closer filtering for soft shadow edges / anti aliasing).
 
-<img src="img/deferred_progress.png" width=400></img>
+<img src="img/deferred_8_30.jpg" width=400></img>
 
-Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch (I wrote that part when I had access to a PC and it uses compute shader so it's currently not integrated into master).
+Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into master yet (because I mainly develop on macOS and OpenGL compute shaders are not supported)
 
+## Some notes
+
+(Since I probably won't be able to work on this for quite another while, I better write this down to help myself remember what I did when I pick it up next time)
+
+### Basic usage
+
+Build and run the `niar` binary. Works on both mac and windows. `ESC` to quit.
+
+There's a rasterizer and a pathtracer. Pathtracer is disabled by default, `TAB` to toggle between enabled and disabled. It initializes itself when it's first enabled, then keeps the setting, buffers, etc. even when it's later disabled.
+
+When pathtracer is disabled:
+* WASD to move camera, E/Q to move up/down.
+* LMB drag to rotate camera.
+
+When pathtracer is enabled:
+* Space bar to start/pause render. Note that when multitreaded rendering is enabled, it might take a little longer for the threads to finish the already-started tile when pausing command is sent.
+* `0` to clear the buffer.
+* `SHIFT` + LMB click to trace a debug ray through the clicked pixel and draw it as yellow line segments. There's also some (perhaps no longer helpful) console output.
+* RMB click to dismiss the debug ray overlay.
+* `Alt` + LMB click to set camera focal length to the scene depth at the selected pixel. Focal length is only effective when DOF (depth of field) is on.
+
+### Configuration
+
+See `config.ini` for properties that get loaded on program start.
+
+`config.ini` also specifies some resource paths, and in the future may evolve to include material editing / assignment funcionalities as well.
+
+To configure properties at runtime, use the console as such (type into the window, not the console itself):
+* `/` to start a command
+* `ls` to list all properties (CVars) and their current values
+* `set (property name) (new value)` to configure. `set` can be abbreviated as `s`. Ex: `s showdebugtex 1` to render the currently configured debug texture as overlay. Property names are case insensitive.
+* `ls textures` or `ls t` lists all the textures that can be drawn as overlay.
+
+<img src="img/cvars.png" height=400></img>
+
+Too add a property in `config.ini`, first define that property in the config file, then in `Input.hpp` add it to the struct called `Cfg`, and assign the property in `Input.cpp`. Then use it anywhere as `Cfg.PropertyName`.
+
+CVars can be defined / used anywhere. For the ones local to a file, define them with global scope inside some `.cpp` file. For the ones that need to be accessed everywhere, define in `Input.hpp` or even as part of the `Cfg` struct.
+
+### Rendering pipeline
+
+See `Scene::draw()`. It depends on the material set used (configure this in `config.ini`). `0` is basic; everything gets rendered in a single pass, no lighting is applied. `1` is currently lambertian which gets rendered in a deferred pipeline (see screenshot above)
+
+#### Deferred pipeline
+
+Geometry pass (MRT) (3 G buffers: world position, normal, base color)  
+↓  
+Shadow maps are rendered for lights that cast shadows.  
+↓  
+Passes that uses shadow maps and the position & normal G buffers to produce shadow masks (basically stencils for light contribution).  
+↓  
+Lighting pass(es) for directional lights, with G buffers and shadow masks as input  
+↓  
+Lighting pass(es) for point lights done similarly, using additive blending
+
+### Shader and texture resources
+
+All shaders and textures are managed by the classes themselves, either in a private pool (accessable from outside by name using the `get` method), or as static read-only constants.
+
+Shaders are compiled and added to the pool on program start; textures are loadeded on first use.
+
+### Materials and blit
+
+Basically a material := a reference to a shader + a set of properties. There're two types of materials: generic and standard.
+
+A generic material is one that can be used with any shader. It attempts to set all transformation matrices to its shader when used.
+* Usage: create the material by giving its shader's name, define `set_parameters` if its shader requires properties that are not transformation matrices, then `use` just before drawing stuff.
+
+A standard material is one that's associated with a specific shader.
+* Creation: inherit from `Material` to create a new material class with all properties that should be stored with it. Define its `use` function where it should set all its properties to its shader, including the transformation matrices.
+* Usage: create an instance of this material somewhere else, assign the properties, optionally define `set_parameters`, and `use`.
+
+`Blit` is a special type of shader: instances all share the same vertex shader and are used to draw screen-space quads.
+* Creation: create a `CONST_PTR` in `Blit` class, and `IMPLEMENT_BLIT` by specifing which shader to use (see the macro definitions).
+* Usage: `Blit::name()->begin_pass()`, set properties depending on the shader, `Blit::name()->end_pass()`.

@@ -318,11 +318,11 @@ void PointLight::set_cast_shadow(bool cast) {
 	shadow_map_cam->aspect_ratio = 1.0f;
 
 	distance_to_light_mat = new MatGeneric("distance");
-	distance_to_light_mat->shader->set_static_parameters = [this]() {
+	distance_to_light_mat->set_parameters = [this]() {
 		distance_to_light_mat->shader->set_vec3("FIXED_POINT", world_position());
 	};
 
-	//------- buffer generations -------
+	//------- buffer generation -------
 
 	// shadow map framebuffers
 	glGenFramebuffers(6, shadow_map_fbos);

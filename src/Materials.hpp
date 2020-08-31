@@ -13,33 +13,35 @@
  */
 
 struct Drawable;
+struct MatGeneric;
 
 struct Material {
 
-	CONST_PTR(Material, mat_depth);
+	CONST_PTR(MatGeneric, mat_depth);
 	
 	Material (const std::string& shader_name) {
 		shader = Shader::get(shader_name);
-		shader->set_static_parameters = [](){};
 	}
 	virtual ~Material() {}
 
 	virtual void use(const Drawable* obj);
 
-	// material constants (owned by mateiral class)
+	std::function<void()> set_parameters = [](){};
+
 	static void cleanup();
 
 	Shader* shader = nullptr;
 
 };
 
-// materials whose object-dependent uniforms are just the transformations
+// generic: materials whose object-dependent uniforms are just the transformations; can be used with any shader
 struct MatGeneric : Material {
 	MatGeneric(const std::string& shader_name) : Material(shader_name) {}
 	virtual ~MatGeneric() {}
 	virtual void use(const Drawable* obj);
 };
 
+// standard: materials tied to a specific shader
 struct MatBasic : Material {
 	MatBasic() : Material("basic") {
 		base_color = Texture::white();

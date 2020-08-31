@@ -6,7 +6,7 @@ struct Camera;
 struct Mesh;
 struct aiLight;
 struct aiNode;
-struct Material;
+struct MatGeneric;
 
 struct Light : public Drawable {
 
@@ -96,6 +96,6 @@ private:
 	};
 	uint shadow_map_depth_rbo = 0;
 
-	Material* distance_to_light_mat = nullptr;
+	MatGeneric* distance_to_light_mat = nullptr;
 
 };

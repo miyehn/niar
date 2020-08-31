@@ -17,10 +17,6 @@ struct Shader {
 	static void add(const std::string& name, Shader* shader);
 	static void cleanup();
 
-  std::function<void()> set_static_parameters = [this]() {
-    WARNF("%s: using shader without static parameter function set!", name.c_str());
-  };
-
 private:
 	static std::unordered_map<std::string, Shader*> shader_pool;
 
@@ -34,10 +30,6 @@ public:
 		id = 0; 
 		name = "[unamed shader]";
 	}
-
-  std::function<void()> set_parameters = [this]() {
-    WARNF("%s: using shader without parameter function set!", name.c_str());
-  };
   std::string name;
   uint id;
 

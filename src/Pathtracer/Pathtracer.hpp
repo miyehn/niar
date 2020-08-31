@@ -7,6 +7,7 @@ struct Ray;
 struct Primitive;
 struct PathtracerLight;
 struct RaytraceThread;
+struct MatGeneric;
 
 struct Pathtracer : public Drawable {
 
@@ -93,7 +94,7 @@ private:
   uint texture;
 
 	// for debug
-	Shader loggedrays_shader;
+	MatGeneric* loggedrays_mat = nullptr;
 	uint loggedrays_vbo, loggedrays_vao;
 
 	virtual void set_local_position(vec3 _local_position) {}

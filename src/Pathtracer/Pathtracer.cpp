@@ -6,6 +6,7 @@
 #include "Primitive.hpp"
 #include "PathtracerLight.hpp"
 #include "Input.hpp"
+#include "Materials.hpp"
 #include <chrono>
 #include <thread>
 #include <atomic>
@@ -68,6 +69,8 @@ Pathtracer::~Pathtracer() {
 
 	for (auto l : lights) delete l;
 	for (auto t : primitives) delete t;
+
+	if (loggedrays_mat) delete loggedrays_mat;
   TRACE("deleted pathtracer");
 }
 
@@ -114,10 +117,8 @@ void Pathtracer::initialize() {
   glBindTexture(GL_TEXTURE_2D, 0);
 
 	// and for debug draw
-	loggedrays_shader = Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
-	loggedrays_shader.set_parameters = [this](){
-		loggedrays_shader.set_mat4("WORLD_TO_CLIP", Camera::Active->world_to_clip());
-	};
+	loggedrays_mat = new MatGeneric("yellow");//Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
+
 	glGenBuffers(1, &loggedrays_vbo);
 	glGenVertexArrays(1, &loggedrays_vao);
 	glBindVertexArray(loggedrays_vao);
@@ -454,8 +455,7 @@ void Pathtracer::draw() {
 
 	//---- then draw the logged rays ----
   glDisable(GL_DEPTH_TEST); // TODO: make this a state push & pop
-	glUseProgram(loggedrays_shader.id);
-	loggedrays_shader.set_parameters();
+	loggedrays_mat->use(this);
 	glBindVertexArray(loggedrays_vao);
 	glDrawArrays(GL_LINE_STRIP, 0, logged_rays.size());
 
