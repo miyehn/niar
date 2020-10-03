@@ -1,4 +1,13 @@
 #include "Utils.hpp"
+#include "Scene.hpp"
+#include "Mesh.hpp"
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wall"
+#include "openfbx/ofbx.h"
+#pragma GCC diagnostic pop
+
+//------------------ AABB -------------------------
 
 void AABB::add_point(vec3 p) {
 	min.x = glm::min(min.x, p.x);
@@ -38,7 +47,56 @@ std::vector<vec3> AABB::corners() {
 	return res;
 }
 
-//------------------------------------------------
+//-------------------------------------------------
+
+ofbx::IScene* load_scene(const char* path) {
+	FILE* fp = fopen(path, "rb");
+	if (!fp) {
+		ERRF("cannot open file: %s", path);
+		return nullptr;
+	}
+	fseek(fp, 0, SEEK_END);
+	long file_size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	auto* content = new ofbx::u8[file_size];
+	fread(content, 1, file_size, fp);
+	ofbx::IScene* inScene = ofbx::load(
+			(ofbx::u8*)content, 
+			file_size, 
+			(ofbx::u64)ofbx::LoadFlags::TRIANGULATE);
+	if (!inScene) {
+		ERRF("error importing scene: %s", ofbx::getError());
+		return nullptr;
+	}
+	fclose(fp);
+	return inScene;
+}
+
+// see openfbx example for file handling
+Scene* f::import_scene(const char* path) {
+
+	ofbx::IScene* inScene = load_scene(path);
+	if (!inScene) return nullptr;
+
+	int mesh_count = inScene->getMeshCount();
+	Scene* scene = new Scene(path);
+	for (int i=0; i<mesh_count; i++) {
+		Mesh* mesh = new Mesh();
+		const ofbx::Mesh* inMesh = inScene->getMesh(i);
+		const ofbx::Geometry* geom = inMesh->getGeometry();
+		int vertex_count = geom->getVertexCount();
+		const ofbx::Vec3* vertices = geom->getVertices();
+		for (int j=0; j<vertex_count; j++) {
+			ofbx::Vec3 v = vertices[j];
+
+		}
+		mesh->initialize();
+	}
+
+	return scene;
+}
+
+//-------------------------------------------------
 
 quat quat_from_dir(vec3 dir) {
 	if (dot(dir, vec3(0, 0, -1)) > 1.0f - EPSILON) {

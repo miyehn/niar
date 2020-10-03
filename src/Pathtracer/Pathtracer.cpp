@@ -38,10 +38,10 @@ struct RaytraceThread {
 };
 
 Pathtracer::Pathtracer(
-  size_t _width, 
-  size_t _height, 
-  std::string _name
-  ) : Drawable(nullptr, _name) {
+	size_t _width, 
+	size_t _height, 
+	std::string _name
+	) : Drawable(nullptr, _name) {
 
 	if (Cfg.Pathtracer.SmallWindow) {
 		width = _width / 2;
@@ -52,15 +52,15 @@ Pathtracer::Pathtracer(
 	}
 
 	initialized = false;
-  enabled = false;
+	enabled = false;
 }
 
 Pathtracer::~Pathtracer() {
 	if (!initialized) return;
-  glDeleteTextures(1, &texture);
-  glDeleteBuffers(1, &loggedrays_vbo);
-  glDeleteVertexArrays(1, &loggedrays_vao);
-  delete image_buffer;
+	glDeleteTextures(1, &texture);
+	glDeleteBuffers(1, &loggedrays_vbo);
+	glDeleteVertexArrays(1, &loggedrays_vao);
+	delete image_buffer;
 	for (size_t i=0; i<num_threads; i++) {
 		delete subimage_buffers[i];
 		// TODO: cleanup the threads in a more elegant way instead of being forced terminated?
@@ -71,7 +71,7 @@ Pathtracer::~Pathtracer() {
 	for (auto t : primitives) delete t;
 
 	if (loggedrays_mat) delete loggedrays_mat;
-  TRACE("deleted pathtracer");
+	TRACE("deleted pathtracer");
 }
 
 void Pathtracer::initialize() {
@@ -83,7 +83,7 @@ void Pathtracer::initialize() {
 	tiles_X = std::ceil(float(width) / tile_size);
 	tiles_Y = std::ceil(float(height) / tile_size);
 
-  image_buffer = new unsigned char[width * height * 3]; 
+	image_buffer = new unsigned char[width * height * 3]; 
 	subimage_buffers = new unsigned char*[num_threads];
 	for (int i=0; i<num_threads; i++) {
 		subimage_buffers[i] = new unsigned char[tile_size * tile_size * 3];
@@ -102,19 +102,19 @@ void Pathtracer::initialize() {
 	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
 #endif
 
-  //-------- opengl stuff setup --------
+	//-------- opengl stuff setup --------
 
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
-  }
-  glBindTexture(GL_TEXTURE_2D, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
+	}
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// and for debug draw
 	loggedrays_mat = new MatGeneric("yellow");//Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
@@ -124,14 +124,14 @@ void Pathtracer::initialize() {
 	glBindVertexArray(loggedrays_vao);
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
-    glVertexAttribPointer(
-        0, // atrib index
-        3, // num of data elems
-        GL_FLOAT, // data type
-        GL_FALSE, // normalized
-        3 * sizeof(float), // stride size
-        (void*)0); // offset in bytes since stride start
-    glEnableVertexAttribArray(0);
+		glVertexAttribPointer(
+				0, // atrib index
+				3, // num of data elems
+				GL_FLOAT, // data type
+				GL_FALSE, // normalized
+				3 * sizeof(float), // stride size
+				(void*)0); // offset in bytes since stride start
+		glEnableVertexAttribArray(0);
 	}
 	glBindVertexArray(0);
 
@@ -166,24 +166,24 @@ void Pathtracer::initialize() {
 		//------------------------------------
 	}
 
-  reset();
+	reset();
 
 	initialized = true;
 }
 
 bool Pathtracer::handle_event(SDL_Event event) {
-  if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE && !finished) {
-    if (paused) continue_trace();
-    else {
-  		TRACE("pausing - waiting for pending tiles");
+	if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE && !finished) {
+		if (paused) continue_trace();
+		else {
+			TRACE("pausing - waiting for pending tiles");
 			pause_trace();
 		}
-    return true;
+		return true;
 
-  } else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
-    reset();
+	} else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
+		reset();
 
-  } else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
+	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
 		int x, y; // NOTE: y IS INVERSED!!!!!!!!!!!
 		SDL_GetMouseState(&x, &y);
 		const uint8* state = SDL_GetKeyboardState(nullptr);
@@ -201,7 +201,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 		logged_rays.clear();
 	}
 
-  return Drawable::handle_event(event);
+	return Drawable::handle_event(event);
 }
 
 // TODO: load scene recursively
@@ -210,46 +210,46 @@ void Pathtracer::load_scene(const Scene& scene) {
 	primitives.clear();
 	lights.clear();
 
-  for (Drawable* drawable : scene.children) {
-    Mesh* mesh = dynamic_cast<Mesh*>(drawable);
-    if (mesh) {
+	for (Drawable* drawable : scene.children) {
+		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
+		if (mesh) {
 			if (!mesh->bsdf) {
 				WARN("trying to load a mesh without bsdf. skipping...");
 				continue;
 			}
 
 			bool emissive = mesh->bsdf->is_emissive;
-      for (int i=0; i<mesh->faces.size(); i+=3) {
+			for (int i=0; i<mesh->faces.size(); i+=3) {
 				// loop and load triangles
-        Vertex v1 = mesh->vertices[mesh->faces[i]];
-        Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
-        Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
+				Vertex v1 = mesh->vertices[mesh->faces[i]];
+				Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
+				Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
 				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
-        primitives.push_back(static_cast<Primitive*>(T));
+				primitives.push_back(static_cast<Primitive*>(T));
 				
 				// also load as light if emissive
 				if (emissive) {
 					lights.push_back(static_cast<PathtracerLight*>(new AreaLight(T)));
 				}
-      }
-    }
-  }
+			}
+		}
+	}
 
-  TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
+	TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
 			scene.children.size(), primitives.size(), lights.size());
 }
 
 void Pathtracer::enable() {
 	if (!initialized) initialize();
-  TRACE("pathtracer enabled");
-  Camera::Active->lock();
-  Drawable::enable();
+	TRACE("pathtracer enabled");
+	Camera::Active->lock();
+	Drawable::enable();
 }
 
 void Pathtracer::disable() {
-  TRACE("pathtracer disabled");
-  Camera::Active->unlock();
-  Drawable::disable();
+	TRACE("pathtracer disabled");
+	Camera::Active->unlock();
+	Drawable::disable();
 }
 
 void Pathtracer::pause_trace() {
@@ -257,17 +257,17 @@ void Pathtracer::pause_trace() {
 	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
 	TRACEF("rendered %f seconds so far.", cumulative_render_time);
 	notified_pause_finish = false;
-  paused = true;
+	paused = true;
 }
 
 void Pathtracer::continue_trace() {
-  TRACE("continue trace");
+	TRACE("continue trace");
 	last_begin_time = std::chrono::high_resolution_clock::now();
-  paused = false;
+	paused = false;
 }
 
 void Pathtracer::reset() {
-  TRACE("reset pathtracer");
+	TRACE("reset pathtracer");
 	
 	if (Cfg.Pathtracer.Multithreaded) {
 		//-------- threading stuff --------
@@ -289,48 +289,48 @@ void Pathtracer::reset() {
 		//---------------------------------
 	}
 
-  paused = true;
+	paused = true;
 	finished = false;
 	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
 	generate_pixel_offsets();
 
-  memset(image_buffer, 40, width * height * 3);
-  upload_rows(0, height);
+	memset(image_buffer, 40, width * height * 3);
+	upload_rows(0, height);
 }
 
 void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
-  image_buffer[3 * i] = char(rgb.r * 255.0f);
-  image_buffer[3 * i + 1] = char(rgb.g * 255.0f);
-  image_buffer[3 * i + 2] = char(rgb.b * 255.0f);
+	image_buffer[3 * i] = char(rgb.r * 255.0f);
+	image_buffer[3 * i + 1] = char(rgb.g * 255.0f);
+	image_buffer[3 * i + 2] = char(rgb.b * 255.0f);
 }
 
 void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
 	unsigned char* buf = subimage_buffers[buf_i];
-  buf[3 * i] = char(rgb.r * 255.0f);
-  buf[3 * i + 1] = char(rgb.g * 255.0f);
-  buf[3 * i + 2] = char(rgb.b * 255.0f);
+	buf[3 * i] = char(rgb.r * 255.0f);
+	buf[3 * i + 1] = char(rgb.g * 255.0f);
+	buf[3 * i + 2] = char(rgb.b * 255.0f);
 }
 
 void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  GLsizei subimage_offset = width * begin * 3;
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 
-      0, begin, // min x, min y
-      width, rows, // subimage width, subimage height
-      GL_RGB, GL_UNSIGNED_BYTE, 
-      image_buffer + subimage_offset);
-  glBindTexture(GL_TEXTURE_2D, 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	GLsizei subimage_offset = width * begin * 3;
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 
+			0, begin, // min x, min y
+			width, rows, // subimage width, subimage height
+			GL_RGB, GL_UNSIGNED_BYTE, 
+			image_buffer + subimage_offset);
+	glBindTexture(GL_TEXTURE_2D, 0);
 
-  int percentage = int(float(begin + rows) / float(height) * 100.0f);
-  TRACEF("refresh! updated %d rows, %d%% done.", rows, percentage);
+	int percentage = int(float(begin + rows) / float(height) * 100.0f);
+	TRACEF("refresh! updated %d rows, %d%% done.", rows, percentage);
 }
 
 void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h) {
 	unsigned char* buffer = subimage_buffers[subbuf_index];
 	glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexSubImage2D(GL_TEXTURE_2D, 0,
 			begin_x, begin_y,
 			w, h,
@@ -439,7 +439,7 @@ void Pathtracer::update(float elapsed) {
 		}
 	}
 
-  Drawable::update(elapsed);
+	Drawable::update(elapsed);
 }
 
 void Pathtracer::draw() {
@@ -454,16 +454,16 @@ void Pathtracer::draw() {
 	blit->end_pass();
 
 	//---- then draw the logged rays ----
-  glDisable(GL_DEPTH_TEST); // TODO: make this a state push & pop
+	glDisable(GL_DEPTH_TEST); // TODO: make this a state push & pop
 	loggedrays_mat->use(this);
 	glBindVertexArray(loggedrays_vao);
 	glDrawArrays(GL_LINE_STRIP, 0, logged_rays.size());
 
-  glBindVertexArray(0);
-  glUseProgram(0);
+	glBindVertexArray(0);
+	glUseProgram(0);
 	glEnable(GL_DEPTH_TEST);
 
-  Drawable::draw();
+	Drawable::draw();
 }
 
 // file that contains the actual pathtracing meat

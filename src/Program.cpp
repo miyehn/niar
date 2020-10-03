@@ -3,10 +3,10 @@
 #include "Scene.hpp"
 #include "GrassField.hpp"
 #include "Mesh.hpp"
-#include "Pathtracer.hpp"
+#include "Pathtracer/Pathtracer.hpp"
 #include "Shader.hpp"
-#include "BSDF.hpp"
-#include "Primitive.hpp"
+#include "Pathtracer/BSDF.hpp"
+#include "Pathtracer/Primitive.hpp"
 #include "Input.hpp"
 #include "Light.hpp"
 #include "Texture.hpp"
@@ -17,18 +17,18 @@ Camera* Camera::Active;
 Scene* Scene::Active;
 
 void Program::load_resources() {
-  
-  LOG("loading resources...");
+	
+	LOG("loading resources...");
 	initialize_config();
 
-  Pathtracer::Instance = new Pathtracer(width, height, "Niar");
-  Camera::Active = new Camera(width, height);
+	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
+	Camera::Active = new Camera(width, height);
 
 }
 
 void Program::setup() {
 
-  Scene* scene = new Scene("my scene");
+	Scene* scene = new Scene("my scene");
 
 	int w, h;
 	w = drawable_width;
@@ -43,6 +43,8 @@ void Program::setup() {
 		Camera::Active->position = vec3(0, -10, 1);
 
 		scene->load(Cfg.SceneSource, false);
+
+		Scene* tmp = f::import_scene(Cfg.SceneSource.c_str());
 	}
 
 	/* Classic cornell box
@@ -96,16 +98,16 @@ void Program::setup() {
 	}
 
 	Scene::Active = scene;
-  scenes.push_back(scene);
+	scenes.push_back(scene);
 }
 
 void Program::release_resources() {
-  LOG("releasing resources..");
-  for (uint i=0; i<scenes.size(); i++) {
-    delete scenes[i];
-  }
-  delete Camera::Active;
-  delete Pathtracer::Instance;
+	LOG("releasing resources..");
+	for (uint i=0; i<scenes.size(); i++) {
+		delete scenes[i];
+	}
+	delete Camera::Active;
+	delete Pathtracer::Instance;
 	Texture::cleanup();
 	Shader::cleanup();
 	Material::cleanup();

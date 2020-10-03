@@ -24,9 +24,10 @@ set(SRC
 	src/Pathtracer/Pathtracer
 	src/Pathtracer/BSDF
 	src/Pathtracer/PathtracerLight
+	include/openfbx/ofbx.cpp
 	)
 
-include_directories(include src src/Pathtracer)
+include_directories(include src)
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
 
 if(APPLE)

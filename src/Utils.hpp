@@ -1,6 +1,8 @@
 #pragma once
 #include "lib.h"
 
+struct Scene;
+
 //--------------- thread-safe queue -----------------------
 template <typename T>
 struct TaskQueue {
@@ -48,3 +50,10 @@ struct AABB {
 	vec3 min, max;
 };
 
+//---------------------------------------------------------
+
+namespace f {
+
+Scene* import_scene(const char* path);
+
+}

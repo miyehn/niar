@@ -23,9 +23,11 @@ struct Mesh : Drawable {
   static std::vector<Mesh*> LoadMeshes(const std::string& source);
   
   Mesh(
-      aiMesh* mesh = nullptr, 
+      aiMesh* mesh, 
       Drawable* _parent = nullptr, 
       std::string _name = "[unnamed mesh]");
+	Mesh();
+	void initialize();
   virtual ~Mesh();
 
   virtual bool handle_event(SDL_Event event);

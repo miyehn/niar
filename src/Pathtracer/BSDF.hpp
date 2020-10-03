@@ -27,44 +27,44 @@ struct BSDF {
 		is_emissive = compute_is_emissive();
 	}
 
-  // albedo
-  vec3 albedo;
+	// albedo
+	vec3 albedo;
 
 	virtual ~BSDF(){
 	}
 
-  /* output: proportion of light going to direction wo (for each wavelength)
-   * wi: negative of light incoming dir (output, sampled)
-   * wo: light outgoing dir (input)
-   * n: normal of the hit surface (input)
-   */
-  virtual vec3 f(const vec3& wi, const vec3& wo, bool debug = false) const = 0;
+	/* output: proportion of light going to direction wo (for each wavelength)
+	 * wi: negative of light incoming dir (output, sampled)
+	 * wo: light outgoing dir (input)
+	 * n: normal of the hit surface (input)
+	 */
+	virtual vec3 f(const vec3& wi, const vec3& wo, bool debug = false) const = 0;
 	virtual vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug = false) const = 0;
 
 protected:
-  // emission
-  vec3 Le;
+	// emission
+	vec3 Le;
 	bool compute_is_emissive() const;
 
 };
 
 struct Diffuse : public BSDF {
-  Diffuse(vec3 _albedo = vec3(1)) {
+	Diffuse(vec3 _albedo = vec3(1)) {
 		is_delta = false;
-    albedo = _albedo;
+		albedo = _albedo;
 		set_emission(vec3(0));
-  }
-  vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
+	}
+	vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
 	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
 };
 
 struct Mirror : public BSDF {
-  Mirror() {
+	Mirror() {
 		is_delta = true;
-    albedo = vec3(1);
+		albedo = vec3(1);
 		set_emission(vec3(0));
-  }
-  vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
+	}
+	vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
 	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
 };
 
@@ -75,6 +75,6 @@ struct Glass : public BSDF {
 		albedo = vec3(1);
 		set_emission(vec3(0));
 	}
-  vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
+	vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
 	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
 };

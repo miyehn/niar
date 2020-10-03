@@ -8,40 +8,40 @@ struct Scene;
 struct Program {
 
 	static Program* Instance;
-  
-  Program(
-      std::string name, 
-      int width, 
-      int height);
-  ~Program();
-  void run();
-    
-  // generic program properties
-  std::string name;
-  size_t width;
-  size_t height;
+	
+	Program(
+			std::string name, 
+			int width, 
+			int height);
+	~Program();
+	void run();
+		
+	// generic program properties
+	std::string name;
+	size_t width;
+	size_t height;
 	int drawable_width;
 	int drawable_height;
-  
-  SDL_Window* window;
-  SDL_GLContext context;
-  TimePoint previous_time;
+	
+	SDL_Window* window;
+	SDL_GLContext context;
+	TimePoint previous_time;
 
 	// input
 	bool receiving_text = false;
 	std::string input_str;
 	void process_input();
 
-  std::vector<Scene*> scenes;
-  
-  // implementation of these decides game behavior.
-  void load_resources();
+	std::vector<Scene*> scenes;
+	
+	// implementation of these decides game behavior.
+	void load_resources();
 
-  void setup();
-  void update(float elapsed);
-  void draw();
+	void setup();
+	void update(float elapsed);
+	void draw();
 
-  void release_resources();
+	void release_resources();
 
 };
 

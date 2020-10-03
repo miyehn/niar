@@ -16,14 +16,14 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
 	
 	//-------- configurations --------
-  // depth test
-  use_depth_test = true;
-  // culling
-  cull_face = false;
-  cull_mode = GL_BACK;
-  // fill / wireframe (/ point)
-  fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
-  
+	// depth test
+	use_depth_test = true;
+	// culling
+	cull_face = false;
+	cull_mode = GL_BACK;
+	// fill / wireframe (/ point)
+	fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
+	
 	//-------- allocate bufers --------
 	
 	// G buffers
@@ -101,16 +101,16 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 	}
 
 	LOG("loading scene containing..");
-  Assimp::Importer importer;
-  const aiScene* scene = importer.ReadFile(source,
-      aiProcess_GenSmoothNormals |
-      aiProcess_CalcTangentSpace |
-      aiProcess_Triangulate |
-      aiProcess_JoinIdenticalVertices |
-      aiProcess_SortByPType);
-  if (!scene) {
-    ERR(importer.GetErrorString());
-  }
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(source,
+			aiProcess_GenSmoothNormals |
+			aiProcess_CalcTangentSpace |
+			aiProcess_Triangulate |
+			aiProcess_JoinIdenticalVertices |
+			aiProcess_SortByPType);
+	if (!scene) {
+		ERR(importer.GetErrorString());
+	}
 	LOGF(" - %d meshes", scene->mNumMeshes);
 	LOGF(" - %d lights", scene->mNumLights);
 	//LOGF(" - %d cameras", scene->mNumCameras);
@@ -175,7 +175,7 @@ void Scene::draw_content(bool shadow_pass) {
 		// for each child of type Mesh and is closed mesh
 		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) {
 			if (!mesh->is_thin_mesh) {
-    		glEnable(GL_CULL_FACE);
+				glEnable(GL_CULL_FACE);
 				glCullFace(GL_FRONT);
 				mesh->draw();
 				glCullFace(cull_mode);
@@ -194,18 +194,18 @@ void Scene::draw_content(bool shadow_pass) {
 void Scene::draw() {
 
 	//-------- setup config --------
-  // depth test
-  if (use_depth_test) glEnable(GL_DEPTH_TEST);
-  else glDisable(GL_DEPTH_TEST);
-  // culling
-  if (cull_face) {
-    glEnable(GL_CULL_FACE);
-    glCullFace(cull_mode);
-  } else {
-    glDisable(GL_CULL_FACE);
-  }
-  // fill mode
-  glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
+	// depth test
+	if (use_depth_test) glEnable(GL_DEPTH_TEST);
+	else glDisable(GL_DEPTH_TEST);
+	// culling
+	if (cull_face) {
+		glEnable(GL_CULL_FACE);
+		glCullFace(cull_mode);
+	} else {
+		glDisable(GL_CULL_FACE);
+	}
+	// fill mode
+	glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
 
 	//---------------- actual drawing ----------------
 	
@@ -221,7 +221,7 @@ void Scene::draw() {
 	//-------- draw geometry information, independent of lighting
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_gbuffers);
-  glClearColor(0, 0, 0, 0);
+	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// bind output textures
 	for (int i=0; i<NUM_GBUFFERS; i++) {
@@ -261,7 +261,7 @@ void Scene::draw() {
 
 		shadow_caster_counter++;
 	}
-  glClearColor(1, 1, 1, 1);
+	glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// then blit
@@ -299,7 +299,7 @@ void Scene::draw() {
 
 		shadow_caster_counter++;
 	}
-  glClearColor(1, 1, 1, 1);
+	glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	blit = Blit::shadow_mask_point();

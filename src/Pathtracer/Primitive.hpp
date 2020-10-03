@@ -5,19 +5,19 @@ struct Vertex;
 struct BSDF;
 
 struct Ray {
-  Ray(vec3 _o = vec3(0), vec3 _d = vec3(0, 0, 1)) : o(_o), d(_d) {
-    tmin = 0.0f;
-    tmax = INF;
+	Ray(vec3 _o = vec3(0), vec3 _d = vec3(0, 0, 1)) : o(_o), d(_d) {
+		tmin = 0.0f;
+		tmax = INF;
 		contribution = 1.0f;
-  }
-  vec3 o, d;
-  double tmin, tmax; 
+	}
+	vec3 o, d;
+	double tmin, tmax; 
 	float contribution; // TODO: why need tmin?
 	bool receive_le = false;
 };
 
 struct Primitive {
-  virtual Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray = true) = 0;
+	virtual Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray = true) = 0;
 	virtual ~Primitive(){}
 	const BSDF* bsdf;
 };
@@ -25,19 +25,19 @@ struct Primitive {
 struct Triangle : public Primitive {
 
 	// bsdf gets passed in from mesh, and will be cleaned up by mesh as well.
-  Triangle(const mat4& o2w, const Vertex& v1, const Vertex& v2, const Vertex& v3, BSDF* _bsdf);
+	Triangle(const mat4& o2w, const Vertex& v1, const Vertex& v2, const Vertex& v3, BSDF* _bsdf);
 
-  vec3 vertices[3];
-  vec3 normals[3];
-  vec3 enormals[3]; // cached edge normals
+	vec3 vertices[3];
+	vec3 normals[3];
+	vec3 enormals[3]; // cached edge normals
 
-  // other pre-computed values
+	// other pre-computed values
 	vec3 e1, e2;
-  vec3 plane_n;
-  float plane_k;
+	vec3 plane_n;
+	float plane_k;
 	float area;
 
-  Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray);
+	Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray);
 
 	vec3 sample_point() const;
 
@@ -55,5 +55,5 @@ struct Sphere : public Primitive {
 	vec3 center;
 	float r;
 
-  Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray);
+	Primitive* intersect(Ray& ray, double& t, vec3& normal, bool modify_ray);
 };

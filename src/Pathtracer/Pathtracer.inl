@@ -9,38 +9,38 @@ void Pathtracer::generate_pixel_offsets() {
 	
 	// canonical arrangement
 	for (int j=0; j<sqk; j++) {
-    for (int i=0; i<sqk; i++) {
+		for (int i=0; i<sqk; i++) {
 			vec2 p;
-      p.x = (i + (j + sample::rand01()) / sqk) / sqk;
-      p.y = (j + (i + sample::rand01()) / sqk) / sqk;
+			p.x = (i + (j + sample::rand01()) / sqk) / sqk;
+			p.y = (j + (i + sample::rand01()) / sqk) / sqk;
 			pixel_offsets.push_back(p);
-    }
-  }
+		}
+	}
 	// shuffle canonical arrangement
 	for (int j=0; j<sqk; j++) {
-    int k = std::floor(j + sample::rand01() * (sqk - j));
-    for (int i=0; i<sqk; i++) {
-      float tmp = pixel_offsets[j*sqk + i].x;
-      pixel_offsets[j*sqk + i].x = pixel_offsets[k*sqk + i].x;
-      pixel_offsets[k*sqk + i].x = tmp;
-    }
-  }
+		int k = std::floor(j + sample::rand01() * (sqk - j));
+		for (int i=0; i<sqk; i++) {
+			float tmp = pixel_offsets[j*sqk + i].x;
+			pixel_offsets[j*sqk + i].x = pixel_offsets[k*sqk + i].x;
+			pixel_offsets[k*sqk + i].x = tmp;
+		}
+	}
 	for (int i=0; i<sqk; i++) {
-    int k = floor(i + sample::rand01() * (sqk - i));
-    for (int j=0; j<sqk; j++) {
-      float tmp = pixel_offsets[j*sqk + i].y;
-      pixel_offsets[j*sqk + i].y = pixel_offsets[j*sqk + k].y;
-      pixel_offsets[j*sqk + k].y = tmp;
-    }
-  }
+		int k = floor(i + sample::rand01() * (sqk - i));
+		for (int j=0; j<sqk; j++) {
+			float tmp = pixel_offsets[j*sqk + i].y;
+			pixel_offsets[j*sqk + i].y = pixel_offsets[j*sqk + k].y;
+			pixel_offsets[j*sqk + k].y = tmp;
+		}
+	}
 
 }
 
 void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 	rays.clear();
 
-  size_t w = index % width;
-  size_t h = index / width;
+	size_t w = index % width;
+	size_t h = index / width;
 	float fov = Camera::Active->fov;
 	float half_width = float(width) / 2.0f;
 	float half_height = float(height) / 2.0f;
@@ -79,16 +79,16 @@ void Pathtracer::generate_rays(std::vector<Ray>& rays, size_t index) {
 }
 
 vec3 Pathtracer::raytrace_pixel(size_t index) {
-  std::vector<Ray> rays;
+	std::vector<Ray> rays;
 	generate_rays(rays, index);
 
-  vec3 result = vec3(0);
-  for (size_t i = 0; i < rays.size(); i++) {
-    result += trace_ray(rays[i], 0, false);
-  }
+	vec3 result = vec3(0);
+	for (size_t i = 0; i < rays.size(); i++) {
+		result += trace_ray(rays[i], 0, false);
+	}
 
 	result *= 1.0f / float(rays.size());
-  result = clamp(result, vec3(0), vec3(1));
+	result = clamp(result, vec3(0), vec3(1));
 	return result;
 }
 
@@ -97,8 +97,8 @@ void Pathtracer::raytrace_debug(size_t index) {
 	logged_rays.clear();
 	logged_rays.push_back(Camera::Active->position);
 
-  int w = index % width;
-  int h = index / width;
+	int w = index % width;
+	int h = index / width;
 	Ray ray;
 	generate_one_ray(ray, w, h);
 
@@ -136,11 +136,11 @@ float Pathtracer::depth_of_first_hit(int x, int y) {
 	Ray ray;
 	generate_one_ray(ray, x, y);
 	
-  // info of closest hit
-  double t; vec3 n;
-  for (size_t i = 0; i < primitives.size(); i++) {
-    primitives[i]->intersect(ray, t, n, true);
-  }
+	// info of closest hit
+	double t; vec3 n;
+	for (size_t i = 0; i < primitives.size(); i++) {
+		primitives[i]->intersect(ray, t, n, true);
+	}
 
 	t *= dot(ray.d, Camera::Active->forward());
 
@@ -166,22 +166,22 @@ inline float brightness(const vec3& color) {
 vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return vec3(0);
 
-  // info of closest hit
+	// info of closest hit
 	Primitive* primitive = nullptr;
-  const BSDF* bsdf = nullptr;
-  double t; vec3 n;
-  for (size_t i = 0; i < primitives.size(); i++) {
-    Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
-    if (prim_tmp) {
+	const BSDF* bsdf = nullptr;
+	double t; vec3 n;
+	for (size_t i = 0; i < primitives.size(); i++) {
+		Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
+		if (prim_tmp) {
 			primitive = prim_tmp;
 			bsdf = primitive->bsdf;
 		}
-  }
+	}
 
-  if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
+	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
 
 		// pre-compute (or declare) some common things to be used later
-    vec3 L = vec3(0);
+		vec3 L = vec3(0);
 		vec3 hit_p = ray.o + float(t) * ray.d;
 		if (debug) logged_rays.push_back(hit_p);
 		// construct transform from hemisphere space to world space;
@@ -300,7 +300,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		}
 #endif
 		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
-    return clamp(L, vec3(0), vec3(INF));
-  }
-  return vec3(0);
+		return clamp(L, vec3(0), vec3(INF));
+	}
+	return vec3(0);
 }

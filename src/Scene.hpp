@@ -17,7 +17,7 @@ struct Scene : public Drawable {
 
 	static Scene* Active;
 
-  Scene(std::string _name = "[unnamed scene]");
+	Scene(std::string _name = "[unnamed scene]");
 	virtual ~Scene();
 
 	int w, h;
@@ -40,18 +40,18 @@ struct Scene : public Drawable {
 
 	Material* replacement_material = nullptr;
 
-  //-------- OpenGL configurations --------
-  // depth test
-  bool use_depth_test;
-  // culling
-  bool cull_face;
-  GLenum cull_mode;
-  // fill / wireframe (/ point)
-  GLenum fill_effective_polygon; // GL_FRONT_AND_BACK | GL_BACK | GL_FRONT
-  GLenum fill_mode; // GL_FILL | GL_LINE | GL_POINT
+	//-------- OpenGL configurations --------
+	// depth test
+	bool use_depth_test;
+	// culling
+	bool cull_face;
+	GLenum cull_mode;
+	// fill / wireframe (/ point)
+	GLenum fill_effective_polygon; // GL_FRONT_AND_BACK | GL_BACK | GL_FRONT
+	GLenum fill_mode; // GL_FILL | GL_LINE | GL_POINT
 
-  //-------- where the configurations are being set before the scene is drawn --------
-  virtual void draw();
+	//-------- where the configurations are being set before the scene is drawn --------
+	virtual void draw();
 
 	AABB aabb;
 	std::vector<Mesh*> get_meshes();
@@ -63,6 +63,6 @@ private:
 	virtual void set_local_position(vec3 _local_position) {}
 	virtual void set_rotation(quat _rotation) {}
 	virtual void set_scale(vec3 _scale) {}
-  
+	
 };
 

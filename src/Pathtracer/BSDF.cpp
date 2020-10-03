@@ -6,50 +6,50 @@
 #define USE_COS_WEIGHED 1
 
 float sample::rand01() {
-  return float(rand()) / float(RAND_MAX);
+	return float(rand()) / float(RAND_MAX);
 }
 
 vec2 sample::unit_square_uniform() {
-  return vec2(rand01(), rand01());
+	return vec2(rand01(), rand01());
 }
 
 vec2 sample::unit_disc_uniform() {
-  float x = rand01() - 0.5f; 
-  float y = rand01() - 0.5f;  
+	float x = rand01() - 0.5f; 
+	float y = rand01() - 0.5f;  
 	while(length(vec2(x, y)) > 0.5f) {
-    x = rand01() - 0.5f;
+		x = rand01() - 0.5f;
 		y = rand01() - 0.5f;
 	}
 	return vec2(x, y) * 2.0f;
 }
 
 vec3 sample::hemisphere_uniform() {
-  float x = rand01() - 0.5f; 
-  float y = rand01() - 0.5f; 
-  float z = rand01() - 0.5f;
-  while (length(vec3(x, y, z)) > 0.5f) {
-    x = rand01() - 0.5f;
+	float x = rand01() - 0.5f; 
+	float y = rand01() - 0.5f; 
+	float z = rand01() - 0.5f;
+	while (length(vec3(x, y, z)) > 0.5f) {
+		x = rand01() - 0.5f;
 		y = rand01() - 0.5f;
 		z = rand01() - 0.5f;
-  }
-  return normalize(vec3(x, y, abs(z)));
+	}
+	return normalize(vec3(x, y, abs(z)));
 }
 
 // ehh.... significantly slower than uniform sampling..
 // see: https://bobobobo.wordpress.com/2012/06/11/cosine-weighted-hemisphere-sampling/
 vec3 sample::hemisphere_cos_weighed() {
 #if 1
-  float x = rand01() - 0.5f; 
-  float y = rand01() - 0.5f;  
+	float x = rand01() - 0.5f; 
+	float y = rand01() - 0.5f;  
 	while(length(vec2(x, y)) > 0.5f) {
-    x = rand01() - 0.5f;
+		x = rand01() - 0.5f;
 		y = rand01() - 0.5f;
 	}
 	x *= 2.0f; y *= 2.0f;
 	float l = length(vec2(x, y));
 	float z = sqrt(1.0f - l * l);
 
-  return vec3(x, y, z);
+	return vec3(x, y, z);
 #else // too slow....
 	float r1 = rand01();
 	float r2 = rand01();
@@ -67,15 +67,15 @@ bool BSDF::compute_is_emissive() const {
 }
 
 vec3 Diffuse::f(const vec3& wi, const vec3& wo, bool debug) const {
-  return albedo * ONE_OVER_PI;
+	return albedo * ONE_OVER_PI;
 }
 
 vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 #if USE_COS_WEIGHED
-  wi = sample::hemisphere_cos_weighed();
+	wi = sample::hemisphere_cos_weighed();
 	pdf = wi.z * ONE_OVER_PI;
 #else
-  wi = sample::hemisphere_uniform();
+	wi = sample::hemisphere_uniform();
 	pdf = ONE_OVER_TWO_PI;
 #endif
 	return f(wi, wo, debug);
@@ -141,7 +141,7 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 
 		float xy_norm_factor = sin_theta_t / sin_theta_i;
 		wi = vec3(-wo.x * xy_norm_factor,
-						  -wo.y * xy_norm_factor,
+							-wo.y * xy_norm_factor,
 							trace_out ? cos_theta_t : -cos_theta_t);
 
 		pdf = 1.0f - reflectance;

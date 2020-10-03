@@ -1,7 +1,7 @@
 #include "Mesh.hpp"
 #include "Shader.hpp"
 #include "Camera.hpp"
-#include "BSDF.hpp"
+#include "Pathtracer/BSDF.hpp"
 #include "Input.hpp"
 #include "Scene.hpp"
 #include "Light.hpp"
@@ -11,6 +11,8 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
+
+Mesh::Mesh() {}
 
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
@@ -26,7 +28,6 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	// thin mesh (from name)
 	if (std::string(inName).substr(0, 5) == "thin_") {
 		is_thin_mesh = true;
-		LOGF("thin mesh %s", inName);
 	} else is_thin_mesh = false;
 
 	// iterate through vertices
@@ -42,7 +43,6 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 		v.uv = vec2(uv.x, uv.y);
 		vertices.push_back(v);
 	}
-	generate_aabb();
 
 	// iterate through faces indices and store them
 	for (int j=0; j<mesh->mNumFaces; j++) {
@@ -54,6 +54,13 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 
 	// texture (TODO)
 	texture = Texture::get("checkerboard");
+
+	initialize();
+}
+
+void Mesh::initialize() {
+
+	generate_aabb();
 
 	//---- OpenGL setup ----
 
