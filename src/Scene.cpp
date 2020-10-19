@@ -115,6 +115,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 	LOGF(" - %d lights", scene->mNumLights);
 	//LOGF(" - %d cameras", scene->mNumCameras);
 
+#if 1
 	// meshes
 	for (int i=0; i<scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
@@ -124,6 +125,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		}
 	}
 	generate_aabb();
+#endif
 
 	// lights
 	for (int i=0; i<scene->mNumLights; i++) {

@@ -54,6 +54,6 @@ struct AABB {
 
 namespace f {
 
-Scene* import_scene(const char* path);
+bool import_scene(Scene* scene, const char* path);
 
 }

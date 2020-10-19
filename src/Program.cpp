@@ -44,7 +44,8 @@ void Program::setup() {
 
 		scene->load(Cfg.SceneSource, false);
 
-		Scene* tmp = f::import_scene(Cfg.SceneSource.c_str());
+		// decided it's too much hassle to switch to ofbx for now, so will stay with assimp a little longer.
+		// f::import_scene(scene, Cfg.SceneSource.c_str());
 	}
 
 	/* Classic cornell box

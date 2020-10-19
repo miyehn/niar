@@ -3568,6 +3568,7 @@ Object* Object::getParent() const
 			{
 				assert(parent == nullptr);
 				parent = obj;
+				break;
 			}
 		}
 	}

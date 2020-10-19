@@ -1,6 +1,5 @@
 .idea/
 .ccls-cache/
-.vscode/
 build/
 src/tags
 dist/

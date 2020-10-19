@@ -40,11 +40,11 @@ Program::Program(std::string name, int width, int height) {
 	
 	// create window
 	this->window = SDL_CreateWindow(
-																	name.c_str(),
-																	100, 100, // SDL_WINDOWPOS_UNDEFINED, or SDL_WINDOWPOS_CENTERED
-																	width, height, // specify window size
-																	SDL_WINDOW_OPENGL
-																	);
+		name.c_str(),
+		100, 100, // SDL_WINDOWPOS_UNDEFINED, or SDL_WINDOWPOS_CENTERED
+		width, height, // specify window size
+		SDL_WINDOW_OPENGL
+		);
 	if (!window) {
 		std::cerr << "Error creating SDL window: " << SDL_GetError() << std::endl;
 		exit(1);

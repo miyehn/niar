@@ -72,28 +72,85 @@ ofbx::IScene* load_scene(const char* path) {
 	return inScene;
 }
 
-// see openfbx example for file handling
-Scene* f::import_scene(const char* path) {
+/* see openfbx example for file handling
+ * decided it's too much hassle to switch to ofbx for now, so will stick with assimp
+ */
+bool f::import_scene(Scene* scene, const char* path) {
+
+	if (!scene) return false;
 
 	ofbx::IScene* inScene = load_scene(path);
-	if (!inScene) return nullptr;
+	if (!inScene) return false;
 
+/*
+	// TODO: use below to import light and camera
+	int cnt = inScene->getAllObjectCount();
+	LOGF("scene contains %d objects", cnt);
+	for(int i=0; i<cnt; i++) {
+		auto obj = inScene->getAllObjects()[i];
+		auto p = obj->getParent();
+		LOGF("%s, type: %d | %s", obj->name, obj->getType(), p ? p->name : "(null)");
+		if (obj->getType() == ofbx::Object::Type::NODE_ATTRIBUTE) {
+
+		}
+	}
+*/
+
+	//-------- meshes --------
 	int mesh_count = inScene->getMeshCount();
-	Scene* scene = new Scene(path);
-	for (int i=0; i<mesh_count; i++) {
+	for (int i=0; i<mesh_count; i++)
+	{
 		Mesh* mesh = new Mesh();
 		const ofbx::Mesh* inMesh = inScene->getMesh(i);
 		const ofbx::Geometry* geom = inMesh->getGeometry();
-		int vertex_count = geom->getVertexCount();
-		const ofbx::Vec3* vertices = geom->getVertices();
-		for (int j=0; j<vertex_count; j++) {
-			ofbx::Vec3 v = vertices[j];
 
+		// name
+		mesh->name = std::string(inMesh->name);
+
+		// vertices (TODO: not optimized though... should probably learn more about fbx and improve here)
+		int vertex_count = geom->getVertexCount();
+		int index_count = geom->getIndexCount();
+		if (vertex_count != index_count) {
+			WARN("mesh '%s' vertex cnt %d, index cnt %d - ofbx is not supposed to do such smart thing??",
+				inMesh->name, vertex_count, index_count);
+		}
+
+		const ofbx::Vec3* vertices = geom->getVertices();
+		const ofbx::Vec3* normals = geom->getNormals();
+		const ofbx::Vec2* uvs = geom->getUVs();
+
+		if (normals == nullptr) WARNF("importing %s without normals..", inMesh->name);
+		if (uvs == nullptr) WARNF("importing %s without uvs..", inMesh->name);
+
+		for (int j=0; j<index_count; j++) {
+			ofbx::Vec3 v = vertices[j];
+			ofbx::Vec3 n = normals ? normals[j] : ofbx::Vec3();
+			ofbx::Vec2 uv = uvs ? uvs[j] : ofbx::Vec2();
+			mesh->vertices.push_back(Vertex());
+			Vertex& vert = mesh->vertices.back();
+			vert.position = vec3(v.x, v.y, v.z);
+			vert.normal = vec3(n.x, n.y, n.z);
+			vert.uv = vec2(uv.x, uv.y);
+		}
+
+		// faces
+		const int* faces = geom->getFaceIndices();
+		for (int j=0; j<index_count; j++) {
+			if ( (j%3==2 && faces[j]>=0) || (j%3!=2 && faces[j]<0) ) WARNF("mesh %s doesn't seem triangularized!!", inMesh->name);
+			int idx = j%3==2 ? -1 ^ faces[j] : faces[j];
+			mesh->faces.push_back(idx);
 		}
 		mesh->initialize();
+
+		scene->add_child(mesh);
 	}
 
-	return scene;
+	scene->generate_aabb();
+
+	// TODO: import lights
+	// TODO: import camera position
+
+	return true;
 }
 
 //-------------------------------------------------

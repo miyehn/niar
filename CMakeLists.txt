@@ -29,6 +29,7 @@ set(SRC
 
 include_directories(include src)
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
+add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 
 if(APPLE)
 	add_executable(niar ${SRC})
