@@ -59,6 +59,22 @@ IMPLEMENT_MATERIAL(MatBasic)
 	shader->set_vec3("Color", tint);
 END_IMPLEMENT_MATERIAL
 
+IMPLEMENT_MATERIAL(MatDeferredGeometryBasic)
+	// transformation 
+	mat4 o2w = obj->object_to_world();
+	mat3 o2wr = obj->object_to_world_rotation();
+
+	mat4 w2cl = Camera::Active->world_to_clip();
+
+	shader->set_mat3("OBJECT_TO_WORLD_ROT", o2wr);
+	shader->set_mat4("OBJECT_TO_WORLD", o2w);
+	shader->set_mat4("OBJECT_TO_CLIP", w2cl * o2w);
+
+	// others
+	shader->set_tex2D("BaseColor", 0, base_color->id());
+	shader->set_vec3("Tint", tint);
+END_IMPLEMENT_MATERIAL
+
 IMPLEMENT_MATERIAL(MatDeferredGeometry)
 	// transformation 
 	mat4 o2w = obj->object_to_world();
@@ -72,6 +88,7 @@ IMPLEMENT_MATERIAL(MatDeferredGeometry)
 
 	// others
 	shader->set_tex2D("BaseColor", 0, base_color->id());
+	shader->set_tex2D("NormalMap", 1, normal_map->id());
 	shader->set_vec3("Tint", tint);
 END_IMPLEMENT_MATERIAL
 

@@ -2,7 +2,7 @@
 #include "Drawable.hpp"
 #include "Utils.hpp"
 
-#define NUM_MATERIAL_SETS 2
+#define NUM_MATERIAL_SETS 3
 
 struct BSDF;
 struct aiMesh;
@@ -14,9 +14,10 @@ struct Vertex {
   Vertex(vec3 _position) : position(_position) {}
   vec3 position = vec3(0, 0, 0);
   vec3 normal = vec3(0, 0, 1);
+  vec3 tangent = vec3(1, 0, 0);
   vec2 uv = vec2(0.5f, 0.5f);
 };
-static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 2), "vertex struct should be packed");
+static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 3 + 2), "vertex struct should be packed");
 
 struct Mesh : Drawable {
 
@@ -45,7 +46,6 @@ struct Mesh : Drawable {
 	AABB aabb;
 	BSDF* bsdf = nullptr;
 
-	Texture* texture = nullptr;
 	Material* materials[NUM_MATERIAL_SETS];
 
 private:

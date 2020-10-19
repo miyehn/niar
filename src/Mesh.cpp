@@ -36,10 +36,13 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 		aiVector3D position = mesh->mVertices[i];
 		aiVector3D normal = mesh->mNormals[i];
 		aiVector3D uv = mesh->mTextureCoords[0][i];
+		aiVector3D tangent = mesh->mTangents[i];
 		// create vertex from pnc
 		Vertex v;
 		v.position = vec3(position.x, position.y, position.z);
 		v.normal = vec3(normal.x, normal.y, normal.z);
+		v.tangent = vec3(tangent.x, tangent.y, tangent.z);
+		v.tangent = normalize(v.tangent - dot(v.tangent, v.normal) * v.normal); // gram-schmidt
 		v.uv = vec2(uv.x, uv.y);
 		vertices.push_back(v);
 	}
@@ -47,13 +50,13 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	// iterate through faces indices and store them
 	for (int j=0; j<mesh->mNumFaces; j++) {
 		aiFace face = mesh->mFaces[j];
-		faces.push_back(face.mIndices[0]);
-		faces.push_back(face.mIndices[1]);
-		faces.push_back(face.mIndices[2]);
+		int i1 = face.mIndices[0];
+		int i2 = face.mIndices[1];
+		int i3 = face.mIndices[2];
+		faces.push_back(i1);
+		faces.push_back(i2);
+		faces.push_back(i3);
 	}
-
-	// texture (TODO)
-	texture = Texture::get("checkerboard");
 
 	initialize();
 }
@@ -64,10 +67,19 @@ void Mesh::initialize() {
 
 	//---- OpenGL setup ----
 
+	// materials
 	for (int i=0; i<NUM_MATERIAL_SETS; i++) materials[i] = nullptr;
+
 	materials[0] = new MatBasic();
-	materials[1] = new MatDeferredGeometry();
-	dynamic_cast<MatDeferredGeometry*>(materials[1])->base_color = Texture::get("checkerboard");
+
+	MatDeferredGeometryBasic* mat_geometry_basic = new MatDeferredGeometryBasic();
+	mat_geometry_basic->base_color = Texture::get("checkerboard");
+	materials[1] = mat_geometry_basic;
+
+	MatDeferredGeometry* mat_geometry = new MatDeferredGeometry();
+	mat_geometry->base_color = Texture::white();
+	mat_geometry->normal_map = Texture::get("cross_normal");
+	materials[2] = mat_geometry;
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);
@@ -104,12 +116,21 @@ void Mesh::initialize() {
 
 		glVertexAttribPointer(
 				2, // attrib index
+				3, // num of data elems
+				GL_FLOAT, // data type
+				GL_FALSE, // normalized
+				sizeof(Vertex), // stride size
+				(void*)offsetof(Vertex, tangent)); // offset from stride start
+		glEnableVertexAttribArray(2);
+
+		glVertexAttribPointer(
+				3, // attrib index
 				2, // num of data elems
 				GL_FLOAT, // data type
 				GL_FALSE, // normalized
 				sizeof(Vertex), // stride size
 				(void*)offsetof(Vertex, uv)); // offset from stride start
-		glEnableVertexAttribArray(2);
+		glEnableVertexAttribArray(3);
 	}
 	glBindVertexArray(0);
 

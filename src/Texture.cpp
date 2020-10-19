@@ -73,7 +73,7 @@ Texture* Texture::get(const std::string& name) {
 
 	texture_pool[path] = tex;
 
-	LOGF("created texture of size %dx%d with %d channels", tex->width(), tex->height(), tex->num_channels());
+	LOGF("created texture '%s' of size %dx%d with %d channels", name.c_str(), tex->width(), tex->height(), tex->num_channels());
 	return tex;
 }
 

@@ -1,8 +1,8 @@
 #version 330 core
 
 in vec4 vf_position;
+in vec3 vf_normal;
 in vec2 vf_uv;
-in mat3 TANGENT_TO_WORLD_ROT;
 
 uniform vec3 Tint;
 uniform sampler2D BaseColor;
@@ -17,6 +17,6 @@ void main()
 	vec2 uv = vf_uv;
 
 	Position = vf_position.xyz;
-	Normal = TANGENT_TO_WORLD_ROT * normalize((texture(NormalMap, uv).rgb) * 2 - 1.0);
+	Normal = normalize(vf_normal);
 	Color = texture(BaseColor, uv).rgb * Tint;
 }

@@ -53,6 +53,17 @@ struct MatBasic : Material {
 	vec3 tint;
 };
 
+struct MatDeferredGeometryBasic : Material {
+	MatDeferredGeometryBasic() : Material("geometry_basic") {
+		base_color = Texture::white();
+		tint = vec3(1);
+	}
+	virtual ~MatDeferredGeometryBasic() {}
+	virtual void use(const Drawable* obj);
+	Texture* base_color;
+	vec3 tint;
+};
+
 struct MatDeferredGeometry : Material {
 	MatDeferredGeometry() : Material("geometry") {
 		base_color = Texture::white();
@@ -61,6 +72,7 @@ struct MatDeferredGeometry : Material {
 	virtual ~MatDeferredGeometry() {}
 	virtual void use(const Drawable* obj);
 	Texture* base_color;
+	Texture* normal_map;
 	vec3 tint;
 };
 

@@ -100,14 +100,16 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		children.clear();
 	}
 
-	LOG("loading scene containing..");
+	LOG("-------- loading scene --------");
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(source,
-			aiProcess_GenSmoothNormals |
-			aiProcess_CalcTangentSpace |
-			aiProcess_Triangulate |
-			aiProcess_JoinIdenticalVertices |
-			aiProcess_SortByPType);
+			// aiProcess_GenSmoothNormals
+			aiProcess_CalcTangentSpace
+			| aiProcess_Triangulate
+			| aiProcess_FlipUVs
+			// | aiProcess_JoinIdenticalVertices
+			// | aiProcess_SortByPType
+			);
 	if (!scene) {
 		ERR(importer.GetErrorString());
 	}
@@ -146,6 +148,8 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			WARN("unrecognized light type, skipping..");
 		}
 	}
+
+	LOG("-------------------------------");
 }
 
 // TODO: make this support parenting hierarchy
@@ -214,7 +218,7 @@ void Scene::draw() {
 	glViewport(0, 0, w, h);
 
 	material_set = Cfg.MaterialSet->get();
-	if (material_set != 1) {
+	if (material_set == 0) {
 		draw_content();
 		// if it's not drawing deferred base pass, skip the rest of deferred pipeline
 		return;

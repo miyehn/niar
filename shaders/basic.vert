@@ -5,7 +5,8 @@ uniform mat3 OBJECT_TO_CAM_ROT;//obj->object_to_world_rotation() * Camera::Activ
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
-layout (location = 2) in vec2 in_uv;
+layout (location = 2) in vec3 in_tangent;
+layout (location = 3) in vec2 in_uv;
 
 out vec3 vf_normal;
 out vec2 vf_uv;
