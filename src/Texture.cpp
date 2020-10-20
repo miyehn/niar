@@ -45,6 +45,17 @@ Texture* Texture::white() {
 	return white_value;
 }
 
+Texture* Texture::default_normal_value = nullptr;
+Texture* Texture::default_normal() {
+	if (default_normal_value) return default_normal_value;
+	std::vector<u8vec3> default_normal_data(4 * 4 * 3);
+	for (int i=0; i<default_normal_data.size(); i++) {
+		default_normal_data[i] = u8vec3(127, 127, 255);
+	}
+	default_normal_value = create_texture_8bit((unsigned char*)default_normal_data.data(), 4, 4, 3);
+	return default_normal_value;
+}
+
 Texture* Texture::get(const std::string& name) {
 
 	std::string path;

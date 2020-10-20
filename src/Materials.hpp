@@ -67,6 +67,7 @@ struct MatDeferredGeometryBasic : Material {
 struct MatDeferredGeometry : Material {
 	MatDeferredGeometry() : Material("geometry") {
 		base_color = Texture::white();
+		normal_map = Texture::default_normal();
 		tint = vec3(1);
 	}
 	virtual ~MatDeferredGeometry() {}

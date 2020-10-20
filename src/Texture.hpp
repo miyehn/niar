@@ -5,6 +5,7 @@
 struct Texture {
 
 	CONST_PTR(Texture, white);
+	CONST_PTR(Texture, default_normal);
 	
 	static Texture* get(const std::string& name);
 	static void set_path(const std::string& name, const std::string& path);
