@@ -400,3 +400,4 @@ IMPLEMENT_BLIT(lighting_directional, "lightingDirectional");
 IMPLEMENT_BLIT(lighting_point, "lightingPoint");
 
 IMPLEMENT_BLIT(blit, "blit");
+IMPLEMENT_BLIT(gamma_correct, "gammaCorrect");

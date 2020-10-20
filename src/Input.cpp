@@ -46,6 +46,7 @@ void initialize_config() {
 		Cfg.DebugTexMax->set(config_src.lookup("DebugTexMax"));
 
 		Cfg.MaterialSet->set(config_src.lookup("MaterialSet"));
+		Cfg.GammaCorrect->set(config_src.lookup("GammaCorrect"));
 
 		//---------------- ASSETS -------------------
 
@@ -77,17 +78,17 @@ void initialize_config() {
 			Shader::add(name, shader);
 			shader->name = name;
 		}
-		LOG("-------------------------");
 
 		// textures
+		LOG("---- loading textures (lazy) ----");
 		const Setting& textures = config_src.getRoot()["Textures"];
 		for (int i=0; i<textures.getLength(); i++) {
 			std::string name = textures[i].lookup("Name");
 			std::string path = textures[i].lookup("Path");
-			Texture::set_path(name, ROOT_DIR"/" + path);
+			int SRGB = textures[i].lookup("SRGB");
+			Texture::set_resource_info(name, ROOT_DIR"/" + path, SRGB);
+			LOGF("set texture path for '%s', SRGB: %d", name.c_str(), SRGB);
 		}
-
-		LOG("*** successfully loaded config from file! ***");
 
 	} catch (const SettingNotFoundException &nfex) {
 		ERR("Some setting(s) not found in config.ini");

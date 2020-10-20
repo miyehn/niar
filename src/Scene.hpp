@@ -38,6 +38,10 @@ struct Scene : public Drawable {
 	uint depthbuf_position_lights = 0;
 	uint tex_depth = 0;
 
+	uint fbo_scene_color = 0;
+	uint color_attachments_scene_color = 0;
+	uint tex_scene_color = 0;
+
 	Material* replacement_material = nullptr;
 
 	//-------- OpenGL configurations --------

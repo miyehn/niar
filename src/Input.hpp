@@ -86,6 +86,7 @@ struct ProgramConfig
 	CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
 	CVar<int>* MaterialSet = new CVar<int>("MaterialSet", 1);
+	CVar<int>* GammaCorrect = new CVar<int>("GammaCorrect", 1);
 };
 
 extern ProgramConfig Cfg;

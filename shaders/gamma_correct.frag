@@ -7,6 +7,7 @@ out vec4 FragColor;
 
 void main() {
 
-  FragColor = texture(TEX, vf_uv);
+  vec4 gamma = vec4( vec3(0.455), 1 );
+  FragColor = pow(texture(TEX, vf_uv), gamma);
 
 }

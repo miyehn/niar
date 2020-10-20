@@ -86,6 +86,28 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	//---- setup scene color texture (to be ready for post processing)
+	glGenFramebuffers(1, &fbo_scene_color);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color);
+
+	glGenTextures(1, &tex_scene_color);
+	glBindTexture(GL_TEXTURE_2D, tex_scene_color);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	// single color attachment, no depth
+	color_attachments_scene_color = GL_COLOR_ATTACHMENT0;
+	glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments_scene_color, GL_TEXTURE_2D, tex_scene_color, 0);
+	// check error
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		ERR("scene color framebuffer not correctly initialized");
+	glDrawBuffers(1, &color_attachments_scene_color);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	GL_ERRORS();
+
 }
 
 // OMG MIND BLOWN: https://stackoverflow.com/questions/677620/do-i-need-to-explicitly-call-the-base-virtual-destructor
@@ -106,7 +128,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			// aiProcess_GenSmoothNormals
 			aiProcess_CalcTangentSpace
 			| aiProcess_Triangulate
-			| aiProcess_FlipUVs
+			// | aiProcess_FlipUVs
 			// | aiProcess_JoinIdenticalVertices
 			// | aiProcess_SortByPType
 			);
@@ -117,7 +139,6 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 	LOGF(" - %d lights", scene->mNumLights);
 	//LOGF(" - %d cameras", scene->mNumCameras);
 
-#if 1
 	// meshes
 	for (int i=0; i<scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
@@ -127,7 +148,6 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		}
 	}
 	generate_aabb();
-#endif
 
 	// lights
 	for (int i=0; i<scene->mNumLights; i++) {
@@ -137,12 +157,14 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			d_lights.push_back(d_light);
 			d_light->set_cast_shadow(true);
 			add_child(d_light);
+			LOGF("loaded directional light %s, color: %s", d_light->name.c_str(), s3(d_light->get_emission()).c_str());
 			
 		} else if (light->mType == aiLightSource_POINT) {
 			PointLight* p_light = new PointLight(light, scene->mRootNode);
 			p_lights.push_back(p_light);
 			p_light->set_cast_shadow(true);
 			add_child(p_light);
+			LOGF("loaded point light %s, color: %s", p_light->name.c_str(), s3(p_light->get_emission()).c_str());
 
 		} else {
 			WARN("unrecognized light type, skipping..");
@@ -326,14 +348,14 @@ void Scene::draw() {
 	}
 	blit->end_pass();
 
-	//-------- lighting passes: copy to screen
+	//-------- lighting passes --> scene color texture
 	
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color);
 	
 	// directional lights
 	blit = Blit::lighting_directional();
 	blit->begin_pass();
-	{ 
+	{
 		// g buffers
 		for (int i=0; i<NUM_GBUFFERS; i++) {
 			std::string name = "GBUF" + std::to_string(i);
@@ -377,9 +399,18 @@ void Scene::draw() {
 	}
 	blit->end_pass();
 
+	// post processing (gamma correction) --> screen
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDisable(GL_BLEND);
 
-	// draw debug texture
+	blit = Cfg.GammaCorrect->get() ? Blit::gamma_correct() : Blit::blit();
+	blit->begin_pass();
+	{
+		blit->set_tex2D("TEX", 0, tex_scene_color);
+	}
+	blit->end_pass();
+
+	// draw debug texture on top
 	if (Cfg.ShowDebugTex->get()) {
 		int debugtex = find_named_tex(Cfg.DebugTex->get());
 		if (debugtex >= 0) {

@@ -66,6 +66,7 @@ struct Blit : Shader {
 
 	CONST_PTR(Blit, copy_debug);
 	CONST_PTR(Blit, blit);
+	CONST_PTR(Blit, gamma_correct);
 	CONST_PTR(Blit, shadow_mask_directional);
 	CONST_PTR(Blit, shadow_mask_point);
 	CONST_PTR(Blit, lighting_directional);
