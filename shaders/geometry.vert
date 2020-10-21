@@ -19,7 +19,7 @@ void main() {
 
   vf_uv = in_uv;
 
-  vec3 N = in_normal;
+  vec3 N = OBJECT_TO_WORLD_ROT * in_normal;
   vec3 T = OBJECT_TO_WORLD_ROT * in_tangent;
   vec3 B = cross(N, T);
   TANGENT_TO_WORLD_ROT = mat3(T, B, N);

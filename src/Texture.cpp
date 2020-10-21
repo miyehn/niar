@@ -56,7 +56,7 @@ Texture* Texture::default_normal() {
 	for (int i=0; i<default_normal_data.size(); i++) {
 		default_normal_data[i] = u8vec3(127, 127, 255);
 	}
-	default_normal_value = create_texture_8bit((unsigned char*)default_normal_data.data(), 4, 4, 3, true);
+	default_normal_value = create_texture_8bit((unsigned char*)default_normal_data.data(), 4, 4, 3, false);
 	return default_normal_value;
 }
 

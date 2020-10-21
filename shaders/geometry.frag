@@ -17,6 +17,8 @@ void main()
 	vec2 uv = vf_uv;
 
 	Position = vf_position.xyz;
-	Normal = TANGENT_TO_WORLD_ROT * normalize((texture(NormalMap, uv).rgb) * 2 - 1.0);
+	vec3 sampled_normal = texture(NormalMap, uv).rgb * 2 - 1.0;
+	sampled_normal.rg = -sampled_normal.rg;
+	Normal = TANGENT_TO_WORLD_ROT * normalize(sampled_normal);
 	Color = texture(BaseColor, uv).rgb * Tint;
 }

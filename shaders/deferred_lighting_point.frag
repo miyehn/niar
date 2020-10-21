@@ -69,7 +69,7 @@ void main() {
 	vec3 albedo = GColor.rgb;
 	// TODO
 	float metallic = 0;
-	float roughness = 0.3;
+	float roughness = 0.4;
 	float ambientOcclusion = 0.03;
 
 	// other light-independent properties
