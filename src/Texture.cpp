@@ -3,6 +3,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image/stb_image.h"
 
+// might be relevant: https://github.com/nothings/stb/issues/103
 Texture* Texture::create_texture_8bit(unsigned char* data, int w, int h, int nc, bool SRGB) {
 	Texture* tex = new Texture();
 	tex->width_value = w;

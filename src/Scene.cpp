@@ -4,6 +4,7 @@
 #include "Mesh.hpp"
 #include "Light.hpp"
 #include "Materials.hpp"
+#include "Camera.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -371,6 +372,9 @@ void Scene::draw() {
 			blit->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
 		}
 		blit->set_int("NumDirectionalLights", d_lights.size());
+
+		// camera
+		blit->set_vec3("CameraPosition", Camera::Active->position);
 	}
 	blit->end_pass();
 
@@ -396,6 +400,9 @@ void Scene::draw() {
 			blit->set_tex2D(prefix+"shadowMask", NUM_GBUFFERS + i, L->get_shadow_mask());
 		}
 		blit->set_int("NumPointLights", p_lights.size());
+
+		// camera
+		blit->set_vec3("CameraPosition", Camera::Active->position);
 	}
 	blit->end_pass();
 
