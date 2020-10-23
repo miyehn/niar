@@ -38,27 +38,21 @@ void Texture::set_resource_info(const std::string& name, const std::string& path
 	texture_resource_infos[name] = info;
 }
 
-Texture* Texture::white_value = nullptr;
-Texture* Texture::white() {
-	if (white_value) return white_value;
-	std::vector<u8vec3> white_data(4 * 4 * 3);
-	for (int i=0; i<white_data.size(); i++) {
-		white_data[i] = u8vec3(255, 255, 255);
+#define IMPLEMENT_CONST_COLOR_TEX(NAME, R, G, B) \
+	Texture* Texture::NAME##_value = nullptr; \
+	Texture* Texture::NAME() { \
+		if (NAME##_value) return NAME##_value; \
+		std::vector<u8vec3> NAME##_data(4 * 4 * 3); \
+		for (int i=0; i<NAME##_data.size(); i++) { \
+			NAME##_data[i] = u8vec3(R, G, B); \
+		} \
+		NAME##_value = create_texture_8bit((unsigned char*)NAME##_data.data(), 4, 4, 3, false); \
+		return NAME##_value; \
 	}
-	white_value = create_texture_8bit((unsigned char*)white_data.data(), 4, 4, 3, false);
-	return white_value;
-}
 
-Texture* Texture::default_normal_value = nullptr;
-Texture* Texture::default_normal() {
-	if (default_normal_value) return default_normal_value;
-	std::vector<u8vec3> default_normal_data(4 * 4 * 3);
-	for (int i=0; i<default_normal_data.size(); i++) {
-		default_normal_data[i] = u8vec3(127, 127, 255);
-	}
-	default_normal_value = create_texture_8bit((unsigned char*)default_normal_data.data(), 4, 4, 3, false);
-	return default_normal_value;
-}
+IMPLEMENT_CONST_COLOR_TEX(white, 255, 255, 255);
+IMPLEMENT_CONST_COLOR_TEX(black, 0, 0, 0);
+IMPLEMENT_CONST_COLOR_TEX(default_normal, 127, 127, 255);
 
 Texture* Texture::get(const std::string& name) {
 

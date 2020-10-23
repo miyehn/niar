@@ -73,7 +73,7 @@ void Mesh::initialize() {
 	materials[0] = new MatBasic();
 
 	MatDeferredGeometryBasic* mat_geometry_basic = new MatDeferredGeometryBasic();
-	mat_geometry_basic->base_color = Texture::white();//Texture::get("checkerboard");
+	mat_geometry_basic->base_color = Texture::get("checkerboard");
 	materials[1] = mat_geometry_basic;
 
 	MatDeferredGeometry* mat_geometry = new MatDeferredGeometry();

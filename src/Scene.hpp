@@ -4,7 +4,7 @@
 #include "Utils.hpp"
 
 #define MAX_SHADOWCASTING_LIGHTS 6
-#define NUM_GBUFFERS 3
+#define NUM_GBUFFERS 4
 
 struct Light;
 struct DirectionalLight;

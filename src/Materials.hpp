@@ -68,12 +68,18 @@ struct MatDeferredGeometry : Material {
 	MatDeferredGeometry() : Material("geometry") {
 		base_color = Texture::white();
 		normal_map = Texture::default_normal();
+		metallic_map = Texture::black();
+		roughness_map = Texture::white();
+		ao_map = Texture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatDeferredGeometry() {}
 	virtual void use(const Drawable* obj);
 	Texture* base_color;
 	Texture* normal_map;
+	Texture* metallic_map;
+	Texture* roughness_map;
+	Texture* ao_map;
 	vec3 tint;
 };
 

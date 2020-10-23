@@ -12,6 +12,7 @@ struct PointLight {
 uniform sampler2D GBUF0; // world position
 uniform sampler2D GBUF1; // normal
 uniform sampler2D GBUF2; // base color
+uniform sampler2D GBUF3; // metallic, roughness, AO
 
 const int MaxLights = 6;
 
@@ -63,14 +64,14 @@ void main() {
 	vec4 GPosition = texture(GBUF0, vf_uv);
 	vec4 GNormal = texture(GBUF1, vf_uv);
 	vec4 GColor = texture(GBUF2, vf_uv);
+	vec4 GMRA = texture(GBUF3, vf_uv);
 
 	vec3 position = GPosition.xyz;
 	vec3 normal = GNormal.xyz;
 	vec3 albedo = GColor.rgb;
-	// TODO
-	float metallic = 0;
-	float roughness = 0.4;
-	float ambientOcclusion = 0.03;
+	float metallic = GMRA.r;
+	float roughness = GMRA.g;
+	float ambientOcclusion = GMRA.b;
 
 	// other light-independent properties
 	vec3 viewDir = normalize(position - CameraPosition);
