@@ -11,6 +11,28 @@ MatGeneric* Material::mat_depth() {
 
 void Material::cleanup() {
 	if (mat_depth_value) delete mat_depth_value;
+	for(auto pair : material_pool) {
+		delete pair.second;
+	}
+}
+
+std::unordered_map<std::string, Material*> Material::material_pool;
+
+void Material::add_to_pool(const std::string& name, Material* mat) {
+	if (material_pool.find(name) != material_pool.end()) {
+		WARNF("trying to double insert material '%s' into pool, skipping...", name.c_str());
+		return;
+	}
+	material_pool[name] = mat;
+}
+
+Material* Material::get(const std::string& name) {
+	auto mat_pair = material_pool.find(name);
+	if (mat_pair == material_pool.end()) {
+		ERRF("there isn't a material called '%s'", name.c_str());
+		return nullptr;
+	}
+	return mat_pair->second;
 }
 
 //------------------------------------------------

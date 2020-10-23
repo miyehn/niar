@@ -60,6 +60,9 @@ Texture* Texture::get(const std::string& name) {
 	bool SRGB;
 	auto info_pair = texture_resource_infos.find(name);
 	if (info_pair == texture_resource_infos.end()) {
+		if (name=="white") return white();
+		else if (name=="black") return black();
+		else if (name=="defaultNormal") return default_normal();
 		ERRF("There isn't a texture called %s", name.c_str());
 		return nullptr;
 	} else {
@@ -84,7 +87,7 @@ Texture* Texture::get(const std::string& name) {
 
 	texture_pool[path] = tex;
 
-	LOGF("created texture '%s' of size %dx%d with %d channels", name.c_str(), tex->width(), tex->height(), tex->num_channels());
+	LOGF("(created texture '%s' of size %dx%d with %d channels)", name.c_str(), tex->width(), tex->height(), tex->num_channels());
 	return tex;
 }
 

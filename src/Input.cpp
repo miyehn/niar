@@ -2,6 +2,7 @@
 #include "Utils.hpp"
 #include "Shader.hpp"
 #include "Texture.hpp"
+#include "Materials.hpp"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
@@ -88,6 +89,47 @@ void initialize_config() {
 			int SRGB = textures[i].lookup("SRGB");
 			Texture::set_resource_info(name, ROOT_DIR"/" + path, SRGB);
 			LOGF("set texture path for '%s', SRGB: %d", name.c_str(), SRGB);
+		}
+
+		// materials
+		LOG("---- loading materials ----");
+		const Setting& materials = config_src.getRoot()["Materials"];
+		for (int i=0; i<materials.getLength(); i++) {
+			std::string shader = materials[i].lookup("Shader");
+			std::string name = materials[i].lookup("Name");
+			const Setting& m = materials[i];
+			bool created = true;
+			if (shader == "geometry") {
+				std::string albedo = m.exists("Albedo") ? m.lookup("Albedo") : "white";
+				std::string normal = m.exists("Normal") ? m.lookup("Normal") : "default_normal";
+				std::string metallic = m.exists("Metallic") ? m.lookup("Metallic") : "black";
+				std::string roughness = m.exists("Roughness") ? m.lookup("Roughness") : "white";
+				std::string ao = m.exists("AO") ? m.lookup("AO") : "white";
+				MatDeferredGeometry* mat = new MatDeferredGeometry();
+				mat->albedo_map = Texture::get(albedo);
+				mat->normal_map = Texture::get(normal);
+				mat->metallic_map = Texture::get(metallic);
+				mat->roughness_map = Texture::get(roughness);
+				mat->ao_map = Texture::get(ao);
+				Material::add_to_pool(name, mat);
+
+			} else if (shader == "basic") {
+				std::string base_color = m.exists("BaseColor") ? m.lookup("BaseColor") : "white";
+				MatBasic* mat = new MatBasic();
+				mat->base_color = Texture::get(base_color);
+				Material::add_to_pool(name, mat);
+
+			} else if (shader == "geometry_basic") {
+				std::string albedo = m.exists("Albedo") ? m.lookup("Albedo") : "white";
+				MatDeferredGeometryBasic* mat = new MatDeferredGeometryBasic();
+				mat->albedo_map = Texture::get(albedo);
+				Material::add_to_pool(name, mat);
+
+			} else {
+				WARNF("cannot load materials with shader '%s' yet. skipping..", shader.c_str());
+				created = false;
+			}
+			if (created) LOGF("%s", name.c_str());
 		}
 
 	} catch (const SettingNotFoundException &nfex) {

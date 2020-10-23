@@ -70,16 +70,9 @@ void Mesh::initialize() {
 	// materials
 	for (int i=0; i<NUM_MATERIAL_SETS; i++) materials[i] = nullptr;
 
-	materials[0] = new MatBasic();
-
-	MatDeferredGeometryBasic* mat_geometry_basic = new MatDeferredGeometryBasic();
-	mat_geometry_basic->albedo_map = Texture::get("checkerboard");
-	materials[1] = mat_geometry_basic;
-
-	MatDeferredGeometry* mat_geometry = new MatDeferredGeometry();
-	mat_geometry->albedo_map = Texture::white();//Texture::get("checkerboard");
-	mat_geometry->normal_map = Texture::Texture::get("cross_normal");
-	materials[2] = mat_geometry;
+	materials[0] = Material::get("basic");
+	materials[1] = Material::get("deferredBasic");
+	materials[2] = Material::get("test");
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);
@@ -147,9 +140,11 @@ void Mesh::generate_aabb() {
 
 Mesh::~Mesh() {
 	if (bsdf) delete bsdf;
+	/*
 	for (int i=0; i<NUM_MATERIAL_SETS; i++) {
 		if (materials[i]) delete materials[i];
 	}
+	*/
 	glDeleteBuffers(1, &vbo);
 	glDeleteBuffers(1, &ebo);
 	glDeleteVertexArrays(1, &vao);

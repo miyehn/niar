@@ -32,6 +32,14 @@ struct Material {
 
 	Shader* shader = nullptr;
 
+	// for managing the pool
+	static void add_to_pool(const std::string& name, Material* mat);
+
+	static Material* get(const std::string& name);
+
+private:
+	static std::unordered_map<std::string, Material*> material_pool;
+
 };
 
 // generic: materials whose object-dependent uniforms are just the transformations; can be used with any shader
