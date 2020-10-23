@@ -71,7 +71,7 @@ IMPLEMENT_MATERIAL(MatDeferredGeometryBasic)
 	shader->set_mat4("OBJECT_TO_CLIP", w2cl * o2w);
 
 	// others
-	shader->set_tex2D("BaseColor", 0, base_color->id());
+	shader->set_tex2D("AlbedoMap", 0, albedo_map->id());
 	shader->set_vec3("Tint", tint);
 END_IMPLEMENT_MATERIAL
 
@@ -87,7 +87,7 @@ IMPLEMENT_MATERIAL(MatDeferredGeometry)
 	shader->set_mat4("OBJECT_TO_CLIP", w2cl * o2w);
 
 	// others
-	shader->set_tex2D("BaseColor", 0, base_color->id());
+	shader->set_tex2D("AlbedoMap", 0, albedo_map->id());
 	shader->set_tex2D("NormalMap", 1, normal_map->id());
 	shader->set_tex2D("MetallicMap", 2, metallic_map->id());
 	shader->set_tex2D("RoughnessMap", 3, roughness_map->id());

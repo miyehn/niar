@@ -55,18 +55,18 @@ struct MatBasic : Material {
 
 struct MatDeferredGeometryBasic : Material {
 	MatDeferredGeometryBasic() : Material("geometry_basic") {
-		base_color = Texture::white();
+		albedo_map = Texture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatDeferredGeometryBasic() {}
 	virtual void use(const Drawable* obj);
-	Texture* base_color;
+	Texture* albedo_map;
 	vec3 tint;
 };
 
 struct MatDeferredGeometry : Material {
 	MatDeferredGeometry() : Material("geometry") {
-		base_color = Texture::white();
+		albedo_map = Texture::white();
 		normal_map = Texture::default_normal();
 		metallic_map = Texture::black();
 		roughness_map = Texture::white();
@@ -75,7 +75,7 @@ struct MatDeferredGeometry : Material {
 	}
 	virtual ~MatDeferredGeometry() {}
 	virtual void use(const Drawable* obj);
-	Texture* base_color;
+	Texture* albedo_map;
 	Texture* normal_map;
 	Texture* metallic_map;
 	Texture* roughness_map;

@@ -24,6 +24,9 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	cull_mode = GL_BACK;
 	// fill / wireframe (/ point)
 	fill_mode = GL_FILL; // GL_FILL | GL_LINE | GL_POINT
+
+	// https://github.com/nothings/stb/issues/335
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
 	
 	//-------- allocate bufers --------
 	

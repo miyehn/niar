@@ -5,7 +5,7 @@ in vec3 vf_normal;
 in vec2 vf_uv;
 
 uniform vec3 Tint;
-uniform sampler2D BaseColor;
+uniform sampler2D AlbedoMap;
 uniform sampler2D NormalMap;
 
 layout(location=0) out vec3 Position;
@@ -19,6 +19,6 @@ void main()
 
 	Position = vf_position.xyz;
 	Normal = normalize(vf_normal);
-	Color = texture(BaseColor, uv).rgb * Tint;
+	Color = texture(AlbedoMap, uv).rgb * Tint;
 	MRA = vec3(0, 1, 1);
 }

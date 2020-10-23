@@ -5,7 +5,7 @@ in vec2 vf_uv;
 in mat3 TANGENT_TO_WORLD_ROT;
 
 uniform vec3 Tint;
-uniform sampler2D BaseColor;
+uniform sampler2D AlbedoMap;
 uniform sampler2D NormalMap;
 uniform sampler2D MetallicMap;
 uniform sampler2D RoughnessMap;
@@ -24,7 +24,7 @@ void main()
 	vec3 sampled_normal = texture(NormalMap, uv).rgb * 2 - 1.0;
 	sampled_normal.rg = -sampled_normal.rg;
 	Normal = TANGENT_TO_WORLD_ROT * normalize(sampled_normal);
-	Color = texture(BaseColor, uv).rgb * Tint;
+	Color = texture(AlbedoMap, uv).rgb * Tint;
 
 	float metallic = texture(MetallicMap, uv).r;
 	float roughness = texture(RoughnessMap, uv).r;

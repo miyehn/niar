@@ -73,11 +73,11 @@ void Mesh::initialize() {
 	materials[0] = new MatBasic();
 
 	MatDeferredGeometryBasic* mat_geometry_basic = new MatDeferredGeometryBasic();
-	mat_geometry_basic->base_color = Texture::get("checkerboard");
+	mat_geometry_basic->albedo_map = Texture::get("checkerboard");
 	materials[1] = mat_geometry_basic;
 
 	MatDeferredGeometry* mat_geometry = new MatDeferredGeometry();
-	mat_geometry->base_color = Texture::white();//Texture::get("checkerboard");
+	mat_geometry->albedo_map = Texture::white();//Texture::get("checkerboard");
 	mat_geometry->normal_map = Texture::Texture::get("cross_normal");
 	materials[2] = mat_geometry;
 
