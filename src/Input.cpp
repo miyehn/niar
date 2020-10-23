@@ -3,6 +3,7 @@
 #include "Shader.hpp"
 #include "Texture.hpp"
 #include "Materials.hpp"
+#include "Mesh.hpp"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
@@ -130,6 +131,16 @@ void initialize_config() {
 				created = false;
 			}
 			if (created) LOGF("%s", name.c_str());
+		}
+
+		// material assignments
+		LOG("---- loading material assignments ----");
+		const Setting& assignments = config_src.getRoot()["MaterialAssignments"];
+		for (int i=0; i<assignments.getLength(); i++) {
+			std::string mesh = assignments[i].lookup("Mesh");
+			std::string mat = assignments[i].lookup("Material");
+			Mesh::set_material_name_for(mesh, mat);
+			LOGF("%s : %s", mesh.c_str(), mat.c_str());
 		}
 
 	} catch (const SettingNotFoundException &nfex) {

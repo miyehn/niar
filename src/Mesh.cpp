@@ -14,6 +14,20 @@
 
 Mesh::Mesh() {}
 
+std::unordered_map<std::string, std::string> Mesh::material_assignment;
+
+void Mesh::set_material_name_for(const std::string& mesh_name, const std::string& mat_name) {
+	material_assignment[mesh_name] = mat_name;
+}
+
+std::string Mesh::get_material_name_for(const std::string& mesh_name) {
+	auto pair = material_assignment.find(mesh_name);
+	if (pair == material_assignment.end()) {
+		return "";
+	}
+	return pair->second;
+}
+
 Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
 
 	if (!mesh->HasPositions() || !mesh->HasFaces() || !mesh->HasNormals()) {
@@ -72,7 +86,9 @@ void Mesh::initialize() {
 
 	materials[0] = Material::get("basic");
 	materials[1] = Material::get("deferredBasic");
-	materials[2] = Material::get("test");
+
+	const std::string& material_name = get_material_name_for(name);
+	materials[2] = material_name!="" ? Material::get(material_name) : Material::get("deferredBasic");
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);
@@ -140,11 +156,6 @@ void Mesh::generate_aabb() {
 
 Mesh::~Mesh() {
 	if (bsdf) delete bsdf;
-	/*
-	for (int i=0; i<NUM_MATERIAL_SETS; i++) {
-		if (materials[i]) delete materials[i];
-	}
-	*/
 	glDeleteBuffers(1, &vbo);
 	glDeleteBuffers(1, &ebo);
 	glDeleteVertexArrays(1, &vao);

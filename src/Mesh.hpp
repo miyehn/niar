@@ -48,7 +48,12 @@ struct Mesh : Drawable {
 
 	Material* materials[NUM_MATERIAL_SETS];
 
+  static void set_material_name_for(const std::string& mesh_name, const std::string& mat_name);
+
 private:
+
+  static std::string get_material_name_for(const std::string& mesh_name);
+  static std::unordered_map<std::string, std::string> material_assignment;
 
 	bool is_thin_mesh;
 	bool locked = false;
