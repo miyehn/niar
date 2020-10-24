@@ -8,9 +8,9 @@ A playground to test my patience.
 
 **For real-time rendering**, so far it has a very basic deferred PBR pipeline and can load metallic-roughness materials. It supports point and directional lights, both can cast shadows, and has some very basic optimizations in addition to plain shadow mapping (automatic adjustments of light camera and its frustrum based on scene AABB and view frustrum, percentage closer filtering for soft shadow edges / anti aliasing).
 
-<img src="img/water_tower_10_24.jpg" width=480></img>
+<img src="img/water_tower_10_24.jpg" width=640></img>
 
-<img src="img/water_tower_detail_10_24.jpg" width=480></img>  
+<img src="img/water_tower_detail_10_24.jpg" width=640></img>  
 (The above water tower model and its textures are from cgtrader.com)
 
 Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into master yet (because I mainly develop on macOS and OpenGL compute shaders are not supported)
@@ -68,7 +68,7 @@ Passes that uses shadow maps and the position & normal G buffers to produce shad
 ↓  
 Lighting pass(es) for directional lights, with G buffers and shadow masks as input  
 ↓  
-Lighting pass(es) for point lights done similarly, using additive blending
+Lighting pass(es) for point lights done similarly, using additive blending  
 ↓  
 Exposure adjustment, as well as extracting bright pixels into a separate texture  
 ↓  
