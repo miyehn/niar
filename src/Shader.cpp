@@ -393,11 +393,14 @@ void Blit::end_pass() {
 	}
 
 IMPLEMENT_BLIT(copy_debug, "copyDebug");
+IMPLEMENT_BLIT(blit, "blit");
 
 IMPLEMENT_BLIT(shadow_mask_directional, "shadowMaskDirectional");
 IMPLEMENT_BLIT(shadow_mask_point, "shadowMaskPoint");
 IMPLEMENT_BLIT(lighting_directional, "lightingDirectional");
 IMPLEMENT_BLIT(lighting_point, "lightingPoint");
 
-IMPLEMENT_BLIT(blit, "blit");
-IMPLEMENT_BLIT(gamma_correct, "gammaCorrect");
+IMPLEMENT_BLIT(exposure_extract_bright, "exposureExtractBright");
+IMPLEMENT_BLIT(tone_map_gamma_correct, "toneMapGammaCorrect");
+IMPLEMENT_BLIT(gaussian_horizontal, "gaussianHorizontal");
+IMPLEMENT_BLIT(gaussian_vertical, "gaussianVertical");

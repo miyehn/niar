@@ -38,9 +38,19 @@ struct Scene : public Drawable {
 	uint depthbuf_position_lights = 0;
 	uint tex_depth = 0;
 
+	// raw hdr linear space color output
 	uint fbo_scene_color = 0;
 	uint color_attachments_scene_color = 0;
 	uint tex_scene_color = 0;
+
+	// exposure-adjusted & extracted bright region
+	uint fbo_scene_color_alt = 0;
+	uint color_attachments_scene_color_alt[2];
+	uint tex_scene_colors_alt[2];
+
+	// ping pong textures for bloom
+	uint fbo_gaussian_pingpong[2];
+	uint tex_gaussian_pingpong[2];
 
 	Material* replacement_material = nullptr;
 

@@ -86,6 +86,11 @@ struct ProgramConfig
 	CVar<float>* DebugTexMax = new CVar<float>("DebugTexMax", 1.0f);
 
 	CVar<int>* MaterialSet = new CVar<int>("MaterialSet", 1);
+
+	CVar<float>* Exposure = new CVar<float>("Exposure", 0.0f);
+	CVar<int>* Bloom = new CVar<int>("Bloom", 1);
+	CVar<float>* BloomThreshold = new CVar<float>("BloomThreshold", 1.0f);
+	CVar<int>* ToneMapping = new CVar<int>("Tonemapping", 1);
 	CVar<int>* GammaCorrect = new CVar<int>("GammaCorrect", 1);
 };
 

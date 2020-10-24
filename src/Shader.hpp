@@ -64,11 +64,21 @@ private:
 
 struct Blit : Shader {
 
+	// debug
 	CONST_PTR(Blit, copy_debug);
 	CONST_PTR(Blit, blit);
-	CONST_PTR(Blit, gamma_correct);
+
+	// post processing
+	CONST_PTR(Blit, exposure_extract_bright);
+	CONST_PTR(Blit, tone_map_gamma_correct);
+	CONST_PTR(Blit, gaussian_horizontal);
+	CONST_PTR(Blit, gaussian_vertical);
+
+	// shadow mapping
 	CONST_PTR(Blit, shadow_mask_directional);
 	CONST_PTR(Blit, shadow_mask_point);
+
+	// lighting
 	CONST_PTR(Blit, lighting_directional);
 	CONST_PTR(Blit, lighting_point);
 

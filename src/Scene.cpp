@@ -70,10 +70,9 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 	// Light-space position framebuffer
 	// TODO: make these per-light properties
-	
-	glGenFramebuffers(1, &fbo_position_lights);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
 	{
+		glGenFramebuffers(1, &fbo_position_lights);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo_position_lights);
 		// color attachments (NOTE: they're not bound to any textures for now)
 		for (int i=0; i<MAX_SHADOWCASTING_LIGHTS; i++) {
 			color_attachments_position_lights[i] = GL_COLOR_ATTACHMENT0 + i;
@@ -91,25 +90,68 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	//---- setup scene color texture (to be ready for post processing)
-	glGenFramebuffers(1, &fbo_scene_color);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color);
+	{
+		glGenFramebuffers(1, &fbo_scene_color);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color);
 
-	glGenTextures(1, &tex_scene_color);
-	glBindTexture(GL_TEXTURE_2D, tex_scene_color);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	// single color attachment, no depth
-	color_attachments_scene_color = GL_COLOR_ATTACHMENT0;
-	glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments_scene_color, GL_TEXTURE_2D, tex_scene_color, 0);
-	// check error
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		ERR("scene color framebuffer not correctly initialized");
-	glDrawBuffers(1, &color_attachments_scene_color);
+		glGenTextures(1, &tex_scene_color);
+		glBindTexture(GL_TEXTURE_2D, tex_scene_color);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		// single color attachment, no depth
+		color_attachments_scene_color = GL_COLOR_ATTACHMENT0;
+		glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments_scene_color, GL_TEXTURE_2D, tex_scene_color, 0);
+		glDrawBuffers(1, &color_attachments_scene_color);
+		// check error
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			ERR("scene color framebuffer not correctly initialized");
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	{ // and an alternative, in case of ping pong (currently for exposure adjustment & extract bright regions)
+		glGenFramebuffers(1, &fbo_scene_color_alt);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color_alt);
+
+		glGenTextures(2, tex_scene_colors_alt);
+		for (int i=0; i<2; i++) {
+			glBindTexture(GL_TEXTURE_2D, tex_scene_colors_alt[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			// 2 color attachments, no depth
+			color_attachments_scene_color_alt[i] = GL_COLOR_ATTACHMENT0 + i;
+			glFramebufferTexture2D(GL_FRAMEBUFFER, color_attachments_scene_color_alt[i], GL_TEXTURE_2D, tex_scene_colors_alt[i], 0);
+		}
+		new NamedTex("Bright regions", tex_scene_colors_alt[1]);
+		glDrawBuffers(2, color_attachments_scene_color_alt);
+		// check error
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			ERR("alt scene color framebuffer not correctly initialized");
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	{ // gaussian pingpong
+		glGenFramebuffers(2, fbo_gaussian_pingpong);
+		glGenTextures(2, tex_gaussian_pingpong);
+		for (int i=0; i<2; i++) {
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo_gaussian_pingpong[i]);
+			glBindTexture(GL_TEXTURE_2D, tex_gaussian_pingpong[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_gaussian_pingpong[i], 0);
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+				ERRF("gaussian pingpong[%d] framebuffer not correctly initialized", i);
+			new NamedTex("Gaussian", tex_gaussian_pingpong[i]);
+		}
+	}
 	GL_ERRORS();
 
 }
@@ -409,14 +451,54 @@ void Scene::draw() {
 	}
 	blit->end_pass();
 
-	// post processing (gamma correction) --> screen
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//-------- post processing: exposure adjustment & extracting bright region --> scene_color_alt
 	glDisable(GL_BLEND);
 
-	blit = Cfg.GammaCorrect->get() ? Blit::gamma_correct() : Blit::blit();
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color_alt);
+	blit = Blit::exposure_extract_bright();
 	blit->begin_pass();
 	{
 		blit->set_tex2D("TEX", 0, tex_scene_color);
+		blit->set_float("Exposure", Cfg.Exposure->get());
+		blit->set_float("BloomThreshold", Cfg.BloomThreshold->get());
+	}
+	blit->end_pass();
+
+	//-------- post processing: gaussian pingpong --> gaussian_pingpong[2]
+
+	bool bloom = Cfg.Bloom->get();
+	if (bloom) {
+		// horizontal
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo_gaussian_pingpong[0]);
+		blit = Blit::gaussian_horizontal();
+		blit->begin_pass();
+		{
+			blit->set_tex2D("TEX", 0, tex_scene_colors_alt[1]);
+			blit->set_float("InvWidth", 1.0f / w);
+		}
+		blit->end_pass();
+
+		// vertical
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo_gaussian_pingpong[1]);
+		blit = Blit::gaussian_vertical();
+		blit->begin_pass();
+		{
+			blit->set_tex2D("TEX", 0, tex_gaussian_pingpong[0]);
+			blit->set_float("InvHeight", 1.0f / h);
+		}
+		blit->end_pass();
+	}
+
+	//-------- final post processing (combine bloom & tone mapping & gamma correction) --> screen
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	blit = Blit::tone_map_gamma_correct();
+	blit->begin_pass();
+	{
+		blit->set_tex2D("TEX", 0, tex_scene_colors_alt[0]);
+		blit->set_tex2D("TEX", 1, bloom ? tex_gaussian_pingpong[1] : Texture::black()->id());
+		blit->set_int("ToneMapping", Cfg.ToneMapping->get());
+		blit->set_int("GammaCorrect", Cfg.GammaCorrect->get());
 	}
 	blit->end_pass();
 

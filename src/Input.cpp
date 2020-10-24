@@ -48,6 +48,11 @@ void initialize_config() {
 		Cfg.DebugTexMax->set(config_src.lookup("DebugTexMax"));
 
 		Cfg.MaterialSet->set(config_src.lookup("MaterialSet"));
+
+		Cfg.Exposure->set(config_src.lookup("Exposure"));
+		Cfg.Bloom->set(config_src.lookup("Bloom"));
+		Cfg.BloomThreshold->set(config_src.lookup("BloomThreshold"));
+		Cfg.ToneMapping->set(config_src.lookup("ToneMapping"));
 		Cfg.GammaCorrect->set(config_src.lookup("GammaCorrect"));
 
 		//---------------- ASSETS -------------------
