@@ -118,7 +118,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 		glGenTextures(2, tex_scene_colors_alt);
 		for (int i=0; i<2; i++) {
 			glBindTexture(GL_TEXTURE_2D, tex_scene_colors_alt[i]);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, nullptr);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -141,7 +141,7 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 		for (int i=0; i<2; i++) {
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo_gaussian_pingpong[i]);
 			glBindTexture(GL_TEXTURE_2D, tex_gaussian_pingpong[i]);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, nullptr);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -174,7 +174,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			// aiProcess_GenSmoothNormals
 			aiProcess_CalcTangentSpace
 			| aiProcess_Triangulate
-			// | aiProcess_FlipUVs
+			| aiProcess_FlipUVs
 			// | aiProcess_JoinIdenticalVertices
 			// | aiProcess_SortByPType
 			);
@@ -203,14 +203,14 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			d_lights.push_back(d_light);
 			d_light->set_cast_shadow(true);
 			add_child(d_light);
-			LOGF("loaded directional light %s, color: %s", d_light->name.c_str(), s3(d_light->get_emission()).c_str());
+			LOGF("loaded directional light '%s', color: %s", d_light->name.c_str(), s3(d_light->get_emission()).c_str());
 			
 		} else if (light->mType == aiLightSource_POINT) {
 			PointLight* p_light = new PointLight(light, scene->mRootNode);
 			p_lights.push_back(p_light);
 			p_light->set_cast_shadow(true);
 			add_child(p_light);
-			LOGF("loaded point light %s, color: %s", p_light->name.c_str(), s3(p_light->get_emission()).c_str());
+			LOGF("loaded point light '%s', color: %s", p_light->name.c_str(), s3(p_light->get_emission()).c_str());
 
 		} else {
 			WARN("unrecognized light type, skipping..");

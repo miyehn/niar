@@ -44,9 +44,6 @@ void main() {
 	// linear color
 	vec3 linear = texture(TEX, vf_uv).rgb + texture(BLOOM, vf_uv).rgb;
 
-	// exposure adjustment: https://stackoverflow.com/questions/12166117/what-is-the-math-behind-exposure-adjustment-on-photoshop
-	// vec3 exposed = linear * pow(2, Exposure);
-
 	// tone mapping (see above links)
 	vec3 toneMapped = ToneMapping>0 ? Tonemap_vec3(linear) : linear;
 

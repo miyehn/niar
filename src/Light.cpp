@@ -31,7 +31,11 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir) {
 }
 
 DirectionalLight::DirectionalLight(aiLight* light, aiNode* mRootNode) {
-	if (!mRootNode) ERR("trying to create light without giving root node");
+	bool success = true;
+	if (!mRootNode) {
+		success = false;
+		WARN("trying to create light without giving root node");
+	}
 
 	const char* inName = light->mName.C_Str();
 	aiColor3D col = light->mColorDiffuse;
@@ -41,7 +45,8 @@ DirectionalLight::DirectionalLight(aiLight* light, aiNode* mRootNode) {
 	aiNode* node = mRootNode->FindNode(inName);
 	for (int i=0; i<3; i++) {
 		if (node==nullptr) {
-			ERR("directional light import: has less than 3 parent (rotation) nodes");
+			WARN("directional light import: has less than 3 parent (rotation) nodes");
+			success = false;
 			break;
 		}
 		dir = node->mTransformation * dir;
@@ -51,6 +56,12 @@ DirectionalLight::DirectionalLight(aiLight* light, aiNode* mRootNode) {
 
 	init(vec3(col.r, col.g, col.b), 1.0f, dir_gl);
 	name = inName;
+
+	if (!success) {
+		cast_shadow = false;
+		name += " (import unsuccessful)";
+		intensity = 0;
+	}
 }
 
 // TODO

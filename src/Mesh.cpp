@@ -143,7 +143,7 @@ void Mesh::initialize() {
 	}
 	glBindVertexArray(0);
 
-	LOGF("loaded mesh %s of %d vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
+	LOGF("loaded mesh '%s' of %d vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 }
 
 void Mesh::generate_aabb() {

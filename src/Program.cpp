@@ -39,8 +39,9 @@ void Program::setup() {
 	 */
 	if (!Cfg.UseCornellBoxScene) {
 
-		Camera::Active->move_speed = 6.0f;
-		Camera::Active->position = vec3(0, -10, 1);
+		Camera::Active->move_speed = 16.0f;
+		Camera::Active->position = vec3(0, -25, 15);
+		Camera::Active->cutoffFar = 100.0f;
 
 		scene->load(Cfg.SceneSource, false);
 

@@ -6,9 +6,12 @@ A playground to test my patience.
 
 <img src="img/dof.jpeg" width=400></img>
 
-**For real-time rendering**, so far it supports point and directional lights, both can cast shadows, and has some very basic optimizations in addition to plain shadow mapping (automatic adjustments of light camera and its frustrum based on scene AABB and view frustrum, percentage closer filtering for soft shadow edges / anti aliasing).
+**For real-time rendering**, so far it has a very basic deferred PBR pipeline and can load metallic-roughness materials. It supports point and directional lights, both can cast shadows, and has some very basic optimizations in addition to plain shadow mapping (automatic adjustments of light camera and its frustrum based on scene AABB and view frustrum, percentage closer filtering for soft shadow edges / anti aliasing).
 
-<img src="img/deferred_8_30.jpg" width=400></img>
+<img src="img/water_tower_10_24.jpg" width=480></img>
+
+<img src="img/water_tower_detail_10_24.jpg" width=480></img>  
+(The above water tower model and its textures are from cgtrader.com)
 
 Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into master yet (because I mainly develop on macOS and OpenGL compute shaders are not supported)
 
@@ -35,9 +38,9 @@ When pathtracer is enabled:
 
 ### Configuration
 
-See `config.ini` for properties that get loaded on program start.
+See `config.ini` for properties that get loaded on program start. All settings have detailed comments there.
 
-`config.ini` also specifies some resource paths, and in the future may evolve to include material editing / assignment funcionalities as well.
+`config.ini` also specifies resource paths, including scene file (fbx), shaders and textures. Create materials in the `Materials` section, and assign materials to meshes in the `MaterialAssignments` section.
 
 To configure properties at runtime, use the console as such (type into the window, not the console itself):
 * `/` to start a command
@@ -53,7 +56,7 @@ CVars can be defined / used anywhere. For the ones local to a file, define them 
 
 ### Rendering pipeline
 
-See `Scene::draw()`. It depends on the material set used (configure this in `config.ini`). `0` is basic; everything gets rendered in a single pass, no lighting is applied. `1` is currently lambertian which gets rendered in a deferred pipeline (see screenshot above)
+See `Scene::draw()`. It depends on the material set used (configure this in `config.ini`). `0` is basic; everything gets rendered in a single pass, no lighting is applied. `1` is basic lambertian without textures, and `2` is whatever material that gets assigned to each mesh. If a mesh has no material assigned to it, it falls back to default lambertian.
 
 #### Deferred pipeline
 
@@ -66,12 +69,18 @@ Passes that uses shadow maps and the position & normal G buffers to produce shad
 Lighting pass(es) for directional lights, with G buffers and shadow masks as input  
 ↓  
 Lighting pass(es) for point lights done similarly, using additive blending
+↓  
+Exposure adjustment, as well as extracting bright pixels into a separate texture  
+↓  
+Horizontal and vertical gaussian blur passes to the bright pixels texture (bloom)  
+↓  
+Apply bloom result with rendered image, then do tone mapping and gamma correction
 
-### Shader and texture resources
+### Shader, texture and material resources
 
-All shaders and textures are managed by the classes themselves, either in a private pool (accessable from outside by name using the `get` method), or as static read-only constants.
+Currently all shaders, textures and materials are managed by the classes themselves, either in a private pool (accessable from outside by name using the `get` method), or as static read-only constants.
 
-Shaders are compiled and added to the pool on program start; textures are loadeded on first use.
+Shaders and materials are compiled and added to the pool on program start; textures are loadeded on first use.
 
 ### Materials and blit
 
@@ -83,6 +92,7 @@ A generic material is one that can be used with any shader. It attempts to set a
 A standard material is one that's associated with a specific shader.
 * Creation: inherit from `Material` to create a new material class with all properties that should be stored with it. Define its `use` function where it should set all its properties to its shader, including the transformation matrices.
 * Usage: create an instance of this material somewhere else, assign the properties, optionally define `set_parameters`, and `use`.
+* To create a material that uses an existing shader, just edit `config.ini` to specify what shader to use and some properties, and assign it to meshes.
 
 `Blit` is a special type of shader: instances all share the same vertex shader and are used to draw screen-space quads.
 * Creation: create a `CONST_PTR` in `Blit` class, and `IMPLEMENT_BLIT` by specifing which shader to use (see the macro definitions).
