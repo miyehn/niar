@@ -2,20 +2,34 @@
 
 A playground to test my patience.
 
-**For offline stuff**, it has a multi-threaded CPU pathtracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch. 
+**For offline stuff**, it has a multi-threaded CPU pathtracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch, plus depth of field.
 
 <img src="img/dof.jpeg" width=400></img>
 
-**For real-time rendering**, so far it has a very basic deferred PBR pipeline and can load metallic-roughness materials. It supports point and directional lights, both can cast shadows, and has some very basic optimizations in addition to plain shadow mapping (automatic adjustments of light camera and its frustrum based on scene AABB and view frustrum, percentage closer filtering for soft shadow edges / anti aliasing).
+**For real-time rendering**, here's a selected list of its features:
+* deferred rendering path
+* metallic-roughness materials
+* shadow mapping for point and directional lights
+* automatic adjustments of light camera and its frustum based on view frustum and scene AABB
+* percentage closer filtering
+* exposure adjustment and tone mapping
+* bloom
+* gamma correction
+
+There're also some **utilities** for testing (see implementation notes for details)
+* load input from disk for initial configuration, specify resource paths, create and assign materials
+* command line configuration of properties
+* viewing textures for debug
+* viewing objects without materials or with simplified materials
 
 <img src="img/water_tower_10_24.jpg" width=640></img>
 
 <img src="img/water_tower_detail_10_24.jpg" width=640></img>  
-(The above water tower model and its textures are from cgtrader.com)
+(The above water tower model and its textures are from www.animatedheaven.weebly.com)
 
 Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into master yet (because I mainly develop on macOS and OpenGL compute shaders are not supported)
 
-## Some notes
+## Implementation notes (code tour)
 
 (Since I probably won't be able to work on this for quite another while, I better write this down to help myself remember what I did when I pick it up next time)
 
