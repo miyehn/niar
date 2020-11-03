@@ -83,12 +83,7 @@ void Mesh::initialize() {
 
 	// materials
 	for (int i=0; i<NUM_MATERIAL_SETS; i++) materials[i] = nullptr;
-
 	materials[0] = Material::get("basic");
-	materials[1] = Material::get("deferredBasic");
-
-	const std::string& material_name = get_material_name_for(name);
-	materials[2] = material_name!="" ? Material::get(material_name) : Material::get("deferredBasic");
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);

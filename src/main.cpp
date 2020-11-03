@@ -1,3 +1,4 @@
+#include "cxxopts/cxxopts.hpp"
 #include "Program.hpp"
 #include "Drawable.hpp"
 #include "Scene.hpp"
@@ -15,8 +16,30 @@ int main(int argc, const char * argv[]) {
 
 	std::srand(time(nullptr));
 
+	cxxopts::Options options("niar", "a toy renderer");
+	options.allow_unrecognised_options();
+	options.add_options()
+		("w,width", "window width", cxxopts::value<int>())
+		("h,height", "window height", cxxopts::value<int>())
+		("o,output", "output path", cxxopts::value<std::string>());
+
+	auto result = options.parse(argc, argv);
+	//--------------------
+
 	uint w = 800;
 	uint h = 600;
+
+	if (result.count("width")) {
+		w = result["width"].as<int>();
+	}
+	if (result.count("height")) {
+		h = result["height"].as<int>();
+	}
+	if (result.count("output")) {
+		// render pathtracer scene to file
+		std::string path = result["output"].as<std::string>();
+		LOGF("%s", path.c_str());
+	}
 
 	Program::Instance = new Program("niar", w, h);
 	Program::Instance->run();

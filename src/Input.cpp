@@ -28,9 +28,6 @@ void initialize_config() {
 
 	try {
 		// pathtracer
-		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
-		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
-
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");

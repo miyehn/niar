@@ -62,8 +62,6 @@ private:
 
 struct ProgramConfig
 {
-	int UseCornellBoxScene = 0;
-	std::string SceneSource = "";
 	struct 
 	{
 		int SmallWindow = 0;
