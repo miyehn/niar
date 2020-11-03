@@ -29,6 +29,7 @@ struct Pathtracer : public Drawable {
 	void disable();
 
 	void raytrace_scene(); //trace to main output buffer directly; used for rendering to file
+	void output_file(const std::string& path);
 
 private:
 

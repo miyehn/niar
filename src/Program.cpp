@@ -68,8 +68,9 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 	Pathtracer::Instance->initialize();
 	Pathtracer::Instance->raytrace_scene();
 	TRACE("done!");
+	Pathtracer::Instance->output_file(path);
 
-	// delete Scene::Active; // TODO: pull out graphics tear down
+	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()
 	delete Camera::Active;
 	delete Pathtracer::Instance;
 

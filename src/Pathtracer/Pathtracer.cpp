@@ -396,6 +396,30 @@ void Pathtracer::raytrace_scene() {
 	}
 }
 
+// https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
+void Pathtracer::output_file(const std::string& path) {
+	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; } 
+	std::ofstream ofs; 
+	try { 
+		ofs.open(path.c_str(), std::ios::binary); // need to spec. binary mode for Windows users 
+		if (ofs.fail()) throw("Can't open output file"); 
+		ofs << "P6\n" << width << " " << height << "\n255\n"; 
+		unsigned char r, g, b; 
+		// loop over each pixel in the image, clamp and convert to byte format
+		for (int i = 0; i < width * height; ++i) { 
+			r = image_buffer[3 * i];//static_cast(std::min(1.f, img.pixels[i].r) * 255); 
+			g = image_buffer[3 * i + 1];//static_cast(std::min(1.f, img.pixels[i].g) * 255); 
+			b = image_buffer[3 * i + 2];//static_cast(std::min(1.f, img.pixels[i].b) * 255); 
+			ofs << r << g << b; 
+		} 
+		ofs.close(); 
+	} 
+	catch (const char *err) { 
+		fprintf(stderr, "%s\n", err); 
+		ofs.close(); 
+	} 
+}
+
 void Pathtracer::update(float elapsed) {
 
 	if (Cfg.Pathtracer.Multithreaded) {
