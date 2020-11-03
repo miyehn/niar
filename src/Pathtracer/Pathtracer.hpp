@@ -16,19 +16,24 @@ struct Pathtracer : public Drawable {
 	Pathtracer(
 			size_t _width,
 			size_t _height,
-			std::string _name = "[unamed pathtracer]");
+			std::string _name = "[unamed pathtracer]",
+			bool _has_window = true);
 	virtual ~Pathtracer();
 
 	virtual bool handle_event(SDL_Event event);
 	virtual void update(float elapsed);
 	virtual void draw();
 
+	void initialize();
 	void enable();
 	void disable();
+
+	void raytrace_scene(); //trace to main output buffer directly; used for rendering to file
 
 private:
 
 	// size for the pathtraced image - could be different from display window.
+	bool has_window;
 	size_t width, height;
 	size_t tile_size, tiles_X, tiles_Y;
 
@@ -39,7 +44,6 @@ private:
 	void pause_trace();
 	void continue_trace();
 	bool initialized;
-	void initialize();
 	void reset();
 
 	TimePoint last_begin_time;

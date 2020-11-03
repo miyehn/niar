@@ -101,6 +101,7 @@ bool f::import_scene(Scene* scene, const char* path) {
 	for (int i=0; i<mesh_count; i++)
 	{
 		Mesh* mesh = new Mesh();
+		mesh->initialize();
 		const ofbx::Mesh* inMesh = inScene->getMesh(i);
 		const ofbx::Geometry* geom = inMesh->getGeometry();
 

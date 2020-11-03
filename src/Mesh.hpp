@@ -21,7 +21,7 @@ static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 3 + 2), "vertex struct 
 
 struct Mesh : Drawable {
 
-  static std::vector<Mesh*> LoadMeshes(const std::string& source);
+  static std::vector<Mesh*> LoadMeshes(const std::string& source, bool initialize_graphics = true);
   
   Mesh(
       aiMesh* mesh, 

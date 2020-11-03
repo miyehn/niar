@@ -10,6 +10,41 @@ using namespace libconfig;
 
 ProgramConfig Cfg;
 
+void initialize_pathtracer_config() {
+
+	Config config_src;
+
+	try {
+		config_src.readFile(ROOT_DIR"/config.ini");
+	} catch (const FileIOException &fioex) {
+		ERR("I/O error while reading config.ini");
+		return;
+	} catch (const ParseException &pex) {
+		ERRF("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
+		return;
+	}
+
+	try {
+		// pathtracer
+		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
+		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
+		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");
+		Cfg.Pathtracer.TileSize = config_src.lookup("Pathtracer.TileSize");
+		Cfg.Pathtracer.UseDirectLight = config_src.lookup("Pathtracer.UseDirectLight");
+		Cfg.Pathtracer.UseJitteredSampling = config_src.lookup("Pathtracer.UseJitteredSampling");
+		Cfg.Pathtracer.UseDOF->set(config_src.lookup("Pathtracer.UseDOF"));
+		Cfg.Pathtracer.MaxRayDepth = config_src.lookup("Pathtracer.MaxRayDepth");
+		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
+		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
+
+	} catch (const SettingNotFoundException &nfex) {
+		ERR("Some setting(s) not found in config.ini");
+	} catch (const SettingTypeException &tpex) {
+		ERR("Some setting(s) assigned to wrong type");
+	}
+
+}
+
 void initialize_config() {
 
 	//-------- read config from config.ini --------

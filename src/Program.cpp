@@ -16,6 +16,66 @@ Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
 
+void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
+
+	initialize_pathtracer_config();
+
+	Pathtracer::Instance = new Pathtracer(w, h, "command line pathtracer", false);
+
+	Camera::Active = new Camera(w, h);
+	Camera::Active->position = vec3(0, 0, 0);
+	Camera::Active->cutoffFar = 1000.0f;
+	Camera::Active->fov = radians(30.0f);
+
+	Scene* scene = new Scene("my scene");
+
+	// cornell box scene
+	std::vector<Mesh*> meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx", false);
+	for (int i=0; i<meshes.size(); i++) { // 4 is floor
+		Mesh* mesh = meshes[i];
+		mesh->bsdf = new Diffuse(vec3(0.6f));
+		if (i==1) {// right
+			mesh->bsdf->albedo = vec3(0.4f, 0.4f, 0.6f); 
+		} else if (i==2) {// left
+			mesh->bsdf->albedo = vec3(0.6f, 0.4f, 0.4f); 
+		}
+		scene->add_child(static_cast<Drawable*>(mesh));
+	}
+
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_light.fbx", false);
+	Mesh* light = meshes[0];
+	light->bsdf = new Diffuse();
+	light->name = "light";
+	light->bsdf->set_emission(vec3(10.0f));
+	scene->add_child(static_cast<Drawable*>(light));
+
+#if 0
+	// add another item to it
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx");
+	Mesh* mesh = meshes[0];
+	mesh->shaders[2].set_parameters = [mesh]() {
+		mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
+		mesh->shaders[2].set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
+	};
+	mesh->bsdf = new Diffuse(vec3(0.6f));
+	mesh->bsdf->albedo = vec3(1, 1, 1);
+	mesh->name = "prism";
+	scene->add_child(static_cast<Drawable*>(mesh));
+#endif
+
+	Scene::Active = scene;
+
+	Pathtracer::Instance->initialize();
+	Pathtracer::Instance->raytrace_scene();
+	TRACE("done!");
+
+	// delete Scene::Active; // TODO: pull out graphics tear down
+	delete Camera::Active;
+	delete Pathtracer::Instance;
+
+	return;
+}
+
 void Program::load_resources() {
 	
 	LOG("loading resources...");
@@ -29,6 +89,7 @@ void Program::load_resources() {
 void Program::setup() {
 
 	Scene* scene = new Scene("my scene");
+	scene->initialize_graphics();
 
 	int w, h;
 	w = drawable_width;
