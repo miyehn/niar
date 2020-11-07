@@ -406,12 +406,15 @@ void Pathtracer::output_file(const std::string& path) {
 		ofs << "P6\n" << width << " " << height << "\n255\n"; 
 		unsigned char r, g, b; 
 		// loop over each pixel in the image, clamp and convert to byte format
-		for (int i = 0; i < width * height; ++i) { 
-			r = image_buffer[3 * i];//static_cast(std::min(1.f, img.pixels[i].r) * 255); 
-			g = image_buffer[3 * i + 1];//static_cast(std::min(1.f, img.pixels[i].g) * 255); 
-			b = image_buffer[3 * i + 2];//static_cast(std::min(1.f, img.pixels[i].b) * 255); 
-			ofs << r << g << b; 
-		} 
+		for (int y = height-1; y >= 0; y--) {
+			for (int x = 0; x < width; x++) {
+				int i = y * width + x;
+				r = image_buffer[3 * i];
+				g = image_buffer[3 * i + 1];
+				b = image_buffer[3 * i + 2];
+				ofs << r << g << b; 
+			}
+		}
 		ofs.close(); 
 	} 
 	catch (const char *err) { 
