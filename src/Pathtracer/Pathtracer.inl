@@ -1,6 +1,9 @@
 #include "Primitive.hpp"
 #include "Camera.hpp"
 
+// include this generated header to be able to use the kernels
+#include "pathtracer_kernel_ispc.h"
+
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
 	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));
@@ -82,9 +85,10 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 	std::vector<Ray> rays;
 	generate_rays(rays, index);
 
+	bool ispc = Cfg.Pathtracer.ISPC;
 	vec3 result = vec3(0);
 	for (size_t i = 0; i < rays.size(); i++) {
-		result += trace_ray(rays[i], 0, false);
+		result += ispc ? trace_ray_ispc(rays[i], 0) : trace_ray(rays[i], 0, false);
 	}
 
 	result *= 1.0f / float(rays.size());
@@ -300,6 +304,77 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		}
 #endif
 		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
+		return clamp(L, vec3(0), vec3(INF));
+	}
+	return vec3(0);
+}
+
+vec3 Pathtracer::trace_ray_ispc(Ray& ray, int ray_depth) {
+	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return vec3(0);
+
+	// info of closest hit
+	Primitive* primitive = nullptr;
+	const BSDF* bsdf = nullptr;
+	double t; vec3 n;
+	for (size_t i = 0; i < primitives.size(); i++) {
+		Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
+		if (prim_tmp) {
+			primitive = prim_tmp;
+			bsdf = primitive->bsdf;
+		}
+	}
+
+	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
+
+		// pre-compute (or declare) some common things to be used later
+		vec3 L = vec3(0);
+		vec3 hit_p = ray.o + float(t) * ray.d;
+		// construct transform from hemisphere space to world space;
+		mat3 h2w; 
+		make_h2w(h2w, n);
+		mat3 w2h = transpose(h2w);
+		// wi, wo
+		vec3 wo_world = -ray.d;
+		vec3 wo_hemi = -w2h * ray.d;
+		// 
+		vec3 wi_world; // to be transformed from wi_hemi
+		vec3 wi_hemi; // to be assigned by f
+		float costhetai; // some variation of dot(wi_world, n)
+
+		//---- emission ----
+
+		L += bsdf->get_emission();
+
+		//---- indirect lighting (recursive) ----
+
+		float pdf;
+		vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi, false);
+
+		// transform wi back to world space
+		wi_world = h2w * wi_hemi;
+		costhetai = abs(dot(n, wi_world)); 
+
+		// russian roulette
+		float termination_prob = 0.0f;
+		ray.contribution *= brightness(f) * costhetai;
+		if (ray.contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
+			termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.contribution) 
+				/ Cfg.Pathtracer.RussianRouletteThreshold;
+		}
+		bool terminate = sample::rand01() < termination_prob;
+
+		// recursive step: trace scattered ray in wi direction (if not terminated by RR)
+		vec3 Li = vec3(0);
+		if (!terminate) {
+			vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
+			Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
+			if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
+			// if it has some termination probability, weigh it more if it's not terminated
+			Li = trace_ray_ispc(ray_refl, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
+		}
+
+		L += Li * f * costhetai / pdf;
+
 		return clamp(L, vec3(0), vec3(INF));
 	}
 	return vec3(0);

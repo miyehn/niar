@@ -26,6 +26,7 @@ void initialize_pathtracer_config() {
 
 	try {
 		// pathtracer
+		Cfg.Pathtracer.ISPC = config_src.lookup("Pathtracer.ISPC");
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");
@@ -63,6 +64,7 @@ void initialize_config() {
 
 	try {
 		// pathtracer
+		Cfg.Pathtracer.ISPC = config_src.lookup("Pathtracer.ISPC");
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");

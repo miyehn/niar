@@ -398,6 +398,11 @@ void Pathtracer::raytrace_scene() {
 
 // https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
 void Pathtracer::output_file(const std::string& path) {
+
+	// int in[1] = {999};
+	// int out[1] = {0};
+	// ispc::test_kernel(in, out, 1);
+
 	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; } 
 	std::ofstream ofs; 
 	try { 

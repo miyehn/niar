@@ -65,6 +65,7 @@ struct ProgramConfig
 {
 	struct 
 	{
+		int ISPC = 0;
 		int SmallWindow = 0;
 		int Multithreaded = 1;
 		int NumThreads = 8;

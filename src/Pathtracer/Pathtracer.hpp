@@ -71,6 +71,9 @@ private:
 	vec3 raytrace_pixel(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
 	vec3 trace_ray(Ray& ray, int ray_depth, bool debug);
+	// (for 418 project: ISPC)
+	vec3 trace_ray_ispc(Ray& ray, int ray_depth);
+	//---- END 418 ----
 
 	// for debug use
 	void raytrace_debug(size_t index);
