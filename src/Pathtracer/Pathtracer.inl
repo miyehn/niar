@@ -89,7 +89,8 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 	bool ispc = Cfg.Pathtracer.ISPC;
 	vec3 result = vec3(0);
 	for (size_t i = 0; i < tasks.size(); i++) {
-		result += clamp(ispc ? trace_ray_ispc(tasks[i], 0) : trace_ray(tasks[i], 0, false), vec3(0), vec3(INF));
+		ispc ? trace_ray_ispc(tasks[i], 0) : trace_ray(tasks[i], 0, false), vec3(0), vec3(INF);
+		result += tasks[i].output;
 	}
 
 	result *= 1.0f / float(tasks.size());
@@ -107,7 +108,8 @@ void Pathtracer::raytrace_debug(size_t index) {
 	RayTask task;
 	generate_one_ray(task, w, h);
 
-	vec3 color = trace_ray(task, 0, true);
+	trace_ray(task, 0, true);
+	vec3& color = task.output;
 	LOGF("result color: %f %f %f", color.x, color.y, color.z);
 	
 	// upload ray vertices
@@ -171,8 +173,8 @@ inline float brightness(const vec3& color) {
 	return 0.2989f * color.r + 0.587f * color.g + 0.114 * color.b;
 }
 
-vec3 Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
-	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return vec3(0);
+void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
+	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return;
 
 	Ray& ray = task.ray;
 
@@ -262,6 +264,7 @@ vec3 Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 				}
 			}
 		}
+		task.output += task.contribution * L;
 
 #if 1 // indirect lighting (recursive)
 
@@ -300,24 +303,21 @@ vec3 Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 				vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
 				Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
 				task.ray = ray_refl;
+				task.contribution *= f * costhetai / pdf * (1.0f / (1.0f - termination_prob));
 				if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
 				// if it has some termination probability, weigh it more if it's not terminated
-				Li = trace_ray(task, ray_depth + 1, debug) * (1.0f / (1.0f - termination_prob));
+				trace_ray(task, ray_depth + 1, debug);
 			} else if (debug) {
 				LOG("terminated by russian roulette");
 			}
-
-			L += Li * f * costhetai / pdf;
 		}
 #endif
 		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
-		return L;
 	}
-	return vec3(0);
 }
 
-vec3 Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
-	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return vec3(0);
+void Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
+	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return;
 
 	Ray& ray = task.ray;
 
@@ -353,6 +353,7 @@ vec3 Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
 		//---- emission ----
 
 		L += bsdf->get_emission();
+		task.output += task.contribution * L;
 
 		//---- indirect lighting (recursive) ----
 
@@ -378,14 +379,9 @@ vec3 Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
 			vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
 			Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
 			task.ray = ray_refl;
+			task.contribution *= f * costhetai / pdf * (1.0f / (1.0f - termination_prob));
 			// if it has some termination probability, weigh it more if it's not terminated
-			Li = trace_ray_ispc(task, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
+			trace_ray_ispc(task, ray_depth + 1);
 		}
-
-		vec3 contrib = f * costhetai / pdf;
-		L += Li * contrib;
-
-		return L;
 	}
-	return vec3(0);
 }

@@ -71,9 +71,9 @@ private:
 	void generate_rays(std::vector<RayTask>& tasks, size_t index);
 	vec3 raytrace_pixel(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
-	vec3 trace_ray(RayTask& task, int ray_depth, bool debug);
+	void trace_ray(RayTask& task, int ray_depth, bool debug);
 	// (for 418 project: ISPC)
-	vec3 trace_ray_ispc(RayTask& task, int ray_depth);
+	void trace_ray_ispc(RayTask& task, int ray_depth);
 	//---- END 418 ----
 
 	// for debug use

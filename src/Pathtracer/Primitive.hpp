@@ -17,8 +17,12 @@ struct Ray {
 };
 
 struct RayTask {
+	RayTask() {
+		output = vec3(0.0f);
+		contribution = vec3(1.0f);
+	}
 	Ray ray;
-	vec3* dest;
+	vec3 output;
 	vec3 contribution;
 };
 
