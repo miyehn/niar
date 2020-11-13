@@ -4,6 +4,7 @@
 
 struct Scene;
 struct Ray;
+struct RayTask;
 struct Primitive;
 struct PathtracerLight;
 struct RaytraceThread;
@@ -66,13 +67,13 @@ private:
 	float depth_of_first_hit(int x, int y);
 
 	// routine
-	void generate_one_ray(Ray& ray, int x, int y);
-	void generate_rays(std::vector<Ray>& rays, size_t index);
+	void generate_one_ray(RayTask& task, int x, int y);
+	void generate_rays(std::vector<RayTask>& tasks, size_t index);
 	vec3 raytrace_pixel(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
-	vec3 trace_ray(Ray& ray, int ray_depth, bool debug);
+	vec3 trace_ray(RayTask& task, int ray_depth, bool debug);
 	// (for 418 project: ISPC)
-	vec3 trace_ray_ispc(Ray& ray, int ray_depth);
+	vec3 trace_ray_ispc(RayTask& task, int ray_depth);
 	//---- END 418 ----
 
 	// for debug use
