@@ -98,7 +98,7 @@ void Pathtracer::initialize() {
 	if (Scene::Active) load_scene(*Scene::Active);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
-#if 1
+#if 0
 	// the two spheres (classical cornell box)
 	BSDF* sphere_bsdf_1 = new Mirror();
 	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));

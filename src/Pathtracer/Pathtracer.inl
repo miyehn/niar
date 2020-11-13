@@ -88,7 +88,7 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 	bool ispc = Cfg.Pathtracer.ISPC;
 	vec3 result = vec3(0);
 	for (size_t i = 0; i < rays.size(); i++) {
-		result += ispc ? trace_ray_ispc(rays[i], 0) : trace_ray(rays[i], 0, false);
+		result += clamp(ispc ? trace_ray_ispc(rays[i], 0) : trace_ray(rays[i], 0, false), vec3(0), vec3(INF));
 	}
 
 	result *= 1.0f / float(rays.size());
@@ -281,9 +281,9 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 
 			// russian roulette
 			float termination_prob = 0.0f;
-			ray.contribution *= brightness(f) * costhetai;
-			if (ray.contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
-				termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.contribution) 
+			ray.rr_contribution *= brightness(f) * costhetai;
+			if (ray.rr_contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
+				termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.rr_contribution) 
 					/ Cfg.Pathtracer.RussianRouletteThreshold;
 			}
 			bool terminate = sample::rand01() < termination_prob;
@@ -304,7 +304,7 @@ vec3 Pathtracer::trace_ray(Ray& ray, int ray_depth, bool debug) {
 		}
 #endif
 		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
-		return clamp(L, vec3(0), vec3(INF));
+		return L;
 	}
 	return vec3(0);
 }
@@ -356,9 +356,9 @@ vec3 Pathtracer::trace_ray_ispc(Ray& ray, int ray_depth) {
 
 		// russian roulette
 		float termination_prob = 0.0f;
-		ray.contribution *= brightness(f) * costhetai;
-		if (ray.contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
-			termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.contribution) 
+		ray.rr_contribution *= brightness(f) * costhetai;
+		if (ray.rr_contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
+			termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.rr_contribution) 
 				/ Cfg.Pathtracer.RussianRouletteThreshold;
 		}
 		bool terminate = sample::rand01() < termination_prob;
@@ -368,14 +368,14 @@ vec3 Pathtracer::trace_ray_ispc(Ray& ray, int ray_depth) {
 		if (!terminate) {
 			vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
 			Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
-			if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
 			// if it has some termination probability, weigh it more if it's not terminated
 			Li = trace_ray_ispc(ray_refl, ray_depth + 1) * (1.0f / (1.0f - termination_prob));
 		}
 
-		L += Li * f * costhetai / pdf;
+		vec3 contrib = f * costhetai / pdf;
+		L += Li * contrib;
 
-		return clamp(L, vec3(0), vec3(INF));
+		return L;
 	}
 	return vec3(0);
 }

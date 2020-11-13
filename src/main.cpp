@@ -37,6 +37,7 @@ int main(int argc, const char * argv[]) {
 	}
 	if (result.count("output")) {
 		// render pathtracer scene to file
+		w = 200; h = 150;
 		std::string path = result["output"].as<std::string>();
 		LOGF("rendering pathtracer scene to file: %s", path.c_str());
 		Program::pathtrace_to_file(w, h, path);
