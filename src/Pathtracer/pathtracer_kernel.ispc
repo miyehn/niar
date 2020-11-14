@@ -82,7 +82,7 @@ vec3 normalized(vec3 v) {
     return smul(inv_len, v);
 }
 
-//-------- scene --------
+//-------- scene, scene primitives, BSDF --------
 
 struct Ray {
     vec3 o, d;
@@ -151,6 +151,10 @@ bool intersect(Triangle& triangle, Ray& ray, double& t, vec3& normal, bool modif
 
     return true;
 }
+
+struct BSDF {
+
+};
 
 //-------- actual path tracing --------
 
