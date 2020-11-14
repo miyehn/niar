@@ -25,18 +25,26 @@ namespace ispc { /* namespace */
 #endif
 #endif
 
-#ifndef __ISPC_STRUCT_Triangle__
-#define __ISPC_STRUCT_Triangle__
-struct Triangle {
-};
-#endif
-
 #ifndef __ISPC_STRUCT_vec3__
 #define __ISPC_STRUCT_vec3__
 struct vec3 {
     float x;
     float y;
     float z;
+};
+#endif
+
+#ifndef __ISPC_STRUCT_Triangle__
+#define __ISPC_STRUCT_Triangle__
+struct Triangle {
+    struct vec3 vertices[3];
+    struct vec3 normals[3];
+    struct vec3 enormals[3];
+    struct vec3 e1;
+    struct vec3 e2;
+    struct vec3 plane_n;
+    float plane_k;
+    float area;
 };
 #endif
 
