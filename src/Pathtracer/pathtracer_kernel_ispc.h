@@ -37,6 +37,7 @@ struct vec3 {
 #ifndef __ISPC_STRUCT_Triangle__
 #define __ISPC_STRUCT_Triangle__
 struct Triangle {
+    struct BSDF * bsdf;
     struct vec3 vertices[3];
     struct vec3 normals[3];
     struct vec3 enormals[3];
@@ -48,6 +49,16 @@ struct Triangle {
 };
 #endif
 
+#ifndef __ISPC_STRUCT_BSDF__
+#define __ISPC_STRUCT_BSDF__
+struct BSDF {
+    bool is_delta;
+    bool is_emissive;
+    struct vec3 albedo;
+    struct vec3 Le;
+};
+#endif
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Functions exported from ispc code
@@ -55,7 +66,7 @@ struct Triangle {
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 extern "C" {
 #endif // __cplusplus
-    extern void raytrace_scene_ispc(struct Triangle * triangles, int32_t num_triangles, struct vec3 * output, int32_t width, int32_t height);
+    extern void raytrace_scene_ispc(struct Triangle * triangles, struct BSDF * bsdfs, int32_t num_triangles, struct vec3 * output, int32_t width, int32_t height);
     extern void test_kernel(int32_t * input, int32_t * output, int32_t len);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 } /* end extern C */

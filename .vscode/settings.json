@@ -72,7 +72,8 @@
         "typeinfo": "cpp",
         "unordered_map": "cpp",
         "unordered_set": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "regex": "cpp"
     },
     "editor.minimap.enabled": false,
     "files.exclude": {
