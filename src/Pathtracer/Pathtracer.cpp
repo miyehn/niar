@@ -419,8 +419,22 @@ void Pathtracer::raytrace_scene() {
 		T.plane_k = T0->plane_k;
 	}
 
+	// construct camera
+	ispc::Camera camera;
+	mat3 c2wr = Camera::Active->camera_to_world_rotation();
+	camera.camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
+	camera.camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
+	camera.camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
+	camera.position = ispc_vec3(Camera::Active->position);
+	camera.fov = Camera::Active->fov;
+	camera.aspect_ratio = Camera::Active->aspect_ratio;
+
+	// pixel offsets (jittered sampling)
+	generate_pixel_offsets();
+	float* offsets = (float*)pixel_offsets.data();
+
 	// dispatch task to ispc
-	ispc::raytrace_scene_ispc(triangles, bsdfs, primitives.size(), image_buffer, width, height);
+	ispc::raytrace_scene_ispc(&camera, offsets, pixel_offsets.size(), triangles, bsdfs, primitives.size(), image_buffer, width, height);
 
 #else
 	for (size_t y = 0; y < height; y++) {

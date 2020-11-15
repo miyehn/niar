@@ -34,6 +34,25 @@ struct vec3 {
 };
 #endif
 
+#ifndef __ISPC_STRUCT_mat3__
+#define __ISPC_STRUCT_mat3__
+struct mat3 {
+    struct vec3 colx;
+    struct vec3 coly;
+    struct vec3 colz;
+};
+#endif
+
+#ifndef __ISPC_STRUCT_Camera__
+#define __ISPC_STRUCT_Camera__
+struct Camera {
+    struct mat3 camera_to_world_rotation;
+    struct vec3 position;
+    float fov;
+    float aspect_ratio;
+};
+#endif
+
 #ifndef __ISPC_STRUCT_Triangle__
 #define __ISPC_STRUCT_Triangle__
 struct Triangle {
@@ -62,8 +81,7 @@ struct BSDF {
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 extern "C" {
 #endif // __cplusplus
-    extern void raytrace_scene_ispc(struct Triangle * triangles, struct BSDF * bsdfs, int32_t num_triangles, uint8_t * output, int32_t width, int32_t height);
-    extern void test_kernel(int32_t * input, int32_t * output, int32_t len);
+    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, int32_t num_triangles, uint8_t * output, int32_t width, int32_t height);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 } /* end extern C */
 #endif // __cplusplus

@@ -1,15 +1,43 @@
-export void test_kernel(uniform int input[], uniform int output[], uniform int len) {
-    foreach (i = 0 ... len) {
-        output[i] = input[i];
-    }
-}
 
+#define QUEUE_SIZE 1024
+
+struct Camera;
 struct Triangle;
 struct BSDF;
+
+struct vec3 {
+    float x;
+    float y;
+    float z;
+};
+
+struct mat3 {
+    vec3 colx;
+    vec3 coly;
+    vec3 colz;
+};
+
+struct Ray {
+    vec3 o, d;
+    double tmin, tmax;
+    float rr_contribution;
+    bool receive_le;
+};
+
+struct RayTask {
+    Ray ray;
+    vec3 output; 
+    vec3 contribution;
+};
 
 struct Global
 {
     varying RNGState rng;
+
+    uniform Camera* camera;
+
+    uniform float* pixel_offsets;
+    uniform uint num_offsets;
 
     uniform Triangle* triangles;
     uniform BSDF* bsdfs;
@@ -18,6 +46,10 @@ struct Global
     uniform uint num_bsdfs;
 
     uniform uint width, height;
+
+    uniform RayTask tasks_A[QUEUE_SIZE];
+    uniform RayTask tasks_B[QUEUE_SIZE];
+    uniform bool read_from_A;
 
     uniform uint8* output;
 };
@@ -28,12 +60,6 @@ uniform Global G;
 
 #define ONE_OVER_PI 0.31830988618f
 
-struct vec3 {
-    float x;
-    float y;
-    float z;
-};
-
 inline vec3 new_vec3() {
     vec3 v; v.x = 0.0f; v.y = 0.0f; v.z = 0.0f;
     return v;
@@ -43,12 +69,6 @@ inline vec3 new_vec3(float x, float y, float z) {
     vec3 v; v.x = x; v.y = y; v.z = z;
     return v;
 }
-
-struct mat3 {
-    vec3 colx;
-    vec3 coly;
-    vec3 colz;
-};
 
 inline mat3 new_mat3() {
     mat3 m;
@@ -142,11 +162,11 @@ inline vec3 sample_hemisphere_cos_weighed() {
 
 //-------- scene, scene primitives, BSDF --------
 
-struct Ray {
-    vec3 o, d;
-    double tmin, tmax;
-    float rr_contribution;
-    bool receive_le;
+struct Camera {
+    mat3 camera_to_world_rotation;
+    vec3 position;
+    float fov;
+    float aspect_ratio;
 };
 
 inline Ray new_Ray() {
@@ -159,12 +179,6 @@ inline Ray new_Ray() {
     r.receive_le = false;
     return r;
 }
-
-struct RayTask {
-    Ray ray;
-    vec3 output; 
-    vec3 contribution;
-};
 
 inline RayTask new_RayTask() {
     RayTask rt;
@@ -253,6 +267,9 @@ inline void set_color(uint i, vec3 &color) {
 }
 
 export void raytrace_scene_ispc(
+    uniform Camera camera[], // pass in exactly 1 camera
+    uniform float pixel_offsets[], // even: x; odd: y;
+    uniform uint num_offsets,
     uniform Triangle triangles[],
     uniform BSDF bsdfs[],
     uniform int num_triangles,
@@ -260,11 +277,12 @@ export void raytrace_scene_ispc(
     uniform int width,
     uniform int height
 ){
-    // pass in the whole scene (geometry + materials list) and output buffer
-    // link geometries to materials
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
 
+    G.camera = camera;
+    G.pixel_offsets = pixel_offsets;
+    G.num_offsets = num_offsets;
     G.triangles = triangles;
     G.bsdfs = bsdfs;
     G.num_triangles = num_triangles;
@@ -272,6 +290,7 @@ export void raytrace_scene_ispc(
     G.width = width;
     G.height = height;
     G.output = output;
+    G.read_from_A = true;
 
     // seed the RNGs
     foreach (i = 0 ... programCount) {
@@ -281,15 +300,33 @@ export void raytrace_scene_ispc(
     uniform uint buf_size = width * height;
     uniform uint buf_size3 = buf_size * 3;
 
-    // initialize color
+    // initialize buffer
     foreach (i = 0 ... buf_size3) {
         output[i] = 127;
     }
 
-    foreach (i = 0 ... buf_size) {
-        vec3 v;
-        vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
-        v = vadd(half, sample_hemisphere_cos_weighed());
-        set_color(i, v);
+    /////////////////////////////////////////////////
+
+    uniform uint pixels_per_batch = QUEUE_SIZE / G.num_offsets;
+    uniform uint num_batches = (buf_size + pixels_per_batch - 1) / pixels_per_batch;
+
+    for (uniform uint batch = 0; batch < num_batches; batch++)
+    {
+        foreach (pixel_index_local = 0 ... pixels_per_batch, ray_index = 0 ... G.num_offsets)
+        {
+            uint pixel_index = pixel_index_local + batch * pixels_per_batch;
+
+            // TODO: make a superbuffer (float*) in G for each ray to write to, 
+            // and reuse that for each batch.
+
+            //uint queue_slot = pixel_index + ray_index;
+
+            /*
+            vec3 v;
+            vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
+            v = vadd(half, sample_hemisphere_cos_weighed());
+            set_color(pixel_index, v);
+            */
+        }
     }
 }
