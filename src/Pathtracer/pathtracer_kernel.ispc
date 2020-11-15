@@ -4,6 +4,26 @@ export void test_kernel(uniform int input[], uniform int output[], uniform int l
     }
 }
 
+struct Triangle;
+struct BSDF;
+
+struct Global
+{
+    varying RNGState rng;
+
+    uniform Triangle* triangles;
+    uniform BSDF* bsdfs;
+
+    uniform uint num_triangles;
+    uniform uint num_bsdfs;
+
+    uniform uint width, height;
+
+    uniform uint8* output;
+};
+
+uniform Global G;
+
 //-------- math --------
 
 #define ONE_OVER_PI 0.31830988618f
@@ -14,8 +34,13 @@ struct vec3 {
     float z;
 };
 
-vec3 new_vec3() {
+inline vec3 new_vec3() {
     vec3 v; v.x = 0.0f; v.y = 0.0f; v.z = 0.0f;
+    return v;
+}
+
+inline vec3 new_vec3(float x, float y, float z) {
+    vec3 v; v.x = x; v.y = y; v.z = z;
     return v;
 }
 
@@ -25,18 +50,15 @@ struct mat3 {
     vec3 colz;
 };
 
-mat3 new_mat3() {
+inline mat3 new_mat3() {
     mat3 m;
-    m.colx = new_vec3();
-    m.coly = new_vec3();
-    m.colz = new_vec3();
-    m.colx.x = 1.0f;
-    m.coly.y = 1.0f;
-    m.colz.z = 1.0f;
+    m.colx = new_vec3(1.0f, 0.0f, 0.0f);
+    m.coly = new_vec3(0.0f, 1.0f, 0.0f);
+    m.colz = new_vec3(0.0f, 0.0f, 1.0f);
     return m;
 }
 
-vec3 vadd(vec3 a, vec3 b) {
+inline vec3 vadd(vec3 &a, vec3 &b) {
     vec3 res;
     res.x = a.x + b.x;
     res.y = a.y + b.y;
@@ -44,7 +66,7 @@ vec3 vadd(vec3 a, vec3 b) {
     return res;
 }
 
-vec3 vsub(vec3 a, vec3 b) {
+inline vec3 vsub(vec3 &a, vec3 &b) {
     vec3 res;
     res.x = a.x - b.x;
     res.y = a.y - b.y;
@@ -52,7 +74,7 @@ vec3 vsub(vec3 a, vec3 b) {
     return res;
 }
 
-vec3 vmul(vec3 a, vec3 b) {
+inline vec3 vmul(vec3 &a, vec3 &b) {
     vec3 res;
     res.x = a.x * b.x;
     res.y = a.y * b.y;
@@ -60,14 +82,14 @@ vec3 vmul(vec3 a, vec3 b) {
     return res;
 }
 
-vec3 smul(float a, vec3 v) {
+inline vec3 smul(float a, vec3 &v) {
     v.x *= a;
     v.y *= a;
     v.z *= a;
     return v;
 }
 
-vec3 mmul(mat3 m, vec3 v) {
+inline vec3 mmul(mat3 &m, vec3 &v) {
     vec3 res;
     res.x = m.colx.x * v.x + m.coly.x * v.y + m.colz.x * v.z;
     res.y = m.colx.y * v.x + m.coly.y * v.y + m.colz.y * v.z;
@@ -75,11 +97,11 @@ vec3 mmul(mat3 m, vec3 v) {
     return res;
 }
 
-float dot(vec3 a, vec3 b) {
+inline float dot(vec3 &a, vec3 &b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
 }
 
-vec3 cross(vec3 a, vec3 b) {
+inline vec3 cross(vec3 &a, vec3 &b) {
     vec3 res;
     res.x = a.y * b.z - b.y * a.z;
     res.y = a.x * b.z - b.x * a.z;
@@ -87,16 +109,15 @@ vec3 cross(vec3 a, vec3 b) {
     return res;
 }
 
-vec3 normalized(vec3 v) {
+inline vec3 normalized(vec3 &v) {
     float inv_len = 1.0f / sqrt(dot(v, v));
     return smul(inv_len, v);
 }
 
 //-------- RNG, sampling --------
 
-RNGState rng;
-float rand01() {
-    float r = abs(frandom(&rng));
+inline float rand01() {
+    float r = abs(frandom(&G.rng));
     return r - floor(r);
 }
 
@@ -104,7 +125,7 @@ inline float len(float x, float y) {
     return sqrt(x * x + y * y);
 }
 
-vec3 sample_hemisphere_cos_weighed() {
+inline vec3 sample_hemisphere_cos_weighed() {
     float x = rand01() - 0.5f;
     float y = rand01() - 0.5f;
     while (len(x, y) > 0.5f) {
@@ -115,8 +136,7 @@ vec3 sample_hemisphere_cos_weighed() {
     float l = len(x, y);
     float z = sqrt(1.0f - l * l);
     
-    vec3 res;
-    res.x = x; res.y = y; res.z = z;
+    vec3 res = new_vec3(x, y, z);
     return res;
 }
 
@@ -129,7 +149,7 @@ struct Ray {
     bool receive_le;
 };
 
-Ray new_Ray() {
+inline Ray new_Ray() {
     Ray r;
     r.o = new_vec3();
     r.d = new_vec3();
@@ -146,7 +166,7 @@ struct RayTask {
     vec3 contribution;
 };
 
-RayTask new_RayTask() {
+inline RayTask new_RayTask() {
     RayTask rt;
     rt.ray = new_Ray();
     rt.output = new_vec3();
@@ -162,29 +182,26 @@ struct BSDF {
     vec3 Le;
 };
 
-vec3 BSDF_f(BSDF& bsdf, vec3& wi, vec3& wo) {
+inline vec3 BSDF_f(BSDF& bsdf, vec3& wi, vec3& wo) {
     return smul(ONE_OVER_PI, bsdf.albedo);
 }
 
-vec3 BSDF_sample_f(BSDF& bsdf, float& pdf, vec3& wi, vec3 wo) {
+inline vec3 BSDF_sample_f(BSDF& bsdf, float& pdf, vec3& wi, vec3 wo) {
     wi = sample_hemisphere_cos_weighed();
     pdf = wi.z * ONE_OVER_PI;
     return BSDF_f(bsdf, wi, wo);
 }
 
 struct Triangle {
-    BSDF* bsdf;
+		int bsdf_index;
     vec3 vertices[3];
-    vec3 normals[3];
     vec3 enormals[3];
 
-    vec3 e1, e2;
     vec3 plane_n;
     float plane_k;
-    float area;
 };
 
-bool intersect(Triangle& triangle, Ray& ray, double& t, vec3& normal, bool modify_ray) {
+inline bool intersect(Triangle& triangle, Ray& ray, double& t, vec3& normal, bool modify_ray) {
     // ray parallel to plane
     float d_dot_n = dot(ray.d, triangle.plane_n);
     if (abs(d_dot_n) == 0.0f) return false;
@@ -211,7 +228,7 @@ bool intersect(Triangle& triangle, Ray& ray, double& t, vec3& normal, bool modif
 
 //-------- actual path tracing --------
 
-void make_h2w(mat3& h2w, vec3& z) {
+inline void make_h2w(mat3& h2w, vec3& z) {
     vec3 tmp; tmp.x = 1.0f; tmp.y = 2.0f, tmp.z = 3.0f;
     tmp = normalized(tmp);
 
@@ -228,11 +245,18 @@ inline float brightness(vec3& color) {
     return 0.2989f * color.x + 0.587f * color.y + 0.114 * color.z;
 }
 
+inline void set_color(uint i, vec3 &color) {
+    uint i3 = i * 3;
+    G.output[i3] = 0xFF & (int)(color.x * 255.0f);
+    G.output[i3 + 1] = 0xFF & (int)(color.y * 255.0f);
+    G.output[i3 + 2] = 0xFF & (int)(color.z * 255.0f);
+}
+
 export void raytrace_scene_ispc(
     uniform Triangle triangles[],
     uniform BSDF bsdfs[],
     uniform int num_triangles,
-    uniform vec3 output[],
+    uniform uint8 output[],
     uniform int width,
     uniform int height
 ){
@@ -241,5 +265,31 @@ export void raytrace_scene_ispc(
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
 
-    Triangle wat = triangles[1];
+    G.triangles = triangles;
+    G.bsdfs = bsdfs;
+    G.num_triangles = num_triangles;
+    G.num_bsdfs = num_triangles;
+    G.width = width;
+    G.height = height;
+    G.output = output;
+
+    // seed the RNGs
+    foreach (i = 0 ... programCount) {
+        seed_rng(&G.rng, i);
+    }
+
+    uniform uint buf_size = width * height;
+    uniform uint buf_size3 = buf_size * 3;
+
+    // initialize color
+    foreach (i = 0 ... buf_size3) {
+        output[i] = 127;
+    }
+
+    foreach (i = 0 ... buf_size) {
+        vec3 v;
+        vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
+        v = vadd(half, sample_hemisphere_cos_weighed());
+        set_color(i, v);
+    }
 }

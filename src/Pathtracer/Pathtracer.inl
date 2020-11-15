@@ -1,9 +1,6 @@
 #include "Primitive.hpp"
 #include "Camera.hpp"
 
-// include this generated header to be able to use the kernels
-#include "pathtracer_kernel_ispc.h"
-
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
 	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));

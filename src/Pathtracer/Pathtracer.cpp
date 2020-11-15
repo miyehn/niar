@@ -12,6 +12,9 @@
 #include <atomic>
 #include <condition_variable>
 
+// include this generated header to be able to use the kernels
+#include "pathtracer_kernel_ispc.h"
+
 CVar<float>* FocalDistance = new CVar<float>("FocalDistance", 500);
 CVar<float>* ApertureRadius = new CVar<float>("ApertureRadius", 8);
 
@@ -385,6 +388,41 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 }
 
 void Pathtracer::raytrace_scene() {
+
+#if 1
+
+	auto ispc_vec3 = [](const vec3& v) {
+		ispc::vec3 res;
+		res.x = v.x; res.y = v.y; res.z = v.z;
+		return res;
+	};
+	
+	// construct scene representation (triangles + materials list)
+	ispc::BSDF bsdfs[primitives.size()]; // TODO: support multiple materials
+	ispc::Triangle triangles[primitives.size()];
+	for (int i=0; i<primitives.size(); i++) {
+		ispc::Triangle &T = triangles[i];
+		Triangle* T0 = dynamic_cast<Triangle*>(primitives[i]);
+		if (!T0) ERR("failed to cast primitive to triangle?");
+		// construct its corresponding material
+		T.bsdf_index = i;
+		bsdfs[i].is_delta = T0->bsdf->is_delta;
+		bsdfs[i].is_emissive = T0->bsdf->is_emissive;
+		bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
+		bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
+		// construct the ispc triangle object
+		for (int j=0; j<3; j++) {
+			T.vertices[j] = ispc_vec3(T0->vertices[j]);
+			T.enormals[j] = ispc_vec3(T0->enormals[j]);
+		}
+		T.plane_n = ispc_vec3(T0->plane_n);
+		T.plane_k = T0->plane_k;
+	}
+
+	// dispatch task to ispc
+	ispc::raytrace_scene_ispc(triangles, bsdfs, primitives.size(), image_buffer, width, height);
+
+#else
 	for (size_t y = 0; y < height; y++) {
 		for (size_t x = 0; x < width; x++) {
 
@@ -394,6 +432,7 @@ void Pathtracer::raytrace_scene() {
 
 		}
 	}
+#endif
 }
 
 // https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
