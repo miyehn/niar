@@ -100,6 +100,25 @@ inline mat3 new_mat3() {
     return m;
 }
 
+inline mat3 transpose(mat3& m0) {
+    mat3 m = m0;
+    m.colx.y = m0.coly.x;
+    m.colx.z = m0.colz.x;
+    m.coly.x = m0.colx.y;
+    m.coly.z = m0.colz.y;
+    m.colz.x = m0.colx.z;
+    m.colz.y = m0.coly.z;
+    return m;
+}
+
+inline vec3 neg(vec3 v) {
+    vec3 res;
+    res.x = -v.x;
+    res.y = -v.y;
+    res.z = -v.z;
+    return res;
+}
+
 inline vec3 vadd(vec3 a, vec3 b) {
     vec3 res;
     res.x = a.x + b.x;
@@ -156,6 +175,14 @@ inline vec3 normalized(vec3 &v) {
     return smul(inv_len, v);
 }
 
+inline vec3 clamp01(vec3 &v) {
+    vec3 res = v;
+    if (res.x < 0) res.x = 0; if (res.x > 1) res.x = 1;
+    if (res.y < 0) res.y = 0; if (res.y > 1) res.y = 1;
+    if (res.z < 0) res.z = 0; if (res.z > 1) res.z = 1;
+    return res;
+}
+
 //-------- RNG, sampling --------
 
 inline float rand01() {
@@ -199,7 +226,7 @@ inline RayTask new_RayTask() {
     RayTask rt;
     rt.ray = new_Ray();
     rt.output = new_vec3();
-    rt.contribution = new_vec3();
+    rt.contribution = new_vec3(1.0f, 1.0f, 1.0f);
     rt.depth = 0;
     rt.finished = false;
     return rt;
@@ -276,6 +303,7 @@ inline float brightness(vec3& color) {
 
 inline void set_color(uint i, vec3 &color) {
     uint i3 = i * 3;
+    color = clamp01(color);
     G.output[i3] = 0xFF & (int)(color.x * 255.0f);
     G.output[i3 + 1] = 0xFF & (int)(color.y * 255.0f);
     G.output[i3 + 2] = 0xFF & (int)(color.z * 255.0f);
@@ -331,13 +359,40 @@ inline void trace_ray(RayTask* rtask_in)
                 bsdf = G.bsdfs + primitive->bsdf_index;
             }
         }
-        if (primitive) rtask.output = new_vec3(1.0f, 1.0f, 1.0f);
-        else rtask.output = new_vec3(0.2f, 0.3f, 0.5f);
+        if (primitive)
+        {
+            // pre-compute (or declare) some common thing sto be used later
+            vec3 L = new_vec3();
+            vec3 hit_p = vadd(ray.o, smul(t, ray.d));
+            // construct transform from hemisphere space to world space
+            mat3 h2w;
+            make_h2w(h2w, n);
+            mat3 w2h = transpose(h2w);
+            // wi, wo
+            vec3 wo_world = neg(ray.d);
+            vec3 wo_hemi = neg( mmul(w2h, ray.d) );
+            //
+            vec3 wi_world; // to be transformed from wi_hemi
+            vec3 wi_hemi; // to be assigned by f
+            float costhetai; // some variation of dot(wi_world, n)
 
-        rtask.depth += 1;
+            //---- emission ----
 
-        //rtask->output = new_vec3(0.2f, 0.3f, 0.5f);
-        //rtask->finished = true;
+            L = vadd(L, bsdf->Le);
+            rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
+
+            //---- indirect lighting ----
+
+            //float d = t / 500.0f;
+            //if (d > 1.0f) d = 1.0f;
+            //rtask.output = new_vec3(d, d, d);
+
+            rtask.depth += 1;
+        }
+        else
+        {
+            rtask.finished = true;
+        }
     }
 
     *rtask_in = rtask;
@@ -371,6 +426,11 @@ export void raytrace_scene_ispc(
 
     G.output_tmp = uniform new vec3[QUEUE_SIZE * num_offsets * sizeof(vec3)];
 
+    // assign bsdf index
+    foreach (i = 0 ... G.num_triangles) {
+        G.triangles[i].bsdf_index = i;
+    }
+
     // seed the RNGs
     foreach (i = 0 ... programCount) {
         seed_rng(&G.rng, i);
@@ -381,7 +441,7 @@ export void raytrace_scene_ispc(
 
     // initialize buffer
     foreach (i = 0 ... buf_size3) {
-        output[i] = 127;
+        output[i] = 128;
     }
 
     /////////////////////////////////////////////////
