@@ -1,7 +1,6 @@
 
 #define QUEUE_SIZE 1024
 
-struct Camera;
 struct Triangle;
 struct BSDF;
 
@@ -28,6 +27,14 @@ struct RayTask {
     Ray ray;
     vec3 output; 
     vec3 contribution;
+    bool finished;
+};
+
+struct Camera {
+    mat3 camera_to_world_rotation;
+    vec3 position;
+    float fov;
+    float aspect_ratio;
 };
 
 struct Global
@@ -47,8 +54,7 @@ struct Global
 
     uniform uint width, height;
 
-    uniform RayTask tasks_A[QUEUE_SIZE];
-    uniform RayTask tasks_B[QUEUE_SIZE];
+    uniform RayTask ray_tasks[QUEUE_SIZE];
     uniform bool read_from_A;
 
     uniform vec3* output_tmp; // a temporary buffer that stores float
@@ -87,7 +93,7 @@ inline vec3 vadd(vec3 a, vec3 b) {
     return res;
 }
 
-inline vec3 vsub(vec3 &a, vec3 &b) {
+inline vec3 vsub(vec3 a, vec3 b) {
     vec3 res;
     res.x = a.x - b.x;
     res.y = a.y - b.y;
@@ -95,7 +101,7 @@ inline vec3 vsub(vec3 &a, vec3 &b) {
     return res;
 }
 
-inline vec3 vmul(vec3 &a, vec3 &b) {
+inline vec3 vmul(vec3 a, vec3 b) {
     vec3 res;
     res.x = a.x * b.x;
     res.y = a.y * b.y;
@@ -103,7 +109,7 @@ inline vec3 vmul(vec3 &a, vec3 &b) {
     return res;
 }
 
-inline vec3 smul(float a, vec3 &v) {
+inline vec3 smul(float a, vec3 v) {
     v.x *= a;
     v.y *= a;
     v.z *= a;
@@ -163,13 +169,6 @@ inline vec3 sample_hemisphere_cos_weighed() {
 
 //-------- scene, scene primitives, BSDF --------
 
-struct Camera {
-    mat3 camera_to_world_rotation;
-    vec3 position;
-    float fov;
-    float aspect_ratio;
-};
-
 inline Ray new_Ray() {
     Ray r;
     r.o = new_vec3();
@@ -186,6 +185,7 @@ inline RayTask new_RayTask() {
     rt.ray = new_Ray();
     rt.output = new_vec3();
     rt.contribution = new_vec3();
+    rt.finished = false;
     return rt;
 }
 
@@ -267,6 +267,43 @@ inline void set_color(uint i, vec3 &color) {
     G.output[i3 + 2] = 0xFF & (int)(color.z * 255.0f);
 }
 
+inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
+{
+    *rtask = new_RayTask();
+    int w = pixel_index % G.width; // TODO
+    int h = pixel_index / G.width; // TODO
+    float fov = G.camera->fov;
+    float half_width = G.width / 2.0f;
+    float half_height = G.height / 2.0f;
+
+    float k_y = tan(fov / 2.0f);
+    float k_x = k_y * G.camera->aspect_ratio;
+
+    Ray* ray = &(rtask->ray);
+
+    ////////
+    float offset_x = G.pixel_offsets[2 * ray_index];
+    float offset_y = G.pixel_offsets[2 * ray_index + 1];
+
+    ray->o = G.camera->position;
+    ray->tmin = 0.0;
+    ray->tmax = 999999999.0;
+
+    float dx = (w + offset_x - half_width) / half_width;
+    float dy = (h + offset_y - half_height) / half_height;
+
+    vec3 d_unnormalized_c = new_vec3(k_x * dx, k_y * dy, -1.0);
+    varying mat3 c2wr = G.camera->camera_to_world_rotation;
+    vec3 d_unnormalized_w = mmul(c2wr, d_unnormalized_c);
+    ray->d = normalized(d_unnormalized_w);
+}
+
+inline void trace_ray(RayTask* rtask)
+{
+    rtask->finished = true;
+    rtask->output = new_vec3(0.2f, 0.3f, 0.5f);
+}
+
 export void raytrace_scene_ispc(
     uniform Camera camera[], // pass in exactly 1 camera
     uniform float pixel_offsets[], // even: x; odd: y;
@@ -323,10 +360,24 @@ export void raytrace_scene_ispc(
             uint pixel_index = pixel_index_local + batch * pixels_per_batch;
             if (pixel_index < buf_size)
             {
-                vec3* res = G.output_tmp + pixel_index_local * G.num_offsets + ray_index;
-                vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
-                *res = vadd(half, sample_hemisphere_cos_weighed());
-                //uint queue_slot = pixel_index + ray_index;
+                uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
+                vec3* res = G.output_tmp + ray_index_batch;
+                
+                // generate the initial raytask
+                RayTask* rtask = G.ray_tasks + ray_index_batch;
+                generate_ray(rtask, pixel_index, ray_index);
+
+                trace_ray(rtask);
+
+                *res = rtask->output;
+
+                //vec3 scl = vmul(new_vec3(0.5f, 0.5f, 0.0f), rtask->ray.d);
+                //scl = vadd(new_vec3(0.5f, 0.5f, 0.0f), scl);
+
+                //*res = scl;
+
+                //vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
+                //*res = vadd(half, sample_hemisphere_cos_weighed());
             }
         }
         
