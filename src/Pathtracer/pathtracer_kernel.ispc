@@ -1,9 +1,6 @@
 
 #define QUEUE_SIZE 1024
 
-struct Triangle;
-struct BSDF;
-
 struct vec3 {
     float x;
     float y;
@@ -27,6 +24,7 @@ struct RayTask {
     Ray ray;
     vec3 output; 
     vec3 contribution;
+    uint depth;
     bool finished;
 };
 
@@ -35,6 +33,23 @@ struct Camera {
     vec3 position;
     float fov;
     float aspect_ratio;
+};
+
+struct Triangle {
+    int bsdf_index;
+    vec3 vertices[3];
+    vec3 enormals[3];
+
+    vec3 plane_n;
+    float plane_k;
+};
+
+// diffuse only..
+struct BSDF {
+    bool is_delta;
+    bool is_emissive;
+    vec3 albedo;
+    vec3 Le;
 };
 
 struct Global
@@ -185,17 +200,25 @@ inline RayTask new_RayTask() {
     rt.ray = new_Ray();
     rt.output = new_vec3();
     rt.contribution = new_vec3();
+    rt.depth = 0;
     rt.finished = false;
     return rt;
 }
 
-// diffuse only..
-struct BSDF {
-    bool is_delta;
-    bool is_emissive;
-    vec3 albedo;
-    vec3 Le;
-};
+inline RayTask cpy_RayTask(RayTask* rt0) {
+    RayTask rt;
+    rt.ray.o = rt0->ray.o;
+    rt.ray.d = rt0->ray.d;
+    rt.ray.tmin = rt0->ray.tmin;
+    rt.ray.tmax = rt0->ray.tmax;
+    rt.ray.rr_contribution = rt0->ray.rr_contribution;
+    rt.ray.receive_le = rt0->ray.receive_le;
+    rt.output = rt0->output;
+    rt.contribution = rt0->contribution;
+    rt.depth = rt0->depth;
+    rt.finished = rt0->finished;
+    return rt;
+}
 
 inline vec3 BSDF_f(BSDF& bsdf, vec3& wi, vec3& wo) {
     return smul(ONE_OVER_PI, bsdf.albedo);
@@ -207,16 +230,7 @@ inline vec3 BSDF_sample_f(BSDF& bsdf, float& pdf, vec3& wi, vec3 wo) {
     return BSDF_f(bsdf, wi, wo);
 }
 
-struct Triangle {
-		int bsdf_index;
-    vec3 vertices[3];
-    vec3 enormals[3];
-
-    vec3 plane_n;
-    float plane_k;
-};
-
-inline bool intersect(Triangle& triangle, Ray& ray, double& t, vec3& normal, bool modify_ray) {
+inline bool intersect(Triangle triangle, Ray& ray, double& t, vec3& normal, bool modify_ray) {
     // ray parallel to plane
     float d_dot_n = dot(ray.d, triangle.plane_n);
     if (abs(d_dot_n) == 0.0f) return false;
@@ -298,10 +312,35 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
     ray->d = normalized(d_unnormalized_w);
 }
 
-inline void trace_ray(RayTask* rtask)
+inline void trace_ray(RayTask* rtask_in)
 {
-    rtask->finished = true;
-    rtask->output = new_vec3(0.2f, 0.3f, 0.5f);
+    RayTask rtask = cpy_RayTask(rtask_in);
+    while (!rtask.finished)
+    {
+        if (rtask.depth >= 1) rtask.finished = true;
+
+        Ray &ray = rtask.ray;
+
+        // info of closest hit
+        Triangle* primitive = NULL;
+        BSDF* bsdf = NULL;
+        double t; vec3 n;
+        for (uint i = 0; i < G.num_triangles; i++) {
+            if (intersect(G.triangles[i], ray, t, n, true)) {
+                primitive = G.triangles + i;
+                bsdf = G.bsdfs + primitive->bsdf_index;
+            }
+        }
+        if (primitive) rtask.output = new_vec3(1.0f, 1.0f, 1.0f);
+        else rtask.output = new_vec3(0.2f, 0.3f, 0.5f);
+
+        rtask.depth += 1;
+
+        //rtask->output = new_vec3(0.2f, 0.3f, 0.5f);
+        //rtask->finished = true;
+    }
+
+    *rtask_in = rtask;
 }
 
 export void raytrace_scene_ispc(
@@ -371,12 +410,6 @@ export void raytrace_scene_ispc(
 
                 *res = rtask->output;
 
-                //vec3 scl = vmul(new_vec3(0.5f, 0.5f, 0.0f), rtask->ray.d);
-                //scl = vadd(new_vec3(0.5f, 0.5f, 0.0f), scl);
-
-                //*res = scl;
-
-                //vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
                 //*res = vadd(half, sample_hemisphere_cos_weighed());
             }
         }
@@ -396,7 +429,6 @@ export void raytrace_scene_ispc(
             }
         }
     }
-
 
     delete[] G.output_tmp;
 }
