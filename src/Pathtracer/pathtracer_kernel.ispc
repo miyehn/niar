@@ -81,6 +81,9 @@ uniform Global G;
 //-------- math --------
 
 #define ONE_OVER_PI 0.31830988618f
+#define EPSILON 0.001f
+
+#define RR_THRESHOLD 0.05f
 
 inline vec3 new_vec3() {
     vec3 v; v.x = 0.0f; v.y = 0.0f; v.z = 0.0f;
@@ -247,11 +250,11 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     return rt;
 }
 
-inline vec3 BSDF_f(BSDF& bsdf, vec3& wi, vec3& wo) {
-    return smul(ONE_OVER_PI, bsdf.albedo);
+inline vec3 BSDF_f(BSDF* bsdf, vec3& wi, vec3& wo) {
+    return smul(ONE_OVER_PI, bsdf->albedo);
 }
 
-inline vec3 BSDF_sample_f(BSDF& bsdf, float& pdf, vec3& wi, vec3 wo) {
+inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo) {
     wi = sample_hemisphere_cos_weighed();
     pdf = wi.z * ONE_OVER_PI;
     return BSDF_f(bsdf, wi, wo);
@@ -345,7 +348,7 @@ inline void trace_ray(RayTask* rtask_in)
     RayTask rtask = cpy_RayTask(rtask_in);
     while (!rtask.finished)
     {
-        if (rtask.depth >= 1) rtask.finished = true;
+        if (rtask.depth >= 8) rtask.finished = true;
 
         Ray &ray = rtask.ray;
 
@@ -383,9 +386,34 @@ inline void trace_ray(RayTask* rtask_in)
 
             //---- indirect lighting ----
 
-            //float d = t / 500.0f;
-            //if (d > 1.0f) d = 1.0f;
-            //rtask.output = new_vec3(d, d, d);
+            float pdf;
+            vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
+
+            // transform wi back to world space
+            wi_world = mmul(h2w, wi_hemi);
+            costhetai = abs(dot(n, wi_world));
+
+            // russian roulette
+            float termination_prob = 0.0f;
+            ray.rr_contribution *= brightness(f) * costhetai;
+            if (ray.rr_contribution < RR_THRESHOLD) {
+                termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
+            }
+            bool terminate = rand01() < termination_prob;
+
+            // recursive step: trace scattered ray in wi direction (if not terminated by RR)
+            vec3 Li = new_vec3();
+            if (!terminate) {
+                vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
+                Ray ray_refl = new_Ray();
+                ray_refl.o = vadd(hit_p, refl_offset);
+                ray_refl.d = wi_world;
+                rtask.ray = ray_refl;
+                rtask.contribution = vmul(rtask.contribution,
+                    smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
+            } else {
+                rtask.finished = true;
+            }
 
             rtask.depth += 1;
         }
