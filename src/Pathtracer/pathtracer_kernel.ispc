@@ -51,6 +51,7 @@ struct Global
     uniform RayTask tasks_B[QUEUE_SIZE];
     uniform bool read_from_A;
 
+    uniform vec3* output_tmp; // a temporary buffer that stores float
     uniform uint8* output;
 };
 
@@ -78,7 +79,7 @@ inline mat3 new_mat3() {
     return m;
 }
 
-inline vec3 vadd(vec3 &a, vec3 &b) {
+inline vec3 vadd(vec3 a, vec3 b) {
     vec3 res;
     res.x = a.x + b.x;
     res.y = a.y + b.y;
@@ -292,6 +293,8 @@ export void raytrace_scene_ispc(
     G.output = output;
     G.read_from_A = true;
 
+    G.output_tmp = uniform new vec3[QUEUE_SIZE * num_offsets * sizeof(vec3)];
+
     // seed the RNGs
     foreach (i = 0 ... programCount) {
         seed_rng(&G.rng, i);
@@ -310,23 +313,39 @@ export void raytrace_scene_ispc(
     uniform uint pixels_per_batch = QUEUE_SIZE / G.num_offsets;
     uniform uint num_batches = (buf_size + pixels_per_batch - 1) / pixels_per_batch;
 
+    uniform float ray_weight = 1.0f / G.num_offsets;
+
     for (uniform uint batch = 0; batch < num_batches; batch++)
     {
+        // trace rays for the current batch
         foreach (pixel_index_local = 0 ... pixels_per_batch, ray_index = 0 ... G.num_offsets)
         {
             uint pixel_index = pixel_index_local + batch * pixels_per_batch;
-
-            // TODO: make a superbuffer (float*) in G for each ray to write to, 
-            // and reuse that for each batch.
-
-            //uint queue_slot = pixel_index + ray_index;
-
-            /*
-            vec3 v;
-            vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
-            v = vadd(half, sample_hemisphere_cos_weighed());
-            set_color(pixel_index, v);
-            */
+            if (pixel_index < buf_size)
+            {
+                vec3* res = G.output_tmp + pixel_index_local * G.num_offsets + ray_index;
+                vec3 half = new_vec3(0.5f, 0.5f, 0.0f);
+                *res = vadd(half, sample_hemisphere_cos_weighed());
+                //uint queue_slot = pixel_index + ray_index;
+            }
+        }
+        
+        // average results and store into output buffer
+        foreach (pixel_index_local = 0 ... pixels_per_batch)
+        {
+            uint pixel_index = pixel_index_local + batch * pixels_per_batch;
+            if (pixel_index < buf_size)
+            {
+                vec3 v = new_vec3();
+                for (int ray_index = 0; ray_index < G.num_offsets; ray_index++) {
+                    v = vadd(v, G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]);
+                }
+                v = smul(ray_weight, v);
+                set_color(pixel_index, v);
+            }
         }
     }
+
+
+    delete[] G.output_tmp;
 }
