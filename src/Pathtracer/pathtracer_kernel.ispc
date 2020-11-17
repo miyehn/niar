@@ -168,7 +168,7 @@ inline float dot(vec3 &a, vec3 &b) {
 inline vec3 cross(vec3 &a, vec3 &b) {
     vec3 res;
     res.x = a.y * b.z - b.y * a.z;
-    res.y = a.x * b.z - b.x * a.z;
+    res.y = -a.x * b.z + b.x * a.z;
     res.z = a.x * b.y - b.x * a.y;
     return res;
 }
@@ -348,7 +348,10 @@ inline void trace_ray(RayTask* rtask_in)
     RayTask rtask = cpy_RayTask(rtask_in);
     while (!rtask.finished)
     {
-        if (rtask.depth >= 8) rtask.finished = true;
+        if (rtask.depth >= 8) {
+            rtask.finished = true;
+            break;
+        }
 
         Ray &ray = rtask.ray;
 
