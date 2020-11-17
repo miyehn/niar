@@ -79,14 +79,13 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 	}
 }
 
-vec3 Pathtracer::raytrace_pixel(size_t index) {
+vec3 Pathtracer::raytrace_pixel(size_t index, bool ispc) {
 	std::vector<RayTask> tasks;
 	generate_rays(tasks, index);
 
-	bool ispc = Cfg.Pathtracer.ISPC;
 	vec3 result = vec3(0);
 	for (size_t i = 0; i < tasks.size(); i++) {
-		ispc ? trace_ray_ispc(tasks[i], 0) : trace_ray(tasks[i], 0, false), vec3(0), vec3(INF);
+		ispc ? trace_ray_ispc(tasks[i], 0) : trace_ray(tasks[i], 0, false);
 		result += tasks[i].output;
 	}
 

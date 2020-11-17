@@ -29,7 +29,7 @@ struct Pathtracer : public Drawable {
 	void enable();
 	void disable();
 
-	void raytrace_scene(); //trace to main output buffer directly; used for rendering to file
+	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
 	void output_file(const std::string& path);
 
 private:
@@ -69,7 +69,7 @@ private:
 	// routine
 	void generate_one_ray(RayTask& task, int x, int y);
 	void generate_rays(std::vector<RayTask>& tasks, size_t index);
-	vec3 raytrace_pixel(size_t index);
+	vec3 raytrace_pixel(size_t index, bool ispc = false);
 	void raytrace_tile(size_t tid, size_t tile_index);
 	void trace_ray(RayTask& task, int ray_depth, bool debug);
 	// (for 418 project: ISPC)

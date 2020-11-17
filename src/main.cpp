@@ -26,8 +26,8 @@ int main(int argc, const char * argv[]) {
 	auto result = options.parse(argc, argv);
 	//--------------------
 
-	uint w = 200;
-	uint h = 150;
+	uint w = 800;
+	uint h = 600;
 
 	if (result.count("width")) {
 		w = result["width"].as<int>();

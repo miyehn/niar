@@ -66,7 +66,8 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 	Scene::Active = scene;
 
 	Pathtracer::Instance->initialize();
-	Pathtracer::Instance->raytrace_scene();
+	TRACE("starting..");
+	Pathtracer::Instance->raytrace_scene_to_buf();
 	TRACE("done!");
 	Pathtracer::Instance->output_file(path);
 

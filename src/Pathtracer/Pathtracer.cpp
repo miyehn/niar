@@ -387,66 +387,70 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 
 }
 
-void Pathtracer::raytrace_scene() {
+void Pathtracer::raytrace_scene_to_buf() {
 
-#if 1
-
-	auto ispc_vec3 = [](const vec3& v) {
-		ispc::vec3 res;
-		res.x = v.x; res.y = v.y; res.z = v.z;
-		return res;
-	};
-	
-	// construct scene representation (triangles + materials list)
-	ispc::BSDF bsdfs[primitives.size()]; // TODO: support multiple materials
-	ispc::Triangle triangles[primitives.size()];
-	for (int i=0; i<primitives.size(); i++) {
-		ispc::Triangle &T = triangles[i];
-		Triangle* T0 = dynamic_cast<Triangle*>(primitives[i]);
-		if (!T0) ERR("failed to cast primitive to triangle?");
-		// construct its corresponding material
-		T.bsdf_index = i;
-		bsdfs[i].is_delta = T0->bsdf->is_delta;
-		bsdfs[i].is_emissive = T0->bsdf->is_emissive;
-		bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
-		bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
-		// construct the ispc triangle object
-		for (int j=0; j<3; j++) {
-			T.vertices[j] = ispc_vec3(T0->vertices[j]);
-			T.enormals[j] = ispc_vec3(T0->enormals[j]);
+	if (Cfg.Pathtracer.ISPC)
+	{
+		auto ispc_vec3 = [](const vec3& v) {
+			ispc::vec3 res;
+			res.x = v.x; res.y = v.y; res.z = v.z;
+			return res;
+		};
+		
+		// construct scene representation (triangles + materials list)
+		ispc::BSDF bsdfs[primitives.size()]; // TODO: support multiple materials
+		ispc::Triangle triangles[primitives.size()];
+		for (int i=0; i<primitives.size(); i++) {
+			ispc::Triangle &T = triangles[i];
+			Triangle* T0 = dynamic_cast<Triangle*>(primitives[i]);
+			if (!T0) ERR("failed to cast primitive to triangle?");
+			// construct its corresponding material
+			T.bsdf_index = i;
+			bsdfs[i].is_delta = T0->bsdf->is_delta;
+			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
+			bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
+			bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
+			// construct the ispc triangle object
+			for (int j=0; j<3; j++) {
+				T.vertices[j] = ispc_vec3(T0->vertices[j]);
+				T.enormals[j] = ispc_vec3(T0->enormals[j]);
+			}
+			T.plane_n = ispc_vec3(T0->plane_n);
+			T.plane_k = T0->plane_k;
 		}
-		T.plane_n = ispc_vec3(T0->plane_n);
-		T.plane_k = T0->plane_k;
+
+		// construct camera
+		ispc::Camera camera;
+		mat3 c2wr = Camera::Active->camera_to_world_rotation();
+		camera.camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
+		camera.camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
+		camera.camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
+		camera.position = ispc_vec3(Camera::Active->position);
+		camera.fov = Camera::Active->fov;
+		camera.aspect_ratio = Camera::Active->aspect_ratio;
+
+		float* offsets = (float*)pixel_offsets.data();
+
+		// dispatch task to ispc
+		ispc::raytrace_scene_ispc(
+			&camera, 
+			offsets, pixel_offsets.size(), 
+			triangles, bsdfs, primitives.size(), 
+			image_buffer, 
+			width, height, Cfg.Pathtracer.MaxRayDepth);
+	}
+	else {
+		for (size_t y = 0; y < height; y++) {
+			for (size_t x = 0; x < width; x++) {
+
+				size_t px_index = width * y + x;
+				vec3 color = raytrace_pixel(px_index, true);
+				set_mainbuffer_rgb(px_index, color);
+
+			}
+		}
 	}
 
-	// construct camera
-	ispc::Camera camera;
-	mat3 c2wr = Camera::Active->camera_to_world_rotation();
-	camera.camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
-	camera.camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
-	camera.camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
-	camera.position = ispc_vec3(Camera::Active->position);
-	camera.fov = Camera::Active->fov;
-	camera.aspect_ratio = Camera::Active->aspect_ratio;
-
-	// pixel offsets (jittered sampling)
-	generate_pixel_offsets();
-	float* offsets = (float*)pixel_offsets.data();
-
-	// dispatch task to ispc
-	ispc::raytrace_scene_ispc(&camera, offsets, pixel_offsets.size(), triangles, bsdfs, primitives.size(), image_buffer, width, height);
-
-#else
-	for (size_t y = 0; y < height; y++) {
-		for (size_t x = 0; x < width; x++) {
-
-			size_t px_index = width * y + x;
-			vec3 color = raytrace_pixel(px_index);
-			set_mainbuffer_rgb(px_index, color);
-
-		}
-	}
-#endif
 }
 
 // https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations

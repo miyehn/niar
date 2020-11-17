@@ -67,7 +67,7 @@ struct Global
     uniform uint num_triangles;
     uniform uint num_bsdfs;
 
-    uniform uint width, height;
+    uniform uint width, height, max_ray_depth;
 
     uniform RayTask ray_tasks[QUEUE_SIZE];
     uniform bool read_from_A;
@@ -346,9 +346,10 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 inline void trace_ray(RayTask* rtask_in)
 {
     RayTask rtask = cpy_RayTask(rtask_in);
+    uint max_ray_depth = G.max_ray_depth;
     while (!rtask.finished)
     {
-        if (rtask.depth >= 8) {
+        if (rtask.depth >= max_ray_depth) {
             rtask.finished = true;
             break;
         }
@@ -437,8 +438,9 @@ export void raytrace_scene_ispc(
     uniform BSDF bsdfs[],
     uniform int num_triangles,
     uniform uint8 output[],
-    uniform int width,
-    uniform int height
+    uniform uint width,
+    uniform uint height,
+    uniform uint max_ray_depth
 ){
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
@@ -452,6 +454,7 @@ export void raytrace_scene_ispc(
     G.num_bsdfs = num_triangles;
     G.width = width;
     G.height = height;
+    G.max_ray_depth = max_ray_depth;
     G.output = output;
     G.read_from_A = true;
 
@@ -500,8 +503,6 @@ export void raytrace_scene_ispc(
                 trace_ray(rtask);
 
                 *res = rtask->output;
-
-                //*res = vadd(half, sample_hemisphere_cos_weighed());
             }
         }
         
