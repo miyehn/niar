@@ -12,6 +12,17 @@
 #include "Texture.hpp"
 #include "Materials.hpp"
 
+#include <sys/time.h>
+#define TIMER_BEGIN() \
+	struct timeval __start_time, __end_time; \
+	gettimeofday(&__start_time, 0);
+
+#define TIMER_END() \
+	gettimeofday(&__end_time, 0); \
+	long __sec = __end_time.tv_sec - __start_time.tv_sec; \
+	long __msec = __end_time.tv_usec - __start_time.tv_usec; \
+	double execution_time = __sec + __msec * 1e-6;
+
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
@@ -67,8 +78,17 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 
 	Pathtracer::Instance->initialize();
 	TRACE("starting..");
+
+	if (Cfg.Pathtracer.ISPC) {
+		TRACE("---- ISPC ON ----");
+	} else {
+		TRACE("---- ISPC OFF ----");
+	}
+
+	TIMER_BEGIN();
 	Pathtracer::Instance->raytrace_scene_to_buf();
-	TRACE("done!");
+	TIMER_END();
+	TRACEF("done! took %f seconds", execution_time);
 	Pathtracer::Instance->output_file(path);
 
 	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()
