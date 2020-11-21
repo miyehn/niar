@@ -1,5 +1,6 @@
 
 #define QUEUE_SIZE 1024
+#define MINI_BATCH_GRAN 4
 
 struct vec3 {
     float x;
@@ -430,6 +431,54 @@ inline void trace_ray(RayTask* rtask_in)
     *rtask_in = rtask;
 }
 
+task void raytrace_scene_ispc_task(
+    uniform uint batch,
+    uniform uint pixels_per_mini_batch,
+    uniform uint pixels_per_batch,
+    uniform uint buf_size,
+    uniform float ray_weight) 
+{
+    uniform uint minibatch = taskIndex;
+    uniform uint max_num_pixels = pixels_per_mini_batch;
+    if ((minibatch + 1)*pixels_per_mini_batch > pixels_per_batch) {
+        max_num_pixels = (minibatch + 1)*pixels_per_mini_batch - pixels_per_batch;
+    }
+    foreach (pixel_index_mini = 0 ... max_num_pixels, ray_index = 0 ... G.num_offsets)
+    {
+        uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
+        uint pixel_index = pixel_index_local + batch * pixels_per_batch;
+        if (pixel_index < buf_size)
+        {
+            uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
+            vec3* res = G.output_tmp + ray_index_batch;
+            
+            // generate the initial raytask
+            RayTask* rtask = G.ray_tasks + ray_index_batch;
+            generate_ray(rtask, pixel_index, ray_index);
+
+            trace_ray(rtask);
+
+            *res = rtask->output;
+        }
+    }
+    
+    // average results and store into output buffer
+    foreach (pixel_index_mini = 0 ... max_num_pixels)
+    {
+        uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
+        uint pixel_index = pixel_index_local + batch * pixels_per_batch;
+        if (pixel_index < buf_size)
+        {
+            vec3 v = new_vec3();
+            for (int ray_index = 0; ray_index < G.num_offsets; ray_index++) {
+                v = vadd(v, G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]);
+            }
+            v = smul(ray_weight, v);
+            set_color(pixel_index, v);
+        }
+    }
+}
+
 export void raytrace_scene_ispc(
     uniform Camera camera[], // pass in exactly 1 camera
     uniform float pixel_offsets[], // even: x; odd: y;
@@ -458,6 +507,7 @@ export void raytrace_scene_ispc(
     G.output = output;
     G.read_from_A = true;
 
+
     G.output_tmp = uniform new vec3[QUEUE_SIZE * num_offsets * sizeof(vec3)];
 
     // assign bsdf index
@@ -481,45 +531,17 @@ export void raytrace_scene_ispc(
     /////////////////////////////////////////////////
 
     uniform uint pixels_per_batch = QUEUE_SIZE / G.num_offsets;
-    uniform uint num_batches = (buf_size + pixels_per_batch - 1) / pixels_per_batch;
+    uniform uint num_batches = (buf_size + pixels_per_batch - 1) / pixels_per_batch;    
 
     uniform float ray_weight = 1.0f / G.num_offsets;
+    uniform uint pixels_per_mini_batch = pixels_per_batch / MINI_BATCH_GRAN;
+    uniform uint num_mini_batches = (pixels_per_batch + pixels_per_mini_batch - 1) / pixels_per_mini_batch;
 
     for (uniform uint batch = 0; batch < num_batches; batch++)
     {
         // trace rays for the current batch
-        foreach (pixel_index_local = 0 ... pixels_per_batch, ray_index = 0 ... G.num_offsets)
-        {
-            uint pixel_index = pixel_index_local + batch * pixels_per_batch;
-            if (pixel_index < buf_size)
-            {
-                uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
-                vec3* res = G.output_tmp + ray_index_batch;
-                
-                // generate the initial raytask
-                RayTask* rtask = G.ray_tasks + ray_index_batch;
-                generate_ray(rtask, pixel_index, ray_index);
-
-                trace_ray(rtask);
-
-                *res = rtask->output;
-            }
-        }
-        
-        // average results and store into output buffer
-        foreach (pixel_index_local = 0 ... pixels_per_batch)
-        {
-            uint pixel_index = pixel_index_local + batch * pixels_per_batch;
-            if (pixel_index < buf_size)
-            {
-                vec3 v = new_vec3();
-                for (int ray_index = 0; ray_index < G.num_offsets; ray_index++) {
-                    v = vadd(v, G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]);
-                }
-                v = smul(ray_weight, v);
-                set_color(pixel_index, v);
-            }
-        }
+        launch[num_mini_batches] raytrace_scene_ispc_task(batch, pixels_per_mini_batch, pixels_per_batch, buf_size, ray_weight);
+        sync;
     }
 
     delete[] G.output_tmp;

@@ -25,6 +25,7 @@ set(SRC
 	src/Pathtracer/BSDF
 	src/Pathtracer/PathtracerLight
 	build/pathtracer_kernel.o
+	build/tasksys.o
 	include/openfbx/ofbx.cpp
 	)
 
