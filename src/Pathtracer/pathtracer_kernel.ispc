@@ -344,91 +344,80 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
     ray->d = normalized(d_unnormalized_w);
 }
 
-inline void trace_ray(RayTask* rtask_in)
+// only traces one bounce (and set depth and finished)
+inline void trace_ray(RayTask &rtask)
 {
-    RayTask rtask = cpy_RayTask(rtask_in);
-    uint max_ray_depth = G.max_ray_depth;
-    while (!rtask.finished)
-    {
-        if (rtask.depth >= max_ray_depth) {
-            rtask.finished = true;
-            break;
-        }
+    Ray &ray = rtask.ray;
 
-        Ray &ray = rtask.ray;
-
-        // info of closest hit
-        Triangle* primitive = NULL;
-        BSDF* bsdf = NULL;
-        double t; vec3 n;
-        for (uint i = 0; i < G.num_triangles; i++) {
-            if (intersect(G.triangles[i], ray, t, n, true)) {
-                primitive = G.triangles + i;
-                bsdf = G.bsdfs + primitive->bsdf_index;
-            }
-        }
-        if (primitive)
-        {
-            // pre-compute (or declare) some common thing sto be used later
-            vec3 L = new_vec3();
-            vec3 hit_p = vadd(ray.o, smul(t, ray.d));
-            // construct transform from hemisphere space to world space
-            mat3 h2w;
-            make_h2w(h2w, n);
-            mat3 w2h = transpose(h2w);
-            // wi, wo
-            vec3 wo_world = neg(ray.d);
-            vec3 wo_hemi = neg( mmul(w2h, ray.d) );
-            //
-            vec3 wi_world; // to be transformed from wi_hemi
-            vec3 wi_hemi; // to be assigned by f
-            float costhetai; // some variation of dot(wi_world, n)
-
-            //---- emission ----
-
-            L = vadd(L, bsdf->Le);
-            rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
-
-            //---- indirect lighting ----
-
-            float pdf;
-            vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
-
-            // transform wi back to world space
-            wi_world = mmul(h2w, wi_hemi);
-            costhetai = abs(dot(n, wi_world));
-
-            // russian roulette
-            float termination_prob = 0.0f;
-            ray.rr_contribution *= brightness(f) * costhetai;
-            if (ray.rr_contribution < RR_THRESHOLD) {
-                termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
-            }
-            bool terminate = rand01() < termination_prob;
-
-            // recursive step: trace scattered ray in wi direction (if not terminated by RR)
-            vec3 Li = new_vec3();
-            if (!terminate) {
-                vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
-                Ray ray_refl = new_Ray();
-                ray_refl.o = vadd(hit_p, refl_offset);
-                ray_refl.d = wi_world;
-                rtask.ray = ray_refl;
-                rtask.contribution = vmul(rtask.contribution,
-                    smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
-            } else {
-                rtask.finished = true;
-            }
-
-            rtask.depth += 1;
-        }
-        else
-        {
-            rtask.finished = true;
+    // info of closest hit
+    Triangle* primitive = NULL;
+    BSDF* bsdf = NULL;
+    double t; vec3 n;
+    for (uint i = 0; i < G.num_triangles; i++) {
+        if (intersect(G.triangles[i], ray, t, n, true)) {
+            primitive = G.triangles + i;
+            bsdf = G.bsdfs + primitive->bsdf_index;
         }
     }
+    if (primitive)
+    {
+        // pre-compute (or declare) some common thing sto be used later
+        vec3 L = new_vec3();
+        vec3 hit_p = vadd(ray.o, smul(t, ray.d));
+        // construct transform from hemisphere space to world space
+        mat3 h2w;
+        make_h2w(h2w, n);
+        mat3 w2h = transpose(h2w);
+        // wi, wo
+        vec3 wo_world = neg(ray.d);
+        vec3 wo_hemi = neg( mmul(w2h, ray.d) );
+        //
+        vec3 wi_world; // to be transformed from wi_hemi
+        vec3 wi_hemi; // to be assigned by f
+        float costhetai; // some variation of dot(wi_world, n)
 
-    *rtask_in = rtask;
+        //---- emission ----
+
+        L = vadd(L, bsdf->Le);
+        rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
+
+        //---- indirect lighting ----
+
+        float pdf;
+        vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
+
+        // transform wi back to world space
+        wi_world = mmul(h2w, wi_hemi);
+        costhetai = abs(dot(n, wi_world));
+
+        // russian roulette
+        float termination_prob = 0.0f;
+        ray.rr_contribution *= brightness(f) * costhetai;
+        if (ray.rr_contribution < RR_THRESHOLD) {
+            termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
+        }
+        bool terminate = rand01() < termination_prob;
+
+        // recursive step: trace scattered ray in wi direction (if not terminated by RR)
+        vec3 Li = new_vec3();
+        if (!terminate) {
+            vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
+            Ray ray_refl = new_Ray();
+            ray_refl.o = vadd(hit_p, refl_offset);
+            ray_refl.d = wi_world;
+            rtask.ray = ray_refl;
+            rtask.contribution = vmul(rtask.contribution,
+                smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
+        } else {
+            rtask.finished = true;
+        }
+
+        rtask.depth += 1;
+    }
+    else
+    {
+        rtask.finished = true;
+    }
 }
 
 task void raytrace_scene_ispc_task(
@@ -453,12 +442,25 @@ task void raytrace_scene_ispc_task(
             vec3* res = G.output_tmp + ray_index_batch;
             
             // generate the initial raytask
-            RayTask* rtask = G.ray_tasks + ray_index_batch;
-            generate_ray(rtask, pixel_index, ray_index);
+            RayTask* rtask_ptr = G.ray_tasks + ray_index_batch;
+            generate_ray(rtask_ptr, pixel_index, ray_index);
 
-            trace_ray(rtask);
+            // trace the ray until finished
+            RayTask rtask = cpy_RayTask(rtask_ptr);
+            while (!rtask.finished)
+            {
+                rtask = cpy_RayTask(rtask_ptr);
+                if (rtask.depth >= G.max_ray_depth) {
+                    rtask.finished = true;
+                    break;
+                }
+                trace_ray(rtask);
+                *rtask_ptr = rtask;
+                
+                // TODO: scan and gather the unfinished rays
+            }
 
-            *res = rtask->output;
+            *res = rtask_ptr->output;
         }
     }
     
