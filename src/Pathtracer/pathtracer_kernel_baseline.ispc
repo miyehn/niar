@@ -1,6 +1,6 @@
 
 #define QUEUE_SIZE 1024
-#define MINI_BATCH_GRAN 1
+#define MINI_BATCH_GRAN 4
 
 struct vec3 {
     float x;
@@ -75,7 +75,6 @@ struct Global
 
     uniform vec3* output_tmp; // a temporary buffer that stores float
     uniform uint8* output;
-    //uniform bool finished[QUEUE_SIZE];
 };
 
 uniform Global G;
@@ -349,9 +348,13 @@ inline void trace_ray(RayTask* rtask_in)
 {
     RayTask rtask = cpy_RayTask(rtask_in);
     uint max_ray_depth = G.max_ray_depth;
-    uint count = 0;
-    while (!rtask.finished && count < 50) {
-        count += 1;
+    while (!rtask.finished)
+    {
+        if (rtask.depth >= max_ray_depth) {
+            rtask.finished = true;
+            break;
+        }
+
         Ray &ray = rtask.ray;
 
         // info of closest hit
@@ -418,9 +421,6 @@ inline void trace_ray(RayTask* rtask_in)
             }
 
             rtask.depth += 1;
-            if (rtask.depth >= max_ray_depth) {
-                rtask.finished = true;
-            }
         }
         else
         {
@@ -443,61 +443,23 @@ task void raytrace_scene_ispc_task(
     if ((minibatch + 1)*pixels_per_mini_batch > pixels_per_batch) {
         max_num_pixels = (minibatch + 1)*pixels_per_mini_batch - pixels_per_batch;
     }
-    //foreach (pixel_index_mini = 0 ... max_num_pixels, ray_index = 0 ... G.num_offsets)
-    uniform uint max_num_pixel_rays = max_num_pixels * G.num_offsets;
-    uint *idx_array = new uint[max_num_pixel_rays];
-    uint dummy = max_num_pixel_rays;
-    foreach (i = 0 ... max_num_pixel_rays) {
-        idx_array[i] = i;
-    }
-    while (max_num_pixel_rays > 0) {
-        //print("% % %\n", max_num_pixel_rays, taskIndex, batch);
-        foreach (pixel_ray_index = 0 ... max_num_pixel_rays)
+    foreach (pixel_index_mini = 0 ... max_num_pixels, ray_index = 0 ... G.num_offsets)
+    {
+        uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
+        uint pixel_index = pixel_index_local + batch * pixels_per_batch;
+        if (pixel_index < buf_size)
         {
-            uint pixel_array_index = idx_array[pixel_ray_index];
-            uint pixel_index_mini = pixel_array_index / G.num_offsets;
-            //print("here %\n", pixel_array_index);
-            uint ray_index = pixel_array_index % G.num_offsets;
-            uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
-            uint pixel_index = pixel_index_local + batch * pixels_per_batch;
-            if (pixel_index < buf_size)
-            {
-                uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
-                
-                
-                // generate the initial raytask
-                RayTask* rtask = G.ray_tasks + ray_index_batch;
-                generate_ray(rtask, pixel_index, ray_index);
+            uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
+            vec3* res = G.output_tmp + ray_index_batch;
+            
+            // generate the initial raytask
+            RayTask* rtask = G.ray_tasks + ray_index_batch;
+            generate_ray(rtask, pixel_index, ray_index);
 
-                trace_ray(rtask);
-                if (rtask->finished) {
-                    //print("got here %\n", idx_array[pixel_ray_index]);
-                    vec3* res = G.output_tmp + ray_index_batch;
-                    *res = rtask->output;
-                    idx_array[pixel_ray_index] = dummy;
-                    //print("now? %", idx_array[pixel_ray_index]);
-                }
-            }
-            //if (pixel_ray_index == 0) {
-            //    print("0 here %\n", idx_array[pixel_ray_index]);
-            //}
+            trace_ray(rtask);
+
+            *res = rtask->output;
         }
-        uint last_index = 0;
-        uniform uint new_max_num_pixel_rays = 0;
-        //print("0 here2 %\n", idx_array[0]);
-        for (uint pixel_ray_index = 0; pixel_ray_index < max_num_pixel_rays; pixel_ray_index++)
-        {
-            //print("0 here3 % %\n", idx_array[0], idx_array[pixel_ray_index] == dummy);
-            if (idx_array[pixel_ray_index] != dummy) {
-                print("% % %d hga\n", pixel_ray_index, idx_array[pixel_ray_index], max_num_pixel_rays);
-                idx_array[last_index] = idx_array[pixel_ray_index];
-                new_max_num_pixel_rays += 1;
-                last_index += 1;
-            }
-        }
-        print("here %\n", new_max_num_pixel_rays);
-        max_num_pixel_rays = new_max_num_pixel_rays;
-        //max_num_pixel_rays = 0;
     }
     
     // average results and store into output buffer
