@@ -352,6 +352,8 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 // only traces one bounce (and set depth and finished)
 inline void trace_ray(RayTask &rtask)
 {
+    if (rtask.finished) return;
+
     Ray &ray = rtask.ray;
 
     // info of closest hit
@@ -436,6 +438,7 @@ inline void scan_excl(uniform uint* array, uniform uint length)
     for (uniform uint i = 1; i < length; i++) {
         array[i] += array[i-1];
     }
+    // make exclusive by shifting values by 1
     for (uniform uint i = length-1; i >= 1; i--) {
         array[i] = array[i-1];
     }
@@ -451,7 +454,7 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
     uniform uint total = 0;
     uint partial = 0;
 
-    foreach (i = tasks_offset ... tasks_offset + num_tasks) {
+    foreach (i = 0 ... num_tasks) {
         indices[i] = (uint)(!ray_tasks[i].finished);
         if (!ray_tasks[i].finished) partial++;
     }
@@ -464,12 +467,14 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
             ray_tasks_backup[indices[i]] = cpy_RayTask(ray_tasks + i);
         }
     }
+    if (!ray_tasks[num_tasks-1].finished) {
+        ray_tasks_backup[ indices[num_tasks-1] + 1 ] = cpy_RayTask(ray_tasks + num_tasks - 1);
+    }
 
     num_tasks = total;
     foreach (i = 0 ... num_tasks) {
         ray_tasks[i] = cpy_RayTask(ray_tasks_backup + i);
     }
-
 }
 
 task void raytrace_scene_ispc_task(
@@ -503,6 +508,8 @@ task void raytrace_scene_ispc_task(
     uniform uint rays_left_in_minibatch = max_num_pixels * G.num_offsets;
     uniform uint last_ray_in_minibatch_offset = first_ray_in_minibatch_offset + rays_left_in_minibatch;
 
+    //print("task %: %-%\n", taskIndex, first_ray_in_minibatch_offset, last_ray_in_minibatch_offset);
+
     foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
     {
         (G.ray_tasks + ray_index_minibatch)->buf_index = ray_index_minibatch;
@@ -518,7 +525,7 @@ task void raytrace_scene_ispc_task(
             trace_ray(rtask);
             *rtask_ptr = rtask;
             
-            // once finished, store raytask output to temporary float buffer
+            // once finished, store raytask output to temporary float buffer (so this task is ready to be destroyed/overridden)
             if (rtask.finished) {
                 vec3* res= G.output_tmp + rtask.buf_index;
                 *res = rtask_ptr->output;
