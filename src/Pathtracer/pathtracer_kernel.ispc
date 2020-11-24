@@ -16,7 +16,7 @@ struct mat3 {
 
 struct Ray {
     vec3 o, d;
-    double tmin, tmax;
+    float tmin, tmax;
     float rr_contribution;
     bool receive_le;
 };
@@ -26,6 +26,7 @@ struct RayTask {
     vec3 output; 
     vec3 contribution;
     uint depth;
+    uint buf_index;
     bool finished;
 };
 
@@ -70,7 +71,9 @@ struct Global
 
     uniform uint width, height, max_ray_depth;
 
-    uniform RayTask ray_tasks[QUEUE_SIZE];
+    uniform RayTask* ray_tasks;
+    uniform RayTask* ray_tasks_backup;
+    uniform uint scratch[QUEUE_SIZE];
 
     uniform vec3* output_tmp; // a temporary buffer that stores float
     uniform uint8* output;
@@ -231,6 +234,7 @@ inline RayTask new_RayTask() {
     rt.output = new_vec3();
     rt.contribution = new_vec3(1.0f, 1.0f, 1.0f);
     rt.depth = 0;
+    rt.buf_index = 0;
     rt.finished = true;
     return rt;
 }
@@ -246,6 +250,7 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     rt.output = rt0->output;
     rt.contribution = rt0->contribution;
     rt.depth = rt0->depth;
+    rt.buf_index = rt0->buf_index;
     rt.finished = rt0->finished;
     return rt;
 }
@@ -260,12 +265,12 @@ inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo) {
     return BSDF_f(bsdf, wi, wo);
 }
 
-inline bool intersect(Triangle triangle, Ray& ray, double& t, vec3& normal, bool modify_ray) {
+inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool modify_ray) {
     // ray parallel to plane
     float d_dot_n = dot(ray.d, triangle.plane_n);
     if (abs(d_dot_n) == 0.0f) return false;
     // intesection out of range
-    double _t = (triangle.plane_k - dot(ray.o, triangle.plane_n)) / d_dot_n;
+    float _t = (triangle.plane_k - dot(ray.o, triangle.plane_n)) / d_dot_n;
     if (_t < ray.tmin || _t > ray.tmax) return false;
 
     vec3 p = vadd( ray.o, smul( (float)_t, ray.d ) );
@@ -347,112 +352,124 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 // only traces one bounce (and set depth and finished)
 inline void trace_ray(RayTask &rtask)
 {
-    if (rtask.depth >= G.max_ray_depth) {
-        rtask.finished = true;
+    Ray &ray = rtask.ray;
+
+    // info of closest hit
+    Triangle* primitive = NULL;
+    BSDF* bsdf = NULL;
+    float t; vec3 n;
+    for (uint i = 0; i < G.num_triangles; i++) {
+        if (intersect(G.triangles[i], ray, t, n, true)) {
+            primitive = G.triangles + i;
+            bsdf = G.bsdfs + primitive->bsdf_index;
+        }
     }
-
-    if (!rtask.finished)
+    if (primitive)
     {
-        Ray &ray = rtask.ray;
+        // pre-compute (or declare) some common thing sto be used later
+        vec3 L = new_vec3();
+        vec3 hit_p = vadd(ray.o, smul(t, ray.d));
+        // construct transform from hemisphere space to world space
+        mat3 h2w;
+        make_h2w(h2w, n);
+        mat3 w2h = transpose(h2w);
+        // wi, wo
+        vec3 wo_world = neg(ray.d);
+        vec3 wo_hemi = neg( mmul(w2h, ray.d) );
+        //
+        vec3 wi_world; // to be transformed from wi_hemi
+        vec3 wi_hemi; // to be assigned by f
+        float costhetai; // some variation of dot(wi_world, n)
 
-        // info of closest hit
-        Triangle* primitive = NULL;
-        BSDF* bsdf = NULL;
-        double t; vec3 n;
-        for (uint i = 0; i < G.num_triangles; i++) {
-            if (intersect(G.triangles[i], ray, t, n, true)) {
-                primitive = G.triangles + i;
-                bsdf = G.bsdfs + primitive->bsdf_index;
-            }
+        //---- emission ----
+
+        L = vadd(L, bsdf->Le);
+        rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
+
+        //---- indirect lighting ----
+
+        float pdf;
+        vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
+
+        // transform wi back to world space
+        wi_world = mmul(h2w, wi_hemi);
+        costhetai = abs(dot(n, wi_world));
+
+        // russian roulette
+        float termination_prob = 0.0f;
+        ray.rr_contribution *= brightness(f) * costhetai;
+        if (ray.rr_contribution < RR_THRESHOLD) {
+            termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
         }
-        if (primitive)
-        {
-            // pre-compute (or declare) some common thing sto be used later
-            vec3 L = new_vec3();
-            vec3 hit_p = vadd(ray.o, smul(t, ray.d));
-            // construct transform from hemisphere space to world space
-            mat3 h2w;
-            make_h2w(h2w, n);
-            mat3 w2h = transpose(h2w);
-            // wi, wo
-            vec3 wo_world = neg(ray.d);
-            vec3 wo_hemi = neg( mmul(w2h, ray.d) );
-            //
-            vec3 wi_world; // to be transformed from wi_hemi
-            vec3 wi_hemi; // to be assigned by f
-            float costhetai; // some variation of dot(wi_world, n)
+        bool terminate = rand01() < termination_prob;
 
-            //---- emission ----
-
-            L = vadd(L, bsdf->Le);
-            rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
-
-            //---- indirect lighting ----
-
-            float pdf;
-            vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
-
-            // transform wi back to world space
-            wi_world = mmul(h2w, wi_hemi);
-            costhetai = abs(dot(n, wi_world));
-
-            // russian roulette
-            float termination_prob = 0.0f;
-            ray.rr_contribution *= brightness(f) * costhetai;
-            if (ray.rr_contribution < RR_THRESHOLD) {
-                termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
-            }
-            bool terminate = rand01() < termination_prob;
-
-            // recursive step: trace scattered ray in wi direction (if not terminated by RR)
-            vec3 Li = new_vec3();
-            if (!terminate) {
-                vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
-                Ray ray_refl = new_Ray();
-                ray_refl.o = vadd(hit_p, refl_offset);
-                ray_refl.d = wi_world;
-                rtask.ray = ray_refl;
-                rtask.contribution = vmul(rtask.contribution,
-                    smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
-            } else {
-                rtask.finished = true;
-            }
-
-            rtask.depth += 1;
+        // recursive step: trace scattered ray in wi direction (if not terminated by RR)
+        vec3 Li = new_vec3();
+        if (!terminate) {
+            vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
+            Ray ray_refl = new_Ray();
+            ray_refl.o = vadd(hit_p, refl_offset);
+            ray_refl.d = wi_world;
+            rtask.ray = ray_refl;
+            rtask.contribution = vmul(rtask.contribution,
+                smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
+        } else {
+            rtask.finished = true;
         }
-        else
-        {
+
+        rtask.depth += 1;
+        if (rtask.depth >= G.max_ray_depth) {
             rtask.finished = true;
         }
     }
+    else
+    {
+        rtask.finished = true;
+    }
 }
 
-inline void scan(uint input[], uint output[])
+// TODO: make parallel
+inline void scan_excl(uniform uint* array, uniform uint length)
 {
+    if (length < 1) return;
+    // scan inclusive
+    for (uniform uint i = 1; i < length; i++) {
+        array[i] += array[i-1];
+    }
+    for (uniform uint i = length-1; i >= 1; i--) {
+        array[i] = array[i-1];
+    }
+    array[0] = 0;
+}
+
+inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
+{
+    uniform RayTask* ray_tasks = G.ray_tasks + tasks_offset;
+    uniform RayTask* ray_tasks_backup = G.ray_tasks_backup + tasks_offset;
+    uniform uint* indices = G.scratch + tasks_offset;
     
-}
-
-// NOTE: currently this function operates on the whole G.ray_tasks array (it assumes MINI_BATCH_GRAN==1)
-inline void gather_rays(uniform uint &rays_left_in_minibatch)
-{
-    // in config.ini set MinRaysPerPixel to 1 or 4, then uncomment the following section to see that this works
-    /*
-    uniform uint num_finished = 0;
+    uniform uint total = 0;
     uint partial = 0;
-    foreach (i = 0 ... QUEUE_SIZE) {
-        partial += G.ray_tasks[i].finished;
+
+    foreach (i = tasks_offset ... tasks_offset + num_tasks) {
+        indices[i] = (uint)(!ray_tasks[i].finished);
+        if (!ray_tasks[i].finished) partial++;
     }
-    num_finished = reduce_add(partial);
-    print("finished %/1024\n", num_finished);
-    */
-    
-    // WORK IN PROGRESS
-    uniform uint finished_array[QUEUE_SIZE];
-    foreach (i = 0 ... QUEUE_SIZE) {
-        finished_array[i] = (uint)G.ray_tasks[i].finished;
+    total = reduce_add(partial);
+
+    scan_excl(indices, num_tasks);
+
+    foreach (i = 0 ... num_tasks-1) {
+        if (indices[i] != indices[i+1]) {
+            ray_tasks_backup[indices[i]] = cpy_RayTask(ray_tasks + i);
+        }
     }
 
-    rays_left_in_minibatch = QUEUE_SIZE;
+    num_tasks = total;
+    foreach (i = 0 ... num_tasks) {
+        ray_tasks[i] = cpy_RayTask(ray_tasks_backup + i);
+    }
+
 }
 
 task void raytrace_scene_ispc_task(
@@ -486,33 +503,33 @@ task void raytrace_scene_ispc_task(
     uniform uint rays_left_in_minibatch = max_num_pixels * G.num_offsets;
     uniform uint last_ray_in_minibatch_offset = first_ray_in_minibatch_offset + rays_left_in_minibatch;
 
+    foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
+    {
+        (G.ray_tasks + ray_index_minibatch)->buf_index = ray_index_minibatch;
+    }
+
     for (uniform uint i = 0; i < G.max_ray_depth; i++)
     {
         // trace all the rays for one bounce (and count #finished)
-        uniform uint num_unfinished = 0;
-        uint partial = 0;
         foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
         {
             RayTask* rtask_ptr = G.ray_tasks + ray_index_minibatch;
             RayTask rtask = cpy_RayTask(rtask_ptr);
             trace_ray(rtask);
-            partial += !rtask.finished;
             *rtask_ptr = rtask;
+            
+            // once finished, store raytask output to temporary float buffer
+            if (rtask.finished) {
+                vec3* res= G.output_tmp + rtask.buf_index;
+                *res = rtask_ptr->output;
+            }
         }
-        num_unfinished = reduce_add(partial);
 
         // reorder them (scan)
-        gather_rays(rays_left_in_minibatch);
+        // gives a 12% speedup...should perform better when scan is made parallel
+        gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
     }
-
-    //-------- store raytask output to temporary float buffer --------
-    foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
-    {
-        vec3* res = G.output_tmp + ray_index_minibatch;
-        RayTask* rtask_ptr = G.ray_tasks + ray_index_minibatch;
-        *res = rtask_ptr->output;
-    }
-
+    
     //-------- average results and store into output buffer --------
     foreach (pixel_index_mini = 0 ... max_num_pixels)
     {
@@ -558,7 +575,7 @@ export void raytrace_scene_ispc(
     G.output = output;
 
 
-    G.output_tmp = uniform new vec3[QUEUE_SIZE * num_offsets * sizeof(vec3)];
+    G.output_tmp = uniform new vec3[QUEUE_SIZE];
 
     // assign bsdf index
     foreach (i = 0 ... G.num_triangles) {
@@ -578,6 +595,9 @@ export void raytrace_scene_ispc(
         output[i] = 128;
     }
 
+    // initialize G.ray_tasks
+    G.ray_tasks = uniform new RayTask[QUEUE_SIZE];
+    G.ray_tasks_backup = uniform new RayTask[QUEUE_SIZE];
     foreach (i = 0 ... QUEUE_SIZE) {
         G.ray_tasks[i] = new_RayTask();
     }
@@ -598,5 +618,21 @@ export void raytrace_scene_ispc(
         sync;
     }
 
+    /*
+    uniform uint* test = uniform new uint[16];
+    foreach (i = 0 ... 16) {
+        if (i % 2 == 0) test[i] = 0;
+        else test[i] = 1;
+        print("% ", test[i]);
+    }
+    print("\n");
+    scan_excl(test, 16);
+    foreach (i = 0 ... 16) {
+        print("% ", test[i]);
+    }
+    */
+
     delete[] G.output_tmp;
+    delete[] G.ray_tasks;
+    delete[] G.ray_tasks_backup;
 }
