@@ -508,8 +508,6 @@ task void raytrace_scene_ispc_task(
     uniform uint rays_left_in_minibatch = max_num_pixels * G.num_offsets;
     uniform uint last_ray_in_minibatch_offset = first_ray_in_minibatch_offset + rays_left_in_minibatch;
 
-    //print("task %: %-%\n", taskIndex, first_ray_in_minibatch_offset, last_ray_in_minibatch_offset);
-
     foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
     {
         (G.ray_tasks + ray_index_minibatch)->buf_index = ray_index_minibatch;
@@ -517,7 +515,7 @@ task void raytrace_scene_ispc_task(
 
     for (uniform uint i = 0; i < G.max_ray_depth; i++)
     {
-        // trace all the rays for one bounce (and count #finished)
+        // trace all the rays for one bounce
         foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
         {
             RayTask* rtask_ptr = G.ray_tasks + ray_index_minibatch;
