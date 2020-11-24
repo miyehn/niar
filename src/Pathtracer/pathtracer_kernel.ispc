@@ -23,7 +23,6 @@ struct Ray {
 
 struct RayTask {
     Ray ray;
-    vec3 output; 
     vec3 contribution;
     uint depth;
     uint buf_index;
@@ -231,7 +230,6 @@ inline Ray new_Ray() {
 inline RayTask new_RayTask() {
     RayTask rt;
     rt.ray = new_Ray();
-    rt.output = new_vec3();
     rt.contribution = new_vec3(1.0f, 1.0f, 1.0f);
     rt.depth = 0;
     rt.buf_index = 0;
@@ -247,7 +245,6 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     rt.ray.tmax = rt0->ray.tmax;
     rt.ray.rr_contribution = rt0->ray.rr_contribution;
     rt.ray.receive_le = rt0->ray.receive_le;
-    rt.output = rt0->output;
     rt.contribution = rt0->contribution;
     rt.depth = rt0->depth;
     rt.buf_index = rt0->buf_index;
@@ -306,7 +303,7 @@ inline void make_h2w(mat3& h2w, vec3& z) {
 }
 
 inline float brightness(vec3& color) {
-    return 0.2989f * color.x + 0.587f * color.y + 0.114 * color.z;
+    return 0.2989f * color.x + 0.587f * color.y + 0.114f * color.z;
 }
 
 inline void set_color(uint i, vec3 &color) {
@@ -337,8 +334,8 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
     float offset_y = G.pixel_offsets[2 * ray_index + 1];
 
     ray->o = G.camera->position;
-    ray->tmin = 0.0;
-    ray->tmax = 999999999.0;
+    ray->tmin = 0.0f;
+    ray->tmax = 999999999.0f;
 
     float dx = (w + offset_x - half_width) / half_width;
     float dy = (h + offset_y - half_height) / half_height;
@@ -350,6 +347,7 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 }
 
 // only traces one bounce (and set depth and finished)
+// also updates G.output_tmp along the way
 inline void trace_ray(RayTask &rtask)
 {
     if (rtask.finished) return;
@@ -386,7 +384,8 @@ inline void trace_ray(RayTask &rtask)
         //---- emission ----
 
         L = vadd(L, bsdf->Le);
-        rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
+        vec3* output_ptr = G.output_tmp + rtask.buf_index;
+        *output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
 
         //---- indirect lighting ----
 
@@ -510,7 +509,9 @@ task void raytrace_scene_ispc_task(
 
     foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
     {
-        (G.ray_tasks + ray_index_minibatch)->buf_index = ray_index_minibatch;
+        RayTask* rtask = G.ray_tasks + ray_index_minibatch;
+        rtask->buf_index = ray_index_minibatch;
+        G.output_tmp[rtask->buf_index] = new_vec3();
     }
 
     for (uniform uint i = 0; i < G.max_ray_depth; i++)
@@ -522,16 +523,10 @@ task void raytrace_scene_ispc_task(
             RayTask rtask = cpy_RayTask(rtask_ptr);
             trace_ray(rtask);
             *rtask_ptr = rtask;
-            
-            // once finished, store raytask output to temporary float buffer (so this task is ready to be destroyed/overridden)
-            if (rtask.finished) {
-                vec3* res= G.output_tmp + rtask.buf_index;
-                *res = rtask_ptr->output;
-            }
         }
 
         // reorder them (scan)
-        // gives a 12% speedup...should perform better when scan is made parallel
+        // gives a ~10% speedup...should perform better when scan is made parallel
         gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
     }
     
