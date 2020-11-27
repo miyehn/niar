@@ -432,6 +432,27 @@ inline void trace_ray(RayTask &rtask)
 // TODO: make parallel
 inline void scan_excl(uniform uint* array, uniform uint length)
 {
+    // version 2: gives a tiiiiiny speedup compared to sequential..
+    uniform uint batches = (length + programCount - 1) / programCount;
+    uniform uint offsets[programCount];
+    foreach (i = 0 ... programCount) offsets[i] = 0;
+    for (uniform uint i = 0; i < batches; i++)
+    {
+        //foreach (j = 0 ... programCount) print("offsets: %\n", offsets[j]);
+        foreach (j = 0 ... programCount)
+        {
+            int ind = i * programCount + j;
+            int numOut = array[ind];
+            int out = exclusive_scan_add(numOut) + offsets[j];
+            array[ind] = out;
+            //offset += reduce_add(numOut);
+            offsets[j] = array[(i+1) * programCount - 1];
+            if (extract(numOut, programCount-1) == 1) offsets[j] += 1;
+        }
+    }
+
+    /* 
+    // version 1: sequential scan
     if (length < 1) return;
     // scan inclusive
     for (uniform uint i = 1; i < length; i++) {
@@ -442,6 +463,7 @@ inline void scan_excl(uniform uint* array, uniform uint length)
         array[i] = array[i-1];
     }
     array[0] = 0;
+    */
 }
 
 inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
@@ -618,19 +640,19 @@ export void raytrace_scene_ispc(
         sync;
     }
 
-    /*
-    uniform uint* test = uniform new uint[16];
-    foreach (i = 0 ... 16) {
+#if 0
+    uniform uint* test = uniform new uint[24];
+    foreach (i = 0 ... 24) {
         if (i % 2 == 0) test[i] = 0;
         else test[i] = 1;
         print("% ", test[i]);
     }
     print("\n");
-    scan_excl(test, 16);
-    foreach (i = 0 ... 16) {
+    scan_excl(test, 24);
+    foreach (i = 0 ... 24) {
         print("% ", test[i]);
     }
-    */
+#endif
 
     delete[] G.output_tmp;
     delete[] G.ray_tasks;
