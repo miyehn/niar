@@ -151,7 +151,7 @@ void Program::setup() {
 	// add another item to it
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx");
 	Mesh* mesh = meshes[0];
-	mesh->bsdf = new Mirror();//Diffuse(vec3(0.6f));
+	mesh->bsdf = new Mirror();
 	mesh->name = "prism";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif

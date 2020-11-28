@@ -70,11 +70,15 @@ struct Global
 
     uniform Triangle* triangles;
     uniform BSDF* bsdfs;
+    uniform uint* area_light_indices;
 
     uniform uint num_triangles;
     uniform uint num_bsdfs;
+    uniform uint num_area_lights;
 
     uniform uint width, height, max_ray_depth;
+    uniform float rr_threshold;
+    uniform bool use_direct_light;
 
     uniform RayTask* ray_tasks;
     uniform RayTask* ray_tasks_backup;
@@ -90,8 +94,6 @@ uniform Global G;
 
 #define ONE_OVER_PI 0.31830988618f
 #define EPSILON 0.001f
-
-#define RR_THRESHOLD 0.05f
 
 inline vec3 new_vec3() {
     vec3 v; v.x = 0.0f; v.y = 0.0f; v.z = 0.0f;
@@ -283,17 +285,9 @@ inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool 
     return true;
 }
 
+//-------- lights --------
+
 //-------- materials (BSDF) --------
-
-/*
-inline vec3 BSDF_diffuse_f(BSDF* bsdf, vec3& wi, vec3& wo) {
-    return smul(ONE_OVER_PI, bsdf->albedo);
-}
-
-inline vec3 BSDF_mirror_f(BSDF* bsdf, vec3& wi, vec3& wo) {
-    return new_vec3();
-}
-*/
 
 inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
 {
@@ -408,7 +402,15 @@ inline void trace_ray(RayTask &rtask)
 
         //---- emission ----
 
-        L = vadd(L, bsdf->Le);
+        //L = vadd(L, bsdf->Le);
+        if (G.use_direct_light) {
+            if (rtask.depth == 0 || ray.receive_le || !bsdf->is_emissive) {
+                L = vadd(L, bsdf->Le);
+            }
+        } else {
+            L = vadd(L, bsdf->Le);
+        }
+
         vec3* output_ptr = G.output_tmp + rtask.buf_index;
         *output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
 
@@ -424,8 +426,8 @@ inline void trace_ray(RayTask &rtask)
         // russian roulette
         float termination_prob = 0.0f;
         ray.rr_contribution *= brightness(f) * costhetai;
-        if (ray.rr_contribution < RR_THRESHOLD) {
-            termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
+        if (ray.rr_contribution < G.rr_threshold) {
+            termination_prob = (G.rr_threshold - ray.rr_contribution) / G.rr_threshold;
         }
         bool terminate = rand01() < termination_prob;
 
@@ -600,11 +602,15 @@ export void raytrace_scene_ispc(
     uniform uint num_offsets,
     uniform Triangle triangles[],
     uniform BSDF bsdfs[],
-    uniform int num_triangles,
+    uniform uint area_light_indices[],
+    uniform uint num_triangles,
+    uniform uint num_area_lights,
     uniform uint8 output[],
     uniform uint width,
     uniform uint height,
-    uniform uint max_ray_depth
+    uniform uint max_ray_depth,
+    uniform float rr_threshold,
+    uniform bool use_direct_light
 ){
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
@@ -614,12 +620,16 @@ export void raytrace_scene_ispc(
     G.num_offsets = num_offsets;
     G.triangles = triangles;
     G.bsdfs = bsdfs;
+    G.area_light_indices = area_light_indices;
     G.num_triangles = num_triangles;
     G.num_bsdfs = num_triangles;
+    G.num_area_lights = num_area_lights;
     G.width = width;
     G.height = height;
     G.max_ray_depth = max_ray_depth;
     G.output = output;
+    G.rr_threshold = rr_threshold;
+    G.use_direct_light = use_direct_light;
 
 
     G.output_tmp = uniform new vec3[QUEUE_SIZE];

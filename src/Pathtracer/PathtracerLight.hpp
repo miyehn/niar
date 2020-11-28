@@ -6,6 +6,12 @@ struct Triangle;
 
 struct PathtracerLight {
 
+	enum Type {
+		AreaLight
+	};
+
+	Type type;
+
 	virtual ~PathtracerLight() {}
 
 	virtual vec3 get_emission() = 0;

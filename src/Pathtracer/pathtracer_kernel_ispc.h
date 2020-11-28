@@ -94,7 +94,7 @@ struct BSDF {
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 extern "C" {
 #endif // __cplusplus
-    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, int32_t num_triangles, uint8_t * output, uint32_t width, uint32_t height, uint32_t max_ray_depth);
+    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, uint32_t * area_light_indices, uint32_t num_triangles, uint32_t num_area_lights, uint8_t * output, uint32_t width, uint32_t height, uint32_t max_ray_depth, float rr_threshold, bool use_direct_light);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 } /* end extern C */
 #endif // __cplusplus
