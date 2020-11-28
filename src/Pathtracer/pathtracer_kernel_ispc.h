@@ -12,6 +12,18 @@
 #ifdef __cplusplus
 namespace ispc { /* namespace */
 #endif // __cplusplus
+///////////////////////////////////////////////////////////////////////////
+// Enumerator types with external visibility from ispc code
+///////////////////////////////////////////////////////////////////////////
+
+#ifndef __ISPC_ENUM_BSDF_t__
+#define __ISPC_ENUM_BSDF_t__
+enum BSDF_t {
+    Diffuse = 0,
+    Mirror = 1 
+};
+#endif
+
 
 #ifndef __ISPC_ALIGN__
 #if defined(__clang__) || !defined(_MSC_VER)
@@ -67,10 +79,11 @@ struct Triangle {
 #ifndef __ISPC_STRUCT_BSDF__
 #define __ISPC_STRUCT_BSDF__
 struct BSDF {
-    bool is_delta;
-    bool is_emissive;
     struct vec3 albedo;
     struct vec3 Le;
+    enum BSDF_t type;
+    bool is_delta;
+    bool is_emissive;
 };
 #endif
 

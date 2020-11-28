@@ -406,10 +406,15 @@ void Pathtracer::raytrace_scene_to_buf() {
 			if (!T0) ERR("failed to cast primitive to triangle?");
 			// construct its corresponding material
 			T.bsdf_index = i;
-			bsdfs[i].is_delta = T0->bsdf->is_delta;
-			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
 			bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
 			bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
+			bsdfs[i].is_delta = T0->bsdf->is_delta;
+			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
+			if (T0->bsdf->type == BSDF::Mirror) {
+				bsdfs[i].type = ispc::Mirror;
+			} else {
+				bsdfs[i].type = ispc::Diffuse;
+			}
 			// construct the ispc triangle object
 			for (int j=0; j<3; j++) {
 				T.vertices[j] = ispc_vec3(T0->vertices[j]);

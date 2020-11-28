@@ -45,12 +45,18 @@ struct Triangle {
     float plane_k;
 };
 
+enum BSDF_t {
+    Diffuse,
+    Mirror
+};
+
 // diffuse only..
 struct BSDF {
-    bool is_delta;
-    bool is_emissive;
     vec3 albedo;
     vec3 Le;
+        BSDF_t type;
+    bool is_delta;
+    bool is_emissive;
 };
 
 struct Global
@@ -214,7 +220,7 @@ inline vec3 sample_hemisphere_cos_weighed() {
     return res;
 }
 
-//-------- scene, scene primitives, BSDF --------
+//-------- scene, scene primitives --------
 
 inline Ray new_Ray() {
     Ray r;
@@ -252,16 +258,6 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     return rt;
 }
 
-inline vec3 BSDF_f(BSDF* bsdf, vec3& wi, vec3& wo) {
-    return smul(ONE_OVER_PI, bsdf->albedo);
-}
-
-inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo) {
-    wi = sample_hemisphere_cos_weighed();
-    pdf = wi.z * ONE_OVER_PI;
-    return BSDF_f(bsdf, wi, wo);
-}
-
 inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool modify_ray) {
     // ray parallel to plane
     float d_dot_n = dot(ray.d, triangle.plane_n);
@@ -285,6 +281,35 @@ inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool 
     normal = triangle.plane_n;
 
     return true;
+}
+
+//-------- materials (BSDF) --------
+
+/*
+inline vec3 BSDF_diffuse_f(BSDF* bsdf, vec3& wi, vec3& wo) {
+    return smul(ONE_OVER_PI, bsdf->albedo);
+}
+
+inline vec3 BSDF_mirror_f(BSDF* bsdf, vec3& wi, vec3& wo) {
+    return new_vec3();
+}
+*/
+
+inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
+{
+    if (bsdf->type == Mirror)
+    {
+        wi = neg(wo);
+        wi.z = wo.z;
+        pdf = 1.0f;
+        return smul(1.0f / wi.z, bsdf->albedo);
+    }
+    else
+    {
+        wi = sample_hemisphere_cos_weighed();
+        pdf = wi.z * ONE_OVER_PI;
+        return smul(ONE_OVER_PI, bsdf->albedo);//BSDF_diffuse_f(bsdf, wi, wo);
+    }
 }
 
 //-------- actual path tracing --------
