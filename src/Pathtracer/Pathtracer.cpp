@@ -423,6 +423,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 			}
 			T.plane_n = ispc_vec3(T0->plane_n);
 			T.plane_k = T0->plane_k;
+			T.area = T0->area;
 		}
 
 		uint light_indices[lights.size()];
@@ -460,7 +461,8 @@ void Pathtracer::raytrace_scene_to_buf() {
 			width, height, 
 			Cfg.Pathtracer.MaxRayDepth, 
 			Cfg.Pathtracer.RussianRouletteThreshold,
-			Cfg.Pathtracer.UseDirectLight);
+			Cfg.Pathtracer.UseDirectLight,
+			Cfg.Pathtracer.AreaLightSamples);
 	}
 	else {
 		for (size_t y = 0; y < height; y++) {

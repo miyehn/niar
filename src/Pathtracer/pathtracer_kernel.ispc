@@ -43,6 +43,7 @@ struct Triangle {
 
     vec3 plane_n;
     float plane_k;
+    float area;
 };
 
 enum BSDF_t {
@@ -50,11 +51,10 @@ enum BSDF_t {
     Mirror
 };
 
-// diffuse only..
 struct BSDF {
     vec3 albedo;
     vec3 Le;
-        BSDF_t type;
+    BSDF_t type;
     bool is_delta;
     bool is_emissive;
 };
@@ -79,6 +79,8 @@ struct Global
     uniform uint width, height, max_ray_depth;
     uniform float rr_threshold;
     uniform bool use_direct_light;
+    uniform uint area_light_samples;
+    uniform float area_light_sample_weight;
 
     uniform RayTask* ray_tasks;
     uniform RayTask* ray_tasks_backup;
@@ -285,9 +287,52 @@ inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool 
     return true;
 }
 
+inline vec3 sample_point_in_triangle(Triangle* T)
+{
+    float u = rand01();
+    float v = rand01();
+    if (u + v > 1) {
+        u = 1.0f - u;
+        v = 1.0f - v;
+    }
+
+    vec3 e1 = vsub( T->vertices[1], T->vertices[0] );
+    vec3 e2 = vsub( T->vertices[2], T->vertices[0] );
+
+    return vadd( T->vertices[0], vadd(smul(u, e1), smul(v, e2)) );
+}
+
 //-------- lights --------
 
+inline float ray_to_light_pdf(Ray& ray, vec3& origin, Triangle* triangle)
+{
+    vec3 light_p = sample_point_in_triangle(triangle);
+
+    ray.o = origin;
+    ray.d = normalized( vsub(light_p, origin) );
+    float t; vec3 n;
+    intersect(*triangle, ray, t, n, true);
+
+    float d2 = t * t;
+
+    float costheta_l = max(0.0f, dot( neg(ray.d), n ));
+
+    return d2 / (triangle->area * costheta_l);
+}
+
 //-------- materials (BSDF) --------
+
+inline vec3 BSDF_f(BSDF* bsdf, vec3& wi, vec3& wo)
+{
+    if (bsdf->type == Mirror)
+    {
+        return new_vec3();
+    }
+    else
+    {
+        return smul(ONE_OVER_PI, bsdf->albedo);
+    }
+}
 
 inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
 {
@@ -302,7 +347,7 @@ inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
     {
         wi = sample_hemisphere_cos_weighed();
         pdf = wi.z * ONE_OVER_PI;
-        return smul(ONE_OVER_PI, bsdf->albedo);//BSDF_diffuse_f(bsdf, wi, wo);
+        return smul(ONE_OVER_PI, bsdf->albedo);
     }
 }
 
@@ -411,44 +456,95 @@ inline void trace_ray(RayTask &rtask)
             L = vadd(L, bsdf->Le);
         }
 
+        //---- direct lighting ----
+
+        if (G.use_direct_light && !bsdf->is_delta)
+        {
+            for (uint i = 0; i < G.num_area_lights; i++)
+            {
+                Triangle* area_light_T = G.triangles + G.area_light_indices[i];
+                for (uint j = 0; j < G.area_light_samples; j++)
+                {
+                    // get ray to light
+                    Ray ray_to_light;
+                    // in this case not a real pdf, but just somethign to divide by?
+                    float pdf = ray_to_light_pdf(ray_to_light, hit_p, area_light_T);
+
+                    // test if ray to light hits anything other than the starting primitive and the light
+                    float tmp_t; vec3 tmp_n;
+                    bool in_shadow = false;
+                    Triangle* hit_prim;
+                    for (uint j = 0; j < G.num_triangles; j++) {
+                        if (intersect(G.triangles[j], ray_to_light, tmp_t, tmp_n, false)) {
+                            hit_prim = G.triangles + j;
+                            if (hit_prim != primitive && hit_prim != area_light_T) {
+                                in_shadow = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // add contribution
+                    if (!in_shadow) {
+                        wi_world = ray_to_light.d;
+                        wi_hemi = mmul(w2h, wi_world);
+
+                        costhetai = max(0.0f, dot(n, wi_world));
+                        vec3 L_direct = vmul(
+                            G.bsdfs[area_light_T->bsdf_index].Le,
+                            smul( costhetai / pdf , BSDF_f(bsdf, wi_hemi, wo_hemi) ));
+                        // correction for when above num and denom both 0 (see CPP)
+                        if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = new_vec3();
+                        L = vadd( L, smul(G.area_light_sample_weight, L_direct) );
+                    }
+                }
+            }
+        }
+
         vec3* output_ptr = G.output_tmp + rtask.buf_index;
         *output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
 
         //---- indirect lighting ----
 
-        float pdf;
-        vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
+        /*
+        if ( (G.use_direct_light && !bsdf->is_emissive) ||
+             !G.use_direct_light )
+        {
+            float pdf;
+            vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
 
-        // transform wi back to world space
-        wi_world = mmul(h2w, wi_hemi);
-        costhetai = abs(dot(n, wi_world));
+            // transform wi back to world space
+            wi_world = mmul(h2w, wi_hemi);
+            costhetai = abs(dot(n, wi_world));
 
-        // russian roulette
-        float termination_prob = 0.0f;
-        ray.rr_contribution *= brightness(f) * costhetai;
-        if (ray.rr_contribution < G.rr_threshold) {
-            termination_prob = (G.rr_threshold - ray.rr_contribution) / G.rr_threshold;
+            // russian roulette
+            float termination_prob = 0.0f;
+            ray.rr_contribution *= brightness(f) * costhetai;
+            if (ray.rr_contribution < G.rr_threshold) {
+                termination_prob = (G.rr_threshold - ray.rr_contribution) / G.rr_threshold;
+            }
+            bool terminate = rand01() < termination_prob;
+
+            // recursive step: trace scattered ray in wi direction (if not terminated by RR)
+            vec3 Li = new_vec3();
+            if (!terminate) {
+                vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
+                Ray ray_refl = new_Ray();
+                ray_refl.o = vadd(hit_p, refl_offset);
+                ray_refl.d = wi_world;
+                rtask.ray = ray_refl;
+                rtask.contribution = vmul(rtask.contribution,
+                    smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
+            } else {
+                rtask.finished = true;
+            }
+
+            rtask.depth += 1;
+            if (rtask.depth >= G.max_ray_depth) {
+                rtask.finished = true;
+            }
         }
-        bool terminate = rand01() < termination_prob;
-
-        // recursive step: trace scattered ray in wi direction (if not terminated by RR)
-        vec3 Li = new_vec3();
-        if (!terminate) {
-            vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
-            Ray ray_refl = new_Ray();
-            ray_refl.o = vadd(hit_p, refl_offset);
-            ray_refl.d = wi_world;
-            rtask.ray = ray_refl;
-            rtask.contribution = vmul(rtask.contribution,
-                smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
-        } else {
-            rtask.finished = true;
-        }
-
-        rtask.depth += 1;
-        if (rtask.depth >= G.max_ray_depth) {
-            rtask.finished = true;
-        }
+        */
     }
     else
     {
@@ -610,7 +706,8 @@ export void raytrace_scene_ispc(
     uniform uint height,
     uniform uint max_ray_depth,
     uniform float rr_threshold,
-    uniform bool use_direct_light
+    uniform bool use_direct_light,
+    uniform uint area_light_samples
 ){
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
@@ -630,7 +727,8 @@ export void raytrace_scene_ispc(
     G.output = output;
     G.rr_threshold = rr_threshold;
     G.use_direct_light = use_direct_light;
-
+    G.area_light_samples = area_light_samples;
+    G.area_light_sample_weight = 1.0f / area_light_samples;
 
     G.output_tmp = uniform new vec3[QUEUE_SIZE];
 

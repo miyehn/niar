@@ -73,6 +73,7 @@ struct Triangle {
     struct vec3 enormals[3];
     struct vec3 plane_n;
     float plane_k;
+    float area;
 };
 #endif
 
@@ -94,7 +95,7 @@ struct BSDF {
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 extern "C" {
 #endif // __cplusplus
-    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, uint32_t * area_light_indices, uint32_t num_triangles, uint32_t num_area_lights, uint8_t * output, uint32_t width, uint32_t height, uint32_t max_ray_depth, float rr_threshold, bool use_direct_light);
+    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, uint32_t * area_light_indices, uint32_t num_triangles, uint32_t num_area_lights, uint8_t * output, uint32_t width, uint32_t height, uint32_t max_ray_depth, float rr_threshold, bool use_direct_light, uint32_t area_light_samples);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 } /* end extern C */
 #endif // __cplusplus
