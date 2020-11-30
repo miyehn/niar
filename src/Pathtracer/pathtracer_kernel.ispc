@@ -466,7 +466,7 @@ inline void trace_ray(RayTask &rtask)
                 for (uint j = 0; j < G.area_light_samples; j++)
                 {
                     // get ray to light
-                    Ray ray_to_light;
+                    Ray ray_to_light = new_Ray();
                     // in this case not a real pdf, but just somethign to divide by?
                     float pdf = ray_to_light_pdf(ray_to_light, hit_p, area_light_T);
 
@@ -506,7 +506,6 @@ inline void trace_ray(RayTask &rtask)
 
         //---- indirect lighting ----
 
-        /*
         if ( (G.use_direct_light && !bsdf->is_emissive) ||
              !G.use_direct_light )
         {
@@ -544,7 +543,6 @@ inline void trace_ray(RayTask &rtask)
                 rtask.finished = true;
             }
         }
-        */
     }
     else
     {
