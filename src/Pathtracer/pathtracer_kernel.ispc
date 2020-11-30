@@ -1,5 +1,6 @@
 
 #define QUEUE_SIZE 1024
+#define SCAN_SIZE 1024
 #define MINI_BATCH_GRAN 1
 
 struct vec3 {
@@ -474,9 +475,9 @@ inline void trace_ray(RayTask &rtask)
                     float tmp_t; vec3 tmp_n;
                     bool in_shadow = false;
                     Triangle* hit_prim;
-                    for (uint j = 0; j < G.num_triangles; j++) {
-                        if (intersect(G.triangles[j], ray_to_light, tmp_t, tmp_n, false)) {
-                            hit_prim = G.triangles + j;
+                    for (uint k = 0; k < G.num_triangles; k++) {
+                        if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
+                            hit_prim = G.triangles + k;
                             if (hit_prim != primitive && hit_prim != area_light_T) {
                                 in_shadow = true;
                                 break;
@@ -550,49 +551,62 @@ inline void trace_ray(RayTask &rtask)
     }
 }
 
-// TODO: make parallel
-inline void scan_excl(uniform uint* array, uniform uint length)
+inline void scan_excl(uniform uint array[], uniform uint length)
 {
-    // version 2: gives a tiiiiiny speedup compared to sequential..
-    uniform uint batches = (length + programCount - 1) / programCount;
-    uniform uint offsets[programCount];
-    foreach (i = 0 ... programCount) offsets[i] = 0;
-    for (uniform uint i = 0; i < batches; i++)
+    if (length < 1) return;
+
+    // upsweep phase
+    for (uniform uint twod = 1; twod < length; twod *= 2) {
+        uniform uint twod1 = twod*2;
+        uniform uint limit = length / twod1;
+        foreach (i = 0 ... limit) {
+            array[i*twod1+twod1-1] += array[i*twod1+twod-1];
+        }
+    }
+    array[length - 1] = 0;
+
+    for (uniform uint twod = length / 2; twod >= 1; twod /= 2)
     {
-        //foreach (j = 0 ... programCount) print("offsets: %\n", offsets[j]);
-        foreach (j = 0 ... programCount)
+        uniform uint twod1 = twod * 2;
+        uniform uint limit = length / twod1;
+        foreach (i = 0 ... limit)
         {
-            int ind = i * programCount + j;
-            int numOut = array[ind];
-            int out = exclusive_scan_add(numOut) + offsets[j];
-            array[ind] = out;
-            //offset += reduce_add(numOut);
-            offsets[j] = array[(i+1) * programCount - 1];
-            if (extract(numOut, programCount-1) == 1) offsets[j] += 1;
+            uint t = array[i*twod1+twod-1];
+            array[i*twod1+twod-1] = array[i*twod1+twod1-1];
+            array[i*twod1+twod1-1] += t;
         }
     }
 
-    /* 
-    // version 1: sequential scan
-    if (length < 1) return;
-    // scan inclusive
-    for (uniform uint i = 1; i < length; i++) {
-        array[i] += array[i-1];
-    }
-    // make exclusive by shifting values by 1
-    for (uniform uint i = length-1; i >= 1; i--) {
-        array[i] = array[i-1];
-    }
-    array[0] = 0;
-    */
+}
+
+inline uniform uint nextPow2(uniform uint n) {
+    n--;
+    n = n | n >> 1;
+    n = n | n >> 2;
+    n = n | n >> 4;
+    n = n | n >> 8;
+    n = n | n >> 16;
+    n++;
+    return n;
 }
 
 inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
 {
     uniform RayTask* ray_tasks = G.ray_tasks + tasks_offset;
     uniform RayTask* ray_tasks_backup = G.ray_tasks_backup + tasks_offset;
-    uniform uint* indices = G.scratch + tasks_offset;
-    
+    //uniform uint* indices = G.scratch + tasks_offset;
+    if (num_tasks == 0) {
+        return;
+    }
+    //print("Got here\n");
+    uniform uint num_tasks_pad = nextPow2(num_tasks);
+    uniform uint indices[SCAN_SIZE];
+    foreach(i = 0 ... SCAN_SIZE) {
+        indices[i] = 0;
+    }
+
+    //print("%\n", num_tasks);
+    //print("%\n", num_tasks_pad);
     uniform uint total = 0;
     uint partial = 0;
 
@@ -600,10 +614,10 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
         indices[i] = (uint)(!ray_tasks[i].finished);
         if (!ray_tasks[i].finished) partial++;
     }
+
     total = reduce_add(partial);
-
-    scan_excl(indices, num_tasks);
-
+    scan_excl(indices, num_tasks_pad);
+    
     foreach (i = 0 ... num_tasks-1) {
         if (indices[i] != indices[i+1]) {
             ray_tasks_backup[indices[i]] = cpy_RayTask(ray_tasks + i);
@@ -657,8 +671,11 @@ task void raytrace_scene_ispc_task(
         G.output_tmp[rtask->buf_index] = new_vec3();
     }
 
+
     for (uniform uint i = 0; i < G.max_ray_depth; i++)
     {
+        //print("total %\n", rays_left_in_minibatch);
+        
         // trace all the rays for one bounce
         foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
         {
@@ -671,6 +688,9 @@ task void raytrace_scene_ispc_task(
         // reorder them (scan)
         // gives a ~10% speedup...should perform better when scan is made parallel
         gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
+        if (rays_left_in_minibatch == 0) {
+            break;
+        }
     }
     
     //-------- average results and store into output buffer --------
