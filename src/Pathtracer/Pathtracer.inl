@@ -263,7 +263,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		}
 		task.output += task.contribution * L;
 
-#if 0 // indirect lighting (recursive)
+#if 1 // indirect lighting (recursive)
 
 		if ((Cfg.Pathtracer.UseDirectLight && !bsdf->is_emissive) ||
 			 !(Cfg.Pathtracer.UseDirectLight)) {
@@ -313,6 +313,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 	}
 }
 
+// TODO: remove this
 void Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
 	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return;
 

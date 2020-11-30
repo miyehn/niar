@@ -1,7 +1,7 @@
 
 #define QUEUE_SIZE 1024
 #define SCAN_SIZE 1024
-#define MINI_BATCH_GRAN 1
+#define MINI_BATCH_GRAN 4
 
 struct vec3 {
     float x;
