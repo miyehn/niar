@@ -24,9 +24,12 @@ struct Ray {
 struct RayTask {
     Ray ray;
     vec3 contribution;
-    uint depth;
     uint buf_index;
+
+    vec3 triangle_normal;
     uint triangle_index;
+
+    uint depth;
     bool finished;
 };
 
@@ -243,6 +246,7 @@ inline RayTask new_RayTask() {
     rt.contribution = new_vec3(1.0f, 1.0f, 1.0f);
     rt.depth = 0;
     rt.buf_index = 0;
+    rt.triangle_normal = new_vec3();
     rt.triangle_index = -1;
     rt.finished = true;
     return rt;
@@ -258,6 +262,7 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     rt.contribution = rt0->contribution;
     rt.depth = rt0->depth;
     rt.buf_index = rt0->buf_index;
+    rt.triangle_normal = rt0->triangle_normal;
     rt.triangle_index = rt0->triangle_index;
     rt.finished = rt0->finished;
     return rt;
@@ -434,127 +439,126 @@ inline void trace_ray(RayTask &rtask)
     Ray &ray = rtask.ray;
 
     // info of closest hit
-    float t; vec3 n;
-    int triangle_index = intersect_scene(ray, t, n, true);
+    Triangle* primitive = G.triangles + rtask.triangle_index;
+    BSDF* bsdf = G.bsdfs + primitive->bsdf_index;
+    float t = ray.tmax;
+    vec3 n = rtask.triangle_normal;
 
-    if (triangle_index >= 0)
-    {
-        Triangle* primitive = G.triangles + triangle_index;
-        BSDF* bsdf = G.bsdfs + primitive->bsdf_index;
+    // pre-compute (or declare) some common thing sto be used later
+    vec3 L = new_vec3();
+    vec3 hit_p = vadd(ray.o, smul(t, ray.d));
+    // construct transform from hemisphere space to world space
+    mat3 h2w;
+    make_h2w(h2w, n);
+    mat3 w2h = transpose(h2w);
+    // wi, wo
+    vec3 wo_world = neg(ray.d);
+    vec3 wo_hemi = neg( mmul(w2h, ray.d) );
+    //
+    vec3 wi_world; // to be transformed from wi_hemi
+    vec3 wi_hemi; // to be assigned by f
+    float costhetai; // some variation of dot(wi_world, n)
 
-        // pre-compute (or declare) some common thing sto be used later
-        vec3 L = new_vec3();
-        vec3 hit_p = vadd(ray.o, smul(t, ray.d));
-        // construct transform from hemisphere space to world space
-        mat3 h2w;
-        make_h2w(h2w, n);
-        mat3 w2h = transpose(h2w);
-        // wi, wo
-        vec3 wo_world = neg(ray.d);
-        vec3 wo_hemi = neg( mmul(w2h, ray.d) );
-        //
-        vec3 wi_world; // to be transformed from wi_hemi
-        vec3 wi_hemi; // to be assigned by f
-        float costhetai; // some variation of dot(wi_world, n)
+    //---- emission ----
 
-        //---- emission ----
-
-        if (G.use_direct_light) {
-            if (rtask.depth == 0 || ray.receive_le || !bsdf->is_emissive) {
-                L = vadd(L, bsdf->Le);
-            }
-        } else {
+    if (G.use_direct_light) {
+        if (rtask.depth == 0 || ray.receive_le || !bsdf->is_emissive) {
             L = vadd(L, bsdf->Le);
         }
+    } else {
+        L = vadd(L, bsdf->Le);
+    }
 
-        //---- direct lighting ----
+    //---- direct lighting ----
 
-        if (G.use_direct_light && !bsdf->is_delta)
+    if (G.use_direct_light && !bsdf->is_delta)
+    {
+        for (uint i = 0; i < G.num_area_lights; i++)
         {
-            for (uint i = 0; i < G.num_area_lights; i++)
+            Triangle* area_light_T = G.triangles + G.area_light_indices[i];
+            for (uint j = 0; j < G.area_light_samples; j++)
             {
-                Triangle* area_light_T = G.triangles + G.area_light_indices[i];
-                for (uint j = 0; j < G.area_light_samples; j++)
-                {
-                    // get ray to light
-                    Ray ray_to_light = new_Ray();
-                    // in this case not a real pdf, but just something to divide by?
-                    float pdf = ray_to_light_pdf(ray_to_light, hit_p, area_light_T);
+                // get ray to light
+                Ray ray_to_light = new_Ray();
+                // in this case not a real pdf, but just something to divide by?
+                float pdf = ray_to_light_pdf(ray_to_light, hit_p, area_light_T);
 
-                    // test if ray to light hits anything other than the starting primitive and the light
-                    float tmp_t; vec3 tmp_n;
-                    bool in_shadow = false;
-                    Triangle* hit_prim;
-                    for (uint k = 0; k < G.num_triangles; k++) {
-                        if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
-                            hit_prim = G.triangles + k;
-                            if (hit_prim != primitive && hit_prim != area_light_T) {
-                                in_shadow = true;
-                                break;
-                            }
+                // test if ray to light hits anything other than the starting primitive and the light
+                float tmp_t; vec3 tmp_n;
+                bool in_shadow = false;
+                Triangle* hit_prim;
+                for (uint k = 0; k < G.num_triangles; k++) {
+                    if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
+                        hit_prim = G.triangles + k;
+                        if (hit_prim != primitive && hit_prim != area_light_T) {
+                            in_shadow = true;
+                            break;
                         }
                     }
+                }
 
-                    // add contribution
-                    if (!in_shadow) {
-                        wi_world = ray_to_light.d;
-                        wi_hemi = mmul(w2h, wi_world);
+                // add contribution
+                if (!in_shadow) {
+                    wi_world = ray_to_light.d;
+                    wi_hemi = mmul(w2h, wi_world);
 
-                        costhetai = max(0.0f, dot(n, wi_world));
-                        vec3 L_direct = vmul(
-                            G.bsdfs[area_light_T->bsdf_index].Le,
-                            smul( costhetai / pdf , BSDF_f(bsdf, wi_hemi, wo_hemi) ));
-                        // correction for when above num and denom both 0 (see CPP)
-                        if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = new_vec3();
-                        L = vadd( L, smul(G.area_light_sample_weight, L_direct) );
-                    }
+                    costhetai = max(0.0f, dot(n, wi_world));
+                    vec3 L_direct = vmul(
+                        G.bsdfs[area_light_T->bsdf_index].Le,
+                        smul( costhetai / pdf , BSDF_f(bsdf, wi_hemi, wo_hemi) ));
+                    // correction for when above num and denom both 0 (see CPP)
+                    if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = new_vec3();
+                    L = vadd( L, smul(G.area_light_sample_weight, L_direct) );
                 }
             }
         }
+    }
 
-        vec3* output_ptr = G.output_tmp + rtask.buf_index;
-        *output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
+    vec3* output_ptr = G.output_tmp + rtask.buf_index;
+    *output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
 
-        //---- indirect lighting ----
+    //---- indirect lighting ----
 
-        if ( (G.use_direct_light && !bsdf->is_emissive) ||
-             !G.use_direct_light )
-        {
-            float pdf;
-            vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
+    if ( (G.use_direct_light && !bsdf->is_emissive) ||
+         !G.use_direct_light )
+    {
+        float pdf;
+        vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
 
-            // transform wi back to world space
-            wi_world = mmul(h2w, wi_hemi);
-            costhetai = abs(dot(n, wi_world));
+        // transform wi back to world space
+        wi_world = mmul(h2w, wi_hemi);
+        costhetai = abs(dot(n, wi_world));
 
-            // russian roulette
-            float termination_prob = 0.0f;
-            float rr_contribution = brightness(rtask.contribution) * brightness(f) * costhetai;
-            if (rr_contribution < G.rr_threshold) {
-                termination_prob = (G.rr_threshold - rr_contribution) / G.rr_threshold;
-            }
-            bool terminate = rand01() < termination_prob;
+        // russian roulette
+        float termination_prob = 0.0f;
+        float rr_contribution = brightness(rtask.contribution) * brightness(f) * costhetai;
+        if (rr_contribution < G.rr_threshold) {
+            termination_prob = (G.rr_threshold - rr_contribution) / G.rr_threshold;
+        }
+        bool terminate = rand01() < termination_prob;
 
-            // recursive step: trace scattered ray in wi direction (if not terminated by RR)
-            vec3 Li = new_vec3();
-            if (!terminate) {
-                vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
-                ray.o = vadd(hit_p, refl_offset);
-                ray.d = wi_world;
-                ray.tmax = 999999999.0f;
+        // recursive step: trace scattered ray in wi direction (if not terminated by RR)
+        if (!terminate) {
+            vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
+            ray.o = vadd(hit_p, refl_offset);
+            ray.d = wi_world;
+            ray.tmax = 999999999.0f;
+            
+            float tt;
+            int next_triangle = intersect_scene(ray, tt, rtask.triangle_normal, true);
+            if (next_triangle >= 0) {
+                rtask.triangle_index = next_triangle;
                 rtask.contribution = vmul(rtask.contribution,
                     smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
             } else {
                 rtask.finished = true;
             }
 
-            rtask.depth += 1;
+        } else {
+            rtask.finished = true;
         }
     }
-    else
-    {
-        rtask.finished = true;
-    }
+    rtask.depth += 1;
 }
 
 inline void scan_excl(uniform uint array[], uniform uint length)
@@ -660,6 +664,21 @@ task void raytrace_scene_ispc_task(
             uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
             RayTask* rtask_ptr = G.ray_tasks + ray_index_batch;
             generate_ray(rtask_ptr, pixel_index, ray_index);
+
+            // pre-calculate the first hit
+            float tt; vec3 nn; 
+            Ray ray = new_Ray();
+            ray.o = rtask_ptr->ray.o;
+            ray.d = rtask_ptr->ray.d;
+            ray.tmax = rtask_ptr->ray.tmax;
+            int next_triangle = intersect_scene(ray, tt, nn, true);
+            if (next_triangle >= 0) {
+                rtask_ptr->triangle_index = next_triangle;
+                rtask_ptr->triangle_normal = nn;
+                rtask_ptr->ray = ray;
+            } else {
+                rtask_ptr->finished = true;
+            }
         }
     }
     
@@ -692,6 +711,8 @@ task void raytrace_scene_ispc_task(
         if (rays_left_in_minibatch == 0) {
             break;
         }
+
+        // TODO: reorder them ( sort based on (G.triangles + rtask.triangle_index)->bsdf_index )
     }
     
     //-------- average results and store into output buffer --------
