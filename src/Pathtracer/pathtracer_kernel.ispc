@@ -1,7 +1,7 @@
 
 #define QUEUE_SIZE 1024
 #define SCAN_SIZE 1024
-#define MINI_BATCH_GRAN 4
+#define MINI_BATCH_GRAN 1
 
 struct vec3 {
     float x;
@@ -18,7 +18,6 @@ struct mat3 {
 struct Ray {
     vec3 o, d;
     float tmin, tmax;
-    float rr_contribution;
     bool receive_le;
 };
 
@@ -27,6 +26,7 @@ struct RayTask {
     vec3 contribution;
     uint depth;
     uint buf_index;
+    uint triangle_index;
     bool finished;
 };
 
@@ -233,7 +233,6 @@ inline Ray new_Ray() {
     r.d = new_vec3();
     r.tmin = 0.0;
     r.tmax = 99999999.0;
-    r.rr_contribution = 1.0f;
     r.receive_le = false;
     return r;
 }
@@ -244,6 +243,7 @@ inline RayTask new_RayTask() {
     rt.contribution = new_vec3(1.0f, 1.0f, 1.0f);
     rt.depth = 0;
     rt.buf_index = 0;
+    rt.triangle_index = -1;
     rt.finished = true;
     return rt;
 }
@@ -254,11 +254,11 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     rt.ray.d = rt0->ray.d;
     rt.ray.tmin = rt0->ray.tmin;
     rt.ray.tmax = rt0->ray.tmax;
-    rt.ray.rr_contribution = rt0->ray.rr_contribution;
     rt.ray.receive_le = rt0->ray.receive_le;
     rt.contribution = rt0->contribution;
     rt.depth = rt0->depth;
     rt.buf_index = rt0->buf_index;
+    rt.triangle_index = rt0->triangle_index;
     rt.finished = rt0->finished;
     return rt;
 }
@@ -286,6 +286,17 @@ inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool 
     normal = triangle.plane_n;
 
     return true;
+}
+
+inline int intersect_scene(Ray& ray, float& t, vec3& normal, bool modify_ray)
+{
+    int triangle_index = -1;
+    for (uint i = 0; i < G.num_triangles; i++) {
+        if (intersect(G.triangles[i], ray, t, normal, modify_ray)) {
+            triangle_index = i;
+        }
+    }
+    return triangle_index;
 }
 
 inline vec3 sample_point_in_triangle(Triangle* T)
@@ -415,22 +426,22 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 // also updates G.output_tmp along the way
 inline void trace_ray(RayTask &rtask)
 {
+    if (rtask.depth >= G.max_ray_depth) {
+        rtask.finished = true;
+    }
     if (rtask.finished) return;
 
     Ray &ray = rtask.ray;
 
     // info of closest hit
-    Triangle* primitive = NULL;
-    BSDF* bsdf = NULL;
     float t; vec3 n;
-    for (uint i = 0; i < G.num_triangles; i++) {
-        if (intersect(G.triangles[i], ray, t, n, true)) {
-            primitive = G.triangles + i;
-            bsdf = G.bsdfs + primitive->bsdf_index;
-        }
-    }
-    if (primitive)
+    int triangle_index = intersect_scene(ray, t, n, true);
+
+    if (triangle_index >= 0)
     {
+        Triangle* primitive = G.triangles + triangle_index;
+        BSDF* bsdf = G.bsdfs + primitive->bsdf_index;
+
         // pre-compute (or declare) some common thing sto be used later
         vec3 L = new_vec3();
         vec3 hit_p = vadd(ray.o, smul(t, ray.d));
@@ -448,7 +459,6 @@ inline void trace_ray(RayTask &rtask)
 
         //---- emission ----
 
-        //L = vadd(L, bsdf->Le);
         if (G.use_direct_light) {
             if (rtask.depth == 0 || ray.receive_le || !bsdf->is_emissive) {
                 L = vadd(L, bsdf->Le);
@@ -468,7 +478,7 @@ inline void trace_ray(RayTask &rtask)
                 {
                     // get ray to light
                     Ray ray_to_light = new_Ray();
-                    // in this case not a real pdf, but just somethign to divide by?
+                    // in this case not a real pdf, but just something to divide by?
                     float pdf = ray_to_light_pdf(ray_to_light, hit_p, area_light_T);
 
                     // test if ray to light hits anything other than the starting primitive and the light
@@ -519,9 +529,9 @@ inline void trace_ray(RayTask &rtask)
 
             // russian roulette
             float termination_prob = 0.0f;
-            ray.rr_contribution *= brightness(f) * costhetai;
-            if (ray.rr_contribution < G.rr_threshold) {
-                termination_prob = (G.rr_threshold - ray.rr_contribution) / G.rr_threshold;
+            float rr_contribution = brightness(rtask.contribution) * brightness(f) * costhetai;
+            if (rr_contribution < G.rr_threshold) {
+                termination_prob = (G.rr_threshold - rr_contribution) / G.rr_threshold;
             }
             bool terminate = rand01() < termination_prob;
 
@@ -529,10 +539,9 @@ inline void trace_ray(RayTask &rtask)
             vec3 Li = new_vec3();
             if (!terminate) {
                 vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
-                Ray ray_refl = new_Ray();
-                ray_refl.o = vadd(hit_p, refl_offset);
-                ray_refl.d = wi_world;
-                rtask.ray = ray_refl;
+                ray.o = vadd(hit_p, refl_offset);
+                ray.d = wi_world;
+                ray.tmax = 999999999.0f;
                 rtask.contribution = vmul(rtask.contribution,
                     smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
             } else {
@@ -540,9 +549,6 @@ inline void trace_ray(RayTask &rtask)
             }
 
             rtask.depth += 1;
-            if (rtask.depth >= G.max_ray_depth) {
-                rtask.finished = true;
-            }
         }
     }
     else
@@ -605,8 +611,6 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
         indices[i] = 0;
     }
 
-    //print("%\n", num_tasks);
-    //print("%\n", num_tasks_pad);
     uniform uint total = 0;
     uint partial = 0;
 
@@ -674,8 +678,6 @@ task void raytrace_scene_ispc_task(
 
     for (uniform uint i = 0; i < G.max_ray_depth; i++)
     {
-        //print("total %\n", rays_left_in_minibatch);
-        
         // trace all the rays for one bounce
         foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
         {
@@ -686,7 +688,6 @@ task void raytrace_scene_ispc_task(
         }
 
         // reorder them (scan)
-        // gives a ~10% speedup...should perform better when scan is made parallel
         gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
         if (rays_left_in_minibatch == 0) {
             break;
@@ -790,20 +791,6 @@ export void raytrace_scene_ispc(
         launch[num_mini_batches] raytrace_scene_ispc_task(batch, pixels_per_mini_batch, pixels_per_batch, buf_size, ray_weight);
         sync;
     }
-
-#if 0
-    uniform uint* test = uniform new uint[24];
-    foreach (i = 0 ... 24) {
-        if (i % 2 == 0) test[i] = 0;
-        else test[i] = 1;
-        print("% ", test[i]);
-    }
-    print("\n");
-    scan_excl(test, 24);
-    foreach (i = 0 ... 24) {
-        print("% ", test[i]);
-    }
-#endif
 
     delete[] G.output_tmp;
     delete[] G.ray_tasks;
