@@ -602,8 +602,8 @@ inline uniform uint nextPow2(uniform uint n) {
 
 inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
 {
-    uniform RayTask* ray_tasks = G.ray_tasks + tasks_offset;
-    uniform RayTask* ray_tasks_backup = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_in = G.ray_tasks + tasks_offset;
+    uniform RayTask* ray_tasks_out = G.ray_tasks_backup + tasks_offset;
 
     uniform uint num_tasks_pad = nextPow2(num_tasks);
     uniform uint indices[SCAN_SIZE];
@@ -613,8 +613,8 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
     uint partial = 0;
 
     foreach (i = 0 ... num_tasks) {
-        indices[i] = (uint)(!ray_tasks[i].finished);
-        if (!ray_tasks[i].finished) partial++;
+        indices[i] = (uint)(!ray_tasks_in[i].finished);
+        if (!ray_tasks_in[i].finished) partial++;
     }
 
     total = reduce_add(partial);
@@ -622,17 +622,14 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
     
     foreach (i = 0 ... num_tasks-1) {
         if (indices[i] != indices[i+1]) {
-            ray_tasks_backup[indices[i]] = cpy_RayTask(ray_tasks + i);
+            ray_tasks_out[indices[i]] = cpy_RayTask(ray_tasks_in + i);
         }
     }
-    if (!ray_tasks[num_tasks-1].finished) {
-        ray_tasks_backup[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks + num_tasks - 1);
+    if (!ray_tasks_in[num_tasks-1].finished) {
+        ray_tasks_out[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
     }
 
     num_tasks = total;
-    foreach (i = 0 ... num_tasks) {
-        ray_tasks[i] = cpy_RayTask(ray_tasks_backup + i);
-    }
 }
 
 inline BSDF_t get_bsdf_t(RayTask* ray_tasks, uint rtask_offset) {
@@ -642,8 +639,8 @@ inline BSDF_t get_bsdf_t(RayTask* ray_tasks, uint rtask_offset) {
 // counting sort: https://brilliant.org/wiki/counting-sort/
 inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
 {
-    uniform RayTask* ray_tasks = G.ray_tasks + tasks_offset;
-    uniform RayTask* ray_tasks_backup = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
 
     // count how many rays does each material have
     varying uint bsdf_buckets_partial[NUM_MATERIAL_TYPES];
@@ -654,7 +651,7 @@ inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offs
         }
     }
     foreach (i = 0 ... num_tasks) {
-        uint bsdf_type = (uint)get_bsdf_t(ray_tasks, i);
+        uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
         bsdf_buckets_partial[bsdf_type]++;
     }
     for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
@@ -678,62 +675,34 @@ inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offs
 
 inline void sort_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
 {
-    uniform RayTask* ray_tasks = G.ray_tasks + tasks_offset;
-    uniform RayTask* ray_tasks_backup = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
 
     uniform uint num_tasks_pad = nextPow2(num_tasks);
 
     uniform uint indices[SCAN_SIZE];
-    foreach (i = 0 ... SCAN_SIZE) {
-        indices[i] = 0;
-    }
-
-    //print("\nnum tasks: %\n", num_tasks);
 
     for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
 
-        //print("%:%\n", cur_bsdf, bsdf_buckets[cur_bsdf]);
-
-        // TODO: re-order them
-        foreach (i = 0 ... SCAN_SIZE) {
-            indices[i] = 0;
-        }
+        //foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
         foreach (i = 0 ... num_tasks) {
-            uint bsdf_type = (uint)get_bsdf_t(ray_tasks, i);
+            uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
             indices[i] = (bsdf_type == cur_bsdf);
         }
         scan_excl(indices, num_tasks_pad);
         
         // reorder
-        uniform RayTask* ray_tasks_backup_local = ray_tasks_backup + bsdf_buckets[cur_bsdf];
+        uniform RayTask* ray_tasks_out_local = ray_tasks_out + bsdf_buckets[cur_bsdf];
         foreach (i = 0 ... num_tasks-1) {
             if (indices[i] != indices[i+1]) {
-                ray_tasks_backup_local[indices[i]] = cpy_RayTask(ray_tasks + i);
+                ray_tasks_out_local[indices[i]] = cpy_RayTask(ray_tasks_in + i);
             }
         }
-        uint last_bsdf = (uint)get_bsdf_t(ray_tasks, num_tasks-1);
+        uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
         if (last_bsdf == cur_bsdf) {
-            ray_tasks_backup_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks + num_tasks - 1);
+            ray_tasks_out_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
         }
     }
-
-    foreach (i = 0 ... num_tasks) {
-        ray_tasks[i] = cpy_RayTask(ray_tasks_backup + i);
-    }
-    /*
-    for (uniform uint i = 0; i < num_tasks; i++) {
-        uint bsdf = (uint)get_bsdf_t(ray_tasks, i);
-        print("% ", bsdf);
-    }
-
-    print("\n----------\n");
-
-    for (uniform uint i = 0; i < num_tasks; i++) {
-        uint bsdf = (uint)get_bsdf_t(ray_tasks_backup, i);
-        print("% ", bsdf);
-    }
-    */
-
 }
 
 task void raytrace_scene_ispc_task(
@@ -807,11 +776,19 @@ task void raytrace_scene_ispc_task(
             break;
         }
 
-        // reorder them ( sort based on G.bsdfs[(G.triangles + rtask.triangle_index)->bsdf_index].type )
-        // I have no idea why merging the below two function calls result in weird memory accesses...
+        // reorder them based on the material they hit
+        // currently this actually increases runtime by ~5%, will see how it goes when more materials are added.
+        // (note: I have no idea why merging the below two function calls result in weird memory accesses)
+#if 1
         uniform uint bsdf_buckets[NUM_MATERIAL_TYPES];
         count_rays_bsdf(bsdf_buckets, first_ray_in_minibatch_offset, rays_left_in_minibatch);
         sort_rays_bsdf(bsdf_buckets, first_ray_in_minibatch_offset, rays_left_in_minibatch);
+#else
+        foreach (j = 0 ... rays_left_in_minibatch) {
+            *(G.ray_tasks + first_ray_in_minibatch_offset + j) = 
+                cpy_RayTask(G.ray_tasks_backup + first_ray_in_minibatch_offset + j);
+        }
+#endif
     }
     
     //-------- average results and store into output buffer --------
