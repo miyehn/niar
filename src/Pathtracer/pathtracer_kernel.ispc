@@ -1,4 +1,5 @@
 
+
 #define QUEUE_SIZE 2048
 #define SCAN_SIZE 2048
 #define MINI_BATCH_GRAN 1
@@ -92,6 +93,7 @@ struct Global
 
     uniform vec3* output_tmp; // a temporary buffer that stores float
     uniform uint8* output;
+    //uniform bool finished[QUEUE_SIZE];
 };
 
 uniform Global G;
@@ -553,7 +555,6 @@ inline void trace_ray(RayTask &rtask)
             } else {
                 rtask.finished = true;
             }
-
         } else {
             rtask.finished = true;
         }
