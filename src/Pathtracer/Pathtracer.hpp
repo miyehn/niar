@@ -29,6 +29,8 @@ struct Pathtracer : public Drawable {
 	void enable();
 	void disable();
 
+	static Scene* load_cornellbox_scene(bool init_graphics = false);
+
 	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
 	void output_file(const std::string& path);
 
