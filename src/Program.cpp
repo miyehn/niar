@@ -60,16 +60,11 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 	light->bsdf->set_emission(vec3(10.0f));
 	scene->add_child(static_cast<Drawable*>(light));
 
-#if 0
+#if 1
 	// add another item to it
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx");
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx", false);
 	Mesh* mesh = meshes[0];
-	mesh->shaders[2].set_parameters = [mesh]() {
-		mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
-		mesh->shaders[2].set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
-	};
-	mesh->bsdf = new Diffuse(vec3(0.6f));
-	mesh->bsdf->albedo = vec3(1, 1, 1);
+	mesh->bsdf = new Mirror();//new Diffuse(vec3(0.6f));
 	mesh->name = "prism";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif
@@ -152,16 +147,11 @@ void Program::setup() {
 	light->bsdf->set_emission(vec3(10.0f));
 	scene->add_child(static_cast<Drawable*>(light));
 
-#if 0
+#if 1
 	// add another item to it
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx");
 	Mesh* mesh = meshes[0];
-	mesh->shaders[2].set_parameters = [mesh]() {
-		mat4 OBJECT_TO_CLIP = Camera::Active->world_to_clip() * mesh->object_to_world();
-		mesh->shaders[2].set_mat4("OBJECT_TO_CLIP", OBJECT_TO_CLIP);
-	};
-	mesh->bsdf = new Diffuse(vec3(0.6f));
-	mesh->bsdf->albedo = vec3(1, 1, 1);
+	mesh->bsdf = new Mirror();
 	mesh->name = "prism";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif

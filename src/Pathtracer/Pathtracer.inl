@@ -219,8 +219,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 				for (size_t i = 0; i < lights.size(); i++) {
 
 					// Mesh lights
-					AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
-					if (area_light) {
+					if (lights[i]->type == PathtracerLight::AreaLight)
+					{
+						AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
 						float each_sample_weight = 1.0f / Cfg.Pathtracer.AreaLightSamples;
 						for (size_t j = 0; j < Cfg.Pathtracer.AreaLightSamples; j++) {
 
@@ -312,6 +313,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 	}
 }
 
+// TODO: remove this
 void Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
 	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return;
 

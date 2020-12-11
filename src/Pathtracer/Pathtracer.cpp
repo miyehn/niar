@@ -398,7 +398,8 @@ void Pathtracer::raytrace_scene_to_buf() {
 		};
 		
 		// construct scene representation (triangles + materials list)
-		ispc::BSDF bsdfs[primitives.size()]; // TODO: support multiple materials
+		ispc::BSDF bsdfs[primitives.size()];
+
 		ispc::Triangle triangles[primitives.size()];
 		for (int i=0; i<primitives.size(); i++) {
 			ispc::Triangle &T = triangles[i];
@@ -406,10 +407,15 @@ void Pathtracer::raytrace_scene_to_buf() {
 			if (!T0) ERR("failed to cast primitive to triangle?");
 			// construct its corresponding material
 			T.bsdf_index = i;
-			bsdfs[i].is_delta = T0->bsdf->is_delta;
-			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
 			bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
 			bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
+			bsdfs[i].is_delta = T0->bsdf->is_delta;
+			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
+			if (T0->bsdf->type == BSDF::Mirror) {
+				bsdfs[i].type = ispc::Mirror;
+			} else {
+				bsdfs[i].type = ispc::Diffuse;
+			}
 			// construct the ispc triangle object
 			for (int j=0; j<3; j++) {
 				T.vertices[j] = ispc_vec3(T0->vertices[j]);
@@ -417,6 +423,20 @@ void Pathtracer::raytrace_scene_to_buf() {
 			}
 			T.plane_n = ispc_vec3(T0->plane_n);
 			T.plane_k = T0->plane_k;
+			T.area = T0->area;
+		}
+
+		uint light_indices[lights.size()];
+		uint light_count = 0;
+		for (int i=0; i<lights.size(); i++) {
+			if (lights[i]->type == PathtracerLight::AreaLight) {
+				Triangle* T = dynamic_cast<AreaLight*>(lights[i])->triangle;
+				auto it = find(primitives.begin(), primitives.end(), T);
+				if (it != primitives.end()) { // found
+					light_indices[light_count] = it - primitives.begin();
+				}
+				light_count++;
+			}
 		}
 
 		// construct camera
@@ -435,9 +455,14 @@ void Pathtracer::raytrace_scene_to_buf() {
 		ispc::raytrace_scene_ispc(
 			&camera, 
 			offsets, pixel_offsets.size(), 
-			triangles, bsdfs, primitives.size(), 
+			triangles, bsdfs, light_indices,
+			primitives.size(), light_count,
 			image_buffer, 
-			width, height, Cfg.Pathtracer.MaxRayDepth);
+			width, height, 
+			Cfg.Pathtracer.MaxRayDepth, 
+			Cfg.Pathtracer.RussianRouletteThreshold,
+			Cfg.Pathtracer.UseDirectLight,
+			Cfg.Pathtracer.AreaLightSamples);
 	}
 	else {
 		for (size_t y = 0; y < height; y++) {

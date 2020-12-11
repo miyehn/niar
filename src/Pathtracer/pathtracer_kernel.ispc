@@ -1,5 +1,7 @@
 
-#define QUEUE_SIZE 1024
+
+#define QUEUE_SIZE 2048
+#define SCAN_SIZE 2048
 #define MINI_BATCH_GRAN 1
 
 struct vec3 {
@@ -16,15 +18,18 @@ struct mat3 {
 
 struct Ray {
     vec3 o, d;
-    double tmin, tmax;
-    float rr_contribution;
+    float tmin, tmax;
     bool receive_le;
 };
 
 struct RayTask {
     Ray ray;
-    vec3 output; 
     vec3 contribution;
+    uint buf_index;
+
+    vec3 triangle_normal;
+    uint triangle_index;
+
     uint depth;
     bool finished;
 };
@@ -43,14 +48,21 @@ struct Triangle {
 
     vec3 plane_n;
     float plane_k;
+    float area;
 };
 
-// diffuse only..
+#define NUM_MATERIAL_TYPES 4
+enum BSDF_t {
+    Diffuse,
+    Mirror
+};
+
 struct BSDF {
-    bool is_delta;
-    bool is_emissive;
     vec3 albedo;
     vec3 Le;
+    BSDF_t type;
+    bool is_delta;
+    bool is_emissive;
 };
 
 struct Global
@@ -64,14 +76,20 @@ struct Global
 
     uniform Triangle* triangles;
     uniform BSDF* bsdfs;
+    uniform uint* area_light_indices;
 
     uniform uint num_triangles;
     uniform uint num_bsdfs;
+    uniform uint num_area_lights;
 
     uniform uint width, height, max_ray_depth;
+    uniform float rr_threshold;
+    uniform bool use_direct_light;
+    uniform uint area_light_samples;
+    uniform float area_light_sample_weight;
 
-    uniform RayTask ray_tasks[QUEUE_SIZE];
-    uniform bool read_from_A;
+    uniform RayTask* ray_tasks;
+    uniform RayTask* ray_tasks_backup;
 
     uniform vec3* output_tmp; // a temporary buffer that stores float
     uniform uint8* output;
@@ -84,8 +102,6 @@ uniform Global G;
 
 #define ONE_OVER_PI 0.31830988618f
 #define EPSILON 0.001f
-
-#define RR_THRESHOLD 0.05f
 
 inline vec3 new_vec3() {
     vec3 v; v.x = 0.0f; v.y = 0.0f; v.z = 0.0f;
@@ -214,7 +230,7 @@ inline vec3 sample_hemisphere_cos_weighed() {
     return res;
 }
 
-//-------- scene, scene primitives, BSDF --------
+//-------- scene, scene primitives --------
 
 inline Ray new_Ray() {
     Ray r;
@@ -222,7 +238,6 @@ inline Ray new_Ray() {
     r.d = new_vec3();
     r.tmin = 0.0;
     r.tmax = 99999999.0;
-    r.rr_contribution = 1.0f;
     r.receive_le = false;
     return r;
 }
@@ -230,10 +245,12 @@ inline Ray new_Ray() {
 inline RayTask new_RayTask() {
     RayTask rt;
     rt.ray = new_Ray();
-    rt.output = new_vec3();
     rt.contribution = new_vec3(1.0f, 1.0f, 1.0f);
     rt.depth = 0;
-    rt.finished = false;
+    rt.buf_index = 0;
+    rt.triangle_normal = new_vec3();
+    rt.triangle_index = -1;
+    rt.finished = true;
     return rt;
 }
 
@@ -243,31 +260,22 @@ inline RayTask cpy_RayTask(RayTask* rt0) {
     rt.ray.d = rt0->ray.d;
     rt.ray.tmin = rt0->ray.tmin;
     rt.ray.tmax = rt0->ray.tmax;
-    rt.ray.rr_contribution = rt0->ray.rr_contribution;
     rt.ray.receive_le = rt0->ray.receive_le;
-    rt.output = rt0->output;
     rt.contribution = rt0->contribution;
     rt.depth = rt0->depth;
+    rt.buf_index = rt0->buf_index;
+    rt.triangle_normal = rt0->triangle_normal;
+    rt.triangle_index = rt0->triangle_index;
     rt.finished = rt0->finished;
     return rt;
 }
 
-inline vec3 BSDF_f(BSDF* bsdf, vec3& wi, vec3& wo) {
-    return smul(ONE_OVER_PI, bsdf->albedo);
-}
-
-inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo) {
-    wi = sample_hemisphere_cos_weighed();
-    pdf = wi.z * ONE_OVER_PI;
-    return BSDF_f(bsdf, wi, wo);
-}
-
-inline bool intersect(Triangle triangle, Ray& ray, double& t, vec3& normal, bool modify_ray) {
+inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool modify_ray) {
     // ray parallel to plane
     float d_dot_n = dot(ray.d, triangle.plane_n);
     if (abs(d_dot_n) == 0.0f) return false;
     // intesection out of range
-    double _t = (triangle.plane_k - dot(ray.o, triangle.plane_n)) / d_dot_n;
+    float _t = (triangle.plane_k - dot(ray.o, triangle.plane_n)) / d_dot_n;
     if (_t < ray.tmin || _t > ray.tmax) return false;
 
     vec3 p = vadd( ray.o, smul( (float)_t, ray.d ) );
@@ -287,6 +295,81 @@ inline bool intersect(Triangle triangle, Ray& ray, double& t, vec3& normal, bool
     return true;
 }
 
+inline int intersect_scene(Ray& ray, float& t, vec3& normal, bool modify_ray)
+{
+    int triangle_index = -1;
+    for (uint i = 0; i < G.num_triangles; i++) {
+        if (intersect(G.triangles[i], ray, t, normal, modify_ray)) {
+            triangle_index = i;
+        }
+    }
+    return triangle_index;
+}
+
+inline vec3 sample_point_in_triangle(Triangle* T)
+{
+    float u = rand01();
+    float v = rand01();
+    if (u + v > 1) {
+        u = 1.0f - u;
+        v = 1.0f - v;
+    }
+
+    vec3 e1 = vsub( T->vertices[1], T->vertices[0] );
+    vec3 e2 = vsub( T->vertices[2], T->vertices[0] );
+
+    return vadd( T->vertices[0], vadd(smul(u, e1), smul(v, e2)) );
+}
+
+//-------- lights --------
+
+inline float ray_to_light_pdf(Ray& ray, vec3& origin, Triangle* triangle)
+{
+    vec3 light_p = sample_point_in_triangle(triangle);
+
+    ray.o = origin;
+    ray.d = normalized( vsub(light_p, origin) );
+    float t; vec3 n;
+    intersect(*triangle, ray, t, n, true);
+
+    float d2 = t * t;
+
+    float costheta_l = max(0.0f, dot( neg(ray.d), n ));
+
+    return d2 / (triangle->area * costheta_l);
+}
+
+//-------- materials (BSDF) --------
+
+inline vec3 BSDF_f(BSDF* bsdf, vec3& wi, vec3& wo)
+{
+    if (bsdf->type == Mirror)
+    {
+        return new_vec3();
+    }
+    else
+    {
+        return smul(ONE_OVER_PI, bsdf->albedo);
+    }
+}
+
+inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
+{
+    if (bsdf->type == Mirror)
+    {
+        wi = neg(wo);
+        wi.z = wo.z;
+        pdf = 1.0f;
+        return smul(1.0f / wi.z, bsdf->albedo);
+    }
+    else
+    {
+        wi = sample_hemisphere_cos_weighed();
+        pdf = wi.z * ONE_OVER_PI;
+        return smul(ONE_OVER_PI, bsdf->albedo);
+    }
+}
+
 //-------- actual path tracing --------
 
 inline void make_h2w(mat3& h2w, vec3& z) {
@@ -303,7 +386,7 @@ inline void make_h2w(mat3& h2w, vec3& z) {
 }
 
 inline float brightness(vec3& color) {
-    return 0.2989f * color.x + 0.587f * color.y + 0.114 * color.z;
+    return 0.2989f * color.x + 0.587f * color.y + 0.114f * color.z;
 }
 
 inline void set_color(uint i, vec3 &color) {
@@ -317,6 +400,7 @@ inline void set_color(uint i, vec3 &color) {
 inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 {
     *rtask = new_RayTask();
+    rtask->finished = false;
     int w = pixel_index % G.width; // TODO
     int h = pixel_index / G.width; // TODO
     float fov = G.camera->fov;
@@ -333,8 +417,8 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
     float offset_y = G.pixel_offsets[2 * ray_index + 1];
 
     ray->o = G.camera->position;
-    ray->tmin = 0.0;
-    ray->tmax = 999999999.0;
+    ray->tmin = 0.0f;
+    ray->tmax = 999999999.0f;
 
     float dx = (w + offset_x - half_width) / half_width;
     float dy = (h + offset_y - half_height) / half_height;
@@ -345,90 +429,281 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
     ray->d = normalized(d_unnormalized_w);
 }
 
-inline void trace_ray(RayTask* rtask_in)
+// only traces one bounce (and set depth and finished)
+// also updates G.output_tmp along the way
+inline void trace_ray(RayTask &rtask)
 {
-    RayTask rtask = cpy_RayTask(rtask_in);
-    uint max_ray_depth = G.max_ray_depth;
-    uint count = 0;
-    while (!rtask.finished && count < 50) {
-        count += 1;
-        Ray &ray = rtask.ray;
+    if (rtask.depth >= G.max_ray_depth) {
+        rtask.finished = true;
+    }
+    if (rtask.finished) return;
 
-        // info of closest hit
-        Triangle* primitive = NULL;
-        BSDF* bsdf = NULL;
-        double t; vec3 n;
-        for (uint i = 0; i < G.num_triangles; i++) {
-            if (intersect(G.triangles[i], ray, t, n, true)) {
-                primitive = G.triangles + i;
-                bsdf = G.bsdfs + primitive->bsdf_index;
+    Ray &ray = rtask.ray;
+
+    // info of closest hit
+    Triangle* primitive = G.triangles + rtask.triangle_index;
+    BSDF* bsdf = G.bsdfs + primitive->bsdf_index;
+    float t = ray.tmax;
+    vec3 n = rtask.triangle_normal;
+
+    // pre-compute (or declare) some common thing sto be used later
+    vec3 L = new_vec3();
+    vec3 hit_p = vadd(ray.o, smul(t, ray.d));
+    // construct transform from hemisphere space to world space
+    mat3 h2w;
+    make_h2w(h2w, n);
+    mat3 w2h = transpose(h2w);
+    // wi, wo
+    vec3 wo_world = neg(ray.d);
+    vec3 wo_hemi = neg( mmul(w2h, ray.d) );
+    //
+    vec3 wi_world; // to be transformed from wi_hemi
+    vec3 wi_hemi; // to be assigned by f
+    float costhetai; // some variation of dot(wi_world, n)
+
+    //---- emission ----
+
+    if (G.use_direct_light) {
+        if (rtask.depth == 0 || ray.receive_le || !bsdf->is_emissive) {
+            L = vadd(L, bsdf->Le);
+        }
+    } else {
+        L = vadd(L, bsdf->Le);
+    }
+
+    //---- direct lighting ----
+
+    if (G.use_direct_light && !bsdf->is_delta)
+    {
+        for (uint i = 0; i < G.num_area_lights; i++)
+        {
+            Triangle* area_light_T = G.triangles + G.area_light_indices[i];
+            for (uint j = 0; j < G.area_light_samples; j++)
+            {
+                // get ray to light
+                Ray ray_to_light = new_Ray();
+                // in this case not a real pdf, but just something to divide by?
+                float pdf = ray_to_light_pdf(ray_to_light, hit_p, area_light_T);
+
+                // test if ray to light hits anything other than the starting primitive and the light
+                float tmp_t; vec3 tmp_n;
+                bool in_shadow = false;
+                Triangle* hit_prim;
+                for (uint k = 0; k < G.num_triangles; k++) {
+                    if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
+                        hit_prim = G.triangles + k;
+                        if (hit_prim != primitive && hit_prim != area_light_T) {
+                            in_shadow = true;
+                            break;
+                        }
+                    }
+                }
+
+                // add contribution
+                if (!in_shadow) {
+                    wi_world = ray_to_light.d;
+                    wi_hemi = mmul(w2h, wi_world);
+
+                    costhetai = max(0.0f, dot(n, wi_world));
+                    vec3 L_direct = vmul(
+                        G.bsdfs[area_light_T->bsdf_index].Le,
+                        smul( costhetai / pdf , BSDF_f(bsdf, wi_hemi, wo_hemi) ));
+                    // correction for when above num and denom both 0 (see CPP)
+                    if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = new_vec3();
+                    L = vadd( L, smul(G.area_light_sample_weight, L_direct) );
+                }
             }
         }
-        if (primitive)
-        {
-            // pre-compute (or declare) some common thing sto be used later
-            vec3 L = new_vec3();
-            vec3 hit_p = vadd(ray.o, smul(t, ray.d));
-            // construct transform from hemisphere space to world space
-            mat3 h2w;
-            make_h2w(h2w, n);
-            mat3 w2h = transpose(h2w);
-            // wi, wo
-            vec3 wo_world = neg(ray.d);
-            vec3 wo_hemi = neg( mmul(w2h, ray.d) );
-            //
-            vec3 wi_world; // to be transformed from wi_hemi
-            vec3 wi_hemi; // to be assigned by f
-            float costhetai; // some variation of dot(wi_world, n)
+    }
 
-            //---- emission ----
+    vec3* output_ptr = G.output_tmp + rtask.buf_index;
+    *output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
 
-            L = vadd(L, bsdf->Le);
-            rtask.output = vadd(rtask.output, vmul(rtask.contribution, L));
+    //---- indirect lighting ----
 
-            //---- indirect lighting ----
+    if ( (G.use_direct_light && !bsdf->is_emissive) ||
+         !G.use_direct_light )
+    {
+        float pdf;
+        vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
 
-            float pdf;
-            vec3 f = BSDF_sample_f(bsdf, pdf, wi_hemi, wo_hemi);
+        // transform wi back to world space
+        wi_world = mmul(h2w, wi_hemi);
+        costhetai = abs(dot(n, wi_world));
 
-            // transform wi back to world space
-            wi_world = mmul(h2w, wi_hemi);
-            costhetai = abs(dot(n, wi_world));
+        // russian roulette
+        float termination_prob = 0.0f;
+        float rr_contribution = brightness(rtask.contribution) * brightness(f) * costhetai;
+        if (rr_contribution < G.rr_threshold) {
+            termination_prob = (G.rr_threshold - rr_contribution) / G.rr_threshold;
+        }
+        bool terminate = rand01() < termination_prob;
 
-            // russian roulette
-            float termination_prob = 0.0f;
-            ray.rr_contribution *= brightness(f) * costhetai;
-            if (ray.rr_contribution < RR_THRESHOLD) {
-                termination_prob = (RR_THRESHOLD - ray.rr_contribution) / RR_THRESHOLD;
-            }
-            bool terminate = rand01() < termination_prob;
-
-            // recursive step: trace scattered ray in wi direction (if not terminated by RR)
-            vec3 Li = new_vec3();
-            if (!terminate) {
-                vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
-                Ray ray_refl = new_Ray();
-                ray_refl.o = vadd(hit_p, refl_offset);
-                ray_refl.d = wi_world;
-                rtask.ray = ray_refl;
+        // recursive step: trace scattered ray in wi direction (if not terminated by RR)
+        if (!terminate) {
+            vec3 refl_offset = wi_hemi.z > 0 ? smul(EPSILON, n) : neg( smul(EPSILON, n) );
+            ray.o = vadd(hit_p, refl_offset);
+            ray.d = wi_world;
+            ray.tmax = 999999999.0f;
+            
+            float tt;
+            int next_triangle = intersect_scene(ray, tt, rtask.triangle_normal, true);
+            if (next_triangle >= 0) {
+                rtask.triangle_index = next_triangle;
                 rtask.contribution = vmul(rtask.contribution,
                     smul(costhetai / pdf * (1.0f / (1.0f - termination_prob)), f));
             } else {
                 rtask.finished = true;
             }
-
-            rtask.depth += 1;
-            if (rtask.depth >= max_ray_depth) {
-                rtask.finished = true;
-            }
-        }
-        else
-        {
+        } else {
             rtask.finished = true;
         }
     }
+    rtask.depth += 1;
+}
 
-    *rtask_in = rtask;
+inline void scan_excl(uniform uint array[], uniform uint length)
+{
+    if (length < 1) return;
+
+    // upsweep phase
+    for (uniform uint twod = 1; twod < length; twod *= 2) {
+        uniform uint twod1 = twod*2;
+        uniform uint limit = length / twod1;
+        foreach (i = 0 ... limit) {
+            array[i*twod1+twod1-1] += array[i*twod1+twod-1];
+        }
+    }
+    array[length - 1] = 0;
+
+    for (uniform uint twod = length / 2; twod >= 1; twod /= 2)
+    {
+        uniform uint twod1 = twod * 2;
+        uniform uint limit = length / twod1;
+        foreach (i = 0 ... limit)
+        {
+            uint t = array[i*twod1+twod-1];
+            array[i*twod1+twod-1] = array[i*twod1+twod1-1];
+            array[i*twod1+twod1-1] += t;
+        }
+    }
+
+}
+
+inline uniform uint nextPow2(uniform uint n) {
+    n--;
+    n = n | n >> 1;
+    n = n | n >> 2;
+    n = n | n >> 4;
+    n = n | n >> 8;
+    n = n | n >> 16;
+    n++;
+    return n;
+}
+
+inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
+{
+    uniform RayTask* ray_tasks_in = G.ray_tasks + tasks_offset;
+    uniform RayTask* ray_tasks_out = G.ray_tasks_backup + tasks_offset;
+
+    uniform uint num_tasks_pad = nextPow2(num_tasks);
+    uniform uint indices[SCAN_SIZE];
+    // foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
+
+    uniform uint total = 0;
+    uint partial = 0;
+
+    foreach (i = 0 ... num_tasks) {
+        indices[i] = (uint)(!ray_tasks_in[i].finished);
+        if (!ray_tasks_in[i].finished) partial++;
+    }
+
+    total = reduce_add(partial);
+    scan_excl(indices, num_tasks_pad);
+    
+    foreach (i = 0 ... num_tasks-1) {
+        if (indices[i] != indices[i+1]) {
+            ray_tasks_out[indices[i]] = cpy_RayTask(ray_tasks_in + i);
+        }
+    }
+    if (!ray_tasks_in[num_tasks-1].finished) {
+        ray_tasks_out[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
+    }
+
+    num_tasks = total;
+}
+
+inline BSDF_t get_bsdf_t(RayTask* ray_tasks, uint rtask_offset) {
+    return G.bsdfs[ G.triangles[ ray_tasks[rtask_offset].triangle_index ].bsdf_index ].type;
+}
+
+// counting sort: https://brilliant.org/wiki/counting-sort/
+inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
+{
+    uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
+
+    // count how many rays does each material have
+    varying uint bsdf_buckets_partial[NUM_MATERIAL_TYPES];
+    foreach (prog = 0 ... programCount) {
+        // initialize the array for all program instances (one array each)
+        for (int i = 0; i < NUM_MATERIAL_TYPES; i++) {
+            bsdf_buckets_partial[i] = 0;
+        }
+    }
+    foreach (i = 0 ... num_tasks) {
+        uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
+        bsdf_buckets_partial[bsdf_type]++;
+    }
+    for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
+        bsdf_buckets[cur_bsdf] = reduce_add(bsdf_buckets_partial[cur_bsdf]);
+    }
+    /*
+    print("-----------\n");
+    for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
+        print("% ", bsdf_buckets[cur_bsdf]);
+    }
+    print(" | ", num_tasks);
+    */
+    scan_excl(bsdf_buckets, NUM_MATERIAL_TYPES);
+    /*
+    for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
+        print("% ", bsdf_buckets[cur_bsdf]);
+    }
+    print("\nnum tasks: %\n", num_tasks);
+    */
+}
+
+inline void sort_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
+{
+    uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+    uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
+
+    uniform uint num_tasks_pad = nextPow2(num_tasks);
+
+    uniform uint indices[SCAN_SIZE];
+
+    for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
+
+        //foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
+        foreach (i = 0 ... num_tasks) {
+            uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
+            indices[i] = (bsdf_type == cur_bsdf);
+        }
+        scan_excl(indices, num_tasks_pad);
+        
+        // reorder
+        uniform RayTask* ray_tasks_out_local = ray_tasks_out + bsdf_buckets[cur_bsdf];
+        foreach (i = 0 ... num_tasks-1) {
+            if (indices[i] != indices[i+1]) {
+                ray_tasks_out_local[indices[i]] = cpy_RayTask(ray_tasks_in + i);
+            }
+        }
+        uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
+        if (last_bsdf == cur_bsdf) {
+            ray_tasks_out_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
+        }
+    }
 }
 
 task void raytrace_scene_ispc_task(
@@ -443,64 +718,81 @@ task void raytrace_scene_ispc_task(
     if ((minibatch + 1)*pixels_per_mini_batch > pixels_per_batch) {
         max_num_pixels = (minibatch + 1)*pixels_per_mini_batch - pixels_per_batch;
     }
-    //foreach (pixel_index_mini = 0 ... max_num_pixels, ray_index = 0 ... G.num_offsets)
-    uniform uint max_num_pixel_rays = max_num_pixels * G.num_offsets;
-    uint *idx_array = new uint[max_num_pixel_rays];
-    uint dummy = max_num_pixel_rays;
-    foreach (i = 0 ... max_num_pixel_rays) {
-        idx_array[i] = i;
-    }
-    while (max_num_pixel_rays > 0) {
-        //print("% % %\n", max_num_pixel_rays, taskIndex, batch);
-        foreach (pixel_ray_index = 0 ... max_num_pixel_rays)
-        {
-            uint pixel_array_index = idx_array[pixel_ray_index];
-            uint pixel_index_mini = pixel_array_index / G.num_offsets;
-            //print("here %\n", pixel_array_index);
-            uint ray_index = pixel_array_index % G.num_offsets;
-            uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
-            uint pixel_index = pixel_index_local + batch * pixels_per_batch;
-            if (pixel_index < buf_size)
-            {
-                uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
-                
-                
-                // generate the initial raytask
-                RayTask* rtask = G.ray_tasks + ray_index_batch;
-                generate_ray(rtask, pixel_index, ray_index);
 
-                trace_ray(rtask);
-                if (rtask->finished) {
-                    //print("got here %\n", idx_array[pixel_ray_index]);
-                    vec3* res = G.output_tmp + ray_index_batch;
-                    *res = rtask->output;
-                    idx_array[pixel_ray_index] = dummy;
-                    //print("now? %", idx_array[pixel_ray_index]);
-                }
-            }
-            //if (pixel_ray_index == 0) {
-            //    print("0 here %\n", idx_array[pixel_ray_index]);
-            //}
-        }
-        uint last_index = 0;
-        uniform uint new_max_num_pixel_rays = 0;
-        //print("0 here2 %\n", idx_array[0]);
-        for (uint pixel_ray_index = 0; pixel_ray_index < max_num_pixel_rays; pixel_ray_index++)
+    //-------- generate the initial raytasks --------
+    foreach (pixel_index_mini = 0 ... max_num_pixels, ray_index = 0 ... G.num_offsets)
+    {
+        uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
+        uint pixel_index = pixel_index_local + batch * pixels_per_batch;
+        if (pixel_index < buf_size)
         {
-            //print("0 here3 % %\n", idx_array[0], idx_array[pixel_ray_index] == dummy);
-            if (idx_array[pixel_ray_index] != dummy) {
-                print("% % %d hga\n", pixel_ray_index, idx_array[pixel_ray_index], max_num_pixel_rays);
-                idx_array[last_index] = idx_array[pixel_ray_index];
-                new_max_num_pixel_rays += 1;
-                last_index += 1;
+            uint ray_index_batch = pixel_index_local * G.num_offsets + ray_index;
+            RayTask* rtask_ptr = G.ray_tasks + ray_index_batch;
+            generate_ray(rtask_ptr, pixel_index, ray_index);
+
+            // pre-calculate the first hit
+            float tt; vec3 nn; 
+            Ray ray = new_Ray();
+            ray.o = rtask_ptr->ray.o;
+            ray.d = rtask_ptr->ray.d;
+            ray.tmax = rtask_ptr->ray.tmax;
+            int next_triangle = intersect_scene(ray, tt, nn, true);
+            if (next_triangle >= 0) {
+                rtask_ptr->triangle_index = next_triangle;
+                rtask_ptr->triangle_normal = nn;
+                rtask_ptr->ray = ray;
+            } else {
+                rtask_ptr->finished = true;
             }
         }
-        print("here %\n", new_max_num_pixel_rays);
-        max_num_pixel_rays = new_max_num_pixel_rays;
-        //max_num_pixel_rays = 0;
     }
     
-    // average results and store into output buffer
+    //-------- trace 'em --------
+    uniform uint first_ray_in_minibatch_offset = (pixels_per_mini_batch * minibatch) * G.num_offsets;
+    uniform uint rays_left_in_minibatch = max_num_pixels * G.num_offsets;
+    uniform uint last_ray_in_minibatch_offset = first_ray_in_minibatch_offset + rays_left_in_minibatch;
+
+    foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
+    {
+        RayTask* rtask = G.ray_tasks + ray_index_minibatch;
+        rtask->buf_index = ray_index_minibatch;
+        G.output_tmp[rtask->buf_index] = new_vec3();
+    }
+
+
+    for (uniform uint i = 0; i < G.max_ray_depth; i++)
+    {
+        // trace all the rays for one bounce
+        foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
+        {
+            RayTask* rtask_ptr = G.ray_tasks + ray_index_minibatch;
+            RayTask rtask = cpy_RayTask(rtask_ptr);
+            trace_ray(rtask);
+            *rtask_ptr = rtask;
+        }
+
+        // reorder them (scan)
+        gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
+        if (rays_left_in_minibatch == 0) {
+            break;
+        }
+
+        // reorder them based on the material they hit
+        // currently this actually increases runtime by ~5%, will see how it goes when more materials are added.
+        // (note: I have no idea why merging the below two function calls result in weird memory accesses)
+#if 1
+        uniform uint bsdf_buckets[NUM_MATERIAL_TYPES];
+        count_rays_bsdf(bsdf_buckets, first_ray_in_minibatch_offset, rays_left_in_minibatch);
+        sort_rays_bsdf(bsdf_buckets, first_ray_in_minibatch_offset, rays_left_in_minibatch);
+#else
+        foreach (j = 0 ... rays_left_in_minibatch) {
+            *(G.ray_tasks + first_ray_in_minibatch_offset + j) = 
+                cpy_RayTask(G.ray_tasks_backup + first_ray_in_minibatch_offset + j);
+        }
+#endif
+    }
+    
+    //-------- average results and store into output buffer --------
     foreach (pixel_index_mini = 0 ... max_num_pixels)
     {
         uint pixel_index_local = pixel_index_mini + pixels_per_mini_batch * minibatch;
@@ -523,11 +815,16 @@ export void raytrace_scene_ispc(
     uniform uint num_offsets,
     uniform Triangle triangles[],
     uniform BSDF bsdfs[],
-    uniform int num_triangles,
+    uniform uint area_light_indices[],
+    uniform uint num_triangles,
+    uniform uint num_area_lights,
     uniform uint8 output[],
     uniform uint width,
     uniform uint height,
-    uniform uint max_ray_depth
+    uniform uint max_ray_depth,
+    uniform float rr_threshold,
+    uniform bool use_direct_light,
+    uniform uint area_light_samples
 ){
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
@@ -537,16 +834,20 @@ export void raytrace_scene_ispc(
     G.num_offsets = num_offsets;
     G.triangles = triangles;
     G.bsdfs = bsdfs;
+    G.area_light_indices = area_light_indices;
     G.num_triangles = num_triangles;
     G.num_bsdfs = num_triangles;
+    G.num_area_lights = num_area_lights;
     G.width = width;
     G.height = height;
     G.max_ray_depth = max_ray_depth;
     G.output = output;
-    G.read_from_A = true;
+    G.rr_threshold = rr_threshold;
+    G.use_direct_light = use_direct_light;
+    G.area_light_samples = area_light_samples;
+    G.area_light_sample_weight = 1.0f / area_light_samples;
 
-
-    G.output_tmp = uniform new vec3[QUEUE_SIZE * num_offsets * sizeof(vec3)];
+    G.output_tmp = uniform new vec3[QUEUE_SIZE];
 
     // assign bsdf index
     foreach (i = 0 ... G.num_triangles) {
@@ -566,6 +867,13 @@ export void raytrace_scene_ispc(
         output[i] = 128;
     }
 
+    // initialize G.ray_tasks
+    G.ray_tasks = uniform new RayTask[QUEUE_SIZE];
+    G.ray_tasks_backup = uniform new RayTask[QUEUE_SIZE];
+    foreach (i = 0 ... QUEUE_SIZE) {
+        G.ray_tasks[i] = new_RayTask();
+    }
+
     /////////////////////////////////////////////////
 
     uniform uint pixels_per_batch = QUEUE_SIZE / G.num_offsets;
@@ -583,4 +891,6 @@ export void raytrace_scene_ispc(
     }
 
     delete[] G.output_tmp;
+    delete[] G.ray_tasks;
+    delete[] G.ray_tasks_backup;
 }

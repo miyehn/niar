@@ -12,6 +12,18 @@
 #ifdef __cplusplus
 namespace ispc { /* namespace */
 #endif // __cplusplus
+///////////////////////////////////////////////////////////////////////////
+// Enumerator types with external visibility from ispc code
+///////////////////////////////////////////////////////////////////////////
+
+#ifndef __ISPC_ENUM_BSDF_t__
+#define __ISPC_ENUM_BSDF_t__
+enum BSDF_t {
+    Diffuse = 0,
+    Mirror = 1 
+};
+#endif
+
 
 #ifndef __ISPC_ALIGN__
 #if defined(__clang__) || !defined(_MSC_VER)
@@ -61,16 +73,18 @@ struct Triangle {
     struct vec3 enormals[3];
     struct vec3 plane_n;
     float plane_k;
+    float area;
 };
 #endif
 
 #ifndef __ISPC_STRUCT_BSDF__
 #define __ISPC_STRUCT_BSDF__
 struct BSDF {
-    bool is_delta;
-    bool is_emissive;
     struct vec3 albedo;
     struct vec3 Le;
+    enum BSDF_t type;
+    bool is_delta;
+    bool is_emissive;
 };
 #endif
 
@@ -81,7 +95,7 @@ struct BSDF {
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 extern "C" {
 #endif // __cplusplus
-    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, int32_t num_triangles, uint8_t * output, uint32_t width, uint32_t height, uint32_t max_ray_depth);
+    extern void raytrace_scene_ispc(struct Camera * camera, float * pixel_offsets, uint32_t num_offsets, struct Triangle * triangles, struct BSDF * bsdfs, uint32_t * area_light_indices, uint32_t num_triangles, uint32_t num_area_lights, uint8_t * output, uint32_t width, uint32_t height, uint32_t max_ray_depth, float rr_threshold, bool use_direct_light, uint32_t area_light_samples);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
 } /* end extern C */
 #endif // __cplusplus

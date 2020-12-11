@@ -3,7 +3,9 @@
 #include "BSDF.hpp"
 
 AreaLight::AreaLight(Triangle* _triangle)
-	: triangle(_triangle) {
+	: triangle(_triangle)
+{
+	type = PathtracerLight::AreaLight;
 }
 
 vec3 AreaLight::get_emission() {
