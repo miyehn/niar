@@ -119,7 +119,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 
 	// add more items to it
 	Mesh* mesh;
-#if 0
+#if 1
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_1.fbx", init_graphics);
 	mesh = meshes[0];
 	mesh->bsdf = new Mirror();
@@ -128,7 +128,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_2.fbx", init_graphics);
 	mesh = meshes[0];
-	mesh->bsdf = new Glass();
+	mesh->bsdf = new Diffuse(vec3(0.4f, 0.5f, 0.6f));
 	mesh->name = "prism 2";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif
@@ -136,7 +136,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 #if 1
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/poly_sphere0.fbx", init_graphics);
 	mesh = meshes[0];
-	mesh->bsdf = new Mirror();
+	mesh->bsdf = new Glass();
 	mesh->name = "sphere1";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif

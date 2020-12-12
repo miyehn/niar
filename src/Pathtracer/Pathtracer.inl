@@ -86,11 +86,10 @@ vec3 Pathtracer::raytrace_pixel(size_t index, bool ispc) {
 	vec3 result = vec3(0);
 	for (size_t i = 0; i < tasks.size(); i++) {
 		ispc ? trace_ray_ispc(tasks[i], 0) : trace_ray(tasks[i], 0, false);
-		result += tasks[i].output;
+		result += clamp(tasks[i].output, vec3(0), vec3(1));
 	}
 
 	result *= 1.0f / float(tasks.size());
-	result = clamp(result, vec3(0), vec3(1));
 	return result;
 }
 

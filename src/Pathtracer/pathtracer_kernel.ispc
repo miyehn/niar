@@ -195,7 +195,7 @@ inline vec3 normalized(vec3 &v) {
     return smul(inv_len, v);
 }
 
-inline vec3 clamp01(vec3 &v) {
+inline vec3 clamp01(vec3 v) {
     vec3 res = v;
     if (res.x < 0) res.x = 0; if (res.x > 1) res.x = 1;
     if (res.y < 0) res.y = 0; if (res.y > 1) res.y = 1;
@@ -858,16 +858,9 @@ task void raytrace_scene_ispc_task(
         {
             vec3 v = new_vec3();
             for (int ray_index = 0; ray_index < G.num_offsets; ray_index++) {
-                v = vadd(v, G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]);
+                v = vadd(v, clamp01(G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]));
             }
             v = smul(ray_weight, v);
-            /*
-            for (int ray_index = 32; ray_index < 40; ray_index++) {
-                v = vadd(v, G.output_tmp[ pixel_index_local * G.num_offsets + ray_index/2 ]);
-            }
-            v = smul(1.0f / 8, v);
-            */
-
             set_color(pixel_index, v);
         }
     }
@@ -937,10 +930,6 @@ export void raytrace_scene_ispc(
     G.ray_tasks_backup = uniform new RayTask[QUEUE_SIZE];
     foreach (i = 0 ... QUEUE_SIZE) {
         G.ray_tasks[i] = new_RayTask();
-    }
-
-    foreach (i = 0 ... num_triangles) {
-        print ("bsdf type, delta: % %\n", (uint)G.bsdfs[i].type, G.bsdfs[i].is_delta);
     }
 
     /////////////////////////////////////////////////
