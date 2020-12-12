@@ -79,13 +79,13 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 	}
 }
 
-vec3 Pathtracer::raytrace_pixel(size_t index, bool ispc) {
+vec3 Pathtracer::raytrace_pixel(size_t index) {
 	std::vector<RayTask> tasks;
 	generate_rays(tasks, index);
 
 	vec3 result = vec3(0);
 	for (size_t i = 0; i < tasks.size(); i++) {
-		ispc ? trace_ray_ispc(tasks[i], 0) : trace_ray(tasks[i], 0, false);
+		 trace_ray(tasks[i], 0, false);
 		result += clamp(tasks[i].output, vec3(0), vec3(1));
 	}
 
@@ -174,19 +174,12 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 	Ray& ray = task.ray;
 
 	// info of closest hit
-	Primitive* primitive = nullptr;
-	const BSDF* bsdf = nullptr;
 	double t; vec3 n;
-	for (size_t i = 0; i < primitives.size(); i++) {
-		Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
-		if (prim_tmp) {
-			primitive = prim_tmp;
-			bsdf = primitive->bsdf;
-		}
-	}
+	Primitive* primitive = bvh->intersect_primitives(ray, t, n);
 
 	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
 
+		const BSDF* bsdf = primitive->bsdf;
 		// pre-compute (or declare) some common things to be used later
 		vec3 L = vec3(0);
 		vec3 hit_p = ray.o + float(t) * ray.d;
@@ -309,76 +302,5 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		}
 #endif
 		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
-	}
-}
-
-// TODO: remove this
-void Pathtracer::trace_ray_ispc(RayTask& task, int ray_depth) {
-	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return;
-
-	Ray& ray = task.ray;
-
-	// info of closest hit
-	Primitive* primitive = nullptr;
-	const BSDF* bsdf = nullptr;
-	double t; vec3 n;
-	for (size_t i = 0; i < primitives.size(); i++) {
-		Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
-		if (prim_tmp) {
-			primitive = prim_tmp;
-			bsdf = primitive->bsdf;
-		}
-	}
-
-	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
-
-		// pre-compute (or declare) some common things to be used later
-		vec3 L = vec3(0);
-		vec3 hit_p = ray.o + float(t) * ray.d;
-		// construct transform from hemisphere space to world space;
-		mat3 h2w; 
-		make_h2w(h2w, n);
-		mat3 w2h = transpose(h2w);
-		// wi, wo
-		vec3 wo_world = -ray.d;
-		vec3 wo_hemi = -w2h * ray.d;
-		// 
-		vec3 wi_world; // to be transformed from wi_hemi
-		vec3 wi_hemi; // to be assigned by f
-		float costhetai; // some variation of dot(wi_world, n)
-
-		//---- emission ----
-
-		L += bsdf->get_emission();
-		task.output += task.contribution * L;
-
-		//---- indirect lighting (recursive) ----
-
-		float pdf;
-		vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi, false);
-
-		// transform wi back to world space
-		wi_world = h2w * wi_hemi;
-		costhetai = abs(dot(n, wi_world)); 
-
-		// russian roulette
-		float termination_prob = 0.0f;
-		ray.rr_contribution *= brightness(f) * costhetai;
-		if (ray.rr_contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
-			termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.rr_contribution) 
-				/ Cfg.Pathtracer.RussianRouletteThreshold;
-		}
-		bool terminate = sample::rand01() < termination_prob;
-
-		// recursive step: trace scattered ray in wi direction (if not terminated by RR)
-		vec3 Li = vec3(0);
-		if (!terminate) {
-			vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
-			Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
-			task.ray = ray_refl;
-			task.contribution *= f * costhetai / pdf * (1.0f / (1.0f - termination_prob));
-			// if it has some termination probability, weigh it more if it's not terminated
-			trace_ray_ispc(task, ray_depth + 1);
-		}
 	}
 }

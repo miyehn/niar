@@ -77,6 +77,8 @@ Pathtracer::~Pathtracer() {
 	for (auto l : lights) delete l;
 	for (auto t : primitives) delete t;
 
+	if (bvh) delete bvh;
+
 	if (loggedrays_mat) delete loggedrays_mat;
 	TRACE("deleted pathtracer");
 }
@@ -161,6 +163,7 @@ void Pathtracer::initialize() {
 
 	//-------- load scene --------
 	
+	bvh = nullptr;
 	if (Scene::Active) load_scene(*Scene::Active);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
@@ -283,6 +286,8 @@ void Pathtracer::load_scene(const Scene& scene) {
 	primitives.clear();
 	lights.clear();
 
+	bvh = new BVH();
+
 	for (Drawable* drawable : scene.children) {
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {
@@ -298,7 +303,9 @@ void Pathtracer::load_scene(const Scene& scene) {
 				Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
 				Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
 				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
-				primitives.push_back(static_cast<Primitive*>(T));
+				Primitive* P = static_cast<Primitive*>(T);
+				primitives.push_back(P);
+				bvh->add_primitive(P);
 				
 				// also load as light if emissive
 				if (emissive) {
@@ -307,6 +314,8 @@ void Pathtracer::load_scene(const Scene& scene) {
 			}
 		}
 	}
+
+	bvh->build_bvh();
 
 	TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
 			scene.children.size(), primitives.size(), lights.size());
@@ -535,7 +544,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 			for (size_t x = 0; x < width; x++) {
 
 				size_t px_index = width * y + x;
-				vec3 color = raytrace_pixel(px_index, true);
+				vec3 color = raytrace_pixel(px_index);
 				set_mainbuffer_rgb(px_index, color);
 
 			}
