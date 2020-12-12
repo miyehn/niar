@@ -4,30 +4,33 @@
 
 struct BVH
 {
-    BVH() {
-        min = vec3(INF);
-        max = vec3(-INF);
-        primitives = std::vector<Primitive*>();
-        left = nullptr;
-        right = nullptr;
-    }
-    ~BVH() {
-        if (left) delete left;
-        if (right) delete right;
-    }
+	BVH() {
+		expanded = false;
+		min = vec3(INF);
+		max = vec3(-INF);
+		primitives = std::vector<Primitive*>();
+		left = nullptr;
+		right = nullptr;
+	}
+	~BVH() {
+		if (left) delete left;
+		if (right) delete right;
+	}
 
-    vec3 min;
-    vec3 max;
-    std::vector<Primitive*> primitives;
-    BVH* left;
-    BVH* right;
+	bool expanded;
 
-    void add_primitive(Primitive* prim);
-    
-    void build_bvh();
+	vec3 min;
+	vec3 max;
+	std::vector<Primitive*> primitives;
+	BVH* left;
+	BVH* right;
 
-    // TODO: when (if) to modify ray?
-    float surface_area();
-    bool intersect_aabb(Ray& ray, float& distance);
-    Primitive* intersect_primitives(Ray& ray, double& t, vec3& n);
+	void add_primitive(Primitive* prim);
+	
+	void expand_bvh();
+
+	// TODO: when (if) to modify ray?
+	float surface_area();
+	bool intersect_aabb(Ray& ray, float& distance);
+	Primitive* intersect_primitives(Ray& ray, double& t, vec3& n);
 };

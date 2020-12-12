@@ -100,7 +100,9 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	Scene* scene = new Scene("my scene");
 
 	// cornell box scene
-	std::vector<Mesh*> meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx", init_graphics);
+	std::vector<Mesh*> meshes;
+	/*
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx", init_graphics);
 	for (int i=0; i<meshes.size(); i++) { // 4 is floor
 		Mesh* mesh = meshes[i];
 		mesh->bsdf = new Diffuse(vec3(0.6f));
@@ -111,6 +113,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 		}
 		scene->add_child(static_cast<Drawable*>(mesh));
 	}
+	*/
 
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_light.fbx", init_graphics);
 	Mesh* light = meshes[0];
@@ -315,7 +318,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 		}
 	}
 
-	bvh->build_bvh();
+	bvh->expand_bvh();
 
 	TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
 			scene.children.size(), primitives.size(), lights.size());
