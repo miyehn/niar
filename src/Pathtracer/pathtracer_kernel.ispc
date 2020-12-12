@@ -560,6 +560,7 @@ inline void trace_ray(RayTask &rtask)
         }
     }
     rtask.depth += 1;
+    
 }
 
 inline void scan_excl(uniform uint array[], uniform uint length)
@@ -674,7 +675,7 @@ inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offs
     */
 }
 
-inline void sort_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
+inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
 {
     uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
     uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
@@ -682,7 +683,7 @@ inline void sort_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offse
     uniform uint num_tasks_pad = nextPow2(num_tasks);
 
     uniform uint indices[SCAN_SIZE];
-
+    uniform uint old_idx = 0;
     for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
 
         //foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
@@ -691,18 +692,25 @@ inline void sort_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offse
             indices[i] = (bsdf_type == cur_bsdf);
         }
         scan_excl(indices, num_tasks_pad);
-        
+        uniform uint idx = indices[num_tasks-1];
+        uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
+        if (last_bsdf == cur_bsdf) {
+            idx += 1;
+        }
+        if (idx == 0) {
+            continue;
+        }
         // reorder
-        uniform RayTask* ray_tasks_out_local = ray_tasks_out + bsdf_buckets[cur_bsdf];
+        uniform RayTask* ray_tasks_out_local = ray_tasks_out + old_idx;
         foreach (i = 0 ... num_tasks-1) {
             if (indices[i] != indices[i+1]) {
                 ray_tasks_out_local[indices[i]] = cpy_RayTask(ray_tasks_in + i);
             }
         }
-        uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
         if (last_bsdf == cur_bsdf) {
             ray_tasks_out_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
         }
+        old_idx = old_idx+idx;
     }
 }
 
@@ -760,7 +768,7 @@ task void raytrace_scene_ispc_task(
     }
 
 
-    for (uniform uint i = 0; i < G.max_ray_depth; i++)
+    for (uniform uint i = 0; i < G.max_ray_depth / 2; i++)
     {
         // trace all the rays for one bounce
         foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
@@ -781,9 +789,8 @@ task void raytrace_scene_ispc_task(
         // currently this actually increases runtime by ~5%, will see how it goes when more materials are added.
         // (note: I have no idea why merging the below two function calls result in weird memory accesses)
 #if 1
-        uniform uint bsdf_buckets[NUM_MATERIAL_TYPES];
-        count_rays_bsdf(bsdf_buckets, first_ray_in_minibatch_offset, rays_left_in_minibatch);
-        sort_rays_bsdf(bsdf_buckets, first_ray_in_minibatch_offset, rays_left_in_minibatch);
+        //uniform uint bsdf_buckets[NUM_MATERIAL_TYPES];
+        sort_rays_bsdf(first_ray_in_minibatch_offset, rays_left_in_minibatch);
 #else
         foreach (j = 0 ... rays_left_in_minibatch) {
             *(G.ray_tasks + first_ray_in_minibatch_offset + j) = 
