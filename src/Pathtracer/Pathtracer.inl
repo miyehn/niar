@@ -299,9 +299,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			if (!terminate) {
 				vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
 				Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
+				if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
 				task.ray = ray_refl;
 				task.contribution *= f * costhetai / pdf * (1.0f / (1.0f - termination_prob));
-				if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
 				// if it has some termination probability, weigh it more if it's not terminated
 				trace_ray(task, ray_depth + 1, debug);
 			} else if (debug) {

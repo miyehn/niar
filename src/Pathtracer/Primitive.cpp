@@ -79,7 +79,7 @@ Primitive* Triangle::intersect(Ray& ray, double& t, vec3& normal, bool modify_ra
 	if (modify_ray) ray.tmax = _t;
 	t = _t;
 #if USE_INTERPOLATED_NORMAL
-	normal = normalize(normals[0] + u * normals[1] + v * normals[2]);
+	normal = normalize((1-u-v) * normals[0] + u * normals[2] + v * normals[1]);
 #else
 	normal = plane_n;
 #endif
