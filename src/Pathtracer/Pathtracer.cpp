@@ -117,12 +117,27 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	light->bsdf->set_emission(vec3(10.0f));
 	scene->add_child(static_cast<Drawable*>(light));
 
+	// add more items to it
+	Mesh* mesh;
 #if 1
-	// add another item to it
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism.fbx", init_graphics);
-	Mesh* mesh = meshes[0];
-	mesh->bsdf = new Mirror();//new Diffuse(vec3(0.6f));
-	mesh->name = "prism";
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_1.fbx", init_graphics);
+	mesh = meshes[0];
+	mesh->bsdf = new Mirror();
+	mesh->name = "prism 1";
+	scene->add_child(static_cast<Drawable*>(mesh));
+
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_2.fbx", init_graphics);
+	mesh = meshes[0];
+	mesh->bsdf = new Diffuse(vec3(0.4f, 0.5f, 0.6f));
+	mesh->name = "prism 2";
+	scene->add_child(static_cast<Drawable*>(mesh));
+#endif
+
+#if 1
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/poly_sphere0.fbx", init_graphics);
+	mesh = meshes[0];
+	mesh->bsdf = new Glass();
+	mesh->name = "sphere1";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif
 
@@ -461,6 +476,8 @@ void Pathtracer::raytrace_scene_to_buf() {
 			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
 			if (T0->bsdf->type == BSDF::Mirror) {
 				bsdfs[i].type = ispc::Mirror;
+			} else if (T0->bsdf->type == BSDF::Glass) {
+				bsdfs[i].type = ispc::Glass;
 			} else {
 				bsdfs[i].type = ispc::Diffuse;
 			}
@@ -507,6 +524,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 			primitives.size(), light_count,
 			image_buffer, 
 			width, height, 
+			Cfg.Pathtracer.Multithreaded ? Cfg.Pathtracer.NumThreads : 1,
 			Cfg.Pathtracer.MaxRayDepth, 
 			Cfg.Pathtracer.RussianRouletteThreshold,
 			Cfg.Pathtracer.UseDirectLight,
@@ -528,10 +546,6 @@ void Pathtracer::raytrace_scene_to_buf() {
 
 // https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
 void Pathtracer::output_file(const std::string& path) {
-
-	// int in[1] = {999};
-	// int out[1] = {0};
-	// ispc::test_kernel(in, out, 1);
 
 	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; } 
 	std::ofstream ofs; 

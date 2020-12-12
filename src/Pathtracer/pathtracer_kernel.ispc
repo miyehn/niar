@@ -1,8 +1,6 @@
 
-
 #define QUEUE_SIZE 2048
 #define SCAN_SIZE 2048
-#define MINI_BATCH_GRAN 1
 
 struct vec3 {
     float x;
@@ -54,7 +52,8 @@ struct Triangle {
 #define NUM_MATERIAL_TYPES 4
 enum BSDF_t {
     Diffuse,
-    Mirror
+    Mirror,
+    Glass
 };
 
 struct BSDF {
@@ -196,7 +195,7 @@ inline vec3 normalized(vec3 &v) {
     return smul(inv_len, v);
 }
 
-inline vec3 clamp01(vec3 &v) {
+inline vec3 clamp01(vec3 v) {
     vec3 res = v;
     if (res.x < 0) res.x = 0; if (res.x > 1) res.x = 1;
     if (res.y < 0) res.y = 0; if (res.y > 1) res.y = 1;
@@ -347,11 +346,17 @@ inline vec3 BSDF_f(BSDF* bsdf, vec3& wi, vec3& wo)
     {
         return new_vec3();
     }
+    else if (bsdf->type == Glass)
+    {
+        return new_vec3();
+    }
     else
     {
         return smul(ONE_OVER_PI, bsdf->albedo);
     }
 }
+
+#define IOR 1.52f
 
 inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
 {
@@ -361,6 +366,56 @@ inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
         wi.z = wo.z;
         pdf = 1.0f;
         return smul(1.0f / wi.z, bsdf->albedo);
+    }
+    else if (bsdf->type == Glass)
+    {
+        // will treat wo as in direction and wi as out direction, since it's bidirectional
+
+        bool trace_out = wo.z < 0; // the direction we're going to trace is into the medium
+
+        // IOR, assume container medium is air
+        float ni = trace_out ? IOR : 1.0f;
+        float nt = trace_out ? 1.0f : IOR;
+
+        float cos_theta_i = abs(wo.z);
+        float sin_theta_i = sqrt(1.0f - pow(cos_theta_i, 2));
+
+        // opt out early for total internal reflection
+        float cos_sq_theta_t = 1.0f - pow(ni/nt, 2) * (1.0f - wo.z * wo.z);
+        bool TIR = cos_sq_theta_t < 0;
+        if (TIR) { // total internal reflection
+            wi = neg(wo);
+            wi.z = wo.z;
+            pdf = 1.0f;
+            return smul( 1.0f / abs(wi.z), bsdf->albedo ); //albedo * (1.0f / abs(wi.z));
+        }
+        
+        // then use angles to find reflectance
+        float r0 = pow((ni-nt) / (ni+nt), 2);
+        float reflectance = r0 + (1.0f - r0) * pow(1.0f - cos_theta_i, 5);
+        
+        // flip a biased coin to decide whether to reflect or refract
+        bool reflect = rand01() <= reflectance;
+        if (reflect) {
+            wi = neg(wo);
+            wi.z = wo.z;
+            pdf = reflectance;
+            return smul( reflectance / cos_theta_i, bsdf->albedo );//albedo * (reflectance / cos_theta_i);
+
+        } else { // refract
+            // remember we treat wi as "out direction"
+            float cos_theta_t = sqrt(cos_sq_theta_t);
+            float sin_theta_t = sqrt(1.0f - cos_sq_theta_t);
+
+            float xy_norm_factor = sin_theta_t / sin_theta_i;
+            wi = new_vec3(-wo.x * xy_norm_factor,
+                                -wo.y * xy_norm_factor,
+                                trace_out ? cos_theta_t : -cos_theta_t);
+
+            pdf = 1.0f - reflectance;
+            // now compute f...
+            return smul( ((nt*nt) / (ni*ni)) * (1.0f - reflectance) * (1.0f / cos_theta_i), bsdf->albedo );
+        }
     }
     else
     {
@@ -545,6 +600,7 @@ inline void trace_ray(RayTask &rtask)
             ray.o = vadd(hit_p, refl_offset);
             ray.d = wi_world;
             ray.tmax = 999999999.0f;
+            ray.receive_le = G.use_direct_light && bsdf->is_delta;
             
             float tt;
             int next_triangle = intersect_scene(ray, tt, rtask.triangle_normal, true);
@@ -635,7 +691,9 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
 }
 
 inline BSDF_t get_bsdf_t(RayTask* ray_tasks, uint rtask_offset) {
-    return G.bsdfs[ G.triangles[ ray_tasks[rtask_offset].triangle_index ].bsdf_index ].type;
+    uint triangle_index = ray_tasks[rtask_offset].triangle_index;
+    uint bsdf_index = G.triangles[ triangle_index ].bsdf_index;
+    return G.bsdfs[ bsdf_index ].type;
 }
 
 // counting sort: https://brilliant.org/wiki/counting-sort/
@@ -767,7 +825,6 @@ task void raytrace_scene_ispc_task(
         G.output_tmp[rtask->buf_index] = new_vec3();
     }
 
-
     for (uniform uint i = 0; i < G.max_ray_depth / 2; i++)
     {
         // trace all the rays for one bounce
@@ -808,7 +865,7 @@ task void raytrace_scene_ispc_task(
         {
             vec3 v = new_vec3();
             for (int ray_index = 0; ray_index < G.num_offsets; ray_index++) {
-                v = vadd(v, G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]);
+                v = vadd(v, clamp01(G.output_tmp[ pixel_index_local * G.num_offsets + ray_index ]));
             }
             v = smul(ray_weight, v);
             set_color(pixel_index, v);
@@ -828,6 +885,7 @@ export void raytrace_scene_ispc(
     uniform uint8 output[],
     uniform uint width,
     uniform uint height,
+    uniform uint num_threads,
     uniform uint max_ray_depth,
     uniform float rr_threshold,
     uniform bool use_direct_light,
@@ -887,7 +945,7 @@ export void raytrace_scene_ispc(
     uniform uint num_batches = (buf_size + pixels_per_batch - 1) / pixels_per_batch;    
 
     uniform float ray_weight = 1.0f / G.num_offsets;
-    uniform uint pixels_per_mini_batch = pixels_per_batch / MINI_BATCH_GRAN;
+    uniform uint pixels_per_mini_batch = pixels_per_batch / num_threads;
     uniform uint num_mini_batches = (pixels_per_batch + pixels_per_mini_batch - 1) / pixels_per_mini_batch;
 
     for (uniform uint batch = 0; batch < num_batches; batch++)
