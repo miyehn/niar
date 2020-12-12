@@ -141,10 +141,48 @@ void BVH::expand_bvh()
 	}
 }
    
- 
-bool BVH::intersect_aabb(Ray& ray, float& distance)
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection 
+// TODO: write a more readable version of this
+bool BVH::intersect_aabb(const Ray& ray, float& distance)
 {
+	float tmin = (min.x - ray.o.x) / ray.d.x; 
+	float tmax = (max.x - ray.o.x) / ray.d.x; 
+ 
+	if (tmin > tmax) std::swap(tmin, tmax); 
+ 
+	float tymin = (min.y - ray.o.y) / ray.d.y; 
+	float tymax = (max.y - ray.o.y) / ray.d.y; 
+ 
+	if (tymin > tymax) std::swap(tymin, tymax); 
+ 
+	if ((tmin > tymax) || (tymin > tmax)) 
+		return false; 
+ 
+	if (tymin > tmin) 
+		tmin = tymin; 
+ 
+	if (tymax < tmax) 
+		tmax = tymax; 
+ 
+	float tzmin = (min.z - ray.o.z) / ray.d.z; 
+	float tzmax = (max.z - ray.o.z) / ray.d.z; 
+ 
+	if (tzmin > tzmax) std::swap(tzmin, tzmax); 
+ 
+	if ((tmin > tzmax) || (tzmin > tmax)) 
+		return false; 
+ 
+	if (tzmin > tmin) 
+		tmin = tzmin; 
+ 
+	if (tzmax < tmax) 
+		tmax = tzmax; 
 
+	if (tmin >= 0) distance = tmin;
+	else distance = tmax;
+ 
+	return true; 
+	
 }
 
 Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n) 
@@ -161,6 +199,7 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n)
 	}
 
 	Primitive* primitive = nullptr;
+
 #if 0
 	for (size_t i = 0; i < primitives.size(); i++) {
 		Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
@@ -169,11 +208,60 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n)
 		}
 	}
 #else
-	BVH* tmp = right;
-	for (int i = 0; i < tmp->primitives.size(); i++) {
-		Primitive* prim_tmp = tmp->primitives[i]->intersect(ray, t, n, true);
-		if (prim_tmp) {
-			primitive = prim_tmp;
+	float d_box;
+	if (intersect_aabb(ray, d_box))
+	{
+		if (left || right)
+		{
+
+#if 0
+			float d_left, d_right;
+			if (left->intersect_aabb(ray, d_left))
+			{
+				if (right->intersect_aabb(ray, d_right)) // intersected both bboxes, go with the closer one
+				{
+					BVH* first = nullptr;
+					BVH* second = nullptr;
+					float d_near, d_far;
+					if (d_left < d_right) {
+						first = left; second = right;
+						d_near = d_left; d_far = d_right;
+					} else {
+						first = right; second = left;
+						d_near = d_right; d_far = d_left;
+					}
+
+					primitive = first->intersect_primitives(ray, t, n);
+					if (!primitive || t > d_far) {
+						Primitive* prim_tmp = second->intersect_primitives(ray, t, n);
+						if (prim_tmp) {
+							primitive = prim_tmp;
+						}
+					}
+				}
+				else // only intersected with left
+				{
+					primitive = left->intersect_primitives(ray, t, n);
+				}
+			}
+			else // only intersected with right
+			{
+				primitive = right->intersect_primitives(ray, t, n);
+			}
+#else
+			primitive = left->intersect_primitives(ray, t, n);
+			Primitive* prim_tmp = right->intersect_primitives(ray, t, n);
+			if (prim_tmp) primitive = prim_tmp;
+#endif
+		}
+		else
+		{
+			for (size_t i = 0; i < primitives.size(); i++) {
+				Primitive* prim_tmp = primitives[i]->intersect(ray, t, n, true);
+				if (prim_tmp) {
+					primitive = prim_tmp;
+				}
+			}
 		}
 	}
 #endif

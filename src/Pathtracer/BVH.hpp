@@ -29,8 +29,7 @@ struct BVH
 	
 	void expand_bvh();
 
-	// TODO: when (if) to modify ray?
 	float surface_area();
-	bool intersect_aabb(Ray& ray, float& distance);
+	bool intersect_aabb(const Ray& ray, float& distance);
 	Primitive* intersect_primitives(Ray& ray, double& t, vec3& n);
 };
