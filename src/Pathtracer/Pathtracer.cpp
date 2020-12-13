@@ -178,6 +178,7 @@ void Pathtracer::initialize() {
 	//-------- load scene --------
 	
 	bvh = nullptr;
+	use_bvh = true;
 	if (Scene::Active) load_scene(*Scene::Active);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
@@ -359,6 +360,7 @@ void Pathtracer::pause_trace() {
 
 void Pathtracer::continue_trace() {
 	TRACE("continue trace");
+	use_bvh = Cfg.Pathtracer.UseBVH->get();
 	last_begin_time = std::chrono::high_resolution_clock::now();
 	paused = false;
 }
@@ -595,7 +597,8 @@ void Pathtracer::raytrace_scene_to_buf() {
 			Cfg.Pathtracer.RussianRouletteThreshold,
 			Cfg.Pathtracer.UseDirectLight,
 			Cfg.Pathtracer.AreaLightSamples,
-			ispc_bvh_data);
+			ispc_bvh_data,
+			Cfg.Pathtracer.UseBVH->get());
 	}
 	else {
 		for (size_t y = 0; y < height; y++) {

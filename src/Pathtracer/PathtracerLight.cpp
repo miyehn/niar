@@ -24,6 +24,10 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 
 	float costheta_l = std::max(0.0f, dot(-ray.d, n)); // non-negative
 
+	double eps_adjusted = EPSILON / costheta_l;
+	ray.tmin = eps_adjusted;
+	ray.tmax -= eps_adjusted;
+
 	// could be 0 or infinite
 	return d2 / (triangle->area * costheta_l);
 }

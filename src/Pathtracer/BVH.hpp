@@ -34,5 +34,5 @@ struct BVH
 
 	float surface_area();
 	bool intersect_aabb(const Ray& ray, float& tmin, float& tmax);
-	Primitive* intersect_primitives(Ray& ray, double& t, vec3& n);
+	Primitive* intersect_primitives(Ray& ray, double& t, vec3& n, bool use_bvh = true);
 };

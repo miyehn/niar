@@ -60,6 +60,7 @@ private:
 	std::vector<PathtracerLight*> lights;
 	BVH* bvh;
 	void load_scene(const Scene& scene);
+	bool use_bvh;
 
 	//---- pathtracing routine ----
 	

@@ -366,71 +366,52 @@ bool BVH::intersect_aabb(const Ray& ray, float& tmin, float& tmax)
 	
 }
 
-#define USE_BVH 1
 #define FRONT_TO_BACK 0
 
-Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n) 
+Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n, bool use_bvh) 
 {
 	Primitive* primitive = nullptr;
 
-#if USE_BVH
-
-#if FRONT_TO_BACK
-
-	if (left || right)
+	if (use_bvh)
 	{
-		float tmin_left, tmax_left, tmin_right, tmax_right;
-		if (left->intersect_aabb(ray, tmin_left, tmax_right))
-		{
-			if (right->intersect_aabb(ray, tmin_right, tmax_right)) // intersected both bboxes, go with the closer one
-			{
-				BVH* first = nullptr;
-				BVH* second = nullptr;
-				float tmin_near, tmin_far;
-				if (tmin_left < tmin_right) {
-					first = left; second = right;
-					tmin_near = tmin_left; tmin_far = tmin_right;
-				} else {
-					first = right; second = left;
-					tmin_near = tmin_right; tmin_far = tmin_left;
-				}
 
-				primitive = first->intersect_primitives(ray, t, n);
-				if (!primitive || t > tmin_far) {
-					Primitive* prim_tmp = second->intersect_primitives(ray, t, n);
-					if (prim_tmp) {
-						primitive = prim_tmp;
-					}
-				}
-			}
-			else // only intersected with left
-			{
-				primitive = left->intersect_primitives(ray, t, n);
-			}
-		}
-		else // only intersected with right
-		{
-			primitive = right->intersect_primitives(ray, t, n);
-		}
-	}
-	else
-	{
-		for (size_t i = 0; i < primitives_count; i++) {
-			Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
-			if (prim_tmp) {
-				primitive = prim_tmp;
-			}
-		}
-	}
-#else
-	float tmin, tmax;
-	if (intersect_aabb(ray, tmin, tmax))
-	{
+	#if FRONT_TO_BACK
+
 		if (left || right)
 		{
-			primitive = left->intersect_primitives(ray, t, n);
-			Primitive* prim_tmp = right->intersect_primitives(ray, t, n);
-			if (prim_tmp) primitive = prim_tmp;
+			float tmin_left, tmax_left, tmin_right, tmax_right;
+			if (left->intersect_aabb(ray, tmin_left, tmax_right))
+			{
+				if (right->intersect_aabb(ray, tmin_right, tmax_right)) // intersected both bboxes, go with the closer one
+				{
+					BVH* first = nullptr;
+					BVH* second = nullptr;
+					float tmin_near, tmin_far;
+					if (tmin_left < tmin_right) {
+						first = left; second = right;
+						tmin_near = tmin_left; tmin_far = tmin_right;
+					} else {
+						first = right; second = left;
+						tmin_near = tmin_right; tmin_far = tmin_left;
+					}
+
+					primitive = first->intersect_primitives(ray, t, n);
+					if (!primitive || t > tmin_far) {
+						Primitive* prim_tmp = second->intersect_primitives(ray, t, n);
+						if (prim_tmp) {
+							primitive = prim_tmp;
+						}
+					}
+				}
+				else // only intersected with left
+				{
+					primitive = left->intersect_primitives(ray, t, n);
+				}
+			}
+			else // only intersected with right
+			{
+				primitive = right->intersect_primitives(ray, t, n);
+			}
 		}
 		else
 		{
@@ -441,17 +422,38 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n)
 				}
 			}
 		}
+	#else
+		float tmin, tmax;
+		if (intersect_aabb(ray, tmin, tmax))
+		{
+			if (left || right)
+			{
+				primitive = left->intersect_primitives(ray, t, n);
+				Primitive* prim_tmp = right->intersect_primitives(ray, t, n);
+				if (prim_tmp) primitive = prim_tmp;
+			}
+			else
+			{
+				for (size_t i = 0; i < primitives_count; i++) {
+					Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
+					if (prim_tmp) {
+						primitive = prim_tmp;
+					}
+				}
+			}
+		}
+
+	#endif // FRONT_TO_BACK
+
 	}
-
-#endif // FRONT_TO_BACK
-
-#else
-	for (size_t i = 0; i < primitives_count; i++) {
-		Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
-		if (prim_tmp) {
-			primitive = prim_tmp;
+	else
+	{
+		for (size_t i = 0; i < primitives_count; i++) {
+			Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
+			if (prim_tmp) {
+				primitive = prim_tmp;
+			}
 		}
 	}
-#endif // USE_BVH
 	return primitive;
 }

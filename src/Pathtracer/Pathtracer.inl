@@ -143,9 +143,7 @@ float Pathtracer::depth_of_first_hit(int x, int y) {
 	
 	// info of closest hit
 	double t; vec3 n;
-	for (size_t i = 0; i < primitives.size(); i++) {
-		primitives[i]->intersect(task.ray, t, n, true);
-	}
+	bvh->intersect_primitives(task.ray, t, n, use_bvh);
 
 	t *= dot(task.ray.d, Camera::Active->forward());
 
@@ -175,7 +173,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 
 	// info of closest hit
 	double t; vec3 n;
-	Primitive* primitive = bvh->intersect_primitives(ray, t, n);
+	Primitive* primitive = bvh->intersect_primitives(ray, t, n, use_bvh);
 
 	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
 
@@ -224,14 +222,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 
 							// test if ray to light hits anything other than the starting primitive and the light
 							double tmp_t; vec3 tmp_n;
-							bool in_shadow = false;
-							for (size_t j = 0; j < primitives.size(); j++) {
-								Primitive* hit_prim = primitives[j]->intersect(ray_to_light, tmp_t, tmp_n, false);
-								if (hit_prim && hit_prim!=primitive && hit_prim!=area_light->triangle) {
-									in_shadow = true;
-									break;
-								}
-							}
+							bool in_shadow = bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, use_bvh) != nullptr;
 
 							// add contribution
 							if (!in_shadow) {

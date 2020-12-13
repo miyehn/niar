@@ -66,6 +66,7 @@ struct ProgramConfig
 	struct 
 	{
 		int ISPC = 0;
+		CVar<int>* UseBVH = new CVar<int>("UseBVH", 1);
 		int SmallWindow = 0;
 		int Multithreaded = 1;
 		int NumThreads = 8;
