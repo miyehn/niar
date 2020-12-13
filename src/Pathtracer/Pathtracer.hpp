@@ -1,6 +1,7 @@
 #pragma once
 #include "Drawable.hpp"
 #include "Utils.hpp"
+#include "BVH.hpp"
 
 struct Scene;
 struct Ray;
@@ -57,6 +58,7 @@ private:
 	// scene
 	std::vector<Primitive*> primitives;
 	std::vector<PathtracerLight*> lights;
+	BVH* bvh;
 	void load_scene(const Scene& scene);
 
 	//---- pathtracing routine ----
@@ -71,12 +73,9 @@ private:
 	// routine
 	void generate_one_ray(RayTask& task, int x, int y);
 	void generate_rays(std::vector<RayTask>& tasks, size_t index);
-	vec3 raytrace_pixel(size_t index, bool ispc = false);
+	vec3 raytrace_pixel(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
 	void trace_ray(RayTask& task, int ray_depth, bool debug);
-	// (for 418 project: ISPC)
-	void trace_ray_ispc(RayTask& task, int ray_depth);
-	//---- END 418 ----
 
 	// for debug use
 	void raytrace_debug(size_t index);

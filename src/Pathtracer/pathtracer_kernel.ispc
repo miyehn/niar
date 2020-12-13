@@ -387,7 +387,7 @@ inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
             wi = neg(wo);
             wi.z = wo.z;
             pdf = 1.0f;
-            return smul( 1.0f / abs(wi.z), bsdf->albedo ); //albedo * (1.0f / abs(wi.z));
+            return smul( 1.0f / abs(wi.z), bsdf->albedo );
         }
         
         // then use angles to find reflectance
@@ -400,7 +400,7 @@ inline vec3 BSDF_sample_f(BSDF* bsdf, float& pdf, vec3& wi, vec3 wo)
             wi = neg(wo);
             wi.z = wo.z;
             pdf = reflectance;
-            return smul( reflectance / cos_theta_i, bsdf->albedo );//albedo * (reflectance / cos_theta_i);
+            return smul( reflectance / cos_theta_i, bsdf->albedo );
 
         } else { // refract
             // remember we treat wi as "out direction"
@@ -717,20 +717,7 @@ inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offs
     for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
         bsdf_buckets[cur_bsdf] = reduce_add(bsdf_buckets_partial[cur_bsdf]);
     }
-    /*
-    print("-----------\n");
-    for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
-        print("% ", bsdf_buckets[cur_bsdf]);
-    }
-    print(" | ", num_tasks);
-    */
     scan_excl(bsdf_buckets, NUM_MATERIAL_TYPES);
-    /*
-    for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
-        print("% ", bsdf_buckets[cur_bsdf]);
-    }
-    print("\nnum tasks: %\n", num_tasks);
-    */
 }
 
 inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
