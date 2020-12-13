@@ -139,7 +139,7 @@ void BVH::expand_bvh()
 			delete right_tmp;
 		}
 	}
-	// x axis
+	// z axis
 	for (int i=1; i<PER_AXIS_GRANULARITY; i++)
 	{
 		float z_divide = min.z + i * step.z;
@@ -214,11 +214,13 @@ void BVH::expand_bvh()
 	// need this check because there could be cases when all divisions result in one child being empty.
 	// In that case make this node a leaf.
 	if (left && right) {
+		/*
 		LOGF("left %u [%u, %u), right %u [%u, %u)", 
 			left->primitives_count, left->primitives_start, left->primitives_start + left->primitives_count, 
 			right->primitives_count, right->primitives_start, right->primitives_start + right->primitives_count);
+		*/
 	} else {
-		LOG("(automatical division)");
+		//LOG("(automatical division)");
 		left = new BVH(primitives_ptr);
 		right = new BVH(primitives_ptr);
 		left->primitives_start = primitives_start;

@@ -49,6 +49,16 @@ struct Triangle {
     float area;
 };
 
+struct BVH {
+    vec3 min;
+    vec3 max;
+    uint triangles_start;
+    uint triangles_count;
+    int self_index;
+    int left_index;
+    int right_index;
+};
+
 #define NUM_MATERIAL_TYPES 4
 enum BSDF_t {
     Diffuse,
@@ -76,6 +86,7 @@ struct Global
     uniform Triangle* triangles;
     uniform BSDF* bsdfs;
     uniform uint* area_light_indices;
+    uniform BVH* bvh;
 
     uniform uint num_triangles;
     uniform uint num_bsdfs;
@@ -294,12 +305,13 @@ inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool 
     return true;
 }
 
-inline int intersect_scene(Ray& ray, float& t, vec3& normal, bool modify_ray)
+inline int intersect_scene(Ray& ray, float& t, vec3& normal, bool modify_ray, bool nearest)
 {
     int triangle_index = -1;
     for (uint i = 0; i < G.num_triangles; i++) {
         if (intersect(G.triangles[i], ray, t, normal, modify_ray)) {
             triangle_index = i;
+            if (!nearest) return triangle_index;
         }
     }
     return triangle_index;
@@ -334,6 +346,11 @@ inline float ray_to_light_pdf(Ray& ray, vec3& origin, Triangle* triangle)
     float d2 = t * t;
 
     float costheta_l = max(0.0f, dot( neg(ray.d), n ));
+
+    float eps_adjusted = EPSILON / costheta_l;
+    //ray.o = vadd(ray.o, smul(10 * eps_adjusted, ray.d));
+    ray.tmin = eps_adjusted;
+    ray.tmax -= eps_adjusted;
 
     return d2 / (triangle->area * costheta_l);
 }
@@ -542,17 +559,7 @@ inline void trace_ray(RayTask &rtask)
 
                 // test if ray to light hits anything other than the starting primitive and the light
                 float tmp_t; vec3 tmp_n;
-                bool in_shadow = false;
-                Triangle* hit_prim;
-                for (uint k = 0; k < G.num_triangles; k++) {
-                    if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
-                        hit_prim = G.triangles + k;
-                        if (hit_prim != primitive && hit_prim != area_light_T) {
-                            in_shadow = true;
-                            break;
-                        }
-                    }
-                }
+                bool in_shadow = intersect_scene(ray_to_light, tmp_t, tmp_n, false, false) >= 0;
 
                 // add contribution
                 if (!in_shadow) {
@@ -603,7 +610,7 @@ inline void trace_ray(RayTask &rtask)
             ray.receive_le = G.use_direct_light && bsdf->is_delta;
             
             float tt;
-            int next_triangle = intersect_scene(ray, tt, rtask.triangle_normal, true);
+            int next_triangle = intersect_scene(ray, tt, rtask.triangle_normal, true, true);
             if (next_triangle >= 0) {
                 rtask.triangle_index = next_triangle;
                 rtask.contribution = vmul(rtask.contribution,
@@ -789,7 +796,7 @@ task void raytrace_scene_ispc_task(
             ray.o = rtask_ptr->ray.o;
             ray.d = rtask_ptr->ray.d;
             ray.tmax = rtask_ptr->ray.tmax;
-            int next_triangle = intersect_scene(ray, tt, nn, true);
+            int next_triangle = intersect_scene(ray, tt, nn, true, true);
             if (next_triangle >= 0) {
                 rtask_ptr->triangle_index = next_triangle;
                 rtask_ptr->triangle_normal = nn;
@@ -876,7 +883,8 @@ export void raytrace_scene_ispc(
     uniform uint max_ray_depth,
     uniform float rr_threshold,
     uniform bool use_direct_light,
-    uniform uint area_light_samples
+    uniform uint area_light_samples,
+    uniform BVH bvh[]
 ){
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
@@ -887,6 +895,7 @@ export void raytrace_scene_ispc(
     G.triangles = triangles;
     G.bsdfs = bsdfs;
     G.area_light_indices = area_light_indices;
+    G.bvh = bvh;
     G.num_triangles = num_triangles;
     G.num_bsdfs = num_triangles;
     G.num_area_lights = num_area_lights;

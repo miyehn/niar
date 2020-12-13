@@ -7,6 +7,8 @@
 #include "PathtracerLight.hpp"
 #include "Input.hpp"
 #include "Materials.hpp"
+#include <stack>
+#include <unordered_map>
 #include <chrono>
 #include <thread>
 #include <atomic>
@@ -538,6 +540,45 @@ void Pathtracer::raytrace_scene_to_buf() {
 
 		float* offsets = (float*)pixel_offsets.data();
 
+		// BVH
+		std::vector<ispc::BVH> ispc_bvh;
+		std::stack<BVH*> st;
+		std::unordered_map<BVH*, int> m;
+		// first iteration: make the structs, and map from node to index
+		st.push(bvh);
+		while (!st.empty()) {
+			BVH* ptr = st.top(); st.pop();
+			int self_index = ispc_bvh.size();
+			m[ptr] = self_index;
+			// make the node (except children indices)
+			ispc::BVH node;
+			node.min = ispc_vec3(ptr->min);
+			node.max = ispc_vec3(ptr->max);
+			node.triangles_start = ptr->primitives_start;
+			node.triangles_count = ptr->primitives_count;
+			node.self_index = self_index;
+			// push children
+			if (ptr->left) st.push(ptr->left);
+			if (ptr->right) st.push(ptr->right);
+		}
+		// second iteration: set children indices
+		st.push(bvh);
+		while (!st.empty()) {
+			BVH* ptr = st.top(); st.pop();
+			if (ptr->left && ptr->right) {
+				int self_index = m[ptr];
+				int left_index = m[ptr->left];
+				int right_index = m[ptr->right];
+				ispc_bvh[self_index].left_index = left_index;
+				ispc_bvh[self_index].right_index = right_index;
+			}
+			// push children
+			if (ptr->left) st.push(ptr->left);
+			if (ptr->right) st.push(ptr->right);
+		}
+		// pointer to be passed in
+		ispc::BVH* ispc_bvh_data = (ispc::BVH*)ispc_bvh.data();
+
 		// dispatch task to ispc
 		ispc::raytrace_scene_ispc(
 			&camera, 
@@ -550,7 +591,8 @@ void Pathtracer::raytrace_scene_to_buf() {
 			Cfg.Pathtracer.MaxRayDepth, 
 			Cfg.Pathtracer.RussianRouletteThreshold,
 			Cfg.Pathtracer.UseDirectLight,
-			Cfg.Pathtracer.AreaLightSamples);
+			Cfg.Pathtracer.AreaLightSamples,
+			ispc_bvh_data);
 	}
 	else {
 		for (size_t y = 0; y < height; y++) {
