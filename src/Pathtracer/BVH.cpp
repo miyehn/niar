@@ -1,6 +1,6 @@
 #include "BVH.hpp"
 
-#define BVH_THRESHOLD 8
+#define BVH_THRESHOLD 16
 #define PER_AXIS_GRANULARITY 2
 
 inline float BVH::surface_area() {
@@ -32,7 +32,6 @@ void BVH::update_extents() {
 void BVH::expand_bvh()
 {
 	if (primitives_count <= BVH_THRESHOLD) {
-		//LOGF("num prims: %u (%u -> %u)", primitives_count, primitives_start, primitives_start + primitives_count);
 		return;
 	}
 
@@ -188,6 +187,7 @@ void BVH::expand_bvh()
 		}
 	}
 
+	// sort them back (since primitive order might've been modified along the way)
 	if (min_divide_axis==0) {
 		std::sort(primitives_ptr->begin() + primitives_start, primitives_ptr->begin() + primitives_start + primitives_count,
 		[center](Primitive* P1, Primitive* P2){
@@ -231,13 +231,103 @@ void BVH::expand_bvh()
 	left->expand_bvh();
 	right->expand_bvh();
 }
-   
+
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection 
-// TODO: write a more readable version of this
-bool BVH::intersect_aabb(const Ray& ray, float& distance)
+bool BVH::intersect_aabb(const Ray& ray, float& tmin, float& tmax)
 {
-	float tmin = (min.x - ray.o.x) / ray.d.x; 
-	float tmax = (max.x - ray.o.x) / ray.d.x; 
+#if 0 // use my own (readable but a tad slower) impl?
+	float dmin = INF;
+	bool hit = false;
+
+	float txmin = (min.x - ray.o.x) / ray.d.x;
+	float txmax = (max.x - ray.o.x) / ray.d.x;
+	float tymin = (min.y - ray.o.y) / ray.d.y;
+	float tymax = (max.y - ray.o.y) / ray.d.y;
+	float tzmin = (min.z - ray.o.z) / ray.d.z;
+	float tzmax = (max.z - ray.o.z) / ray.d.z;
+
+	if (!isnan(txmin) && txmin >= ray.tmin && txmin < ray.tmax) {
+		//float px = ray.o.x + txmin*ray.d.x;
+		float py = ray.o.y + txmin*ray.d.y;
+		float pz = ray.o.z + txmin*ray.d.z;
+		if (py >= min.y && py < max.y &&
+			pz >= min.z && pz < max.z)
+		{
+			dmin = glm::min(dmin, txmin);
+			hit = true;
+		}
+	}
+
+	if (!isnan(txmax) && txmax >= ray.tmin && txmax < ray.tmax) {
+		//float px = ray.o.x + txmax*ray.d.x;
+		float py = ray.o.y + txmax*ray.d.y;
+		float pz = ray.o.z + txmax*ray.d.z;
+		if (py >= min.y && py < max.y &&
+			pz >= min.z && pz < max.z)
+		{
+			dmin = glm::min(dmin, txmax);
+			hit = true;
+		}
+	}
+
+	if (!isnan(tymin) && tymin >= ray.tmin && tymin < ray.tmax) {
+		float px = ray.o.x + tymin*ray.d.x;
+		//float py = ray.o.y + tymin*ray.d.y;
+		float pz = ray.o.z + tymin*ray.d.z;
+		if (px >= min.x && px < max.x &&
+			pz >= min.z && pz < max.z)
+		{
+			dmin = glm::min(dmin, tymin);
+			hit = true;
+		}
+	}
+
+	if (!isnan(tymax) && tymax >= ray.tmin && tymax < ray.tmax) {
+		float px = ray.o.x + tymax*ray.d.x;
+		//float py = ray.o.y + tymax*ray.d.y;
+		float pz = ray.o.z + tymax*ray.d.z;
+		if (px >= min.x && px < max.x &&
+			pz >= min.z && pz < max.z)
+		{
+			dmin = glm::min(dmin, tymax);
+			hit = true;
+		}
+	}
+
+	if (!isnan(tzmin) && tzmin >= ray.tmin && tzmin < ray.tmax) {
+		float px = ray.o.x + tzmin*ray.d.x;
+		float py = ray.o.y + tzmin*ray.d.y;
+		//float pz = ray.o.z + tzmin*ray.d.z;
+		if (px >= min.x && px < max.x &&
+			py >= min.y && py < max.y)
+		{
+			dmin = glm::min(dmin, tzmin);
+			hit = true;
+		}
+	}
+
+	if (!isnan(tzmax) && tzmax >= ray.tmin && tzmax < ray.tmax) {
+		float px = ray.o.x + tzmax*ray.d.x;
+		float py = ray.o.y + tzmax*ray.d.y;
+		//float pz = ray.o.z + tzmax*ray.d.z;
+		if (px >= min.x && px < max.x &&
+			py >= min.y && py < max.y)
+		{
+			dmin = glm::min(dmin, tzmax);
+			hit = true;
+		}
+	}
+
+	if (hit) {
+		distance = dmin;
+		return true;
+	} else {
+		return false;
+	}
+
+#else
+	tmin = (min.x - ray.o.x) / ray.d.x; 
+	tmax = (max.x - ray.o.x) / ray.d.x; 
  
 	if (tmin > tmax) std::swap(tmin, tmax); 
  
@@ -269,70 +359,76 @@ bool BVH::intersect_aabb(const Ray& ray, float& distance)
 	if (tzmax < tmax) 
 		tmax = tzmax; 
 
-	if (tmin >= 0) distance = tmin;
-	else distance = tmax;
- 
-	return true; 
+	return tmax >= ray.tmin; 
+#endif
 	
 }
+
+#define USE_BVH 1
+#define FRONT_TO_BACK 0
 
 Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n) 
 {
 	Primitive* primitive = nullptr;
 
-#if 0
-	for (size_t i = 0; i < primitives_count; i++) {
-		Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
-		if (prim_tmp) {
-			primitive = prim_tmp;
+#if USE_BVH
+
+#if FRONT_TO_BACK
+
+	if (left || right)
+	{
+		float tmin_left, tmax_left, tmin_right, tmax_right;
+		if (left->intersect_aabb(ray, tmin_left, tmax_right))
+		{
+			if (right->intersect_aabb(ray, tmin_right, tmax_right)) // intersected both bboxes, go with the closer one
+			{
+				BVH* first = nullptr;
+				BVH* second = nullptr;
+				float tmin_near, tmin_far;
+				if (tmin_left < tmin_right) {
+					first = left; second = right;
+					tmin_near = tmin_left; tmin_far = tmin_right;
+				} else {
+					first = right; second = left;
+					tmin_near = tmin_right; tmin_far = tmin_left;
+				}
+
+				primitive = first->intersect_primitives(ray, t, n);
+				if (!primitive || t > tmin_far) {
+					Primitive* prim_tmp = second->intersect_primitives(ray, t, n);
+					if (prim_tmp) {
+						primitive = prim_tmp;
+					}
+				}
+			}
+			else // only intersected with left
+			{
+				primitive = left->intersect_primitives(ray, t, n);
+			}
+		}
+		else // only intersected with right
+		{
+			primitive = right->intersect_primitives(ray, t, n);
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < primitives_count; i++) {
+			Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
+			if (prim_tmp) {
+				primitive = prim_tmp;
+			}
 		}
 	}
 #else
-	float d_box;
-	if (intersect_aabb(ray, d_box))
+	float tmin, tmax;
+	if (intersect_aabb(ray, tmin, tmax))
 	{
 		if (left || right)
 		{
-
-#if 0
-			float d_left, d_right;
-			if (left->intersect_aabb(ray, d_left))
-			{
-				if (right->intersect_aabb(ray, d_right)) // intersected both bboxes, go with the closer one
-				{
-					BVH* first = nullptr;
-					BVH* second = nullptr;
-					float d_near, d_far;
-					if (d_left < d_right) {
-						first = left; second = right;
-						d_near = d_left; d_far = d_right;
-					} else {
-						first = right; second = left;
-						d_near = d_right; d_far = d_left;
-					}
-
-					primitive = first->intersect_primitives(ray, t, n);
-					if (!primitive || t > d_far) {
-						Primitive* prim_tmp = second->intersect_primitives(ray, t, n);
-						if (prim_tmp) {
-							primitive = prim_tmp;
-						}
-					}
-				}
-				else // only intersected with left
-				{
-					primitive = left->intersect_primitives(ray, t, n);
-				}
-			}
-			else // only intersected with right
-			{
-				primitive = right->intersect_primitives(ray, t, n);
-			}
-#else
 			primitive = left->intersect_primitives(ray, t, n);
 			Primitive* prim_tmp = right->intersect_primitives(ray, t, n);
 			if (prim_tmp) primitive = prim_tmp;
-#endif
 		}
 		else
 		{
@@ -344,6 +440,16 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n)
 			}
 		}
 	}
-#endif
+
+#endif // FRONT_TO_BACK
+
+#else
+	for (size_t i = 0; i < primitives_count; i++) {
+		Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
+		if (prim_tmp) {
+			primitive = prim_tmp;
+		}
+	}
+#endif // USE_BVH
 	return primitive;
 }
