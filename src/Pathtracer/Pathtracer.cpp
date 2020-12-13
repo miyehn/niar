@@ -101,6 +101,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 
 	// cornell box scene
 	std::vector<Mesh*> meshes;
+#if 1
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx", init_graphics);
 	for (int i=0; i<meshes.size(); i++) { // 4 is floor
 		Mesh* mesh = meshes[i];
@@ -119,6 +120,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	light->name = "light";
 	light->bsdf->set_emission(vec3(10.0f));
 	scene->add_child(static_cast<Drawable*>(light));
+#endif
 
 	// add more items to it
 	Mesh* mesh;
@@ -137,11 +139,20 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 #endif
 
 #if 1
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/poly_sphere0.fbx", init_graphics);
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/poly_sphere.fbx", init_graphics);
 	mesh = meshes[0];
 	mesh->bsdf = new Glass();
 	mesh->name = "sphere1";
 	scene->add_child(static_cast<Drawable*>(mesh));
+#endif
+
+#if 0
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/16planes.fbx", init_graphics);
+	for (int i=0; i<meshes.size(); i++) { // 4 is floor
+		Mesh* mesh = meshes[i];
+		mesh->bsdf = new Diffuse(vec3(0.6f));
+		scene->add_child(static_cast<Drawable*>(mesh));
+	}
 #endif
 
 	return scene;
@@ -287,7 +298,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 	primitives.clear();
 	lights.clear();
 
-	bvh = new BVH();
+	bvh = new BVH(&primitives);
 
 	for (Drawable* drawable : scene.children) {
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
@@ -306,7 +317,6 @@ void Pathtracer::load_scene(const Scene& scene) {
 				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
 				Primitive* P = static_cast<Primitive*>(T);
 				primitives.push_back(P);
-				bvh->add_primitive(P);
 				
 				// also load as light if emissive
 				if (emissive) {
@@ -315,7 +325,9 @@ void Pathtracer::load_scene(const Scene& scene) {
 			}
 		}
 	}
-
+	bvh->primitives_start = 0;
+	bvh->primitives_count = primitives.size();
+	bvh->update_extents();
 	bvh->expand_bvh();
 
 	TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 

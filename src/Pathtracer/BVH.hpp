@@ -4,11 +4,12 @@
 
 struct BVH
 {
-	BVH() {
-		expanded = false;
+	BVH(std::vector<Primitive*>* _primitives_ptr) {
 		min = vec3(INF);
 		max = vec3(-INF);
-		primitives = std::vector<Primitive*>();
+		primitives_ptr = _primitives_ptr;
+		primitives_start = 0;
+		primitives_count = 0;
 		left = nullptr;
 		right = nullptr;
 	}
@@ -17,16 +18,18 @@ struct BVH
 		if (right) delete right;
 	}
 
-	bool expanded;
-
 	vec3 min;
 	vec3 max;
-	std::vector<Primitive*> primitives;
+
+	std::vector<Primitive*>* primitives_ptr;
+	uint primitives_start;
+	uint primitives_count;
 	BVH* left;
 	BVH* right;
 
-	void add_primitive(Primitive* prim);
+	void extend_primitive(Primitive* prim);
 	
+	void update_extents();
 	void expand_bvh();
 
 	float surface_area();
