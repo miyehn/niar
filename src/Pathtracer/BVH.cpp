@@ -1,7 +1,7 @@
 #include "BVH.hpp"
 
 #define BVH_THRESHOLD 16
-#define PER_AXIS_GRANULARITY 2
+#define PER_AXIS_GRANULARITY 8
 
 inline float BVH::surface_area() {
 	if (primitives_count == 0) return 0.0f;

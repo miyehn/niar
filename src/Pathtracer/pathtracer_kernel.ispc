@@ -86,7 +86,7 @@ struct Global
     uniform Triangle* triangles;
     uniform BSDF* bsdfs;
     uniform uint* area_light_indices;
-    uniform BVH* bvh;
+    uniform BVH* bvh_root;
 
     uniform uint num_triangles;
     uniform uint num_bsdfs;
@@ -214,6 +214,16 @@ inline vec3 clamp01(vec3 v) {
     return res;
 }
 
+inline float fmax(float a, float b) {
+    if (a > b) return a;
+    else return b;
+}
+
+inline float fmin(float a, float b) {
+    if (a < b) return a;
+    else return b;
+}
+
 //-------- RNG, sampling --------
 
 inline float rand01() {
@@ -305,8 +315,85 @@ inline bool intersect(Triangle triangle, Ray& ray, float& t, vec3& normal, bool 
     return true;
 }
 
+inline bool intersect_aabb(int bvh_index, Ray& ray)
+{
+    BVH* bvh = G.bvh_root + bvh_index;
+    vec3 min = bvh->min;
+    vec3 max = bvh->max;
+
+    float tmin = (min.x - ray.o.x) / ray.d.x; 
+    float tmax = (max.x - ray.o.x) / ray.d.x; 
+ 
+    if (tmin > tmax) {
+        float tmp = tmin; tmin = tmax; tmax = tmp;
+    }
+ 
+    float tymin = (min.y - ray.o.y) / ray.d.y; 
+    float tymax = (max.y - ray.o.y) / ray.d.y; 
+ 
+    if (tymin > tymax) {
+        float tmp = tymin; tymin = tymax; tymax = tmp;
+    }
+ 
+    if ((tmin > tymax) || (tymin > tmax)) 
+        return false; 
+ 
+    if (tymin > tmin) tmin = tymin;
+    if (tymax < tmax) tmax = tymax;
+ 
+    float tzmin = (min.z - ray.o.z) / ray.d.z; 
+    float tzmax = (max.z - ray.o.z) / ray.d.z; 
+ 
+    if (tzmin > tzmax) {
+        float tmp = tzmin; tzmin = tzmax; tzmax = tmp;
+    }
+ 
+    if ((tmin > tzmax) || (tzmin > tmax)) 
+        return false; 
+ 
+    if (tzmin > tmin) 
+        tmin = tzmin; 
+ 
+    if (tzmax < tmax) 
+        tmax = tzmax; 
+
+    // if (isnan(tmin) || isnan(tmax)) return false;
+
+    return tmax >= ray.tmin && tmin < ray.tmax;
+}
+
+inline int intersect_bvh_triangles(int bvh_index, Ray& ray, float& t, vec3& normal, bool modify_ray, bool nearest)
+{
+    int triangle_index = -1;
+    if (intersect_aabb(bvh_index, ray))
+    {
+        BVH* bvh = G.bvh_root + bvh_index;
+        int l = bvh->left_index, r = bvh->right_index;
+        if (l>=0 && r>=0)
+        {
+            triangle_index = intersect_bvh_triangles(l, ray, t, normal, modify_ray, nearest);
+            int tmp = intersect_bvh_triangles(r, ray, t, normal, modify_ray, nearest);
+            if (tmp >= 0) triangle_index = tmp;
+        }
+        else
+        {
+            for (uint i=bvh->triangles_start; i < bvh->triangles_start + bvh->triangles_count; i++) {
+                Triangle* T = G.triangles + i;
+                if (intersect(*T, ray, t, normal, modify_ray)) {
+                    triangle_index = i;
+                    if (!nearest) return triangle_index;
+                }
+            }
+        }
+    }
+    return triangle_index;
+}
+
 inline int intersect_scene(Ray& ray, float& t, vec3& normal, bool modify_ray, bool nearest)
 {
+#if 1
+    return intersect_bvh_triangles(0, ray, t, normal, modify_ray, nearest);
+#else
     int triangle_index = -1;
     for (uint i = 0; i < G.num_triangles; i++) {
         if (intersect(G.triangles[i], ray, t, normal, modify_ray)) {
@@ -315,6 +402,7 @@ inline int intersect_scene(Ray& ray, float& t, vec3& normal, bool modify_ray, bo
         }
     }
     return triangle_index;
+#endif
 }
 
 inline vec3 sample_point_in_triangle(Triangle* T)
@@ -559,7 +647,21 @@ inline void trace_ray(RayTask &rtask)
 
                 // test if ray to light hits anything other than the starting primitive and the light
                 float tmp_t; vec3 tmp_n;
+                #if 1
                 bool in_shadow = intersect_scene(ray_to_light, tmp_t, tmp_n, false, false) >= 0;
+                #else
+                bool in_shadow = false;
+                Triangle* hit_prim;
+                for (uint k = 0; k < G.num_triangles; k++) {
+                    if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
+                        hit_prim = G.triangles + k;
+                        if (hit_prim != primitive && hit_prim != area_light_T) {
+                            in_shadow = true;
+                            break;
+                        }
+                    }
+                }
+                #endif
 
                 // add contribution
                 if (!in_shadow) {
@@ -884,7 +986,7 @@ export void raytrace_scene_ispc(
     uniform float rr_threshold,
     uniform bool use_direct_light,
     uniform uint area_light_samples,
-    uniform BVH bvh[]
+    uniform BVH bvh_root[]
 ){
     // create task queue and enqueue all the initial tasks (camera rays)
     // dequeue and execute?
@@ -895,7 +997,7 @@ export void raytrace_scene_ispc(
     G.triangles = triangles;
     G.bsdfs = bsdfs;
     G.area_light_indices = area_light_indices;
-    G.bvh = bvh;
+    G.bvh_root = bvh_root;
     G.num_triangles = num_triangles;
     G.num_bsdfs = num_triangles;
     G.num_area_lights = num_area_lights;
@@ -934,6 +1036,18 @@ export void raytrace_scene_ispc(
     foreach (i = 0 ... QUEUE_SIZE) {
         G.ray_tasks[i] = new_RayTask();
     }
+
+    /*
+    BVH* bvh = G.bvh_root;
+    vec3 min = bvh->min;
+    vec3 max = bvh->max;
+    print("(% % %), (% % %)\n", min.x, min.y, min.z, max.x, max.y, max.z);
+    
+    for (uniform uint i=0; i<7; i++) {
+        uniform BVH* bvh = G.bvh_root + i;
+        print("%-(%,%) : % -> %\n", bvh->self_index, bvh->left_index, bvh->right_index, bvh->triangles_start, bvh->triangles_start + bvh->triangles_count);
+    }
+    */
 
     /////////////////////////////////////////////////
 

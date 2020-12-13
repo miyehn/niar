@@ -557,27 +557,30 @@ void Pathtracer::raytrace_scene_to_buf() {
 			node.triangles_start = ptr->primitives_start;
 			node.triangles_count = ptr->primitives_count;
 			node.self_index = self_index;
+			ispc_bvh.push_back(node);
 			// push children
-			if (ptr->left) st.push(ptr->left);
-			if (ptr->right) st.push(ptr->right);
+			if (ptr->left) st.push(ptr->right);
+			if (ptr->right) st.push(ptr->left);
 		}
 		// second iteration: set children indices
 		st.push(bvh);
 		while (!st.empty()) {
 			BVH* ptr = st.top(); st.pop();
-			if (ptr->left && ptr->right) {
-				int self_index = m[ptr];
-				int left_index = m[ptr->left];
-				int right_index = m[ptr->right];
-				ispc_bvh[self_index].left_index = left_index;
-				ispc_bvh[self_index].right_index = right_index;
-			}
+			bool is_leaf = !ptr->left || !ptr->right;
+			int self_index = m[ptr];
+			int left_index = is_leaf ? -1 : m[ptr->left];
+			int right_index = is_leaf ? -1 : m[ptr->right];
+			ispc_bvh[self_index].left_index = left_index;
+			ispc_bvh[self_index].right_index = right_index;
+
 			// push children
-			if (ptr->left) st.push(ptr->left);
-			if (ptr->right) st.push(ptr->right);
+			if (ptr->left) st.push(ptr->right);
+			if (ptr->right) st.push(ptr->left);
 		}
 		// pointer to be passed in
 		ispc::BVH* ispc_bvh_data = (ispc::BVH*)ispc_bvh.data();
+
+		LOGF("passing %u bvh nodes to ispc", ispc_bvh.size());
 
 		// dispatch task to ispc
 		ispc::raytrace_scene_ispc(
