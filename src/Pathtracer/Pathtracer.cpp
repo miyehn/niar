@@ -600,16 +600,53 @@ void Pathtracer::raytrace_scene_to_buf() {
 			ispc_bvh_data,
 			Cfg.Pathtracer.UseBVH->get());
 	}
-	else {
-		for (size_t y = 0; y < height; y++) {
-			for (size_t x = 0; x < width; x++) {
+	else
+	{
+		if (Cfg.Pathtracer.Multithreaded)
+		{
+			TaskQueue<uint> tasks;
+			uint task_size = tile_size * tile_size;
+			uint image_size = width * height;
+			for (uint i = 0; i < image_size; i += task_size) {
+				tasks.enqueue(i);
+			}
+			std::function<void(int)> raytrace_task = [&](int tid){
+				uint task_begin;
+				while (tasks.dequeue(task_begin))
+				{
+					uint task_end = glm::min(image_size, task_begin + task_size);
+					for (uint task = task_begin; task < task_end; task++)
+					{
+						vec3 color = raytrace_pixel(task);
+						set_mainbuffer_rgb(task, color);
+					}
+				}
+			};
+			LOGF("enqueued %u tasks", tasks.size());
+			// create the threads and execute
+			std::vector<std::thread> threads_tmp;
+			for (uint tid = 0; tid < num_threads; tid++) {
+				threads_tmp.push_back(std::thread(raytrace_task, tid));
+			}
+			LOGF("created %u threads", num_threads);
+			for (uint tid = 0; tid < num_threads; tid++) {
+				threads_tmp[tid].join();
+			}
+			LOG("joined threads");
+		}
+		else
+		{
+			for (size_t y = 0; y < height; y++) {
+				for (size_t x = 0; x < width; x++) {
 
-				size_t px_index = width * y + x;
-				vec3 color = raytrace_pixel(px_index);
-				set_mainbuffer_rgb(px_index, color);
+					size_t px_index = width * y + x;
+					vec3 color = raytrace_pixel(px_index);
+					set_mainbuffer_rgb(px_index, color);
 
+				}
 			}
 		}
+
 	}
 
 }
