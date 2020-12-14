@@ -602,6 +602,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 	}
 	else
 	{
+		use_bvh = Cfg.Pathtracer.UseBVH->get();
 		if (Cfg.Pathtracer.Multithreaded)
 		{
 			TaskQueue<uint> tasks;
