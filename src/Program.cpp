@@ -1,5 +1,5 @@
-#include "Program.hpp"
 #include "Camera.hpp"
+#include "Program.hpp"
 #include "Scene.hpp"
 #include "GrassField.hpp"
 #include "Mesh.hpp"

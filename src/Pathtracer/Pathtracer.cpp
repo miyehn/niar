@@ -749,7 +749,7 @@ void Pathtracer::draw() {
 	
 	//---- draw the image buffer first ----
 
-	glViewport(0, 0, width*2, height*2);
+	glViewport(0, 0, width, height);
 
 	Blit* blit = Blit::blit();
 	blit->begin_pass();
