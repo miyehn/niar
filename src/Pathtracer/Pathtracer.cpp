@@ -17,9 +17,6 @@
 // include this generated header to be able to use the kernels
 #include "pathtracer_kernel_ispc.h"
 
-CVar<float>* FocalDistance = new CVar<float>("FocalDistance", 500);
-CVar<float>* ApertureRadius = new CVar<float>("ApertureRadius", 8);
-
 struct RaytraceThread {
 
 	enum Status { uninitialized, working, pending_upload, uploaded, ready_for_next, all_done };
@@ -132,9 +129,9 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 		Mesh* mesh = meshes[i];
 		mesh->bsdf = new Diffuse(vec3(0.6f));
 		if (i==1) {// right
-			mesh->bsdf->albedo = vec3(0.4f, 0.4f, 0.6f); 
+			mesh->bsdf->albedo = vec3(0.32f, 0.32f, 0.8f); 
 		} else if (i==2) {// left
-			mesh->bsdf->albedo = vec3(0.6f, 0.4f, 0.4f); 
+			mesh->bsdf->albedo = vec3(0.8f, 0.32f, 0.32f); 
 		}
 		scene->add_child(static_cast<Drawable*>(mesh));
 	}
@@ -143,7 +140,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	Mesh* light = meshes[0];
 	light->bsdf = new Diffuse();
 	light->name = "light";
-	light->bsdf->set_emission(vec3(10.0f));
+	light->bsdf->set_emission(vec3(8.0f));
 	scene->add_child(static_cast<Drawable*>(light));
 #endif
 
@@ -158,7 +155,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_2.fbx", init_graphics);
 	mesh = meshes[0];
-	mesh->bsdf = new Diffuse(vec3(0.4f, 0.5f, 0.6f));
+	mesh->bsdf = new Diffuse(vec3(0.25f, 0.4f, 0.6f));
 	mesh->name = "prism 2";
 	scene->add_child(static_cast<Drawable*>(mesh));
 #endif
@@ -310,7 +307,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 
 		} else if (state[SDL_SCANCODE_LALT]) {
 			float d = depth_of_first_hit(x, height-y);
-			FocalDistance->set(d);
+			Cfg.Pathtracer.FocalDistance->set(d);
 			TRACEF("setting focal distance to %f", d);
 		}
 	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
@@ -479,6 +476,11 @@ void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
 	upload_tile(subbuf_index, x_offset, y_offset, tile_w, tile_h);
 }
 
+vec3 gamma_correct(vec3 in) {
+	const vec3 gamma(0.455f);
+	return pow(in, gamma);
+}
+
 void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 	size_t X = tile_index % tiles_X;
 	size_t Y = tile_index / tiles_X;
@@ -522,7 +524,7 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 			for (size_t x = 0; x < tile_w; x++) {
 
 				size_t px_index_main = width * (y_offset + y) + (x_offset + x);
-				vec3 color = raytrace_pixel(px_index_main);
+				vec3 color = gamma_correct(raytrace_pixel(px_index_main));
 				set_mainbuffer_rgb(px_index_main, color);
 
 				size_t px_index_sub = y * tile_w + x;
@@ -708,7 +710,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 					uint task_end = glm::min(image_size, task_begin + task_size);
 					for (uint task = task_begin; task < task_end; task++)
 					{
-						vec3 color = raytrace_pixel(task);
+						vec3 color = gamma_correct(raytrace_pixel(task));
 						set_mainbuffer_rgb(task, color);
 					}
 				}

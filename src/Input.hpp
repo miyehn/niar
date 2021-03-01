@@ -77,6 +77,8 @@ struct ProgramConfig
 		int AreaLightSamples = 2;
 		int UseJitteredSampling = 1;
 		CVar<int>* UseDOF = new CVar<int>("UseDOF", 1);
+		CVar<float>* FocalDistance = new CVar<float>("FocalDistance", 500);
+		CVar<float>* ApertureRadius = new CVar<float>("ApertureRadius", 8);
 		int MaxRayDepth = 16;
 		float RussianRouletteThreshold = 0.05f;
 		CVar<int>* MinRaysPerPixel = new CVar<int>("MinRaysPerPixel", 4);

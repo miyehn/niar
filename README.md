@@ -2,9 +2,11 @@
 
 A playground to test my patience.
 
-**For offline stuff**, it has a multi-threaded CPU pathtracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch, plus depth of field.
+**For offline stuff**, it has 2 multi-threaded CPU path tracer implementations:
+* One is a regular C++ path tracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch, plus depth of field.
+* Another is a SIMD path tracer implemented with [Intel ISPC](https://ispc.github.io/), which has mostly the same features as above but renders ~5x faster. This implementation is part of our CMU 15-418F20 final project. Project members include Michelle Ma and I (Rain Du). See [pathtracer-standalone](https://github.com/miyehn/niar/tree/pathtracer-standalone) branch or our [project site](https://miyehn.me/SIMD-pathtracer/) for more information.
 
-<img src="img/dof.jpeg" width=400></img>
+<img src="img/dof.jpg" width=480></img>
 
 **For real-time rendering**, here's a selected list of its features:
 * deferred rendering path
@@ -29,13 +31,37 @@ There're also some **utilities** for testing (see implementation notes for detai
 
 Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into master yet (because I mainly develop on macOS and OpenGL compute shaders are not supported)
 
+## Known issues and TODOs in the near future
+
+* ISPC path tracer is slightly buggy when multithreaded is enabled and crashes under some very specific settings.
+* TODO: depth of field in ISPC
+* TODO: optimize BVH traversal in ISPC
+* TODO: avoid allocating and deallocating buffers every time the ISPC function is called
+
 ## Implementation notes (code tour)
 
-(Since I probably won't be able to work on this for quite another while, I better write this down to help myself remember what I did when I pick it up next time)
+(Since I work on this on and off, I better write this down to help myself remember what I did when I pick it up)
 
-### Basic usage
+### Build
 
-Build and run the `niar` binary. Works on both mac and windows. `ESC` to quit.
+Because I'm dumb and don't know how to use cmake to build ispc yet. Currently ispc is built with a separate Makefile.
+```
+cd src
+make
+cd ../build
+cmake ..
+make
+```
+
+It should work on both mac and windows.
+
+### Run
+
+```
+./niar
+```
+
+Press `ESC` to quit.
 
 There's a rasterizer and a pathtracer. Pathtracer is disabled by default, `TAB` to toggle between enabled and disabled. It initializes itself when it's first enabled, then keeps the setting, buffers, etc. even when it's later disabled.
 
@@ -49,6 +75,15 @@ When pathtracer is enabled:
 * `SHIFT` + LMB click to trace a debug ray through the clicked pixel and draw it as yellow line segments. There's also some (perhaps no longer helpful) console output.
 * RMB click to dismiss the debug ray overlay.
 * `Alt` + LMB click to set camera focal length to the scene depth at the selected pixel. Focal length is only effective when DOF (depth of field) is on.
+
+### Render to file
+
+Something like:
+```
+./niar -w 200 -h 150 -o output.ppm
+```
+
+Note that currently rendering to file automatically loads the cornell box scene.
 
 ### Configuration
 
@@ -112,32 +147,3 @@ A standard material is one that's associated with a specific shader.
 * Creation: create a `CONST_PTR` in `Blit` class, and `IMPLEMENT_BLIT` by specifing which shader to use (see the macro definitions).
 * Usage: `Blit::name()->begin_pass()`, set properties depending on the shader, `Blit::name()->end_pass()`.
 
-
-## SIMD Parallelization of a Path Tracer
-
-Changes on this branch are part of our CMU 15-418F20 final project. Project members include Michelle Ma and I (Rain Du). See our [project site](https://miyehn.me/SIMD-pathtracer/) for more information.
-
-<img src="img/ispc-render.jpg" width=540>
-
-### Build instructions
-
-Because I'm dumb and don't know how to use cmake to build ispc yet. Currently ispc is built with a separate Makefile.
-```
-cd src
-make
-cd ../build
-cmake ..
-make
-```
-
-### Usage
-
-Something like:
-```
-./niar -w 200 -h 150 -o output.ppm
-```
-Or see `README.md` on master branch for using `./niar` interactively.
-
-### Configuration
-
-See the Pathtracer section in `config.ini`.
