@@ -11,6 +11,8 @@ struct PathtracerLight;
 struct RaytraceThread;
 struct MatGeneric;
 
+struct ISPC_Data;
+
 struct Pathtracer : public Drawable {
 
 	static Pathtracer* Instance;
@@ -61,6 +63,9 @@ private:
 	BVH* bvh;
 	void load_scene(const Scene& scene);
 	bool use_bvh;
+
+	ISPC_Data* ispc_data;
+	void load_ispc_data();
 
 	//---- pathtracing routine ----
 	

@@ -42,6 +42,29 @@ struct RaytraceThread {
 
 };
 
+struct ISPC_Data
+{
+	std::vector<ispc::Camera> camera;
+	std::vector<glm::vec2> pixel_offsets;
+	uint32_t num_offsets;
+	std::vector<ispc::Triangle> triangles;
+	std::vector<ispc::BSDF> bsdfs;
+	std::vector<uint32_t> area_light_indices;
+	uint32_t num_triangles;
+	uint32_t num_area_lights;
+	//uint8_t* output;
+	uint32_t width;
+	uint32_t height;
+	uint32_t tile_size;
+	uint32_t num_threads;
+	uint32_t max_ray_depth;
+	float rr_threshold;
+	bool use_direct_light;
+	uint32_t area_light_samples;
+	std::vector<ispc::BVH> bvh_root;
+	bool use_bvh;
+};
+
 Pathtracer::Pathtracer(
 	size_t _width, 
 	size_t _height, 
@@ -181,6 +204,8 @@ void Pathtracer::initialize() {
 	use_bvh = true;
 	if (Scene::Active) load_scene(*Scene::Active);
 	else WARN("Pathtracer scene not loaded - no active scene");
+
+	ispc_data = nullptr;
 
 #if 0
 	// the two spheres (classical cornell box)
@@ -360,8 +385,11 @@ void Pathtracer::pause_trace() {
 
 void Pathtracer::continue_trace() {
 	TRACE("continue trace");
-	use_bvh = Cfg.Pathtracer.UseBVH->get();
 	last_begin_time = std::chrono::high_resolution_clock::now();
+	use_bvh = Cfg.Pathtracer.UseBVH->get();
+	if (Cfg.Pathtracer.ISPC) {
+		load_ispc_data();
+	}
 	paused = false;
 }
 
@@ -461,144 +489,206 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 	size_t x_offset = X * tile_size;
 	size_t y_offset = Y * tile_size;
 
-	for (size_t y = 0; y < tile_h; y++) {
-		for (size_t x = 0; x < tile_w; x++) {
+	if (Cfg.Pathtracer.ISPC)
+	{
+		// dispatch task to ispc
+		ispc::raytrace_scene_ispc(
+			ispc_data->camera.data(), 
+			(float*)ispc_data->pixel_offsets.data(),
+			ispc_data->num_offsets,
+			ispc_data->triangles.data(),
+			ispc_data->bsdfs.data(),
+			ispc_data->area_light_indices.data(),
+			ispc_data->num_triangles,
+			ispc_data->num_area_lights,
+			subimage_buffers[tid],
+			ispc_data->width,
+			ispc_data->height,
+			true,
+			ispc_data->tile_size,
+			tile_w, tile_h,
+			X, Y,
+			ispc_data->num_threads,
+			ispc_data->max_ray_depth,
+			ispc_data->rr_threshold,
+			ispc_data->use_direct_light,
+			ispc_data->area_light_samples,
+			ispc_data->bvh_root.data(),
+			ispc_data->use_bvh);
+	}
+	else
+	{
+		for (size_t y = 0; y < tile_h; y++) {
+			for (size_t x = 0; x < tile_w; x++) {
 
-			size_t px_index_main = width * (y_offset + y) + (x_offset + x);
-			vec3 color = raytrace_pixel(px_index_main);
-			set_mainbuffer_rgb(px_index_main, color);
+				size_t px_index_main = width * (y_offset + y) + (x_offset + x);
+				vec3 color = raytrace_pixel(px_index_main);
+				set_mainbuffer_rgb(px_index_main, color);
 
-			size_t px_index_sub = y * tile_w + x;
-			set_subbuffer_rgb(tid, px_index_sub, color);
+				size_t px_index_sub = y * tile_w + x;
+				set_subbuffer_rgb(tid, px_index_sub, color);
 
+			}
 		}
 	}
 
+}
+
+void Pathtracer::load_ispc_data() {
+
+	if (ispc_data != nullptr) {
+		delete(ispc_data);
+	}
+	ispc_data = new ISPC_Data();
+
+	auto ispc_vec3 = [](const vec3& v) {
+		ispc::vec3 res;
+		res.x = v.x; res.y = v.y; res.z = v.z;
+		return res;
+	};
+	
+	// construct scene representation (triangles + materials list)
+	ispc_data->bsdfs.resize(primitives.size());
+	ispc_data->triangles.resize(primitives.size());
+	for (int i=0; i<primitives.size(); i++)
+	{
+		ispc::Triangle &T = ispc_data->triangles[i];
+		Triangle* T0 = dynamic_cast<Triangle*>(primitives[i]);
+		if (!T0) ERR("failed to cast primitive to triangle?");
+		// construct its corresponding material
+		T.bsdf_index = i;
+		ispc_data->bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
+		ispc_data->bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
+		ispc_data->bsdfs[i].is_delta = T0->bsdf->is_delta;
+		ispc_data->bsdfs[i].is_emissive = T0->bsdf->is_emissive;
+		if (T0->bsdf->type == BSDF::Mirror) {
+			ispc_data->bsdfs[i].type = ispc::Mirror;
+		} else if (T0->bsdf->type == BSDF::Glass) {
+			ispc_data->bsdfs[i].type = ispc::Glass;
+		} else {
+			ispc_data->bsdfs[i].type = ispc::Diffuse;
+		}
+		// construct the ispc triangle object
+		for (int j=0; j<3; j++) {
+			T.vertices[j] = ispc_vec3(T0->vertices[j]);
+			T.enormals[j] = ispc_vec3(T0->enormals[j]);
+		}
+		T.plane_n = ispc_vec3(T0->plane_n);
+		T.plane_k = T0->plane_k;
+		T.area = T0->area;
+	}
+	ispc_data->num_triangles = primitives.size();
+
+	ispc_data->area_light_indices.resize(lights.size());
+	uint light_count = 0;
+	for (int i=0; i<lights.size(); i++) {
+		if (lights[i]->type == PathtracerLight::AreaLight) {
+			Triangle* T = dynamic_cast<AreaLight*>(lights[i])->triangle;
+			auto it = find(primitives.begin(), primitives.end(), T);
+			if (it != primitives.end()) { // found
+				ispc_data->area_light_indices[light_count] = it - primitives.begin();
+			}
+			light_count++;
+		}
+	}
+	ispc_data->num_area_lights = light_count;
+
+	// construct camera
+	ispc_data->camera.resize(1);
+	mat3 c2wr = Camera::Active->camera_to_world_rotation();
+	ispc_data->camera[0].camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
+	ispc_data->camera[0].camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
+	ispc_data->camera[0].camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
+	ispc_data->camera[0].position = ispc_vec3(Camera::Active->position);
+	ispc_data->camera[0].fov = Camera::Active->fov;
+	ispc_data->camera[0].aspect_ratio = Camera::Active->aspect_ratio;
+
+	// pixel offsets
+	ispc_data->pixel_offsets = pixel_offsets;
+	ispc_data->num_offsets = pixel_offsets.size();
+
+	// BVH
+	//std::vector<ispc::BVH> ispc_bvh;
+	std::stack<BVH*> st;
+	std::unordered_map<BVH*, int> m;
+	// first iteration: make the structs, and map from node to index
+	st.push(bvh);
+	while (!st.empty()) {
+		BVH* ptr = st.top(); st.pop();
+		int self_index = ispc_data->bvh_root.size();
+		m[ptr] = self_index;
+		// make the node (except children indices)
+		ispc::BVH node;
+		node.min = ispc_vec3(ptr->min);
+		node.max = ispc_vec3(ptr->max);
+		node.triangles_start = ptr->primitives_start;
+		node.triangles_count = ptr->primitives_count;
+		node.self_index = self_index;
+		ispc_data->bvh_root.push_back(node);
+		// push children
+		if (ptr->left) st.push(ptr->right);
+		if (ptr->right) st.push(ptr->left);
+	}
+	// second iteration: set children indices
+	st.push(bvh);
+	while (!st.empty()) {
+		BVH* ptr = st.top(); st.pop();
+		bool is_leaf = !ptr->left || !ptr->right;
+		int self_index = m[ptr];
+		int left_index = is_leaf ? -1 : m[ptr->left];
+		int right_index = is_leaf ? -1 : m[ptr->right];
+		ispc_data->bvh_root[self_index].left_index = left_index;
+		ispc_data->bvh_root[self_index].right_index = right_index;
+
+		// push children
+		if (ptr->left) st.push(ptr->right);
+		if (ptr->right) st.push(ptr->left);
+	}
+
+	// and the rest of the inputs
+	ispc_data->width = width;
+	ispc_data->height = height;
+	ispc_data->tile_size = tile_size;
+	ispc_data->num_threads = Cfg.Pathtracer.Multithreaded ? Cfg.Pathtracer.NumThreads : 1;
+	ispc_data->max_ray_depth = Cfg.Pathtracer.MaxRayDepth;
+	ispc_data->rr_threshold = Cfg.Pathtracer.RussianRouletteThreshold;
+	ispc_data->use_direct_light = Cfg.Pathtracer.UseDirectLight;
+	ispc_data->area_light_samples = Cfg.Pathtracer.AreaLightSamples;
+	ispc_data->use_bvh = Cfg.Pathtracer.UseBVH->get();
+
+	TRACE("reloaded ISPC data");
 }
 
 void Pathtracer::raytrace_scene_to_buf() {
 
 	if (Cfg.Pathtracer.ISPC)
 	{
-		auto ispc_vec3 = [](const vec3& v) {
-			ispc::vec3 res;
-			res.x = v.x; res.y = v.y; res.z = v.z;
-			return res;
-		};
-		
-		// construct scene representation (triangles + materials list)
-		ispc::BSDF bsdfs[primitives.size()];
-
-		ispc::Triangle triangles[primitives.size()];
-		for (int i=0; i<primitives.size(); i++) {
-			ispc::Triangle &T = triangles[i];
-			Triangle* T0 = dynamic_cast<Triangle*>(primitives[i]);
-			if (!T0) ERR("failed to cast primitive to triangle?");
-			// construct its corresponding material
-			T.bsdf_index = i;
-			bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
-			bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
-			bsdfs[i].is_delta = T0->bsdf->is_delta;
-			bsdfs[i].is_emissive = T0->bsdf->is_emissive;
-			if (T0->bsdf->type == BSDF::Mirror) {
-				bsdfs[i].type = ispc::Mirror;
-			} else if (T0->bsdf->type == BSDF::Glass) {
-				bsdfs[i].type = ispc::Glass;
-			} else {
-				bsdfs[i].type = ispc::Diffuse;
-			}
-			// construct the ispc triangle object
-			for (int j=0; j<3; j++) {
-				T.vertices[j] = ispc_vec3(T0->vertices[j]);
-				T.enormals[j] = ispc_vec3(T0->enormals[j]);
-			}
-			T.plane_n = ispc_vec3(T0->plane_n);
-			T.plane_k = T0->plane_k;
-			T.area = T0->area;
-		}
-
-		uint light_indices[lights.size()];
-		uint light_count = 0;
-		for (int i=0; i<lights.size(); i++) {
-			if (lights[i]->type == PathtracerLight::AreaLight) {
-				Triangle* T = dynamic_cast<AreaLight*>(lights[i])->triangle;
-				auto it = find(primitives.begin(), primitives.end(), T);
-				if (it != primitives.end()) { // found
-					light_indices[light_count] = it - primitives.begin();
-				}
-				light_count++;
-			}
-		}
-
-		// construct camera
-		ispc::Camera camera;
-		mat3 c2wr = Camera::Active->camera_to_world_rotation();
-		camera.camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
-		camera.camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
-		camera.camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
-		camera.position = ispc_vec3(Camera::Active->position);
-		camera.fov = Camera::Active->fov;
-		camera.aspect_ratio = Camera::Active->aspect_ratio;
-
-		float* offsets = (float*)pixel_offsets.data();
-
-		// BVH
-		std::vector<ispc::BVH> ispc_bvh;
-		std::stack<BVH*> st;
-		std::unordered_map<BVH*, int> m;
-		// first iteration: make the structs, and map from node to index
-		st.push(bvh);
-		while (!st.empty()) {
-			BVH* ptr = st.top(); st.pop();
-			int self_index = ispc_bvh.size();
-			m[ptr] = self_index;
-			// make the node (except children indices)
-			ispc::BVH node;
-			node.min = ispc_vec3(ptr->min);
-			node.max = ispc_vec3(ptr->max);
-			node.triangles_start = ptr->primitives_start;
-			node.triangles_count = ptr->primitives_count;
-			node.self_index = self_index;
-			ispc_bvh.push_back(node);
-			// push children
-			if (ptr->left) st.push(ptr->right);
-			if (ptr->right) st.push(ptr->left);
-		}
-		// second iteration: set children indices
-		st.push(bvh);
-		while (!st.empty()) {
-			BVH* ptr = st.top(); st.pop();
-			bool is_leaf = !ptr->left || !ptr->right;
-			int self_index = m[ptr];
-			int left_index = is_leaf ? -1 : m[ptr->left];
-			int right_index = is_leaf ? -1 : m[ptr->right];
-			ispc_bvh[self_index].left_index = left_index;
-			ispc_bvh[self_index].right_index = right_index;
-
-			// push children
-			if (ptr->left) st.push(ptr->right);
-			if (ptr->right) st.push(ptr->left);
-		}
-		// pointer to be passed in
-		ispc::BVH* ispc_bvh_data = (ispc::BVH*)ispc_bvh.data();
-
-		LOGF("passing %u bvh nodes to ispc", ispc_bvh.size());
+		load_ispc_data();
 
 		// dispatch task to ispc
 		ispc::raytrace_scene_ispc(
-			&camera, 
-			offsets, pixel_offsets.size(), 
-			triangles, bsdfs, light_indices,
-			primitives.size(), light_count,
-			image_buffer, 
-			width, height, 
-			Cfg.Pathtracer.Multithreaded ? Cfg.Pathtracer.NumThreads : 1,
-			Cfg.Pathtracer.MaxRayDepth, 
-			Cfg.Pathtracer.RussianRouletteThreshold,
-			Cfg.Pathtracer.UseDirectLight,
-			Cfg.Pathtracer.AreaLightSamples,
-			ispc_bvh_data,
-			Cfg.Pathtracer.UseBVH->get());
+			ispc_data->camera.data(), 
+			(float*)ispc_data->pixel_offsets.data(),
+			ispc_data->num_offsets,
+			ispc_data->triangles.data(),
+			ispc_data->bsdfs.data(),
+			ispc_data->area_light_indices.data(),
+			ispc_data->num_triangles,
+			ispc_data->num_area_lights,
+			image_buffer,
+			ispc_data->width,
+			ispc_data->height,
+			false,
+			ispc_data->tile_size,
+			0, 0, // tile_width, tile_height
+			0, 0, // tile_indexX, tile_indexY
+			ispc_data->num_threads,
+			ispc_data->max_ray_depth,
+			ispc_data->rr_threshold,
+			ispc_data->use_direct_light,
+			ispc_data->area_light_samples,
+			ispc_data->bvh_root.data(),
+			ispc_data->use_bvh);
 	}
 	else
 	{
@@ -682,7 +772,8 @@ void Pathtracer::output_file(const std::string& path) {
 
 void Pathtracer::update(float elapsed) {
 
-	if (Cfg.Pathtracer.Multithreaded) {
+	if (Cfg.Pathtracer.Multithreaded && !Cfg.Pathtracer.ISPC)
+	{
 		if (!finished) {
 			int uploaded_threads = 0;
 			int finished_threads = 0;
@@ -724,7 +815,9 @@ void Pathtracer::update(float elapsed) {
 			}
 		}
 	
-	} else {
+	}
+	else
+	{
 		if (!paused) {
 			if (rendered_tiles == tiles_X * tiles_Y) {
 				TRACE("Done!");

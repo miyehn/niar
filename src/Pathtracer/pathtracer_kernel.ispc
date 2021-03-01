@@ -93,7 +93,11 @@ struct Global
     uniform uint num_bsdfs;
     uniform uint num_area_lights;
 
-    uniform uint width, height, max_ray_depth;
+    uniform uint width, height;
+    uniform bool rendering_to_tile;
+    uniform uint tile_width, tile_height, tile_size, tile_indexX, tile_indexY;
+
+    uniform uint max_ray_depth;
     uniform float rr_threshold;
     uniform bool use_direct_light;
     uniform uint area_light_samples;
@@ -104,7 +108,6 @@ struct Global
 
     uniform vec3* output_tmp; // a temporary buffer that stores float
     uniform uint8* output;
-    //uniform bool finished[QUEUE_SIZE];
 };
 
 uniform Global G;
@@ -563,8 +566,14 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 {
     *rtask = new_RayTask();
     rtask->finished = false;
-    int w = pixel_index % G.width; // TODO
-    int h = pixel_index / G.width; // TODO
+    int w, h;
+    if (G.rendering_to_tile) {
+        w = G.tile_size * G.tile_indexX + pixel_index % G.tile_width;
+        h = G.tile_size * G.tile_indexY + pixel_index / G.tile_width;
+    } else {
+        w = pixel_index % G.width;
+        h = pixel_index / G.width;
+    }
     float fov = G.camera->fov;
     float half_width = G.width / 2.0f;
     float half_height = G.height / 2.0f;
@@ -608,7 +617,7 @@ inline void trace_ray(RayTask &rtask)
     float t = ray.tmax;
     vec3 n = rtask.triangle_normal;
 
-    // pre-compute (or declare) some common thing sto be used later
+    // pre-compute (or declare) some common things to be used later
     vec3 L = new_vec3();
     vec3 hit_p = vadd(ray.o, smul(t, ray.d));
     // construct transform from hemisphere space to world space
@@ -649,21 +658,7 @@ inline void trace_ray(RayTask &rtask)
 
                 // test if ray to light hits anything other than the starting primitive and the light
                 float tmp_t; vec3 tmp_n;
-                #if 1
                 bool in_shadow = intersect_scene(ray_to_light, tmp_t, tmp_n) >= 0;
-                #else
-                bool in_shadow = false;
-                Triangle* hit_prim;
-                for (uint k = 0; k < G.num_triangles; k++) {
-                    if (intersect(G.triangles[k], ray_to_light, tmp_t, tmp_n, false)) {
-                        hit_prim = G.triangles + k;
-                        if (hit_prim != primitive && hit_prim != area_light_T) {
-                            in_shadow = true;
-                            break;
-                        }
-                    }
-                }
-                #endif
 
                 // add contribution
                 if (!in_shadow) {
@@ -910,6 +905,7 @@ task void raytrace_scene_ispc_task(
             }
         }
     }
+
     
     //-------- trace 'em --------
     uniform uint first_ray_in_minibatch_offset = (pixels_per_mini_batch * minibatch) * G.num_offsets;
@@ -923,7 +919,7 @@ task void raytrace_scene_ispc_task(
         G.output_tmp[rtask->buf_index] = new_vec3();
     }
 
-    for (uniform uint i = 0; i < G.max_ray_depth / 2; i++)
+    for (uniform uint i = 0; i < G.max_ray_depth; i++)
     {
         // trace all the rays for one bounce
         foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
@@ -943,15 +939,7 @@ task void raytrace_scene_ispc_task(
         // reorder them based on the material they hit
         // currently this actually increases runtime by ~5%, will see how it goes when more materials are added.
         // (note: I have no idea why merging the below two function calls result in weird memory accesses)
-#if 1
-        //uniform uint bsdf_buckets[NUM_MATERIAL_TYPES];
         sort_rays_bsdf(first_ray_in_minibatch_offset, rays_left_in_minibatch);
-#else
-        foreach (j = 0 ... rays_left_in_minibatch) {
-            *(G.ray_tasks + first_ray_in_minibatch_offset + j) = 
-                cpy_RayTask(G.ray_tasks_backup + first_ray_in_minibatch_offset + j);
-        }
-#endif
     }
     
     //-------- average results and store into output buffer --------
@@ -983,6 +971,12 @@ export void raytrace_scene_ispc(
     uniform uint8 output[],
     uniform uint width,
     uniform uint height,
+    uniform bool rendering_to_tile,
+    uniform uint tile_size,
+    uniform uint tile_width,
+    uniform uint tile_height,
+    uniform uint tile_indexX,
+    uniform uint tile_indexY,
     uniform uint num_threads,
     uniform uint max_ray_depth,
     uniform float rr_threshold,
@@ -1007,6 +1001,12 @@ export void raytrace_scene_ispc(
     G.num_area_lights = num_area_lights;
     G.width = width;
     G.height = height;
+    G.rendering_to_tile = rendering_to_tile;
+    G.tile_size = tile_size;
+    G.tile_width = tile_width;
+    G.tile_height = tile_height;
+    G.tile_indexX = tile_indexX;
+    G.tile_indexY = tile_indexY;
     G.max_ray_depth = max_ray_depth;
     G.output = output;
     G.rr_threshold = rr_threshold;
@@ -1026,11 +1026,12 @@ export void raytrace_scene_ispc(
         seed_rng(&G.rng, i);
     }
 
-    uniform uint buf_size = width * height;
+    uniform uint buf_size = rendering_to_tile ? tile_width * tile_height : width * height;
     uniform uint buf_size3 = buf_size * 3;
+    uniform uint buf_size3_full = rendering_to_tile ? tile_size*tile_size*3 : buf_size3;
 
     // initialize buffer
-    foreach (i = 0 ... buf_size3) {
+    foreach (i = 0 ... buf_size3_full) {
         output[i] = 128;
     }
 
@@ -1057,6 +1058,7 @@ export void raytrace_scene_ispc(
         sync;
     }
 
+    // TODO: optimize by reusing such small buffers (by allocating on cpp then pass in)
     delete[] G.output_tmp;
     delete[] G.ray_tasks;
     delete[] G.ray_tasks_backup;
