@@ -1,13 +1,17 @@
 #pragma once
 #include "Drawable.hpp"
 #include "Utils.hpp"
+#include "BVH.hpp"
 
 struct Scene;
 struct Ray;
+struct RayTask;
 struct Primitive;
 struct PathtracerLight;
 struct RaytraceThread;
 struct MatGeneric;
+
+struct ISPC_Data;
 
 struct Pathtracer : public Drawable {
 
@@ -28,7 +32,9 @@ struct Pathtracer : public Drawable {
 	void enable();
 	void disable();
 
-	void raytrace_scene(); //trace to main output buffer directly; used for rendering to file
+	static Scene* load_cornellbox_scene(bool init_graphics = false);
+
+	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
 	void output_file(const std::string& path);
 
 private:
@@ -54,7 +60,12 @@ private:
 	// scene
 	std::vector<Primitive*> primitives;
 	std::vector<PathtracerLight*> lights;
+	BVH* bvh;
 	void load_scene(const Scene& scene);
+	bool use_bvh;
+
+	ISPC_Data* ispc_data;
+	void load_ispc_data();
 
 	//---- pathtracing routine ----
 	
@@ -66,11 +77,11 @@ private:
 	float depth_of_first_hit(int x, int y);
 
 	// routine
-	void generate_one_ray(Ray& ray, int x, int y);
-	void generate_rays(std::vector<Ray>& rays, size_t index);
+	void generate_one_ray(RayTask& task, int x, int y);
+	void generate_rays(std::vector<RayTask>& tasks, size_t index);
 	vec3 raytrace_pixel(size_t index);
 	void raytrace_tile(size_t tid, size_t tile_index);
-	vec3 trace_ray(Ray& ray, int ray_depth, bool debug);
+	void trace_ray(RayTask& task, int ray_depth, bool debug);
 
 	// for debug use
 	void raytrace_debug(size_t index);

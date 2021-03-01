@@ -26,6 +26,8 @@ void initialize_pathtracer_config() {
 
 	try {
 		// pathtracer
+		Cfg.Pathtracer.ISPC = config_src.lookup("Pathtracer.ISPC");
+		Cfg.Pathtracer.UseBVH->set(config_src.lookup("Pathtracer.UseBVH"));
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");
@@ -66,6 +68,8 @@ void initialize_config() {
 		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
 		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
 
+		Cfg.Pathtracer.ISPC = config_src.lookup("Pathtracer.ISPC");
+		Cfg.Pathtracer.UseBVH->set(config_src.lookup("Pathtracer.UseBVH"));
 		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
 		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
 		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");

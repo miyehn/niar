@@ -17,6 +17,14 @@ vec3 hemisphere_cos_weighed();
 
 struct BSDF {
 
+	enum Type {
+		Diffuse,
+		Mirror,
+		Glass
+	};
+
+	Type type;
+
 	bool is_delta;
 	bool is_emissive;
 
@@ -50,6 +58,7 @@ protected:
 
 struct Diffuse : public BSDF {
 	Diffuse(vec3 _albedo = vec3(1)) {
+		type = BSDF::Diffuse;
 		is_delta = false;
 		albedo = _albedo;
 		set_emission(vec3(0));
@@ -60,6 +69,7 @@ struct Diffuse : public BSDF {
 
 struct Mirror : public BSDF {
 	Mirror() {
+		type = BSDF::Mirror;
 		is_delta = true;
 		albedo = vec3(1);
 		set_emission(vec3(0));
@@ -71,6 +81,7 @@ struct Mirror : public BSDF {
 struct Glass : public BSDF {
 	float IOR;
 	Glass(float _IOR = 1.52f) : IOR(_IOR) {
+		type = BSDF::Glass;
 		is_delta = true;
 		albedo = vec3(1);
 		set_emission(vec3(0));

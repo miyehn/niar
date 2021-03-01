@@ -29,14 +29,15 @@ int main(int argc, const char * argv[]) {
 	uint w = 800;
 	uint h = 600;
 
-	if (result.count("width")) {
-		w = result["width"].as<int>();
-	}
-	if (result.count("height")) {
-		h = result["height"].as<int>();
-	}
 	if (result.count("output")) {
 		// render pathtracer scene to file
+		w = 200; h = 150;
+		if (result.count("width")) {
+			w = result["width"].as<int>();
+		}
+		if (result.count("height")) {
+			h = result["height"].as<int>();
+		}
 		std::string path = result["output"].as<std::string>();
 		LOGF("rendering pathtracer scene to file: %s", path.c_str());
 		Program::pathtrace_to_file(w, h, path);

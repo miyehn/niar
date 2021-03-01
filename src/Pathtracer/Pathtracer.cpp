@@ -7,10 +7,15 @@
 #include "PathtracerLight.hpp"
 #include "Input.hpp"
 #include "Materials.hpp"
+#include <stack>
+#include <unordered_map>
 #include <chrono>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
+
+// include this generated header to be able to use the kernels
+#include "pathtracer_kernel_ispc.h"
 
 CVar<float>* FocalDistance = new CVar<float>("FocalDistance", 500);
 CVar<float>* ApertureRadius = new CVar<float>("ApertureRadius", 8);
@@ -35,6 +40,29 @@ struct RaytraceThread {
 	std::atomic<Status> status;
 	int tile_index; // protected by m just like the tile buffer
 
+};
+
+struct ISPC_Data
+{
+	std::vector<ispc::Camera> camera;
+	std::vector<glm::vec2> pixel_offsets;
+	uint32_t num_offsets;
+	std::vector<ispc::Triangle> triangles;
+	std::vector<ispc::BSDF> bsdfs;
+	std::vector<uint32_t> area_light_indices;
+	uint32_t num_triangles;
+	uint32_t num_area_lights;
+	//uint8_t* output;
+	uint32_t width;
+	uint32_t height;
+	uint32_t tile_size;
+	uint32_t num_threads;
+	uint32_t max_ray_depth;
+	float rr_threshold;
+	bool use_direct_light;
+	uint32_t area_light_samples;
+	std::vector<ispc::BVH> bvh_root;
+	bool use_bvh;
 };
 
 Pathtracer::Pathtracer(
@@ -74,8 +102,85 @@ Pathtracer::~Pathtracer() {
 	for (auto l : lights) delete l;
 	for (auto t : primitives) delete t;
 
+	if (bvh) delete bvh;
+
 	if (loggedrays_mat) delete loggedrays_mat;
 	TRACE("deleted pathtracer");
+}
+
+Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
+
+	/* Classic cornell box
+	 *
+	 * NOTE: it forces everything to be rendered with basic lighting when pathtracer is disabled
+	 * bc this scene only contains area(mesh) lights, which is only supported by pathtracer.
+	 *
+	 * Also this scene itself doesn't contain the two spheres - they're later added in Pathtracer::initialize()
+	 * Can alternatively disable the two spheres over there and add other custom meshes (see below)
+	 */
+	Camera::Active->position = vec3(0, 0, 0);
+	Camera::Active->cutoffFar = 1000.0f;
+	Camera::Active->fov = radians(30.0f);
+
+	Scene* scene = new Scene("my scene");
+
+	// cornell box scene
+	std::vector<Mesh*> meshes;
+#if 1
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx", init_graphics);
+	for (int i=0; i<meshes.size(); i++) { // 4 is floor
+		Mesh* mesh = meshes[i];
+		mesh->bsdf = new Diffuse(vec3(0.6f));
+		if (i==1) {// right
+			mesh->bsdf->albedo = vec3(0.4f, 0.4f, 0.6f); 
+		} else if (i==2) {// left
+			mesh->bsdf->albedo = vec3(0.6f, 0.4f, 0.4f); 
+		}
+		scene->add_child(static_cast<Drawable*>(mesh));
+	}
+
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_light.fbx", init_graphics);
+	Mesh* light = meshes[0];
+	light->bsdf = new Diffuse();
+	light->name = "light";
+	light->bsdf->set_emission(vec3(10.0f));
+	scene->add_child(static_cast<Drawable*>(light));
+#endif
+
+	// add more items to it
+	Mesh* mesh;
+#if 1
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_1.fbx", init_graphics);
+	mesh = meshes[0];
+	mesh->bsdf = new Mirror();
+	mesh->name = "prism 1";
+	scene->add_child(static_cast<Drawable*>(mesh));
+
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_2.fbx", init_graphics);
+	mesh = meshes[0];
+	mesh->bsdf = new Diffuse(vec3(0.4f, 0.5f, 0.6f));
+	mesh->name = "prism 2";
+	scene->add_child(static_cast<Drawable*>(mesh));
+#endif
+
+#if 1
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/poly_sphere.fbx", init_graphics);
+	mesh = meshes[0];
+	mesh->bsdf = new Glass();
+	mesh->name = "sphere1";
+	scene->add_child(static_cast<Drawable*>(mesh));
+#endif
+
+#if 0
+	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/16planes.fbx", init_graphics);
+	for (int i=0; i<meshes.size(); i++) { // 4 is floor
+		Mesh* mesh = meshes[i];
+		mesh->bsdf = new Diffuse(vec3(0.6f));
+		scene->add_child(static_cast<Drawable*>(mesh));
+	}
+#endif
+
+	return scene;
 }
 
 void Pathtracer::initialize() {
@@ -95,12 +200,16 @@ void Pathtracer::initialize() {
 
 	//-------- load scene --------
 	
+	bvh = nullptr;
+	use_bvh = true;
 	if (Scene::Active) load_scene(*Scene::Active);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
-#if 1
+	ispc_data = nullptr;
+
+#if 0
 	// the two spheres (classical cornell box)
-	BSDF* sphere_bsdf_1 = new Mirror();
+	BSDF* sphere_bsdf_1 = new Glass();
 	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));
 	BSDF* sphere_bsdf_2 = new Glass();
 	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
@@ -217,6 +326,8 @@ void Pathtracer::load_scene(const Scene& scene) {
 	primitives.clear();
 	lights.clear();
 
+	bvh = new BVH(&primitives);
+
 	for (Drawable* drawable : scene.children) {
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {
@@ -232,7 +343,8 @@ void Pathtracer::load_scene(const Scene& scene) {
 				Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
 				Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
 				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
-				primitives.push_back(static_cast<Primitive*>(T));
+				Primitive* P = static_cast<Primitive*>(T);
+				primitives.push_back(P);
 				
 				// also load as light if emissive
 				if (emissive) {
@@ -241,6 +353,10 @@ void Pathtracer::load_scene(const Scene& scene) {
 			}
 		}
 	}
+	bvh->primitives_start = 0;
+	bvh->primitives_count = primitives.size();
+	bvh->update_extents();
+	bvh->expand_bvh();
 
 	TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
 			scene.children.size(), primitives.size(), lights.size());
@@ -270,6 +386,10 @@ void Pathtracer::pause_trace() {
 void Pathtracer::continue_trace() {
 	TRACE("continue trace");
 	last_begin_time = std::chrono::high_resolution_clock::now();
+	use_bvh = Cfg.Pathtracer.UseBVH->get();
+	if (Cfg.Pathtracer.ISPC) {
+		load_ispc_data();
+	}
 	paused = false;
 }
 
@@ -369,35 +489,262 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 	size_t x_offset = X * tile_size;
 	size_t y_offset = Y * tile_size;
 
-	for (size_t y = 0; y < tile_h; y++) {
-		for (size_t x = 0; x < tile_w; x++) {
+	if (Cfg.Pathtracer.ISPC)
+	{
+		// dispatch task to ispc
+		ispc::raytrace_scene_ispc(
+			ispc_data->camera.data(), 
+			(float*)ispc_data->pixel_offsets.data(),
+			ispc_data->num_offsets,
+			ispc_data->triangles.data(),
+			ispc_data->bsdfs.data(),
+			ispc_data->area_light_indices.data(),
+			ispc_data->num_triangles,
+			ispc_data->num_area_lights,
+			subimage_buffers[tid],
+			ispc_data->width,
+			ispc_data->height,
+			true,
+			ispc_data->tile_size,
+			tile_w, tile_h,
+			X, Y,
+			ispc_data->num_threads,
+			ispc_data->max_ray_depth,
+			ispc_data->rr_threshold,
+			ispc_data->use_direct_light,
+			ispc_data->area_light_samples,
+			ispc_data->bvh_root.data(),
+			ispc_data->use_bvh);
+	}
+	else
+	{
+		for (size_t y = 0; y < tile_h; y++) {
+			for (size_t x = 0; x < tile_w; x++) {
 
-			size_t px_index_main = width * (y_offset + y) + (x_offset + x);
-			vec3 color = raytrace_pixel(px_index_main);
-			set_mainbuffer_rgb(px_index_main, color);
+				size_t px_index_main = width * (y_offset + y) + (x_offset + x);
+				vec3 color = raytrace_pixel(px_index_main);
+				set_mainbuffer_rgb(px_index_main, color);
 
-			size_t px_index_sub = y * tile_w + x;
-			set_subbuffer_rgb(tid, px_index_sub, color);
+				size_t px_index_sub = y * tile_w + x;
+				set_subbuffer_rgb(tid, px_index_sub, color);
 
+			}
 		}
 	}
 
 }
 
-void Pathtracer::raytrace_scene() {
-	for (size_t y = 0; y < height; y++) {
-		for (size_t x = 0; x < width; x++) {
+void Pathtracer::load_ispc_data() {
 
-			size_t px_index = width * y + x;
-			vec3 color = raytrace_pixel(px_index);
-			set_mainbuffer_rgb(px_index, color);
+	if (ispc_data != nullptr) {
+		delete(ispc_data);
+	}
+	ispc_data = new ISPC_Data();
 
+	auto ispc_vec3 = [](const vec3& v) {
+		ispc::vec3 res;
+		res.x = v.x; res.y = v.y; res.z = v.z;
+		return res;
+	};
+	
+	// construct scene representation (triangles + materials list)
+	ispc_data->bsdfs.resize(primitives.size());
+	ispc_data->triangles.resize(primitives.size());
+	for (int i=0; i<primitives.size(); i++)
+	{
+		ispc::Triangle &T = ispc_data->triangles[i];
+		Triangle* T0 = dynamic_cast<Triangle*>(primitives[i]);
+		if (!T0) ERR("failed to cast primitive to triangle?");
+		// construct its corresponding material
+		T.bsdf_index = i;
+		ispc_data->bsdfs[i].albedo = ispc_vec3(T0->bsdf->albedo);
+		ispc_data->bsdfs[i].Le = ispc_vec3(T0->bsdf->get_emission());
+		ispc_data->bsdfs[i].is_delta = T0->bsdf->is_delta;
+		ispc_data->bsdfs[i].is_emissive = T0->bsdf->is_emissive;
+		if (T0->bsdf->type == BSDF::Mirror) {
+			ispc_data->bsdfs[i].type = ispc::Mirror;
+		} else if (T0->bsdf->type == BSDF::Glass) {
+			ispc_data->bsdfs[i].type = ispc::Glass;
+		} else {
+			ispc_data->bsdfs[i].type = ispc::Diffuse;
+		}
+		// construct the ispc triangle object
+		for (int j=0; j<3; j++) {
+			T.vertices[j] = ispc_vec3(T0->vertices[j]);
+			T.enormals[j] = ispc_vec3(T0->enormals[j]);
+		}
+		T.plane_n = ispc_vec3(T0->plane_n);
+		T.plane_k = T0->plane_k;
+		T.area = T0->area;
+	}
+	ispc_data->num_triangles = primitives.size();
+
+	ispc_data->area_light_indices.resize(lights.size());
+	uint light_count = 0;
+	for (int i=0; i<lights.size(); i++) {
+		if (lights[i]->type == PathtracerLight::AreaLight) {
+			Triangle* T = dynamic_cast<AreaLight*>(lights[i])->triangle;
+			auto it = find(primitives.begin(), primitives.end(), T);
+			if (it != primitives.end()) { // found
+				ispc_data->area_light_indices[light_count] = it - primitives.begin();
+			}
+			light_count++;
 		}
 	}
+	ispc_data->num_area_lights = light_count;
+
+	// construct camera
+	ispc_data->camera.resize(1);
+	mat3 c2wr = Camera::Active->camera_to_world_rotation();
+	ispc_data->camera[0].camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
+	ispc_data->camera[0].camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
+	ispc_data->camera[0].camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
+	ispc_data->camera[0].position = ispc_vec3(Camera::Active->position);
+	ispc_data->camera[0].fov = Camera::Active->fov;
+	ispc_data->camera[0].aspect_ratio = Camera::Active->aspect_ratio;
+
+	// pixel offsets
+	ispc_data->pixel_offsets = pixel_offsets;
+	ispc_data->num_offsets = pixel_offsets.size();
+
+	// BVH
+	//std::vector<ispc::BVH> ispc_bvh;
+	std::stack<BVH*> st;
+	std::unordered_map<BVH*, int> m;
+	// first iteration: make the structs, and map from node to index
+	st.push(bvh);
+	while (!st.empty()) {
+		BVH* ptr = st.top(); st.pop();
+		int self_index = ispc_data->bvh_root.size();
+		m[ptr] = self_index;
+		// make the node (except children indices)
+		ispc::BVH node;
+		node.min = ispc_vec3(ptr->min);
+		node.max = ispc_vec3(ptr->max);
+		node.triangles_start = ptr->primitives_start;
+		node.triangles_count = ptr->primitives_count;
+		node.self_index = self_index;
+		ispc_data->bvh_root.push_back(node);
+		// push children
+		if (ptr->left) st.push(ptr->right);
+		if (ptr->right) st.push(ptr->left);
+	}
+	// second iteration: set children indices
+	st.push(bvh);
+	while (!st.empty()) {
+		BVH* ptr = st.top(); st.pop();
+		bool is_leaf = !ptr->left || !ptr->right;
+		int self_index = m[ptr];
+		int left_index = is_leaf ? -1 : m[ptr->left];
+		int right_index = is_leaf ? -1 : m[ptr->right];
+		ispc_data->bvh_root[self_index].left_index = left_index;
+		ispc_data->bvh_root[self_index].right_index = right_index;
+
+		// push children
+		if (ptr->left) st.push(ptr->right);
+		if (ptr->right) st.push(ptr->left);
+	}
+
+	// and the rest of the inputs
+	ispc_data->width = width;
+	ispc_data->height = height;
+	ispc_data->tile_size = tile_size;
+	ispc_data->num_threads = Cfg.Pathtracer.Multithreaded ? Cfg.Pathtracer.NumThreads : 1;
+	ispc_data->max_ray_depth = Cfg.Pathtracer.MaxRayDepth;
+	ispc_data->rr_threshold = Cfg.Pathtracer.RussianRouletteThreshold;
+	ispc_data->use_direct_light = Cfg.Pathtracer.UseDirectLight;
+	ispc_data->area_light_samples = Cfg.Pathtracer.AreaLightSamples;
+	ispc_data->use_bvh = Cfg.Pathtracer.UseBVH->get();
+
+	TRACE("reloaded ISPC data");
+}
+
+void Pathtracer::raytrace_scene_to_buf() {
+
+	if (Cfg.Pathtracer.ISPC)
+	{
+		load_ispc_data();
+
+		// dispatch task to ispc
+		ispc::raytrace_scene_ispc(
+			ispc_data->camera.data(), 
+			(float*)ispc_data->pixel_offsets.data(),
+			ispc_data->num_offsets,
+			ispc_data->triangles.data(),
+			ispc_data->bsdfs.data(),
+			ispc_data->area_light_indices.data(),
+			ispc_data->num_triangles,
+			ispc_data->num_area_lights,
+			image_buffer,
+			ispc_data->width,
+			ispc_data->height,
+			false,
+			ispc_data->tile_size,
+			0, 0, // tile_width, tile_height
+			0, 0, // tile_indexX, tile_indexY
+			ispc_data->num_threads,
+			ispc_data->max_ray_depth,
+			ispc_data->rr_threshold,
+			ispc_data->use_direct_light,
+			ispc_data->area_light_samples,
+			ispc_data->bvh_root.data(),
+			ispc_data->use_bvh);
+	}
+	else
+	{
+		use_bvh = Cfg.Pathtracer.UseBVH->get();
+		if (Cfg.Pathtracer.Multithreaded)
+		{
+			TaskQueue<uint> tasks;
+			uint task_size = tile_size * tile_size;
+			uint image_size = width * height;
+			for (uint i = 0; i < image_size; i += task_size) {
+				tasks.enqueue(i);
+			}
+			std::function<void(int)> raytrace_task = [&](int tid){
+				uint task_begin;
+				while (tasks.dequeue(task_begin))
+				{
+					uint task_end = glm::min(image_size, task_begin + task_size);
+					for (uint task = task_begin; task < task_end; task++)
+					{
+						vec3 color = raytrace_pixel(task);
+						set_mainbuffer_rgb(task, color);
+					}
+				}
+			};
+			LOGF("enqueued %u tasks", tasks.size());
+			// create the threads and execute
+			std::vector<std::thread> threads_tmp;
+			for (uint tid = 0; tid < num_threads; tid++) {
+				threads_tmp.push_back(std::thread(raytrace_task, tid));
+			}
+			LOGF("created %u threads", num_threads);
+			for (uint tid = 0; tid < num_threads; tid++) {
+				threads_tmp[tid].join();
+			}
+			LOG("joined threads");
+		}
+		else
+		{
+			for (size_t y = 0; y < height; y++) {
+				for (size_t x = 0; x < width; x++) {
+
+					size_t px_index = width * y + x;
+					vec3 color = raytrace_pixel(px_index);
+					set_mainbuffer_rgb(px_index, color);
+
+				}
+			}
+		}
+
+	}
+
 }
 
 // https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
 void Pathtracer::output_file(const std::string& path) {
+
 	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; } 
 	std::ofstream ofs; 
 	try { 
@@ -425,7 +772,8 @@ void Pathtracer::output_file(const std::string& path) {
 
 void Pathtracer::update(float elapsed) {
 
-	if (Cfg.Pathtracer.Multithreaded) {
+	if (Cfg.Pathtracer.Multithreaded && !Cfg.Pathtracer.ISPC)
+	{
 		if (!finished) {
 			int uploaded_threads = 0;
 			int finished_threads = 0;
@@ -467,7 +815,9 @@ void Pathtracer::update(float elapsed) {
 			}
 		}
 	
-	} else {
+	}
+	else
+	{
 		if (!paused) {
 			if (rendered_tiles == tiles_X * tiles_Y) {
 				TRACE("Done!");
@@ -492,7 +842,7 @@ void Pathtracer::draw() {
 	
 	//---- draw the image buffer first ----
 
-	glViewport(0, 0, width*2, height*2);
+	glViewport(0, 0, width, height);
 
 	Blit* blit = Blit::blit();
 	blit->begin_pass();

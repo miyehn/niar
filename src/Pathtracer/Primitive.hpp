@@ -8,12 +8,22 @@ struct Ray {
 	Ray(vec3 _o = vec3(0), vec3 _d = vec3(0, 0, 1)) : o(_o), d(_d) {
 		tmin = 0.0f;
 		tmax = INF;
-		contribution = 1.0f;
+		rr_contribution = 1.0f;
 	}
 	vec3 o, d;
 	double tmin, tmax; 
-	float contribution; // TODO: why need tmin?
+	float rr_contribution; // TODO: why need tmin?
 	bool receive_le = false;
+};
+
+struct RayTask {
+	RayTask() {
+		output = vec3(0.0f);
+		contribution = vec3(1.0f);
+	}
+	Ray ray;
+	vec3 output;
+	vec3 contribution;
 };
 
 struct Primitive {

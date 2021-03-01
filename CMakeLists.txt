@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 project("niar")
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "-O3")
 
 find_package(OpenGL)
 find_package(Threads)
@@ -24,12 +25,16 @@ set(SRC
 	src/Pathtracer/Pathtracer
 	src/Pathtracer/BSDF
 	src/Pathtracer/PathtracerLight
+	src/Pathtracer/BVH
+	build/pathtracer_kernel.o
+	build/tasksys.o
 	include/openfbx/ofbx.cpp
 	)
 
 include_directories(include src)
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
+
 
 if(APPLE)
 	add_executable(niar ${SRC})
