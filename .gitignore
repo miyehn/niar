@@ -6,3 +6,4 @@ dist/
 objs/
 .vs
 out
+**DS_Store

@@ -232,7 +232,7 @@ void Pathtracer::initialize() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		// and for debug draw
-		loggedrays_mat = new MatGeneric("yellow");//Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
+		loggedrays_mat = new MatGeneric("yellow");
 
 		glGenBuffers(1, &loggedrays_vbo);
 		glGenVertexArrays(1, &loggedrays_vao);
@@ -251,7 +251,7 @@ void Pathtracer::initialize() {
 		glBindVertexArray(0);
 
 		if (Cfg.Pathtracer.Multithreaded) {
-			//------- -- threading ---------------
+			//------------- threading ---------------
 			// define work for raytrace threads
 			raytrace_task = [this](int tid) {
 				while (true) {
