@@ -103,6 +103,10 @@ struct Global
 	uniform uint area_light_samples;
 	uniform float area_light_sample_weight;
 
+	uniform bool use_dof;
+	uniform float focal_distance;
+	uniform float aperture_radius;
+
 	uniform RayTask* ray_tasks;
 	uniform RayTask* ray_tasks_backup;
 
@@ -260,6 +264,18 @@ inline vec3 sample_hemisphere_cos_weighed() {
 	float z = sqrt(1.0f - l * l);
 	
 	vec3 res = new_vec3(x, y, z);
+	return res;
+}
+
+inline vec3 sample_unit_disc() {
+	float x = rand01() - 0.5f;
+	float y = rand01() - 0.5f;
+	while (len(x, y) > 0.5f) {
+		x = rand01() - 0.5f;
+		y = rand01() - 0.5f;
+	}
+	x *= 2.0f; y *= 2.0f;
+	vec3 res = new_vec3(x, y, 0);
 	return res;
 }
 
@@ -607,6 +623,14 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 	varying mat3 c2wr = G.camera->camera_to_world_rotation;
 	vec3 d_unnormalized_w = mmul(c2wr, d_unnormalized_c);
 	ray->d = normalized(d_unnormalized_w);
+
+	if (G.use_dof) {
+		vec3 focal_p = vadd(ray->o, smul(G.focal_distance, d_unnormalized_w));
+		vec3 aperture_shift_cam = smul(G.aperture_radius, sample_unit_disc());
+		vec3 aperture_shift_world = mmul(c2wr, aperture_shift_cam);
+		ray->o = vadd(G.camera->position, aperture_shift_world);
+		ray->d = normalized(vsub(focal_p, ray->o));
+	}
 }
 
 // only traces one bounce (and set depth and finished)
@@ -992,7 +1016,10 @@ export void raytrace_scene_ispc(
 	uniform bool use_direct_light,
 	uniform uint area_light_samples,
 	uniform BVH bvh_root[],
-	uniform bool use_bvh
+	uniform bool use_bvh,
+	uniform bool use_dof,
+	uniform float focal_distance,
+	uniform float aperture_radius
 ){
 	// create task queue and enqueue all the initial tasks (camera rays)
 	// dequeue and execute?
@@ -1020,6 +1047,9 @@ export void raytrace_scene_ispc(
 	G.output = output;
 	G.rr_threshold = rr_threshold;
 	G.use_direct_light = use_direct_light;
+	G.use_dof = use_dof;
+	G.focal_distance = focal_distance;
+	G.aperture_radius = aperture_radius;
 	G.area_light_samples = area_light_samples;
 	G.area_light_sample_weight = 1.0f / area_light_samples;
 

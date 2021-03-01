@@ -60,6 +60,9 @@ struct ISPC_Data
 	uint32_t area_light_samples;
 	std::vector<ispc::BVH> bvh_root;
 	bool use_bvh;
+	bool use_dof;
+	float focal_distance;
+	float aperture_radius;
 };
 
 Pathtracer::Pathtracer(
@@ -516,7 +519,10 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 			ispc_data->use_direct_light,
 			ispc_data->area_light_samples,
 			ispc_data->bvh_root.data(),
-			ispc_data->use_bvh);
+			ispc_data->use_bvh,
+			ispc_data->use_dof,
+			ispc_data->focal_distance,
+			ispc_data->aperture_radius);
 	}
 	else
 	{
@@ -657,6 +663,9 @@ void Pathtracer::load_ispc_data() {
 	ispc_data->use_direct_light = Cfg.Pathtracer.UseDirectLight;
 	ispc_data->area_light_samples = Cfg.Pathtracer.AreaLightSamples;
 	ispc_data->use_bvh = Cfg.Pathtracer.UseBVH->get();
+	ispc_data->use_dof = Cfg.Pathtracer.UseDOF->get();
+	ispc_data->focal_distance = Cfg.Pathtracer.FocalDistance->get();
+	ispc_data->aperture_radius = Cfg.Pathtracer.ApertureRadius->get();
 
 	TRACE("reloaded ISPC data");
 }
@@ -690,7 +699,10 @@ void Pathtracer::raytrace_scene_to_buf() {
 			ispc_data->use_direct_light,
 			ispc_data->area_light_samples,
 			ispc_data->bvh_root.data(),
-			ispc_data->use_bvh);
+			ispc_data->use_bvh,
+			ispc_data->use_dof,
+			ispc_data->focal_distance,
+			ispc_data->aperture_radius);
 	}
 	else
 	{
