@@ -38,7 +38,9 @@ int main(int argc, const char * argv[]) {
 	if (result.count("output")) {
 		// render pathtracer scene to file
 		std::string path = result["output"].as<std::string>();
-		LOGF("%s", path.c_str());
+		LOGF("rendering pathtracer scene to file: %s", path.c_str());
+		Program::pathtrace_to_file(w, h, path);
+		return 0;
 	}
 
 	Program::Instance = new Program("niar", w, h);

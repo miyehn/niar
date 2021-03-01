@@ -4,6 +4,7 @@
 struct CVarBase;
 struct NamedTex;
 
+void initialize_pathtracer_config();
 void initialize_config();
 
 std::vector<NamedTex*> namedtex_list(NamedTex* new_tex = nullptr);

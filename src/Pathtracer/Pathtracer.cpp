@@ -40,7 +40,8 @@ struct RaytraceThread {
 Pathtracer::Pathtracer(
 	size_t _width, 
 	size_t _height, 
-	std::string _name
+	std::string _name,
+	bool _has_window
 	) : Drawable(nullptr, _name) {
 
 	if (Cfg.Pathtracer.SmallWindow) {
@@ -53,13 +54,16 @@ Pathtracer::Pathtracer(
 
 	initialized = false;
 	enabled = false;
+	has_window = _has_window;
 }
 
 Pathtracer::~Pathtracer() {
 	if (!initialized) return;
-	glDeleteTextures(1, &texture);
-	glDeleteBuffers(1, &loggedrays_vbo);
-	glDeleteVertexArrays(1, &loggedrays_vao);
+	if (has_window) {
+		glDeleteTextures(1, &texture);
+		glDeleteBuffers(1, &loggedrays_vbo);
+		glDeleteVertexArrays(1, &loggedrays_vao);
+	}
 	delete image_buffer;
 	for (size_t i=0; i<num_threads; i++) {
 		delete subimage_buffers[i];
@@ -104,66 +108,69 @@ void Pathtracer::initialize() {
 
 	//-------- opengl stuff setup --------
 
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	if (has_window) {
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
-	}
-	glBindTexture(GL_TEXTURE_2D, 0);
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		{
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	// and for debug draw
-	loggedrays_mat = new MatGeneric("yellow");//Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
-
-	glGenBuffers(1, &loggedrays_vbo);
-	glGenVertexArrays(1, &loggedrays_vao);
-	glBindVertexArray(loggedrays_vao);
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
-		glVertexAttribPointer(
-				0, // atrib index
-				3, // num of data elems
-				GL_FLOAT, // data type
-				GL_FALSE, // normalized
-				3 * sizeof(float), // stride size
-				(void*)0); // offset in bytes since stride start
-		glEnableVertexAttribArray(0);
-	}
-	glBindVertexArray(0);
-
-	if (Cfg.Pathtracer.Multithreaded) {
-		//------- -- threading ---------------
-		// define work for raytrace threads
-		raytrace_task = [this](int tid) {
-			while (true) {
-				std::unique_lock<std::mutex> lock(threads[tid]->m);
-
-				// wait until main thread says it's okay to keep working
-				threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
-
-				// it now owns the lock, and main thread messaged it's okay to start tracing
-				size_t tile;
-				// try to get next tile to work on
-				if (raytrace_tasks.dequeue(tile)) {
-					threads[tid]->status = RaytraceThread::working;
-					threads[tid]->tile_index = tile;
-					raytrace_tile(tid, tile);
-					threads[tid]->status = RaytraceThread::pending_upload;
-				} else {
-					threads[tid]->status = RaytraceThread::all_done;
-					break;
-				}
-			}
-		};
-
-		for (size_t i=0; i<num_threads; i++) {
-			threads.push_back(new RaytraceThread(raytrace_task, i));
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
 		}
-		//------------------------------------
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		// and for debug draw
+		loggedrays_mat = new MatGeneric("yellow");//Shader("../shaders/yellow.vert", "../shaders/yellow.frag");
+
+		glGenBuffers(1, &loggedrays_vbo);
+		glGenVertexArrays(1, &loggedrays_vao);
+		glBindVertexArray(loggedrays_vao);
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
+			glVertexAttribPointer(
+					0, // atrib index
+					3, // num of data elems
+					GL_FLOAT, // data type
+					GL_FALSE, // normalized
+					3 * sizeof(float), // stride size
+					(void*)0); // offset in bytes since stride start
+			glEnableVertexAttribArray(0);
+		}
+		glBindVertexArray(0);
+
+		if (Cfg.Pathtracer.Multithreaded) {
+			//------- -- threading ---------------
+			// define work for raytrace threads
+			raytrace_task = [this](int tid) {
+				while (true) {
+					std::unique_lock<std::mutex> lock(threads[tid]->m);
+
+					// wait until main thread says it's okay to keep working
+					threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
+
+					// it now owns the lock, and main thread messaged it's okay to start tracing
+					size_t tile;
+					// try to get next tile to work on
+					if (raytrace_tasks.dequeue(tile)) {
+						threads[tid]->status = RaytraceThread::working;
+						threads[tid]->tile_index = tile;
+						raytrace_tile(tid, tile);
+						threads[tid]->status = RaytraceThread::pending_upload;
+					} else {
+						threads[tid]->status = RaytraceThread::all_done;
+						break;
+					}
+				}
+			};
+
+			for (size_t i=0; i<num_threads; i++) {
+				threads.push_back(new RaytraceThread(raytrace_task, i));
+			}
+			//------------------------------------
+		}
 	}
 
 	reset();
@@ -296,7 +303,7 @@ void Pathtracer::reset() {
 	generate_pixel_offsets();
 
 	memset(image_buffer, 40, width * height * 3);
-	upload_rows(0, height);
+	if (has_window) upload_rows(0, height);
 }
 
 void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
@@ -375,6 +382,45 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 		}
 	}
 
+}
+
+void Pathtracer::raytrace_scene() {
+	for (size_t y = 0; y < height; y++) {
+		for (size_t x = 0; x < width; x++) {
+
+			size_t px_index = width * y + x;
+			vec3 color = raytrace_pixel(px_index);
+			set_mainbuffer_rgb(px_index, color);
+
+		}
+	}
+}
+
+// https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
+void Pathtracer::output_file(const std::string& path) {
+	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; } 
+	std::ofstream ofs; 
+	try { 
+		ofs.open(path.c_str(), std::ios::binary); // need to spec. binary mode for Windows users 
+		if (ofs.fail()) throw("Can't open output file"); 
+		ofs << "P6\n" << width << " " << height << "\n255\n"; 
+		unsigned char r, g, b; 
+		// loop over each pixel in the image, clamp and convert to byte format
+		for (int y = height-1; y >= 0; y--) {
+			for (int x = 0; x < width; x++) {
+				int i = y * width + x;
+				r = image_buffer[3 * i];
+				g = image_buffer[3 * i + 1];
+				b = image_buffer[3 * i + 2];
+				ofs << r << g << b; 
+			}
+		}
+		ofs.close(); 
+	} 
+	catch (const char *err) { 
+		fprintf(stderr, "%s\n", err); 
+		ofs.close(); 
+	} 
 }
 
 void Pathtracer::update(float elapsed) {

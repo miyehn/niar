@@ -13,6 +13,9 @@
 Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 
 	name = "[unnamed scene]";
+}
+
+void Scene::initialize_graphics() {
 
 	SDL_GL_GetDrawableSize(Program::Instance->window, &w, &h);
 	
@@ -153,7 +156,6 @@ Scene::Scene(std::string _name) : Drawable(nullptr, _name) {
 		}
 	}
 	GL_ERRORS();
-
 }
 
 // OMG MIND BLOWN: https://stackoverflow.com/questions/677620/do-i-need-to-explicitly-call-the-base-virtual-destructor
@@ -190,6 +192,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		aiMesh* mesh = scene->mMeshes[i];
 		if (mesh) {
 			Mesh* m = new Mesh(mesh);
+			m->initialize();
 			add_child(m);
 		}
 	}

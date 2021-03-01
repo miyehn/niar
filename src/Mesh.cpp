@@ -72,7 +72,7 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 		faces.push_back(i3);
 	}
 
-	initialize();
+	// initialize();
 }
 
 void Mesh::initialize() {
@@ -216,7 +216,7 @@ void Mesh::set_scale(vec3 _scale) {
 	}
 }
 
-std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
+std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_graphics) {
 	// import mesh from source
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(source,
@@ -233,7 +233,9 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source) {
 	std::vector<Mesh*> meshes;
 	for (int i=0; i<scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
-		if (mesh) meshes.push_back(new Mesh(mesh));
+		Mesh* sceneMesh = new Mesh(mesh);
+		if (initialize_graphics) sceneMesh->initialize();
+		if (mesh) meshes.push_back(sceneMesh);
 	}
 
 	LOGF("loaded %d meshe(s)", meshes.size());

@@ -9,6 +9,8 @@ struct Program {
 
 	static Program* Instance;
 	
+	static void pathtrace_to_file(size_t w, size_t h, const std::string& path);
+	
 	Program(
 			std::string name, 
 			int width, 
