@@ -394,7 +394,7 @@ inline bool intersect_aabb(int bvh_index, Ray& ray)
 
 inline int intersect_bvh_triangles(int bvh_index, Ray& ray, float& t, vec3& normal)
 {
-	#if 1
+	#if 0
 	int triangle_index = -1;
 
 	uint* st = new uint[G.bvh_stack_size];
@@ -801,41 +801,21 @@ inline void trace_ray(RayTask &rtask)
 
 inline void scan_excl(uniform uint array[], uniform uint length)
 {
-	if (length < 1) return;
-
-	// upsweep phase
-	for (uniform uint twod = 1; twod < length; twod *= 2) {
-		uniform uint twod1 = twod*2;
-		uniform uint limit = length / twod1;
-		foreach (i = 0 ... limit) {
-			array[i*twod1+twod1-1] += array[i*twod1+twod-1];
-		}
-	}
-	array[length - 1] = 0;
-
-	for (uniform uint twod = length / 2; twod >= 1; twod /= 2)
+	uniform uint batches = (length + programCount - 1) / programCount;
+	uniform uint offsets[programCount];
+	foreach (i = 0 ... programCount) offsets[i] = 0;
+	for (uniform uint i = 0; i < batches; i++)
 	{
-		uniform uint twod1 = twod * 2;
-		uniform uint limit = length / twod1;
-		foreach (i = 0 ... limit)
+		foreach (j = 0 ... programCount)
 		{
-			uint t = array[i*twod1+twod-1];
-			array[i*twod1+twod-1] = array[i*twod1+twod1-1];
-			array[i*twod1+twod1-1] += t;
+			int ind = i * programCount + j;
+			int numOut = array[ind];
+			int out = exclusive_scan_add(numOut) + offsets[j];
+			array[ind] = out;
+			offsets[j] = array[(i+1) * programCount - 1];
+			if (extract(numOut, programCount-1) == 1) offsets[j] += 1;
 		}
 	}
-
-}
-
-inline uniform uint nextPow2(uniform uint n) {
-	n--;
-	n = n | n >> 1;
-	n = n | n >> 2;
-	n = n | n >> 4;
-	n = n | n >> 8;
-	n = n | n >> 16;
-	n++;
-	return n;
 }
 
 inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
@@ -843,7 +823,6 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
 	uniform RayTask* ray_tasks_in = G.ray_tasks + tasks_offset;
 	uniform RayTask* ray_tasks_out = G.ray_tasks_backup + tasks_offset;
 
-	uniform uint num_tasks_pad = nextPow2(num_tasks);
 	uniform uint indices[SCAN_SIZE];
 	// foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
 
@@ -856,7 +835,7 @@ inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
 	}
 
 	total = reduce_add(partial);
-	scan_excl(indices, num_tasks_pad);
+	scan_excl(indices, num_tasks);
 	
 	foreach (i = 0 ... num_tasks-1) {
 		if (indices[i] != indices[i+1]) {
@@ -905,7 +884,7 @@ inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
 	uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
 	uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
 
-	uniform uint num_tasks_pad = nextPow2(num_tasks);
+	//uniform uint num_tasks_pad = nextPow2(num_tasks);
 
 	uniform uint indices[SCAN_SIZE];
 	uniform uint old_idx = 0;
@@ -916,7 +895,7 @@ inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
 			uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
 			indices[i] = (bsdf_type == cur_bsdf);
 		}
-		scan_excl(indices, num_tasks_pad);
+		scan_excl(indices, num_tasks);
 		uniform uint idx = indices[num_tasks-1];
 		uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
 		if (last_bsdf == cur_bsdf) {
@@ -1004,16 +983,17 @@ task void raytrace_scene_ispc_task(
 			*rtask_ptr = rtask;
 		}
 
-		// reorder them (scan)
+		// reorder them (scan) to pack the unfinished rays together
 		gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
 		if (rays_left_in_minibatch == 0) {
 			break;
 		}
 
 		// reorder them based on the material they hit
-		// currently this actually increases runtime by ~5%, will see how it goes when more materials are added.
-		// (note: I have no idea why merging the below two function calls result in weird memory accesses)
+		// might only be beneficial when there're a lot of materials (not when there's just diffuse + mirror + glass)
+		#if 0
 		sort_rays_bsdf(first_ray_in_minibatch_offset, rays_left_in_minibatch);
+		#endif
 	}
 	
 	//-------- average results and store into output buffer --------
