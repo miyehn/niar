@@ -674,6 +674,132 @@ inline void generate_ray(RayTask* rtask, uint pixel_index, uint ray_index)
 	}
 }
 
+inline void scan_excl(uniform uint array[], uniform uint length)
+{
+	uniform uint batches = (length + programCount - 1) / programCount;
+	uniform uint offsets[programCount];
+	foreach (i = 0 ... programCount) offsets[i] = 0;
+	for (uniform uint i = 0; i < batches; i++)
+	{
+		foreach (j = 0 ... programCount)
+		{
+			int ind = i * programCount + j;
+			int numOut = array[ind];
+			int out = exclusive_scan_add(numOut) + offsets[j];
+			array[ind] = out;
+			offsets[j] = array[(i+1) * programCount - 1];
+			if (extract(numOut, programCount-1) == 1) offsets[j] += 1;
+		}
+	}
+}
+
+inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
+{
+	uniform RayTask* ray_tasks_in = G.ray_tasks + tasks_offset;
+	uniform RayTask* ray_tasks_out = G.ray_tasks_backup + tasks_offset;
+
+	uniform uint indices[SCAN_SIZE];
+	// foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
+
+	uniform uint total = 0;
+	uint partial = 0;
+
+	foreach (i = 0 ... num_tasks) {
+		indices[i] = (uint)(!ray_tasks_in[i].finished);
+		if (!ray_tasks_in[i].finished) partial++;
+	}
+
+	total = reduce_add(partial);
+	scan_excl(indices, num_tasks);
+	
+	foreach (i = 0 ... num_tasks-1) {
+		if (indices[i] != indices[i+1]) {
+			ray_tasks_out[indices[i]] = cpy_RayTask(ray_tasks_in + i);
+		}
+	}
+	if (!ray_tasks_in[num_tasks-1].finished) {
+		ray_tasks_out[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
+	}
+
+	num_tasks = total;
+}
+
+inline BSDF_t get_bsdf_t(RayTask* ray_tasks, uint rtask_offset) {
+	uint triangle_index = ray_tasks[rtask_offset].triangle_index;
+	uint bsdf_index = G.triangles[ triangle_index ].bsdf_index;
+	return G.bsdfs[ bsdf_index ].type;
+}
+
+// counting sort: https://brilliant.org/wiki/counting-sort/
+inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
+{
+	uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+	uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
+
+	// count how many rays does each material have
+	varying uint bsdf_buckets_partial[NUM_MATERIAL_TYPES];
+	foreach (prog = 0 ... programCount) {
+		// initialize the array for all program instances (one array each)
+		for (int i = 0; i < NUM_MATERIAL_TYPES; i++) {
+			bsdf_buckets_partial[i] = 0;
+		}
+	}
+	foreach (i = 0 ... num_tasks) {
+		uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
+		bsdf_buckets_partial[bsdf_type]++;
+	}
+	for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
+		bsdf_buckets[cur_bsdf] = reduce_add(bsdf_buckets_partial[cur_bsdf]);
+	}
+	scan_excl(bsdf_buckets, NUM_MATERIAL_TYPES);
+}
+
+inline void copy_rays_to_alternative_buffer(uniform uint tasks_offset, uniform uint num_tasks)
+{
+	uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+	uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
+	foreach (i = 0 ... num_tasks)
+	{
+		*(ray_tasks_out + i) = cpy_RayTask(ray_tasks_in + i);
+	}
+}
+
+inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
+{
+	uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
+	uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
+
+	uniform uint indices[SCAN_SIZE];
+	uniform uint old_idx = 0;
+	for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
+
+		foreach (i = 0 ... num_tasks) {
+			uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
+			indices[i] = (bsdf_type == cur_bsdf);
+		}
+		scan_excl(indices, num_tasks);
+		uniform uint idx = indices[num_tasks-1];
+		uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
+		if (last_bsdf == cur_bsdf) {
+			idx += 1;
+		}
+		if (idx == 0) {
+			continue;
+		}
+		// reorder
+		uniform RayTask* ray_tasks_out_local = ray_tasks_out + old_idx;
+		foreach (i = 0 ... num_tasks-1) {
+			if (indices[i] != indices[i+1]) {
+				ray_tasks_out_local[indices[i]] = cpy_RayTask(ray_tasks_in + i);
+			}
+		}
+		if (last_bsdf == cur_bsdf) {
+			ray_tasks_out_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
+		}
+		old_idx = old_idx+idx;
+	}
+}
+
 // only traces one bounce (and set depth and finished)
 // also updates G.output_tmp along the way
 inline void trace_ray(RayTask &rtask)
@@ -799,122 +925,15 @@ inline void trace_ray(RayTask &rtask)
 	
 }
 
-inline void scan_excl(uniform uint array[], uniform uint length)
+// trace these rays for one bounce
+inline void trace_rays(RayTask* rtasks, uniform uint count)
 {
-	uniform uint batches = (length + programCount - 1) / programCount;
-	uniform uint offsets[programCount];
-	foreach (i = 0 ... programCount) offsets[i] = 0;
-	for (uniform uint i = 0; i < batches; i++)
+	foreach (i = 0 ... count)
 	{
-		foreach (j = 0 ... programCount)
-		{
-			int ind = i * programCount + j;
-			int numOut = array[ind];
-			int out = exclusive_scan_add(numOut) + offsets[j];
-			array[ind] = out;
-			offsets[j] = array[(i+1) * programCount - 1];
-			if (extract(numOut, programCount-1) == 1) offsets[j] += 1;
-		}
-	}
-}
-
-inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
-{
-	uniform RayTask* ray_tasks_in = G.ray_tasks + tasks_offset;
-	uniform RayTask* ray_tasks_out = G.ray_tasks_backup + tasks_offset;
-
-	uniform uint indices[SCAN_SIZE];
-	// foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
-
-	uniform uint total = 0;
-	uint partial = 0;
-
-	foreach (i = 0 ... num_tasks) {
-		indices[i] = (uint)(!ray_tasks_in[i].finished);
-		if (!ray_tasks_in[i].finished) partial++;
-	}
-
-	total = reduce_add(partial);
-	scan_excl(indices, num_tasks);
-	
-	foreach (i = 0 ... num_tasks-1) {
-		if (indices[i] != indices[i+1]) {
-			ray_tasks_out[indices[i]] = cpy_RayTask(ray_tasks_in + i);
-		}
-	}
-	if (!ray_tasks_in[num_tasks-1].finished) {
-		ray_tasks_out[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
-	}
-
-	num_tasks = total;
-}
-
-inline BSDF_t get_bsdf_t(RayTask* ray_tasks, uint rtask_offset) {
-	uint triangle_index = ray_tasks[rtask_offset].triangle_index;
-	uint bsdf_index = G.triangles[ triangle_index ].bsdf_index;
-	return G.bsdfs[ bsdf_index ].type;
-}
-
-// counting sort: https://brilliant.org/wiki/counting-sort/
-inline void count_rays_bsdf(uniform uint bsdf_buckets[], uniform uint tasks_offset, uniform uint num_tasks)
-{
-	uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
-	uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
-
-	// count how many rays does each material have
-	varying uint bsdf_buckets_partial[NUM_MATERIAL_TYPES];
-	foreach (prog = 0 ... programCount) {
-		// initialize the array for all program instances (one array each)
-		for (int i = 0; i < NUM_MATERIAL_TYPES; i++) {
-			bsdf_buckets_partial[i] = 0;
-		}
-	}
-	foreach (i = 0 ... num_tasks) {
-		uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
-		bsdf_buckets_partial[bsdf_type]++;
-	}
-	for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
-		bsdf_buckets[cur_bsdf] = reduce_add(bsdf_buckets_partial[cur_bsdf]);
-	}
-	scan_excl(bsdf_buckets, NUM_MATERIAL_TYPES);
-}
-
-inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
-{
-	uniform RayTask* ray_tasks_in = G.ray_tasks_backup + tasks_offset;
-	uniform RayTask* ray_tasks_out = G.ray_tasks + tasks_offset;
-
-	//uniform uint num_tasks_pad = nextPow2(num_tasks);
-
-	uniform uint indices[SCAN_SIZE];
-	uniform uint old_idx = 0;
-	for (uniform uint cur_bsdf = 0; cur_bsdf < NUM_MATERIAL_TYPES; cur_bsdf++) {
-
-		//foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
-		foreach (i = 0 ... num_tasks) {
-			uint bsdf_type = (uint)get_bsdf_t(ray_tasks_in, i);
-			indices[i] = (bsdf_type == cur_bsdf);
-		}
-		scan_excl(indices, num_tasks);
-		uniform uint idx = indices[num_tasks-1];
-		uint last_bsdf = (uint)get_bsdf_t(ray_tasks_in, num_tasks-1);
-		if (last_bsdf == cur_bsdf) {
-			idx += 1;
-		}
-		if (idx == 0) {
-			continue;
-		}
-		// reorder
-		uniform RayTask* ray_tasks_out_local = ray_tasks_out + old_idx;
-		foreach (i = 0 ... num_tasks-1) {
-			if (indices[i] != indices[i+1]) {
-				ray_tasks_out_local[indices[i]] = cpy_RayTask(ray_tasks_in + i);
-			}
-		}
-		if (last_bsdf == cur_bsdf) {
-			ray_tasks_out_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
-		}
-		old_idx = old_idx+idx;
+		RayTask* rtask_ptr = rtasks + i;
+		RayTask rtask = cpy_RayTask(rtask_ptr);
+		trace_ray(rtask);
+		*rtask_ptr = rtask;
 	}
 }
 
@@ -965,6 +984,7 @@ task void raytrace_scene_ispc_task(
 	uniform uint rays_left_in_minibatch = max_num_pixels * G.num_offsets;
 	uniform uint last_ray_in_minibatch_offset = first_ray_in_minibatch_offset + rays_left_in_minibatch;
 
+	// assign output buffer index to each rtask and clear it to black (reuse)
 	foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... last_ray_in_minibatch_offset)
 	{
 		RayTask* rtask = G.ray_tasks + ray_index_minibatch;
@@ -972,16 +992,11 @@ task void raytrace_scene_ispc_task(
 		G.output_tmp[rtask->buf_index] = new_vec3();
 	}
 
+	// for each bounce..
 	for (uniform uint i = 0; i < G.max_ray_depth; i++)
 	{
 		// trace all the rays for one bounce
-		foreach (ray_index_minibatch = first_ray_in_minibatch_offset ... first_ray_in_minibatch_offset + rays_left_in_minibatch)
-		{
-			RayTask* rtask_ptr = G.ray_tasks + ray_index_minibatch;
-			RayTask rtask = cpy_RayTask(rtask_ptr);
-			trace_ray(rtask);
-			*rtask_ptr = rtask;
-		}
+		trace_rays(G.ray_tasks + first_ray_in_minibatch_offset, rays_left_in_minibatch);
 
 		// reorder them (scan) to pack the unfinished rays together
 		gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
@@ -990,9 +1005,11 @@ task void raytrace_scene_ispc_task(
 		}
 
 		// reorder them based on the material they hit
-		// might only be beneficial when there're a lot of materials (not when there's just diffuse + mirror + glass)
-		#if 0
+		// starts being beneficial when there're 3 materials (diffuse + mirror + glass)
+		#if 1
 		sort_rays_bsdf(first_ray_in_minibatch_offset, rays_left_in_minibatch);
+		#else
+		copy_rays_to_alternative_buffer(first_ray_in_minibatch_offset, rays_left_in_minibatch);
 		#endif
 	}
 	
