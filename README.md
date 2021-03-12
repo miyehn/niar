@@ -42,19 +42,6 @@ Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim
 
 (Since I work on this on and off, I better write this down to help myself remember what I did when I pick it up)
 
-### Build
-
-Because I'm dumb and don't know how to use cmake to build ispc yet. Currently ispc is built with a separate Makefile.
-```
-cd src
-make
-cd ../build
-cmake ..
-make
-```
-
-It should work on both mac and windows.
-
 ### Run
 
 ```

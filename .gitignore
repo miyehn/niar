@@ -2,6 +2,7 @@
 .ccls-cache/
 build/
 src/tags
+src/Pathtracer/pathtracer_kernel_ispc.h
 dist/
 objs/
 .vs
