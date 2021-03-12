@@ -4,7 +4,8 @@
 
 struct BVH
 {
-	BVH(std::vector<Primitive*>* _primitives_ptr) {
+	BVH(std::vector<Primitive*>* _primitives_ptr, uint _depth) {
+		depth = _depth;
 		min = vec3(INF);
 		max = vec3(-INF);
 		primitives_ptr = _primitives_ptr;
@@ -17,6 +18,8 @@ struct BVH
 		if (left) delete left;
 		if (right) delete right;
 	}
+
+	uint depth;
 
 	vec3 min;
 	vec3 max;

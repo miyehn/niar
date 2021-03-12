@@ -87,6 +87,7 @@ struct Global
 	uniform BSDF* bsdfs;
 	uniform uint* area_light_indices;
 	uniform BVH* bvh_root;
+	uniform uint bvh_stack_size;
 	uniform bool use_bvh;
 
 	uniform uint num_triangles;
@@ -393,6 +394,44 @@ inline bool intersect_aabb(int bvh_index, Ray& ray)
 
 inline int intersect_bvh_triangles(int bvh_index, Ray& ray, float& t, vec3& normal)
 {
+	#if 1
+	int triangle_index = -1;
+
+	uint* st = new uint[G.bvh_stack_size];
+	uint top = 0;
+	st[top] = 0; top++; // push
+
+	uint max_top = 0;
+
+	while (top > 0)
+	{
+		uint bvh_idx = st[top-1]; top--; // pop
+		if (intersect_aabb(bvh_idx, ray))
+		{
+			BVH* bvh = G.bvh_root + bvh_idx;
+			int l = bvh->left_index, r = bvh->right_index;
+			if (l >= 0 && r >= 0)
+			{
+				st[top] = r; top++; // push
+				st[top] = l; top++; // push
+			}
+			else
+			{
+				for (uint i=bvh->triangles_start; i<bvh->triangles_start+bvh->triangles_count; i++) {
+					Triangle* T = G.triangles + i;
+					if (intersect(*T, ray, t, normal, true)) {
+						triangle_index = i;
+					}
+				}
+			}
+		}
+		if (top > max_top) max_top = top;
+	}
+	delete[] st;
+
+	return triangle_index;
+
+	#else
 	int triangle_index = -1;
 	if (intersect_aabb(bvh_index, ray))
 	{
@@ -415,6 +454,7 @@ inline int intersect_bvh_triangles(int bvh_index, Ray& ray, float& t, vec3& norm
 		}
 	}
 	return triangle_index;
+	#endif
 }
 
 inline int intersect_scene(Ray& ray, float& t, vec3& normal)
@@ -434,6 +474,7 @@ inline int intersect_scene(Ray& ray, float& t, vec3& normal)
 		return triangle_index;
 	}
 }
+
 
 inline vec3 sample_point_in_triangle(Triangle* T)
 {
@@ -1016,6 +1057,7 @@ export void raytrace_scene_ispc(
 	uniform bool use_direct_light,
 	uniform uint area_light_samples,
 	uniform BVH bvh_root[],
+	uniform uint bvh_stack_size,
 	uniform bool use_bvh,
 	uniform bool use_dof,
 	uniform float focal_distance,
@@ -1031,6 +1073,7 @@ export void raytrace_scene_ispc(
 	G.bsdfs = bsdfs;
 	G.area_light_indices = area_light_indices;
 	G.bvh_root = bvh_root;
+	G.bvh_stack_size = bvh_stack_size;
 	G.use_bvh = use_bvh;
 	G.num_triangles = num_triangles;
 	G.num_bsdfs = num_triangles;

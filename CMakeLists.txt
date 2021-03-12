@@ -93,7 +93,7 @@ add_custom_command(
 )
 # build
 add_custom_target(ispc
-	DEPENDS build/tasksys.o build/pathtracer_kernel.o
+	DEPENDS ${TASKSYS_O} ${KERNEL_H} ${KERNEL_O}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 add_dependencies(niar ispc)

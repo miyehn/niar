@@ -49,8 +49,8 @@ void BVH::expand_bvh()
 	for (int i=1; i<PER_AXIS_GRANULARITY; i++)
 	{
 		float x_divide = min.x + i * step.x;
-		BVH* left_tmp = new BVH(primitives_ptr);
-		BVH* right_tmp = new BVH(primitives_ptr);
+		BVH* left_tmp = new BVH(primitives_ptr, depth + 1);
+		BVH* right_tmp = new BVH(primitives_ptr, depth + 1);
 		uint left_cnt = 0, right_cnt = 0;
 
 		for (int j=0; j<primitives_count; j++)
@@ -96,8 +96,8 @@ void BVH::expand_bvh()
 	for (int i=1; i<PER_AXIS_GRANULARITY; i++)
 	{
 		float y_divide = min.y + i * step.y;
-		BVH* left_tmp = new BVH(primitives_ptr);
-		BVH* right_tmp = new BVH(primitives_ptr);
+		BVH* left_tmp = new BVH(primitives_ptr, depth + 1);
+		BVH* right_tmp = new BVH(primitives_ptr, depth + 1);
 		uint left_cnt = 0, right_cnt = 0;
 
 		for (int j=0; j<primitives_count; j++)
@@ -143,8 +143,8 @@ void BVH::expand_bvh()
 	for (int i=1; i<PER_AXIS_GRANULARITY; i++)
 	{
 		float z_divide = min.z + i * step.z;
-		BVH* left_tmp = new BVH(primitives_ptr);
-		BVH* right_tmp = new BVH(primitives_ptr);
+		BVH* left_tmp = new BVH(primitives_ptr, depth + 1);
+		BVH* right_tmp = new BVH(primitives_ptr, depth + 1);
 		uint left_cnt = 0, right_cnt = 0;
 
 		for (int j=0; j<primitives_count; j++)
@@ -221,8 +221,8 @@ void BVH::expand_bvh()
 		*/
 	} else {
 		//LOG("(automatical division)");
-		left = new BVH(primitives_ptr);
-		right = new BVH(primitives_ptr);
+		left = new BVH(primitives_ptr, depth + 1);
+		right = new BVH(primitives_ptr, depth + 1);
 		left->primitives_start = primitives_start;
 		left->primitives_count = primitives_count / 2;
 		left->update_extents();

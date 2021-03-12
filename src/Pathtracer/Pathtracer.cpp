@@ -59,6 +59,7 @@ struct ISPC_Data
 	bool use_direct_light;
 	uint32_t area_light_samples;
 	std::vector<ispc::BVH> bvh_root;
+	uint32_t bvh_stack_size;
 	bool use_bvh;
 	bool use_dof;
 	float focal_distance;
@@ -326,7 +327,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 	primitives.clear();
 	lights.clear();
 
-	bvh = new BVH(&primitives);
+	bvh = new BVH(&primitives, 0);
 
 	for (Drawable* drawable : scene.children) {
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
@@ -519,6 +520,7 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 			ispc_data->use_direct_light,
 			ispc_data->area_light_samples,
 			ispc_data->bvh_root.data(),
+			ispc_data->bvh_stack_size,
 			ispc_data->use_bvh,
 			ispc_data->use_dof,
 			ispc_data->focal_distance,
@@ -616,7 +618,7 @@ void Pathtracer::load_ispc_data() {
 	ispc_data->num_offsets = pixel_offsets.size();
 
 	// BVH
-	//std::vector<ispc::BVH> ispc_bvh;
+	uint max_depth = 0;
 	std::stack<BVH*> st;
 	std::unordered_map<BVH*, int> m;
 	// first iteration: make the structs, and map from node to index
@@ -625,6 +627,7 @@ void Pathtracer::load_ispc_data() {
 		BVH* ptr = st.top(); st.pop();
 		int self_index = ispc_data->bvh_root.size();
 		m[ptr] = self_index;
+		max_depth = glm::max(max_depth, ptr->depth);
 		// make the node (except children indices)
 		ispc::BVH node;
 		node.min = ispc_vec3(ptr->min);
@@ -662,6 +665,7 @@ void Pathtracer::load_ispc_data() {
 	ispc_data->rr_threshold = Cfg.Pathtracer.RussianRouletteThreshold;
 	ispc_data->use_direct_light = Cfg.Pathtracer.UseDirectLight;
 	ispc_data->area_light_samples = Cfg.Pathtracer.AreaLightSamples;
+	ispc_data->bvh_stack_size = (1 + max_depth) * 2;
 	ispc_data->use_bvh = Cfg.Pathtracer.UseBVH->get();
 	ispc_data->use_dof = Cfg.Pathtracer.UseDOF->get();
 	ispc_data->focal_distance = Cfg.Pathtracer.FocalDistance->get();
@@ -675,6 +679,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 	if (Cfg.Pathtracer.ISPC)
 	{
 		load_ispc_data();
+		LOGF("ispc max depth: %u", ispc_data->bvh_stack_size);
 
 		// dispatch task to ispc
 		ispc::raytrace_scene_ispc(
@@ -699,6 +704,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 			ispc_data->use_direct_light,
 			ispc_data->area_light_samples,
 			ispc_data->bvh_root.data(),
+			ispc_data->bvh_stack_size,
 			ispc_data->use_bvh,
 			ispc_data->use_dof,
 			ispc_data->focal_distance,
