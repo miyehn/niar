@@ -117,6 +117,10 @@ struct Global
 
 uniform Global G;
 
+// function pointer type(s)
+
+typedef bool (*FP_RayTaskPtr_bool)(RayTask*);
+
 //-------- math --------
 
 #define ONE_OVER_PI 0.31830988618f
@@ -693,13 +697,15 @@ inline void scan_excl(uniform uint array[], uniform uint length)
 	}
 }
 
-inline void gather_rays(uniform uint tasks_offset, uniform uint &num_tasks)
+inline void gather_rays(
+	uniform uint tasks_offset,
+	uniform uint &num_tasks, // output: number of ray tasks that meet the condition and are packed to the beginning
+	FP_RayTaskPtr_bool condition)
 {
 	uniform RayTask* ray_tasks_in = G.ray_tasks + tasks_offset;
 	uniform RayTask* ray_tasks_out = G.ray_tasks_backup + tasks_offset;
 
 	uniform uint indices[SCAN_SIZE];
-	// foreach (i = 0 ... SCAN_SIZE) indices[i] = 0;
 
 	uniform uint total = 0;
 	uint partial = 0;
@@ -818,7 +824,7 @@ inline void trace_ray(RayTask &rtask)
 	vec3 n = rtask.triangle_normal;
 
 	// pre-compute (or declare) some common things to be used later
-	vec3 L = new_vec3();
+	vec3* L = G.output_tmp + rtask.buf_index;
 	vec3 hit_p = vadd(ray.o, smul(t, ray.d));
 	// construct transform from hemisphere space to world space
 	mat3 h2w;
@@ -836,10 +842,10 @@ inline void trace_ray(RayTask &rtask)
 
 	if (G.use_direct_light) {
 		if (rtask.depth == 0 || ray.receive_le || !bsdf->is_emissive) {
-			L = vadd(L, bsdf->Le);
+			*L = vadd(*L, vmul(rtask.contribution, bsdf->Le));
 		}
 	} else {
-		L = vadd(L, bsdf->Le);
+		*L = vadd(*L, vmul(rtask.contribution, bsdf->Le));
 	}
 
 	//---- direct lighting ----
@@ -871,15 +877,15 @@ inline void trace_ray(RayTask &rtask)
 						smul( costhetai / pdf , BSDF_f(bsdf, wi_hemi, wo_hemi) ));
 					// correction for when above num and denom both 0 (see CPP)
 					if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = new_vec3();
-					L = vadd( L, smul(G.area_light_sample_weight, L_direct) );
+					*L = vadd( *L, vmul(rtask.contribution, smul(G.area_light_sample_weight, L_direct)) );
 				}
 			}
 		}
 	}
 
-	vec3* output_ptr = G.output_tmp + rtask.buf_index;
-	*output_ptr = vadd(*output_ptr, vmul(rtask.contribution, L));
+	rtask.finished = true;
 
+	/*
 	//---- indirect lighting ----
 
 	if ( (G.use_direct_light && !bsdf->is_emissive) ||
@@ -921,6 +927,7 @@ inline void trace_ray(RayTask &rtask)
 			rtask.finished = true;
 		}
 	}
+	*/
 	rtask.depth += 1;
 	
 }
@@ -928,6 +935,7 @@ inline void trace_ray(RayTask &rtask)
 // trace these rays for one bounce
 inline void trace_rays(RayTask* rtasks, uniform uint count)
 {
+	#if 1
 	foreach (i = 0 ... count)
 	{
 		RayTask* rtask_ptr = rtasks + i;
@@ -935,7 +943,36 @@ inline void trace_rays(RayTask* rtasks, uniform uint count)
 		trace_ray(rtask);
 		*rtask_ptr = rtask;
 	}
+	#else
+
+	if (G.use_direct_light)
+	{
+		foreach (i = 0 ... count) {
+			RayTask* rtask = rtasks + i;
+			Triangle* primitive = G.triangles + rtask->triangle_index;
+			BSDF* bsdf = G.bsdfs + primitive->bsdf_index;
+			vec3* L = G.output_tmp + rtask->buf_index;
+			if ( rtask->depth==0 || rtask->ray.receive_le || !bsdf->is_emissive) {
+				*L = vadd(*L, vmul(rtask->contribution, bsdf->Le));
+			}
+		}
+	}
+	else
+	{
+		foreach (i = 0 ... count) {
+			RayTask* rtask = rtasks + i;
+			Triangle* primitive = G.triangles + rtask->triangle_index;
+			BSDF* bsdf = G.bsdfs + primitive->bsdf_index;
+			vec3* L = G.output_tmp + rtask->buf_index;
+			*L = vadd(*L, vmul(rtask->contribution, bsdf->Le));
+		}
+	}
+
+	rtask.depth += 1;
+	#endif
 }
+
+inline bool rtask_unfinished(RayTask* rtask) { return !rtask->finished; }
 
 task void raytrace_scene_ispc_task(
 	uniform uint batch,
@@ -999,7 +1036,7 @@ task void raytrace_scene_ispc_task(
 		trace_rays(G.ray_tasks + first_ray_in_minibatch_offset, rays_left_in_minibatch);
 
 		// reorder them (scan) to pack the unfinished rays together
-		gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch);
+		gather_rays(first_ray_in_minibatch_offset, rays_left_in_minibatch, rtask_unfinished);
 		if (rays_left_in_minibatch == 0) {
 			break;
 		}
