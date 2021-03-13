@@ -83,12 +83,13 @@ add_custom_command(
 )
 # pathtracer_kernel.o
 set(KERNEL_SRC ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel.ispc)
+set(KERNEL_INCLUDE ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel_utilities.h)
 set(KERNEL_H ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel_ispc.h)
 set(KERNEL_O ${CMAKE_BINARY_DIR}/pathtracer_kernel.o)
 add_custom_command(
 	OUTPUT ${KERNEL_H} ${KERNEL_O}
 	COMMAND ispc -O2 --target=avx2-i32x8 --arch=x86-64 ${KERNEL_SRC} -h ${KERNEL_H} -o ${KERNEL_O}
-	DEPENDS ${KERNEL_SRC}
+	DEPENDS ${KERNEL_SRC}#${KERNEL_INCLUDE}
 	COMMENT "generating pathtracer_kernel.o"
 )
 # build
