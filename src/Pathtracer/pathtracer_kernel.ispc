@@ -391,11 +391,11 @@ inline void sort_rays_bsdf(uniform uint tasks_offset, uniform uint num_tasks)
 		uniform RayTask* ray_tasks_out_local = ray_tasks_out + old_idx;
 		foreach (i = 0 ... num_tasks-1) {
 			if (indices[i] != indices[i+1]) {
-				ray_tasks_out_local[indices[i]] = cpy_RayTask(ray_tasks_in + i);
+				ray_tasks_out_local[indices[i]] = *(ray_tasks_in + i);
 			}
 		}
 		if (last_bsdf == cur_bsdf) {
-			ray_tasks_out_local[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
+			ray_tasks_out_local[ indices[num_tasks-1] ] = *(ray_tasks_in + num_tasks - 1);
 		}
 		old_idx = old_idx+idx;
 	}
@@ -534,12 +534,7 @@ inline void intersect_bvh_all(uniform uint start, uniform uint count, RTaskBuffe
 	foreach (i = start ... start + count)
 	{
 		RayTask* rtask = (buf==RTaskBufferA ? G.ray_tasks : G.ray_tasks_backup) + i;
-		Ray rtmp;
-		rtmp.o = rtask->ray_tmp.o;
-		rtmp.d = rtask->ray_tmp.d;
-		rtmp.tmin = rtask->ray_tmp.tmin;
-		rtmp.tmax = rtask->ray_tmp.tmax;
-		rtmp.receive_le = rtask->ray_tmp.receive_le;
+		Ray rtmp = rtask->ray_tmp;
 		float tmp_t; vec3 tmp_n;
 		rtask->ray_tmp_hit_primitive = intersect_scene(rtmp, tmp_t, tmp_n);
 		rtask->v0_buf = tmp_n;
@@ -554,7 +549,7 @@ inline void trace_rays(uniform uint start, uniform uint count)
 	foreach (i = 0 ... count)
 	{
 		RayTask* rtask_ptr = G.ray_tasks + start + i;
-		RayTask rtask = cpy_RayTask(rtask_ptr);
+		RayTask rtask = *(rtask_ptr);
 		trace_ray(rtask);
 		*rtask_ptr = rtask;
 	}
@@ -593,6 +588,7 @@ inline void trace_rays(uniform uint start, uniform uint count)
 	uniform uint num_not_deltas = count;
 
 	// gather rays based on delta-ness
+	// NotDelta?
 	gather_rays(start, num_not_deltas, true, Nothing); // now working set becomes ray_task_backup
 	rtasks = G.ray_tasks_backup + start;
 
@@ -708,6 +704,7 @@ inline void trace_rays(uniform uint start, uniform uint count)
 
 	// gather rays that need to compute indirect lighting
 	uniform uint num_indirect_rays = count;
+	// Unfinished?
 	gather_rays(start, num_indirect_rays, false, Nothing); // now working set becomes ray_task_backup
 	rtasks = G.ray_tasks + start;
 
@@ -717,13 +714,7 @@ inline void trace_rays(uniform uint start, uniform uint count)
 	foreach (i = 0 ... count)
 	{
 		RayTask* rtask = rtasks + i;
-		Ray rtmp;
-		rtmp.o = rtask->ray_tmp.o;
-		rtmp.d = rtask->ray_tmp.d;
-		rtmp.tmin = rtask->ray_tmp.tmin;
-		rtmp.tmax = rtask->ray_tmp.tmax;
-		rtmp.receive_le = rtask->ray_tmp.receive_le;
-		rtask->ray = rtmp;
+		rtask->ray = rtask->ray_tmp;
 		rtask->triangle_normal = rtask->v0_buf;
 		if (rtask->ray_tmp_hit_primitive >= 0)
 		{

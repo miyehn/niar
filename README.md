@@ -33,8 +33,8 @@ Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim
 
 ## Known issues and TODOs in the near future
 
+* ISPC: `gather_rays` doesn't seem buggy but the two calls to it inside `trace_rays` seem to mess up the ray tasks buffers. That function currently falls back to calling `trace_ray`.
 * ISPC path tracer is slightly buggy when multithreaded is enabled and crashes under some very specific settings.
-* TODO: depth of field in ISPC
 * TODO: optimize BVH traversal in ISPC
 * TODO: avoid allocating and deallocating buffers every time the ISPC function is called
 

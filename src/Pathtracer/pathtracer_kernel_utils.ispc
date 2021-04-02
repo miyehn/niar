@@ -16,7 +16,7 @@ struct mat3 {
 struct Ray {
 	vec3 o, d;
 	float tmin, tmax;
-	bool receive_le;
+	int receive_le;
 };
 
 struct RayTask {
@@ -33,7 +33,7 @@ struct RayTask {
 	vec3 v0_buf; // buffer use only
 	vec3 v1_buf; // buffer use only
 	float s0_buf; // buffer use only
-	bool finished;
+	int finished;
 };
 
 struct Camera {
@@ -333,37 +333,6 @@ inline RayTask new_RayTask() {
 	return rt;
 }
 
-inline RayTask cpy_RayTask(RayTask* rt0) {
-	RayTask rt;
-	//memcpy(&rt, rt0, sizeof(RayTask));
-	rt.ray.o = rt0->ray.o;
-	rt.ray.d = rt0->ray.d;
-	rt.ray.tmin = rt0->ray.tmin;
-	rt.ray.tmax = rt0->ray.tmax;
-	rt.ray.receive_le = rt0->ray.receive_le;
-
-	// TODO: this is slow though....
-	rt.ray_tmp.o = rt0->ray_tmp.o;
-	rt.ray_tmp.d = rt0->ray_tmp.d;
-	rt.ray_tmp.tmin = rt0->ray_tmp.tmin;
-	rt.ray_tmp.tmax = rt0->ray_tmp.tmax;
-	rt.ray_tmp.receive_le = rt0->ray_tmp.receive_le;
-
-	rt.contribution = rt0->contribution;
-	rt.buf_index = rt0->buf_index;
-
-	rt.triangle_normal = rt0->triangle_normal;
-	rt.triangle_index = rt0->triangle_index;
-
-	rt.depth = rt0->depth;
-	rt.ray_tmp_hit_primitive = rt0->ray_tmp_hit_primitive;
-	rt.v0_buf = rt0->v0_buf;
-	rt.v1_buf = rt0->v1_buf;
-	rt.s0_buf = rt0->s0_buf;
-	rt.finished = rt0->finished;
-	return rt;
-}
-
 //-------- parallel data processing --------
 
 inline void scan_excl(uniform uint array[], uniform uint length)
@@ -391,7 +360,7 @@ inline void copy_rays_to_alternative_buffer(uniform uint tasks_offset, uniform u
 	uniform RayTask* ray_tasks_out = to_backup ? G.ray_tasks_backup : G.ray_tasks;
 	for (uniform uint i = tasks_offset; i < tasks_offset + num_tasks; i++)
 	{
-		*(ray_tasks_out + i) = cpy_RayTask(ray_tasks_in + i);
+		*(ray_tasks_out + i) = *(ray_tasks_in + i);
 	}
 }
 
@@ -444,11 +413,11 @@ void gather_rays(
 	
 	foreach (i = 0 ... num_tasks-1) {
 		if (indices[i] != indices[i+1]) {
-			ray_tasks_out[indices[i]] = cpy_RayTask(ray_tasks_in + i);
+			ray_tasks_out[indices[i]] = *(ray_tasks_in + i);
 		}
 	}
 	if (resolve_rtask_condition(ray_tasks_in+num_tasks-1, condition)) {
-		ray_tasks_out[ indices[num_tasks-1] ] = cpy_RayTask(ray_tasks_in + num_tasks - 1);
+		ray_tasks_out[ indices[num_tasks-1] ] = *(ray_tasks_in + num_tasks - 1);
 	}
 
 	num_tasks = total;
