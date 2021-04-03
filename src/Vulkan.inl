@@ -1,10 +1,21 @@
 #include "lib.h"
 #include "vulkan/vulkan/vulkan.h"
+#include <optional>
 
 struct Vulkan {
 
+	struct QueueFamilyIndices {
+		std::optional<uint32_t> graphicsFamily;
+		std::optional<uint32_t> computeFamily;
+		bool isComplete() {
+			return graphicsFamily.has_value() && computeFamily.has_value();
+		}
+	};
+
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
+	VkPhysicalDevice physicalDevice;
+	VkDevice device;
 
 	Vulkan(SDL_Window* window) {
 		uint32_t extensionCount = 0;
@@ -18,6 +29,8 @@ struct Vulkan {
 		#endif
 
 		pickPhysicalDevice();
+
+		createLogicalDevice();
 	}
 
 	~Vulkan() {
@@ -37,7 +50,7 @@ private:
 			.applicationVersion = VK_MAKE_VERSION(0, 1, 0),
 			.pEngineName = "no engine",
 			.engineVersion = VK_MAKE_VERSION(0, 1, 0),
-			.apiVersion = VK_API_VERSION_1_1
+			.apiVersion = VK_API_VERSION_1_2
 		};
 
 		// extensions to use with sdl
@@ -116,7 +129,68 @@ private:
 		}
 	}
 
+	inline QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+		uint32_t queueFamilyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+		QueueFamilyIndices indices;
+
+		int i = 0;
+		for (const auto &queueFamily : queueFamilies) {
+			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+				indices.graphicsFamily = i;
+			}
+			if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+				indices.computeFamily = i;
+			}
+			i++;
+		}
+
+		return indices;
+	}
+
+	inline bool isDeviceSuitable(VkPhysicalDevice device) {
+		VkPhysicalDeviceProperties properties;
+		vkGetPhysicalDeviceProperties(device, &properties);
+
+		#if 0
+		VkPhysicalDeviceFeatures features;
+		vkGetPhysicalDeviceFeatures(device, &features);
+		#endif
+
+		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(device);
+
+		// integrated graphics card that supports compute
+		if (properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+			&& queueFamilyIndices.isComplete()) {
+			LOGF("found suitable device: %s", properties.deviceName);
+			return true;
+		}
+		return false;
+	}
+
 	void pickPhysicalDevice() {
+
+		uint32_t deviceCount = 0;
+		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+		std::vector<VkPhysicalDevice> devices(deviceCount);
+		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+		physicalDevice = VK_NULL_HANDLE;
+		for (const auto& device : devices) {
+			if (isDeviceSuitable(device)) {
+				physicalDevice = device;
+			}
+		}
+		if (physicalDevice == VK_NULL_HANDLE) {
+			ERR("failed to find a suitable GPU with vulkan support!");
+		}
+	}
+
+	void createLogicalDevice() {
 
 	}
 
