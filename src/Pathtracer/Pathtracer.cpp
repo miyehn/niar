@@ -312,7 +312,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 		} else if (state[SDL_SCANCODE_LALT]) {
 			float d = depth_of_first_hit(x, height-y);
 			Cfg.Pathtracer.FocalDistance->set(d);
-			TRACEF("setting focal distance to %f", d);
+			TRACE("setting focal distance to %f", d);
 		}
 	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
 		logged_rays.clear();
@@ -359,7 +359,7 @@ void Pathtracer::load_scene(const Scene& scene) {
 	bvh->update_extents();
 	bvh->expand_bvh();
 
-	TRACEF("loaded a scene with %d meshes, %d triangles, %d lights", 
+	TRACE("loaded a scene with %lu meshes, %lu triangles, %lu lights", 
 			scene.children.size(), primitives.size(), lights.size());
 }
 
@@ -379,7 +379,7 @@ void Pathtracer::disable() {
 void Pathtracer::pause_trace() {
 	TimePoint end_time = std::chrono::high_resolution_clock::now();
 	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
-	TRACEF("rendered %f seconds so far.", cumulative_render_time);
+	TRACE("rendered %f seconds so far.", cumulative_render_time);
 	notified_pause_finish = false;
 	paused = true;
 }
@@ -452,7 +452,7 @@ void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	int percentage = int(float(begin + rows) / float(height) * 100.0f);
-	TRACEF("refresh! updated %d rows, %d%% done.", rows, percentage);
+	TRACE("refresh! updated %d rows, %d%% done.", rows, percentage);
 }
 
 void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h) {
@@ -679,7 +679,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 	if (Cfg.Pathtracer.ISPC)
 	{
 		load_ispc_data();
-		LOGF("ispc max depth: %u", ispc_data->bvh_stack_size);
+		LOG("ispc max depth: %u", ispc_data->bvh_stack_size);
 
 		// dispatch task to ispc
 		ispc::raytrace_scene_ispc(
@@ -733,13 +733,13 @@ void Pathtracer::raytrace_scene_to_buf() {
 					}
 				}
 			};
-			LOGF("enqueued %u tasks", tasks.size());
+			LOG("enqueued %zu tasks", tasks.size());
 			// create the threads and execute
 			std::vector<std::thread> threads_tmp;
 			for (uint tid = 0; tid < num_threads; tid++) {
 				threads_tmp.push_back(std::thread(raytrace_task, tid));
 			}
-			LOGF("created %u threads", num_threads);
+			LOG("created %zu threads", num_threads);
 			for (uint tid = 0; tid < num_threads; tid++) {
 				threads_tmp[tid].join();
 			}

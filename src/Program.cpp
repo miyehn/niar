@@ -49,7 +49,7 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 	TIMER_BEGIN();
 	Pathtracer::Instance->raytrace_scene_to_buf();
 	TIMER_END();
-	TRACEF("done! took %f seconds", execution_time);
+	TRACE("done! took %f seconds", execution_time);
 	Pathtracer::Instance->output_file(path);
 
 	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()

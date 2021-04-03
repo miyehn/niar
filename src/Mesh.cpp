@@ -143,7 +143,7 @@ void Mesh::initialize() {
 	}
 	glBindVertexArray(0);
 
-	LOGF("loaded mesh '%s' of %d vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
+	LOG("loaded mesh '%s' of %lu vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 }
 
 void Mesh::generate_aabb() {
@@ -226,7 +226,7 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_g
 			aiProcess_JoinIdenticalVertices |
 			aiProcess_SortByPType);
 	if (!scene) {
-		ERR(importer.GetErrorString());
+		ERR("%s", importer.GetErrorString());
 	}
 
 	// access and create mesh drawables from imported source
@@ -238,7 +238,7 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_g
 		if (mesh) meshes.push_back(sceneMesh);
 	}
 
-	LOGF("loaded %d meshe(s)", meshes.size());
+	LOG("loaded %lu meshe(s)", meshes.size());
 
 	// importer seems to automatically handle memory release for scene
 	return meshes;

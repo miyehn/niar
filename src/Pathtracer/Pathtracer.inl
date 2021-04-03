@@ -5,7 +5,7 @@ void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
 	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));
 	size_t num_offsets = pow(sqk, 2);
-	TRACEF("generating %d pixel offsets", num_offsets);
+	TRACE("generating %lu pixel offsets", num_offsets);
 	
 	// canonical arrangement
 	for (int j=0; j<sqk; j++) {
@@ -105,7 +105,7 @@ void Pathtracer::raytrace_debug(size_t index) {
 
 	trace_ray(task, 0, true);
 	vec3& color = task.output;
-	LOGF("result color: %f %f %f", color.x, color.y, color.z);
+	LOG("result color: %f %f %f", color.x, color.y, color.z);
 	
 	// upload ray vertices
 	glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
@@ -251,7 +251,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		if ((Cfg.Pathtracer.UseDirectLight && !bsdf->is_emissive) ||
 			 !(Cfg.Pathtracer.UseDirectLight)) {
 			if (debug) {
-				LOGF("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
+				LOG("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
 			}
 
 			float pdf;
@@ -262,9 +262,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			costhetai = abs(dot(n, wi_world)); 
 
 			if (debug) {
-				LOGF("wo: %f %f %f (normalized to %f %f %f)", 
+				LOG("wo: %f %f %f (normalized to %f %f %f)", 
 						wo_world.x, wo_world.y, wo_world.z, wo_hemi.x, wo_hemi.y, wo_hemi.z);
-				LOGF("wi: %f %f %f (normalized to %f %f %f)", 
+				LOG("wi: %f %f %f (normalized to %f %f %f)", 
 						wi_world.x, wi_world.y, wi_world.z, wi_hemi.x, wi_hemi.y, wi_hemi.z);
 			}
 
@@ -292,6 +292,6 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			}
 		}
 #endif
-		if (debug) LOGF("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
+		if (debug) LOG("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
 	}
 }

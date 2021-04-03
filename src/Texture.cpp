@@ -63,7 +63,7 @@ Texture* Texture::get(const std::string& name) {
 		if (name=="white") return white();
 		else if (name=="black") return black();
 		else if (name=="defaultNormal") return default_normal();
-		ERRF("There isn't a texture called %s", name.c_str());
+		ERR("There isn't a texture called %s", name.c_str());
 		return nullptr;
 	} else {
 		path = info_pair->second.path;
@@ -78,7 +78,7 @@ Texture* Texture::get(const std::string& name) {
 	int w, h, nc;
 	unsigned char* data = stbi_load(path.c_str(), &w, &h, &nc, 0);
 	if (!data) {
-		ERRF("could not load image at path: %s", path.c_str());
+		ERR("could not load image at path: %s", path.c_str());
 		return nullptr;
 	}
 
@@ -87,7 +87,7 @@ Texture* Texture::get(const std::string& name) {
 
 	texture_pool[path] = tex;
 
-	LOGF("(created texture '%s' of size %dx%d with %d channels)", name.c_str(), tex->width(), tex->height(), tex->num_channels());
+	LOG("(created texture '%s' of size %dx%d with %d channels)", name.c_str(), tex->width(), tex->height(), tex->num_channels());
 	return tex;
 }
 

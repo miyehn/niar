@@ -1,4 +1,4 @@
-#include "lib.h"
+#include "logging.h"
 #include "vulkan/vulkan/vulkan.h"
 #include <optional>
 
@@ -16,11 +16,18 @@ struct Vulkan {
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
+	VkQueue graphicsQueue;
+
+	#ifdef DEBUG
+	const std::vector<const char*> validationLayers = {
+		"MoltenVK"
+	};
+	#endif
 
 	Vulkan(SDL_Window* window) {
 		uint32_t extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-		LOGF("%u vulkan extensions supported", extensionCount);
+		LOG("%u vulkan extensions supported", extensionCount);
 
 		createInstance(window);
 
@@ -34,6 +41,7 @@ struct Vulkan {
 	}
 
 	~Vulkan() {
+		vkDestroyDevice(device, nullptr);
 		#ifdef DEBUG
 		DestroyDebugUtilsMessengerEXT(&instance, &debugMessenger, nullptr);
 		#endif
@@ -57,12 +65,12 @@ private:
 		std::vector<const char*>enabledExtensions(2);
 		uint32_t tmp_enabledExtensionCount = enabledExtensions.size();
 		if (!SDL_Vulkan_GetInstanceExtensions(window, &tmp_enabledExtensionCount, enabledExtensions.data())) {
-			ERR(SDL_GetError());
+			ERR("%s", SDL_GetError());
 		}
 		#ifdef DEBUG
 		enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		#endif
-		LOGF("%u vulkan extensions enabled", enabledExtensions.size());
+		LOG("%lu vulkan extensions enabled", enabledExtensions.size());
 
 		VkInstanceCreateInfo createInfo = {
 			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -73,9 +81,6 @@ private:
 		};
 
 		#ifdef DEBUG // optionally add a validation layer
-		const std::vector<const char*> validationLayers = {
-			"MoltenVK"
-		};
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -93,7 +98,7 @@ private:
 			}
 			if (!layerFound) {
 				validationLayersSupported = false;
-				WARNF("Validation layer %s requested but not supported. Running without validation..", layerName);
+				WARN("Validation layer %s requested but not supported. Running without validation..", layerName);
 				break;
 			}
 		}
@@ -166,7 +171,6 @@ private:
 		// integrated graphics card that supports compute
 		if (properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
 			&& queueFamilyIndices.isComplete()) {
-			LOGF("found suitable device: %s", properties.deviceName);
 			return true;
 		}
 		return false;
@@ -191,7 +195,32 @@ private:
 	}
 
 	void createLogicalDevice() {
+		// command queue
+		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+		float queuePriority = 1.0f;
+		VkDeviceQueueCreateInfo queueCreateInfo = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value(),
+			.queueCount = 1,
+			.pQueuePriorities = &queuePriority
+		};
+		// features
+		VkPhysicalDeviceFeatures deviceFeatures{};
 
+		// logical device create info
+		VkDeviceCreateInfo createInfo = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.pQueueCreateInfos = &queueCreateInfo,
+			.queueCreateInfoCount = 1,
+			.pEnabledFeatures = &deviceFeatures
+		};
+
+		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+			ERR("failed to create logical device");
+		}
+
+		// get graphics queue handle
+		vkGetDeviceQueue(device, queueFamilyIndices.graphicsFamily.value(), 0, &graphicsQueue);
 	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -201,12 +230,12 @@ private:
 		void* pUserData)
 	{
 		if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-			ERRF("validation layer: %s", pCallbackData->pMessage);
+			VKERR("%s", pCallbackData->pMessage);
 		}
 		else if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-			WARNF("validation layer: %s", pCallbackData->pMessage);
+			VKWARN("%s", pCallbackData->pMessage);
 		} else {
-			LOGF("validation layer: %s", pCallbackData->pMessage);
+			VKLOG("%s", pCallbackData->pMessage);
 		}
 		return VK_TRUE;
 	}

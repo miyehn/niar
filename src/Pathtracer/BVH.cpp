@@ -215,7 +215,7 @@ void BVH::expand_bvh()
 	// In that case make this node a leaf.
 	if (left && right) {
 		/*
-		LOGF("left %u [%u, %u), right %u [%u, %u)", 
+		LOG("left %u [%u, %u), right %u [%u, %u)", 
 			left->primitives_count, left->primitives_start, left->primitives_start + left->primitives_count, 
 			right->primitives_count, right->primitives_start, right->primitives_start + right->primitives_count);
 		*/

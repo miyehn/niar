@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include <math.h>
 #include <algorithm>
 #include <fstream>
@@ -11,7 +10,6 @@
 #include <mutex>
 
 #include "glew/glew.h"
-#include "vulkan/vulkan/vulkan.h"
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_vulkan.h"
 
@@ -19,6 +17,8 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtx/quaternion.hpp"
+
+#include "logging.h"
 
 using namespace glm;
 
@@ -34,30 +34,6 @@ std::string string_format( const std::string& format, Args ... args ) {
 
 // for showing last path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-
-// for color formatting, see: https://stackoverflow.com/questions/2616906/how-do-i-output-coloured-text-to-a-linux-terminal
-#define LOGF(...) std::cout << "\033[32m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
-	string_format(__VA_ARGS__) << std::endl;
-#define LOG(message) std::cout << "\033[32m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
-	message << std::endl; 
-
-// raw logging (no prefix)
-#define LOGFR(...) std::cout << string_format(__VA_ARGS__) << std::endl;
-#define LOGR(message) std::cout << message << std::endl;
-
-#define WARNF(...) std::cout << "\033[33m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
-	string_format(__VA_ARGS__) << std::endl;
-#define WARN(message, ...) std::cout << "\033[33m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
-	message << std::endl;
-
-#define ERRF(...) std::cout << "\033[31m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
-	string_format(__VA_ARGS__) << std::endl;
-#define ERR(message) std::cout << "\033[31m[" << __FILENAME__ << ": " << std::to_string(__LINE__) << "]\033[0m " << \
-	message << std::endl;
-
-//---- pathtracer specific
-#define TRACEF(...) std::cout << "\033[1;35m[Pathtracer] " << string_format(__VA_ARGS__) << "\033[0m" << std::endl;
-#define TRACE(message) std::cout << "\033[1;35m[Pathtracer] " << message << "\033[0m" << std::endl; 
 
 //-------- gl_errors.hpp, found in Jim's base code --------
 #define STR2(X) # X

@@ -104,7 +104,7 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 	// IOR, assume container medium is air
 	float ni = trace_out ? IOR : 1.0f;
 	float nt = trace_out ? 1.0f : IOR;
-	if (debug) LOGF("ni: %f, nt: %F", ni, nt);
+	if (debug) LOG("ni: %f, nt: %F", ni, nt);
 
 	float cos_theta_i = abs(wo.z);
 	float sin_theta_i = sqrt(1.0f - pow(cos_theta_i, 2));

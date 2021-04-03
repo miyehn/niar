@@ -8,6 +8,8 @@
 
 #include "Vulkan.inl"
 
+#define TEST_VULKAN 1
+
 Program* Program::Instance;
 #ifdef WIN32
 #ifdef main
@@ -41,14 +43,17 @@ int main(int argc, const char * argv[]) {
 			h = result["height"].as<int>();
 		}
 		std::string path = result["output"].as<std::string>();
-		LOGF("rendering pathtracer scene to file: %s", path.c_str());
+		LOG("rendering pathtracer scene to file: %s", path.c_str());
 		Program::pathtrace_to_file(w, h, path);
 		return 0;
 	}
 
 	Program::Instance = new Program("niar", w, h);
+	#if TEST_VULKAN
 	Program::Instance->run_vulkan();
-	// Program::Instance->run_opengl();
+	#else
+	Program::Instance->run_opengl();
+	#endif
 	delete Program::Instance;
 	return 0;
 }
@@ -77,7 +82,7 @@ void Program::init_opengl_window() {
 		SDL_WINDOW_OPENGL
 		);
 	if (!window) {
-		std::cerr << "Error creating SDL window: " << SDL_GetError() << std::endl;
+		ERR("Error creating SDL window: %s", SDL_GetError());
 		exit(1);
 	}
 
@@ -133,7 +138,7 @@ bool Program::one_loop() {
 		else if (event.type==SDL_KEYUP && 
 				event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-		#if 0
+		#if !TEST_VULKAN
 		// console input
 		else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
 			input_str = "";
@@ -179,7 +184,7 @@ bool Program::one_loop() {
 
 	update(elapsed);
 
-	#if 0
+	#if !TEST_VULKAN
 	draw();
 	#endif
 	

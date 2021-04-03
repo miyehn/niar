@@ -67,7 +67,7 @@ void Scene::initialize_graphics() {
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, tex_depth, 0);
 	new NamedTex("Depth", tex_depth);
 
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER)!= GL_FRAMEBUFFER_COMPLETE)
 		ERR("G buffer framebuffer not correctly initialized");
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -151,7 +151,7 @@ void Scene::initialize_graphics() {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_gaussian_pingpong[i], 0);
 			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-				ERRF("gaussian pingpong[%d] framebuffer not correctly initialized", i);
+				ERR("gaussian pingpong[%d] framebuffer not correctly initialized", i);
 			new NamedTex("Gaussian", tex_gaussian_pingpong[i]);
 		}
 	}
@@ -181,11 +181,11 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			// | aiProcess_SortByPType
 			);
 	if (!scene) {
-		ERR(importer.GetErrorString());
+		ERR("%s", importer.GetErrorString());
 	}
-	LOGF(" - %d meshes", scene->mNumMeshes);
-	LOGF(" - %d lights", scene->mNumLights);
-	//LOGF(" - %d cameras", scene->mNumCameras);
+	LOG(" - %d meshes", scene->mNumMeshes);
+	LOG(" - %d lights", scene->mNumLights);
+	//LOG(" - %d cameras", scene->mNumCameras);
 
 	// meshes
 	for (int i=0; i<scene->mNumMeshes; i++) {
@@ -206,14 +206,14 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 			d_lights.push_back(d_light);
 			d_light->set_cast_shadow(true);
 			add_child(d_light);
-			LOGF("loaded directional light '%s', color: %s", d_light->name.c_str(), s3(d_light->get_emission()).c_str());
+			LOG("loaded directional light '%s', color: %s", d_light->name.c_str(), s3(d_light->get_emission()).c_str());
 			
 		} else if (light->mType == aiLightSource_POINT) {
 			PointLight* p_light = new PointLight(light, scene->mRootNode);
 			p_lights.push_back(p_light);
 			p_light->set_cast_shadow(true);
 			add_child(p_light);
-			LOGF("loaded point light '%s', color: %s", p_light->name.c_str(), s3(p_light->get_emission()).c_str());
+			LOG("loaded point light '%s', color: %s", p_light->name.c_str(), s3(p_light->get_emission()).c_str());
 
 		} else {
 			WARN("unrecognized light type, skipping..");

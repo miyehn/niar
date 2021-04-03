@@ -53,7 +53,7 @@ std::vector<vec3> AABB::corners() {
 ofbx::IScene* load_scene(const char* path) {
 	FILE* fp = fopen(path, "rb");
 	if (!fp) {
-		ERRF("cannot open file: %s", path);
+		ERR("cannot open file: %s", path);
 		return nullptr;
 	}
 	fseek(fp, 0, SEEK_END);
@@ -66,7 +66,7 @@ ofbx::IScene* load_scene(const char* path) {
 			file_size, 
 			(ofbx::u64)ofbx::LoadFlags::TRIANGULATE);
 	if (!inScene) {
-		ERRF("error importing scene: %s", ofbx::getError());
+		ERR("error importing scene: %s", ofbx::getError());
 		return nullptr;
 	}
 	fclose(fp);
@@ -86,11 +86,11 @@ bool f::import_scene(Scene* scene, const char* path) {
 /*
 	// TODO: use below to import light and camera
 	int cnt = inScene->getAllObjectCount();
-	LOGF("scene contains %d objects", cnt);
+	LOG("scene contains %d objects", cnt);
 	for(int i=0; i<cnt; i++) {
 		auto obj = inScene->getAllObjects()[i];
 		auto p = obj->getParent();
-		LOGF("%s, type: %d | %s", obj->name, obj->getType(), p ? p->name : "(null)");
+		LOG("%s, type: %d | %s", obj->name, obj->getType(), p ? p->name : "(null)");
 		if (obj->getType() == ofbx::Object::Type::NODE_ATTRIBUTE) {
 
 		}
@@ -121,8 +121,8 @@ bool f::import_scene(Scene* scene, const char* path) {
 		const ofbx::Vec3* normals = geom->getNormals();
 		const ofbx::Vec2* uvs = geom->getUVs();
 
-		if (normals == nullptr) WARNF("importing %s without normals..", inMesh->name);
-		if (uvs == nullptr) WARNF("importing %s without uvs..", inMesh->name);
+		if (normals == nullptr) WARN("importing %s without normals..", inMesh->name);
+		if (uvs == nullptr) WARN("importing %s without uvs..", inMesh->name);
 
 		for (int j=0; j<index_count; j++) {
 			ofbx::Vec3 v = vertices[j];
@@ -138,7 +138,7 @@ bool f::import_scene(Scene* scene, const char* path) {
 		// faces
 		const int* faces = geom->getFaceIndices();
 		for (int j=0; j<index_count; j++) {
-			if ( (j%3==2 && faces[j]>=0) || (j%3!=2 && faces[j]<0) ) WARNF("mesh %s doesn't seem triangularized!!", inMesh->name);
+			if ( (j%3==2 && faces[j]>=0) || (j%3!=2 && faces[j]<0) ) WARN("mesh %s doesn't seem triangularized!!", inMesh->name);
 			int idx = j%3==2 ? -1 ^ faces[j] : faces[j];
 			mesh->faces.push_back(idx);
 		}

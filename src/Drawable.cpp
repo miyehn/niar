@@ -41,7 +41,7 @@ void Drawable::draw() {
 
 bool Drawable::add_child(Drawable* child) {
 	if (!child) {
-		WARNF("trying to add a null child to %s, skipping..", name.c_str());
+		WARN("trying to add a null child to %s, skipping..", name.c_str());
 		return false;
 	}
 	if (child->parent) {

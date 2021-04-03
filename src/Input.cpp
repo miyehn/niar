@@ -22,7 +22,7 @@ void initialize_pathtracer_config() {
 		ERR("I/O error while reading config.ini");
 		return;
 	} catch (const ParseException &pex) {
-		ERRF("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
+		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
 		return;
 	}
 
@@ -63,7 +63,7 @@ void initialize_config() {
 		ERR("I/O error while reading config.ini");
 		return;
 	} catch (const ParseException &pex) {
-		ERRF("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
+		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
 		return;
 	}
 
@@ -139,7 +139,7 @@ void initialize_config() {
 			std::string path = textures[i].lookup("Path");
 			int SRGB = textures[i].lookup("SRGB");
 			Texture::set_resource_info(name, ROOT_DIR"/" + path, SRGB);
-			LOGF("set texture path for '%s', SRGB: %d", name.c_str(), SRGB);
+			LOG("set texture path for '%s', SRGB: %d", name.c_str(), SRGB);
 		}
 
 		// materials
@@ -177,10 +177,10 @@ void initialize_config() {
 				Material::add_to_pool(name, mat);
 
 			} else {
-				WARNF("cannot load materials with shader '%s' yet. skipping..", shader.c_str());
+				WARN("cannot load materials with shader '%s' yet. skipping..", shader.c_str());
 				created = false;
 			}
-			if (created) LOGF("%s", name.c_str());
+			if (created) LOG("%s", name.c_str());
 		}
 
 		// material assignments
@@ -190,7 +190,7 @@ void initialize_config() {
 			std::string mesh = assignments[i].lookup("Mesh");
 			std::string mat = assignments[i].lookup("Material");
 			Mesh::set_material_name_for(mesh, mat);
-			LOGF("%s : %s", mesh.c_str(), mat.c_str());
+			LOG("%s : %s", mesh.c_str(), mat.c_str());
 		}
 
 	} catch (const SettingNotFoundException &nfex) {
@@ -218,9 +218,9 @@ std::vector<NamedTex*> namedtex_list(NamedTex* new_tex) {
 
 void list_textures() {
 	auto Textures = namedtex_list();
-	LOGFR("There are %d named textures:", Textures.size());
+	LOGR("There are %lu named textures:", Textures.size());
 	for (int i=0; i<Textures.size(); i++) {
-		LOGFR("\t%d - %s", Textures[i]->index, Textures[i]->name.c_str());
+		LOGR("\t%d - %s", Textures[i]->index, Textures[i]->name.c_str());
 	}
 }
 
@@ -245,13 +245,13 @@ CVarBase* find_cvar(std::string name) {
 void list_cvars() {
 	auto ConsoleVariables = cvars_list();
 
-	LOGFR("There are %d console variables:", ConsoleVariables.size());
+	LOGR("There are %lu console variables:", ConsoleVariables.size());
 	for (int i=0; i<ConsoleVariables.size(); i++) {
 		if (CVar<int>* cvar = dynamic_cast<CVar<int>*>(ConsoleVariables[i])) {
-			LOGFR("\t%s (int)\t%d", cvar->get_name().c_str(), cvar->get());
+			LOGR("\t%s (int)\t%d", cvar->get_name().c_str(), cvar->get());
 
 		} else if (CVar<float>* cvar = dynamic_cast<CVar<float>*>(ConsoleVariables[i])) {
-			LOGFR("\t%s (float)\t%f", cvar->get_name().c_str(), cvar->get());
+			LOGR("\t%s (float)\t%f", cvar->get_name().c_str(), cvar->get());
 
 		}
 	}
@@ -260,11 +260,11 @@ void list_cvars() {
 void log_cvar(std::string name){
 	if (auto found = find_cvar(name)) {
 		if (CVar<int>* cvar = dynamic_cast<CVar<int>*>(found)) {
-			LOGFR("int, %s, %d", cvar->get_name().c_str(), cvar->get());
+			LOGR("int, %s, %d", cvar->get_name().c_str(), cvar->get());
 			return;
 
 		} else if (CVar<float>* cvar = dynamic_cast<CVar<float>*>(found)) {
-			LOGFR("float, %s, %f", cvar->get_name().c_str(), cvar->get());
+			LOGR("float, %s, %f", cvar->get_name().c_str(), cvar->get());
 			return;
 		}
 	}

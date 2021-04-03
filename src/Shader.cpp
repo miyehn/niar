@@ -9,18 +9,18 @@ Shader* Shader::get(const std::string& name) {
 	if (res != shader_pool.end()) {
 		return res->second;
 	} else {
-		ERRF("no shader named %s", name.c_str());
+		ERR("no shader named %s", name.c_str());
 		return nullptr;
 	}
 }
 
 void Shader::add(const std::string& name, Shader* shader) {
 	if (!shader) {
-		ERRF("trying to store null as shader %s. Skipping..", name.c_str());
+		ERR("trying to store null as shader %s. Skipping..", name.c_str());
 		return;
 	}
 	shader_pool[name] = shader;
-	LOGF("%s", name.c_str());
+	LOG("%s", name.c_str());
 }
 
 void Shader::cleanup() {
@@ -252,7 +252,7 @@ Shader::Shader(
 int Shader::uniform_loc(const std::string& uniformName, bool optional) const {
 	int location = glGetUniformLocation(id, uniformName.c_str());
 	if (location < 0 && !optional) {
-		WARNF("%s unable to find location for uniform \"%s\"", name.c_str(), uniformName.c_str());
+		WARN("%s unable to find location for uniform \"%s\"", name.c_str(), uniformName.c_str());
 	}
 	return location;
 }
