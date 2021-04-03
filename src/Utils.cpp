@@ -4,7 +4,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wall"
-#include "openfbx/ofbx.h"
+// #include "openfbx/ofbx.h"
 #pragma GCC diagnostic pop
 
 //------------------ AABB -------------------------
@@ -49,6 +49,7 @@ std::vector<vec3> AABB::corners() {
 
 //-------------------------------------------------
 
+#if 0 // use ofbx (instead of assimp)?
 ofbx::IScene* load_scene(const char* path) {
 	FILE* fp = fopen(path, "rb");
 	if (!fp) {
@@ -153,6 +154,7 @@ bool f::import_scene(Scene* scene, const char* path) {
 
 	return true;
 }
+#endif
 
 //-------------------------------------------------
 

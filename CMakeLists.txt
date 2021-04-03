@@ -29,13 +29,14 @@ set(SRC
 	src/Pathtracer/BVH
 	build/pathtracer_kernel.o
 	build/tasksys.o
-	include/openfbx/ofbx.cpp
+	# include/openfbx/ofbx.cpp
 	)
 
 include_directories(include src)
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 
+add_definitions(-DDEBUG=1)
 
 if(APPLE)
 	add_executable(niar ${SRC})
@@ -44,7 +45,6 @@ if(APPLE)
 		${CMAKE_THREAD_LIBS_INIT}
 		${OPENGL_gl_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
-		${CMAKE_SOURCE_DIR}/lib/libvulkan.1.2.154.dylib
 		${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
 		${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
 		${CMAKE_SOURCE_DIR}/lib/libzlibstatic.a

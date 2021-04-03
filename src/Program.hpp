@@ -5,6 +5,7 @@
 
 struct Drawable;
 struct Scene;
+struct Vulkan;
 
 struct Program {
 
@@ -21,7 +22,11 @@ struct Program {
 	
 	SDL_Window* window;
 	SDL_GLContext context;
+	Vulkan* vulkan;
+	/*
 	VkInstance vulkan_instance;
+	VkDebugUtilsMessengerEXT vulkan_debug_messenger;
+	*/
 
 	TimePoint previous_time;
 
@@ -47,8 +52,6 @@ struct Program {
 
 	void run_opengl();
 	void run_vulkan();
-
-	void cleanup_vulkan();
 	
 	// implementation of these decides game behavior.
 	void load_resources();

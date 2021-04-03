@@ -102,9 +102,6 @@ void Program::init_opengl_window() {
 void Program::init_vulkan_window() {
 
 	SDL_Init(SDL_INIT_VIDEO);
-
-	vulkan::init();
-
 	// create window
 	this->window = SDL_CreateWindow(
 		name.c_str(),
@@ -117,11 +114,7 @@ void Program::init_vulkan_window() {
 		exit(1);
 	}
 
-	vulkan_instance = vulkan::createInstance(this->window);
-}
-
-void Program::cleanup_vulkan() {
-
+	vulkan = new Vulkan(window);
 }
 
 Program::~Program() {
@@ -219,7 +212,7 @@ void Program::run_vulkan() {
 	this->previous_time = std::chrono::high_resolution_clock::now();
 	while(one_loop()){
 	}
-	cleanup_vulkan();
+	delete vulkan;
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }

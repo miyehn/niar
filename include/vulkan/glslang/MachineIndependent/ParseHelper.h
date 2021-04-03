@@ -67,7 +67,7 @@ struct TPragma {
 class TScanContext;
 class TPpContext;
 
-typedef std::set<int> TIdSetType;
+typedef std::set<long long> TIdSetType;
 typedef std::map<const TTypeList*, std::map<size_t, const TTypeList*>> TStructRecord;
 
 //
@@ -83,7 +83,7 @@ public:
           : TParseVersions(interm, version, profile, spvVersion, language, infoSink, forwardCompatible, messages),
             scopeMangler("::"),
             symbolTable(symbolTable),
-            statementNestingLevel(0), loopNestingLevel(0), structNestingLevel(0), controlFlowNestingLevel(0),
+            statementNestingLevel(0), loopNestingLevel(0), structNestingLevel(0), blockNestingLevel(0), controlFlowNestingLevel(0),
             currentFunctionType(nullptr),
             postEntryPointReturn(false),
             contextPragma(true, false),
@@ -178,7 +178,8 @@ public:
     TSymbolTable& symbolTable;        // symbol table that goes with the current language, version, and profile
     int statementNestingLevel;        // 0 if outside all flow control or compound statements
     int loopNestingLevel;             // 0 if outside all loops
-    int structNestingLevel;           // 0 if outside blocks and structures
+    int structNestingLevel;           // 0 if outside structures
+    int blockNestingLevel;            // 0 if outside blocks
     int controlFlowNestingLevel;      // 0 if outside all flow control
     const TType* currentFunctionType; // the return type of the function that's currently being parsed
     bool functionReturnsValue;        // true if a non-void function has a return
@@ -365,7 +366,7 @@ public:
     void accStructCheck(const TSourceLoc & loc, const TType & type, const TString & identifier);
     void transparentOpaqueCheck(const TSourceLoc&, const TType&, const TString& identifier);
     void memberQualifierCheck(glslang::TPublicType&);
-    void globalQualifierFixCheck(const TSourceLoc&, TQualifier&);
+    void globalQualifierFixCheck(const TSourceLoc&, TQualifier&, bool isMemberCheck = false);
     void globalQualifierTypeCheck(const TSourceLoc&, const TQualifier&, const TPublicType&);
     bool structQualifierErrorCheck(const TSourceLoc&, const TPublicType& pType);
     void mergeQualifiers(const TSourceLoc&, TQualifier& dst, const TQualifier& src, bool force);
@@ -391,7 +392,7 @@ public:
     void arrayLimitCheck(const TSourceLoc&, const TString&, int size);
     void limitCheck(const TSourceLoc&, int value, const char* limit, const char* feature);
 
-    void inductiveLoopBodyCheck(TIntermNode*, int loopIndexId, TSymbolTable&);
+    void inductiveLoopBodyCheck(TIntermNode*, long long loopIndexId, TSymbolTable&);
     void constantIndexExpressionCheck(TIntermNode*);
 
     void setLayoutQualifier(const TSourceLoc&, TPublicType&, TString&);
@@ -484,6 +485,7 @@ protected:
     TQualifier globalUniformDefaults;
     TQualifier globalInputDefaults;
     TQualifier globalOutputDefaults;
+    TQualifier globalSharedDefaults;
     TString currentCaller;        // name of last function body entered (not valid when at global scope)
 #ifndef GLSLANG_WEB
     int* atomicUintOffsets;       // to become an array of the right size to hold an offset per binding point
