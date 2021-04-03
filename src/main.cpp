@@ -6,6 +6,8 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
 
+#include "vulkan/vulkan/vulkan.h"
+
 Program* Program::Instance;
 #ifdef WIN32
 #ifdef main
@@ -45,17 +47,20 @@ int main(int argc, const char * argv[]) {
 	}
 
 	Program::Instance = new Program("niar", w, h);
-	Program::Instance->run();
+	Program::Instance->run_vulkan();
+	// Program::Instance->run_opengl();
 	delete Program::Instance;
 	return 0;
 }
 
 Program::Program(std::string name, int width, int height) {
-	
 	this->name = name;
 	this->width = width;
 	this->height = height;
-	
+}
+
+void Program::init_opengl_window() {
+
 	SDL_Init(SDL_INIT_VIDEO);
 	
 	// OpenGL settings
@@ -92,80 +97,119 @@ Program::Program(std::string name, int width, int height) {
 	glewExperimental = GL_TRUE;
 	glewInit();
 
-	this->previous_time = std::chrono::high_resolution_clock::now();
+}
+
+void Program::init_vulkan_window() {
+
+	uint32_t extensionCount = 0;
+ 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+
+	std::cout << extensionCount << " extensions supported\n";
+
+	SDL_Init(SDL_INIT_VIDEO);
+
+	// create window
+	this->window = SDL_CreateWindow(
+		name.c_str(),
+		100, 100, // SDL_WINDOWPOS_UNDEFINED, or SDL_WINDOWPOS_CENTERED
+		width, height, // specify window size
+		SDL_WINDOW_VULKAN
+		);
+	if (!window) {
+		std::cerr << "Error creating SDL window: " << SDL_GetError() << std::endl;
+		exit(1);
+	}
+
+	// TODO...
+}
+
+void Program::cleanup_vulkan() {
 
 }
 
 Program::~Program() {
 	release_resources();
+	cleanup_vulkan();
 }
 
-void Program::run() {
+bool Program::one_loop() {
 
-	load_resources();
-	setup();
+	SDL_Event event;
+	bool quit = false;
 
-	while (true) {
+	// currently everything handles everything (except quit)
+	while (SDL_PollEvent(&event)==1 && !quit) {
 
-		SDL_Event event;
-		bool quit = false;
+		// termination
+		if (event.type == SDL_QUIT) { quit=true; break; }
+		else if (event.type==SDL_KEYUP && 
+				event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-		// currently everything handles everything (except quit)
-		while (SDL_PollEvent(&event)==1 && !quit) {
+		#if 0
+		// console input
+		else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
+			input_str = "";
+			receiving_text = true;
+			std::cout << "> " << std::flush;
+		}
+		else if (event.type == SDL_TEXTINPUT && receiving_text) {
+			input_str += event.text.text;
+			std::cout << event.text.text << std::flush;
+		}
+		else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_BACKSPACE) {
+			input_str = input_str.substr(0, input_str.length()-1);
+			std::cout << "\r> " << input_str << std::flush;
+		}
+		else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_RETURN) {
+			receiving_text = false;
+			std::cout << std::endl;
+			process_input();
+		}
 
-			// termination
-			if (event.type == SDL_QUIT) { quit=true; break; }
-			else if (event.type==SDL_KEYUP && 
-					event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
-
-			// console input
-			else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
-				input_str = "";
-				receiving_text = true;
-				std::cout << "> " << std::flush;
+		else if (!receiving_text) {
+			// toggle between rasterizer & pathtracer
+			if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
+				if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();
+				else Pathtracer::Instance->enable();
 			}
-			else if (event.type == SDL_TEXTINPUT && receiving_text) {
-				input_str += event.text.text;
-				std::cout << event.text.text << std::flush;
-			}
-			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_BACKSPACE) {
-				input_str = input_str.substr(0, input_str.length()-1);
-				std::cout << "\r> " << input_str << std::flush;
-			}
-			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_RETURN) {
-				receiving_text = false;
-				std::cout << std::endl;
-				process_input();
-			}
-
-			else if (!receiving_text) {
-				// toggle between rasterizer & pathtracer
-				if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
-					if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();
-					else Pathtracer::Instance->enable();
-				}
-				// update singletons
-				if (Pathtracer::Instance->enabled) 
-					Pathtracer::Instance->handle_event(event);
-				// let all scene(s) handle the input
-				for (uint i=0; i<scenes.size(); i++) {
-					scenes[i]->handle_event(event);
-				}
+			// update singletons
+			if (Pathtracer::Instance->enabled) 
+				Pathtracer::Instance->handle_event(event);
+			// let all scene(s) handle the input
+			for (uint i=0; i<scenes.size(); i++) {
+				scenes[i]->handle_event(event);
 			}
 		}
-		if (quit) break;
-		
-		TimePoint current_time = std::chrono::high_resolution_clock::now();
-		float elapsed = std::chrono::duration<float>(current_time - previous_time).count();
-		elapsed = std::min(0.1f, elapsed);
-		previous_time = current_time;
+		#endif
+	}
+	if (quit) return false;
+	
+	TimePoint current_time = std::chrono::high_resolution_clock::now();
+	float elapsed = std::chrono::duration<float>(current_time - previous_time).count();
+	elapsed = std::min(0.1f, elapsed);
+	previous_time = current_time;
 
-		update(elapsed);
+	update(elapsed);
 
-		draw();
+	#if 0
+	draw();
+	#endif
+	
+	return true;
+}
 
+void Program::run_opengl() {
+	
+	init_opengl_window();
+
+	load_resources();
+
+	this->previous_time = std::chrono::high_resolution_clock::now();
+
+	while (one_loop()) {
 		SDL_GL_SwapWindow(window);
 	}
+
 #ifndef WIN32 // for whatever reason, on Windows including any of these lines makes SDL unable to close the window and quit properly
 	// tear down
 	SDL_GL_DeleteContext(context);
@@ -174,10 +218,18 @@ void Program::run() {
 #endif
 }
 
+void Program::run_vulkan() {
+	init_vulkan_window();
+	while(one_loop()){
+	}
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+}
+
 void Program::update(float elapsed) {
 	
 	// camera
-	Camera::Active->update_control(elapsed);
+	if (Camera::Active) Camera::Active->update_control(elapsed);
 	// pathtracer
 	if (Pathtracer::Instance && Pathtracer::Instance->enabled)
 		Pathtracer::Instance->update(elapsed);

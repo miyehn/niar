@@ -10,13 +10,6 @@ struct Program {
 	static Program* Instance;
 	
 	static void pathtrace_to_file(size_t w, size_t h, const std::string& path);
-	
-	Program(
-			std::string name, 
-			int width, 
-			int height);
-	~Program();
-	void run();
 		
 	// generic program properties
 	std::string name;
@@ -35,11 +28,28 @@ struct Program {
 	void process_input();
 
 	std::vector<Scene*> scenes;
+
+	//-------- program lifecycle --------
+	
+	Program(
+			std::string name, 
+			int width, 
+			int height);
+	~Program();
+
+	void init_opengl_window();
+	void init_vulkan_window();
+
+	bool one_loop();
+
+	void run_opengl();
+	void run_vulkan();
+
+	void cleanup_vulkan();
 	
 	// implementation of these decides game behavior.
 	void load_resources();
 
-	void setup();
 	void update(float elapsed);
 	void draw();
 

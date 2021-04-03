@@ -42,6 +42,8 @@ if(APPLE)
 	target_link_libraries(niar
 		${CMAKE_THREAD_LIBS_INIT}
 		${OPENGL_gl_LIBRARY}
+		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
+		${CMAKE_SOURCE_DIR}/lib/libvulkan.1.2.154.dylib
 		${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
 		${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
 		${CMAKE_SOURCE_DIR}/lib/libzlibstatic.a

@@ -67,15 +67,7 @@ void Program::load_resources() {
 	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
 	Camera::Active = new Camera(width, height);
 
-}
-
-void Program::setup() {
-
 	Scene* scene;
-
-	int w, h;	
-	w = drawable_width;	
-	h = drawable_height;	
 
 	/* Classic cornell box	
 	 *	
