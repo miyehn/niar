@@ -11,7 +11,9 @@
 #include <mutex>
 
 #include "glew/glew.h"
+#include "vulkan/vulkan/vulkan.h"
 #include "SDL2/SDL.h"
+#include "SDL2/SDL_vulkan.h"
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"

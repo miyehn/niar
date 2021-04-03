@@ -1,5 +1,6 @@
 #pragma once
 #include "lib.h"
+#include "vulkan/vulkan/vulkan.h"
 #include <chrono>
 
 struct Drawable;
@@ -20,6 +21,8 @@ struct Program {
 	
 	SDL_Window* window;
 	SDL_GLContext context;
+	VkInstance vulkan_instance;
+
 	TimePoint previous_time;
 
 	// input

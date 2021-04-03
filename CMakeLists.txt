@@ -9,6 +9,7 @@ find_package(Threads)
 
 set(SRC
 	src/main 
+	src/Vulkan.inl
 	src/Scene
 	src/Program 
 	src/Camera
@@ -75,7 +76,7 @@ endif(WIN32)
 
 #-------- building ispc --------
 # tasksys.o
-set(TASKSYS_SRC ${CMAKE_SOURCE_DIR}/src/tasksys.cpp)
+set(TASKSYS_SRC ${CMAKE_SOURCE_DIR}/include/ispc/tasksys.cpp)
 set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.o)
 add_custom_command(
 	OUTPUT ${TASKSYS_O}

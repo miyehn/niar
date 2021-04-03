@@ -6,7 +6,7 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
 
-#include "vulkan/vulkan/vulkan.h"
+#include "Vulkan.inl"
 
 Program* Program::Instance;
 #ifdef WIN32
@@ -101,12 +101,9 @@ void Program::init_opengl_window() {
 
 void Program::init_vulkan_window() {
 
-	uint32_t extensionCount = 0;
- 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-	std::cout << extensionCount << " extensions supported\n";
-
 	SDL_Init(SDL_INIT_VIDEO);
+
+	vulkan::init();
 
 	// create window
 	this->window = SDL_CreateWindow(
@@ -120,7 +117,7 @@ void Program::init_vulkan_window() {
 		exit(1);
 	}
 
-	// TODO...
+	vulkan_instance = vulkan::createInstance(this->window);
 }
 
 void Program::cleanup_vulkan() {
@@ -128,8 +125,6 @@ void Program::cleanup_vulkan() {
 }
 
 Program::~Program() {
-	release_resources();
-	cleanup_vulkan();
 }
 
 bool Program::one_loop() {
@@ -205,23 +200,26 @@ void Program::run_opengl() {
 	load_resources();
 
 	this->previous_time = std::chrono::high_resolution_clock::now();
-
 	while (one_loop()) {
 		SDL_GL_SwapWindow(window);
 	}
 
-#ifndef WIN32 // for whatever reason, on Windows including any of these lines makes SDL unable to close the window and quit properly
+	release_resources();
+
+	#ifndef WIN32 // for whatever reason, on Windows including any of these lines makes SDL unable to close the window and quit properly
 	// tear down
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
-#endif
+	#endif
 }
 
 void Program::run_vulkan() {
 	init_vulkan_window();
+	this->previous_time = std::chrono::high_resolution_clock::now();
 	while(one_loop()){
 	}
+	cleanup_vulkan();
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }

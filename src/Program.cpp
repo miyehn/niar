@@ -110,8 +110,8 @@ void Program::release_resources() {
 	for (uint i=0; i<scenes.size(); i++) {
 		delete scenes[i];
 	}
-	delete Camera::Active;
-	delete Pathtracer::Instance;
+	if (Camera::Active) delete Camera::Active;
+	if (Pathtracer::Instance) delete Pathtracer::Instance;
 	Texture::cleanup();
 	Shader::cleanup();
 	Material::cleanup();
