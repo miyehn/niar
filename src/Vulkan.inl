@@ -31,6 +31,11 @@ struct Vulkan {
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 
+	VkSwapchainKHR swapChain;
+	std::vector<VkImage> swapChainImages;
+	VkFormat swapChainImageFormat;
+	VkExtent2D swapChainExtent;
+
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		"MoltenVK"
@@ -60,6 +65,7 @@ struct Vulkan {
 	}
 
 	~Vulkan() {
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 		vkDestroyDevice(device, nullptr);
 		#ifdef DEBUG
@@ -161,6 +167,7 @@ private:
 		}
 	}
 
+	// isDeviceSuitable helper
 	inline QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
 		uint32_t queueFamilyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -189,6 +196,7 @@ private:
 		return indices;
 	}
 
+	// isDeviceSuitable helper
 	inline bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
 
 		uint32_t extensionCount;
@@ -205,6 +213,7 @@ private:
 		return requiredExtensions.empty();
 	}
 
+	// isDeviceSuitable helper
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
 		SwapChainSupportDetails details;
 		// capabilities
@@ -244,12 +253,6 @@ private:
 		if (extensionsSupported) {
 			SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
 			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-
-			/*
-			chooseSwapSurfaceFormat(swapChainSupport.formats);
-			chooseSwapPresentMode(swapChainSupport.presentModes);
-			chooseSwapExtent(swapChainSupport.capabilities); 
-			*/
 		}
 
 
@@ -322,6 +325,7 @@ private:
 		vkGetDeviceQueue(device, queueFamilyIndices.presentFamily.value(), 0, &presentQueue);
 	}
 
+	// createSwapchain helper
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 		/* formats: 
 		VK_FORMAT_B8G8R8A8_UNORM (44)
@@ -340,6 +344,7 @@ private:
 		return availableFormats[0];
 	}
 
+	// createSwapchain helper
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
 		/* present modes (supported by both gpus on my mac):
 		VK_PRESENT_MODE_FIFO_KHR (2)
@@ -351,6 +356,7 @@ private:
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 
+	// createSwapchain helper
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
 		// on mac, width and height range: [1, 16384]
 		if (capabilities.currentExtent.width != UINT32_MAX) {
@@ -372,9 +378,56 @@ private:
 
 	void createSwapChain() {
 		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+
 		VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
 		VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-		
+		VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+		uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+		if (swapChainSupport.capabilities.maxImageCount > 0
+			&& imageCount > swapChainSupport.capabilities.maxImageCount)
+		{
+			imageCount = swapChainSupport.capabilities.maxImageCount;
+		}
+
+		VkSwapchainCreateInfoKHR createInfo = {
+			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+			.surface = surface,
+			.minImageCount = imageCount,
+			.imageFormat = surfaceFormat.format,
+			.imageColorSpace = surfaceFormat.colorSpace,
+			.imageExtent = extent,
+			.imageArrayLayers = 1, // 1 unless for stereoscopic 3D app
+			.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			.preTransform = swapChainSupport.capabilities.currentTransform,
+			.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // for blending with other windows
+			.presentMode = presentMode,
+			.clipped = VK_TRUE, // so pixels covered by other windows are not rendered
+			.oldSwapchain = VK_NULL_HANDLE // needed if want to allow resizing window
+		};
+		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+		uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+		if (indices.graphicsFamily.value() != indices.presentFamily.value()) {
+			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+			createInfo.queueFamilyIndexCount = 2;
+			createInfo.pQueueFamilyIndices = queueFamilyIndices;
+		} else {
+			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			createInfo.queueFamilyIndexCount = 0;
+			createInfo.pQueueFamilyIndices = nullptr;
+		}
+
+		if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
+			ERR("failed to create swapchain.");
+		}
+
+		// retrieve handles to swapchain images
+		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+		swapChainImages.resize(imageCount);
+		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+
+		swapChainImageFormat = surfaceFormat.format;
+		swapChainExtent = extent;
 	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
