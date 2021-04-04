@@ -1,5 +1,6 @@
 #include "logging.h"
 #include "vulkan/vulkan/vulkan.h"
+#include <fstream>
 #include <set>
 #include <optional>
 
@@ -36,6 +37,8 @@ struct Vulkan {
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 
+	std::vector<VkImageView> swapChainImageViews;
+
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		"MoltenVK"
@@ -62,9 +65,16 @@ struct Vulkan {
 		createLogicalDevice();
 
 		createSwapChain();
+
+		createImageViews();
+
+		createGraphicsPipeline();
 	}
 
 	~Vulkan() {
+		for (auto imageView : swapChainImageViews) {
+			vkDestroyImageView(device, imageView, nullptr);
+		}
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 		vkDestroyDevice(device, nullptr);
@@ -428,6 +438,92 @@ private:
 
 		swapChainImageFormat = surfaceFormat.format;
 		swapChainExtent = extent;
+	}
+
+	void createImageViews() {
+		swapChainImageViews.resize(swapChainImages.size());
+		for (int i=0; i<swapChainImageViews.size(); i++) {
+			VkImageViewCreateInfo createInfo = {
+				.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				.image = swapChainImages[i],
+				.viewType = VK_IMAGE_VIEW_TYPE_2D,
+				.format = swapChainImageFormat,
+				.components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.subresourceRange.baseMipLevel = 0,
+				.subresourceRange.levelCount = 1,
+				.subresourceRange.baseArrayLayer = 0,
+				.subresourceRange.layerCount = 1
+			};
+			if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+				ERR("failed to create image views from swapchain!");
+			}
+		}
+	}
+
+	static inline std::vector<char> readFile(const std::string& filename) {
+		// read binary file from the end
+		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+		if (!file.is_open()) {
+			ERR("failed to open file %s", filename.c_str());
+		}
+		// get file size from position
+		size_t fileSize = (size_t) file.tellg();
+		std::vector<char> buffer(fileSize);
+		// seek to 0
+		file.seekg(0);
+		file.read(buffer.data(), fileSize);
+		file.close();
+		return buffer;
+	}
+
+	inline VkShaderModule createShaderModule(const std::vector<char>& code) {
+		VkShaderModuleCreateInfo createInfo = {
+			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+			.codeSize = code.size(),
+			.pCode = reinterpret_cast<const uint32_t*>(code.data())
+		};
+		VkShaderModule shaderModule;
+		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+			ERR("failed to create shader module!");
+		}
+		return shaderModule;
+	}
+
+	void createGraphicsPipeline() {
+		auto vertShaderCode = readFile("spirv/triangle.vert.spv");
+		auto fragShaderCode = readFile("spirv/triangle.frag.spv");
+		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_VERTEX_BIT,
+			.module = vertShaderModule,
+			.pName = "main", // entry point function (should be main for glsl shaders)
+			.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+		};
+
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = fragShaderModule,
+			.pName = "main", // entry point function (should be main for glsl shaders)
+			.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+		};
+
+		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+		// TODO: configure fixed-function stages
+		// https://vulkan-tutorial.com/en/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
+		// ref1: https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
+		// ref2: https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/main.c
+
+		vkDestroyShaderModule(device, vertShaderModule, nullptr);
+		vkDestroyShaderModule(device, fragShaderModule, nullptr);
 	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
