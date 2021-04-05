@@ -19,61 +19,91 @@
 
 // logging
 #define LOG(...) { \
-    COLOR_GREEN \
-    printf("["); LOCATION; printf("] "); \
-    COLOR_RESET \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
+	COLOR_GREEN \
+	printf("["); LOCATION; printf("] "); \
+	COLOR_RESET \
+	printf(__VA_ARGS__); \
+	printf("\n"); \
 }
 
 #define LOGR(...) { \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
+	printf(__VA_ARGS__); \
+	printf("\n"); \
 }
 
 #define WARN(...) { \
-    COLOR_YELLOW \
-    printf("["); LOCATION; printf("] "); \
-    COLOR_RESET \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
+	COLOR_YELLOW \
+	printf("["); LOCATION; printf("] "); \
+	COLOR_RESET \
+	printf(__VA_ARGS__); \
+	printf("\n"); \
 }
 
 #define ERR(...) { \
-    COLOR_RED \
-    printf("["); LOCATION; printf("] "); \
-    COLOR_RESET \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
+	COLOR_RED \
+	printf("["); LOCATION; printf("] "); \
+	COLOR_RESET \
+	printf(__VA_ARGS__); \
+	printf("\n"); \
 }
 
 // pathtracer
 #define TRACE(...) { \
-    COLOR_MAGENTA \
-    printf("[Pathtracer] "); \
-    printf(__VA_ARGS__); \
-    COLOR_RESET \
-    printf("\n"); \
+	COLOR_MAGENTA \
+	printf("[Pathtracer] "); \
+	printf(__VA_ARGS__); \
+	COLOR_RESET \
+	printf("\n"); \
 }
 
 #define VKLOG(...) { \
-    COLOR_CYAN \
-    printf("[Vulkan validation] "); \
-    printf(__VA_ARGS__); \
-    COLOR_RESET \
-    printf("\n"); \
+	COLOR_CYAN \
+	printf("[Vulkan validation] "); \
+	printf(__VA_ARGS__); \
+	COLOR_RESET \
+	printf("\n"); \
 }
 #define VKWARN(...) { \
-    COLOR_YELLOW \
-    printf("[Vulkan validation] "); \
-    printf(__VA_ARGS__); \
-    COLOR_RESET \
-    printf("\n"); \
+	COLOR_YELLOW \
+	printf("[Vulkan validation] "); \
+	printf(__VA_ARGS__); \
+	COLOR_RESET \
+	printf("\n"); \
 }
 #define VKERR(...) { \
-    COLOR_RED \
-    printf("[Vulkan validation] "); \
-    printf(__VA_ARGS__); \
-    COLOR_RESET \
-    printf("\n"); \
+	COLOR_RED \
+	printf("[Vulkan validation] "); \
+	printf(__VA_ARGS__); \
+	COLOR_RESET \
+	printf("\n"); \
 }
+
+// assertions
+
+#if DEBUG
+
+#define EXPECT_M(STATEMENT, EXPECTED, ...) { \
+	if (STATEMENT != EXPECTED) { \
+		COLOR_RED \
+		printf("["); LOCATION; printf("]"); \
+		printf("[Assertion failed] "); \
+		printf(__VA_ARGS__); \
+		COLOR_RESET \
+		printf("\n"); \
+	} \
+}
+
+#define EXPECT(STATEMENT, EXPECTED) EXPECT_M(STATEMENT, EXPECTED, "")
+
+#define ASSERT_M(STATEMENT, ...) EXPECT_M(STATEMENT, true, __VA_ARGS__)
+
+#define ASSERT(STATEMENT) EXPECT(STATEMENT, true)
+
+#else
+
+#define EXPECT_M(STATEMENT, EXPECTED, ...) STATEMENT;
+#define EXPECT(STATEMENT, EXPECTED) STATEMENT;
+#define ASSERT_M(STATEMENT) ;
+#define ASSERT(STATEMENT) ;
+
+#endif
