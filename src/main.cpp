@@ -184,7 +184,9 @@ bool Program::one_loop() {
 
 	update(elapsed);
 
-	#if !TEST_VULKAN
+	#if TEST_VULKAN
+	vulkan->drawFrame();
+	#else
 	draw();
 	#endif
 	
@@ -217,6 +219,7 @@ void Program::run_vulkan() {
 	this->previous_time = std::chrono::high_resolution_clock::now();
 	while(one_loop()){
 	}
+	vulkan->waitDeviceIdle();
 	delete vulkan;
 	SDL_DestroyWindow(window);
 	SDL_Quit();

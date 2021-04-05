@@ -4,7 +4,102 @@
 #include <set>
 #include <optional>
 
+/* references:
+https://vulkan-tutorial.com/
+https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/main.c
+https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
+*/
+
 struct Vulkan {
+
+	Vulkan(SDL_Window* window) {
+
+		this->window = window;
+
+		createInstance(window);
+		#ifdef DEBUG
+		setupDebugMessenger();
+		#endif
+		createSurface(window);
+		pickPhysicalDevice();
+		createLogicalDevice();
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFramebuffers();
+		createCommandPool();
+		createCommandBuffers();
+		createSemaphores();
+	}
+
+	~Vulkan() {
+		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
+		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+		vkDestroyCommandPool(device, commandPool, nullptr);
+		for (auto framebuffer : swapChainFramebuffers) {
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+		vkDestroyPipeline(device, graphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+		vkDestroyRenderPass(device, renderPass, nullptr);
+		for (auto imageView : swapChainImageViews) {
+			vkDestroyImageView(device, imageView, nullptr);
+		}
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+		vkDestroyDevice(device, nullptr);
+		#ifdef DEBUG
+		DestroyDebugUtilsMessengerEXT(&instance, &debugMessenger, nullptr);
+		#endif
+		vkDestroyInstance(instance, nullptr);
+	}
+
+	void drawFrame() {
+		uint32_t imageIndex;
+		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+		VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+		VkSubmitInfo submitInfo = {
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = waitSemaphores,
+			.pWaitDstStageMask = waitStages,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &commandBuffers[imageIndex],
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = signalSemaphores
+		};
+
+		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+			ERR("failed to submit to draw command buffer");
+		}
+
+		// because it's possible to present to multiple swap chains..
+		VkSwapchainKHR swapChains[] = { swapChain };
+		VkPresentInfoKHR presentInfo = {
+			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = signalSemaphores,
+			.swapchainCount = 1,
+			.pSwapchains = swapChains,
+			.pImageIndices = &imageIndex,
+			.pResults = nullptr // can just use the function return value when there's just one swap chain
+		};
+
+		vkQueuePresentKHR(presentQueue, &presentInfo);
+	}
+
+	void waitDeviceIdle() {
+		if (vkDeviceWaitIdle(device) != VK_SUCCESS) {
+			ERR("failed to wait for the logcial device to become idle")
+		}
+	}
+
+private:
+
+	const int MAX_FRAME_IN_FLIGHT = 2;
 
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
@@ -47,6 +142,9 @@ struct Vulkan {
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 
+	VkSemaphore imageAvailableSemaphore;
+	VkSemaphore renderFinishedSemaphore;
+
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		"MoltenVK"
@@ -55,59 +153,6 @@ struct Vulkan {
 	const std::vector<const char*> deviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
-
-	Vulkan(SDL_Window* window) {
-
-		this->window = window;
-
-		createInstance(window);
-
-		#ifdef DEBUG
-		setupDebugMessenger();
-		#endif
-
-		createSurface(window);
-
-		pickPhysicalDevice();
-
-		createLogicalDevice();
-
-		createSwapChain();
-
-		createImageViews();
-
-		createRenderPass();
-
-		createGraphicsPipeline();
-
-		createFramebuffers();
-
-		createCommandPool();
-
-		createCommandBuffers();
-	}
-
-	~Vulkan() {
-		vkDestroyCommandPool(device, commandPool, nullptr);
-		for (auto framebuffer : swapChainFramebuffers) {
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
-		}
-		vkDestroyPipeline(device, graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-		vkDestroyRenderPass(device, renderPass, nullptr);
-		for (auto imageView : swapChainImageViews) {
-			vkDestroyImageView(device, imageView, nullptr);
-		}
-		vkDestroySwapchainKHR(device, swapChain, nullptr);
-		vkDestroySurfaceKHR(instance, surface, nullptr);
-		vkDestroyDevice(device, nullptr);
-		#ifdef DEBUG
-		DestroyDebugUtilsMessengerEXT(&instance, &debugMessenger, nullptr);
-		#endif
-		vkDestroyInstance(instance, nullptr);
-	}
-
-private:
 
 	void createInstance(SDL_Window* window) {
 
@@ -543,16 +588,30 @@ private:
 			.colorAttachmentCount = 1,
 			.pColorAttachments = &colorAttachmentRef
 		};
+		VkSubpassDependency dependency = {
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			// wait for the swap chain to finish reading
+			// Question: first access scope includes color_attachment_output as well?? (Isn't it just read by the monitor?)
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = 0,
+			// before we can write to it
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		};
 		VkRenderPassCreateInfo renderPassInfo = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 			.attachmentCount = 1,
 			.pAttachments = &colorAttachment,
 			.subpassCount = 1,
-			.pSubpasses = &subpass
+			.pSubpasses = &subpass,
+			.dependencyCount = 1,
+			.pDependencies = &dependency
 		};
 		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 			ERR("failed to create render pass.");
 		}
+		
 	}
 
 	void createGraphicsPipeline() {
@@ -809,6 +868,17 @@ private:
 				ERR("failed to end recording command buffer");
 			}
 
+		}
+	}
+
+	void createSemaphores() {
+		VkSemaphoreCreateInfo semaphoreInfo = {
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+		};
+		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
+			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS)
+		{
+			ERR("failed to create semaphores");
 		}
 	}
 
