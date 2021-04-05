@@ -34,12 +34,18 @@ struct Vulkan {
 
 	VkSwapchainKHR swapChain;
 	std::vector<VkImage> swapChainImages;
+	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 
 	std::vector<VkImageView> swapChainImageViews;
 
+	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
+	VkPipeline graphicsPipeline;
+
+	VkCommandPool commandPool;
+	std::vector<VkCommandBuffer> commandBuffers;
 
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
@@ -73,10 +79,22 @@ struct Vulkan {
 		createRenderPass();
 
 		createGraphicsPipeline();
+
+		createFramebuffers();
+
+		createCommandPool();
+
+		createCommandBuffers();
 	}
 
 	~Vulkan() {
+		vkDestroyCommandPool(device, commandPool, nullptr);
+		for (auto framebuffer : swapChainFramebuffers) {
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+		vkDestroyPipeline(device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+		vkDestroyRenderPass(device, renderPass, nullptr);
 		for (auto imageView : swapChainImageViews) {
 			vkDestroyImageView(device, imageView, nullptr);
 		}
@@ -498,6 +516,45 @@ private:
 		return shaderModule;
 	}
 
+	void createRenderPass() {
+		// a render pass: load the attachment, r/w operations (by subpasses), then release it?
+		// renderpass -> subpass -> attachmentReferences -> attachment
+		// a render pass holds ref to an array of color attachments.
+		// A subpass then use an array of attachmentRef to selectively get the attachments and use them
+		VkAttachmentDescription colorAttachment = {
+			.format = swapChainImageFormat,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
+			.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+		};
+		VkAttachmentReference colorAttachmentRef = {
+			// matches layout(location=X)
+			.attachment = 0,
+			// "which layout we'd like it to have during this subpass"
+			// so, initialLayout -> this -> finalLayout ?
+			.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		};
+		VkSubpassDescription subpass = {
+			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachmentRef
+		};
+		VkRenderPassCreateInfo renderPassInfo = {
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+			.attachmentCount = 1,
+			.pAttachments = &colorAttachment,
+			.subpassCount = 1,
+			.pSubpasses = &subpass
+		};
+		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+			ERR("failed to create render pass.");
+		}
+	}
+
 	void createGraphicsPipeline() {
 
 		//-------- shader stages --------
@@ -620,14 +677,14 @@ private:
 			.blendConstants[3] = 0.0f
 		};
 
-		//---- dynamic state ----
+		//---- dynamic state (just a dummy example) ----
 		VkDynamicState dynamicStates[] = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_LINE_WIDTH
+			// VK_DYNAMIC_STATE_VIEWPORT,
+			// VK_DYNAMIC_STATE_LINE_WIDTH
 		};
 		VkPipelineDynamicStateCreateInfo dynamicState = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-			.dynamicStateCount = 2,
+			.dynamicStateCount = 0,
 			.pDynamicStates = dynamicStates
 		};
 
@@ -643,13 +700,116 @@ private:
 			ERR("failed to create pipeline layout");
 		}
 
-		// TODO: configure fixed-function stages
-		// https://vulkan-tutorial.com/en/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
-		// ref1: https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
-		// ref2: https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/main.c
+		//---- create the fucking pipeline ----
+		VkGraphicsPipelineCreateInfo pipelineInfo = {
+			.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+			// shader stages
+			.stageCount = 2,
+			.pStages = shaderStages,
+			// fixed-function stages config
+			.pVertexInputState = &vertexInputInfo,
+			.pInputAssemblyState = &inputAssemblyInfo,
+			.pViewportState = &viewportState,
+			.pRasterizationState = &rasterizer,
+			.pMultisampleState = &multisampling,
+			.pDepthStencilState = nullptr,
+			.pColorBlendState = &colorBlending,
+			.pDynamicState = nullptr,
+			// layout
+			.layout = pipelineLayout,
+			// render pass
+			.renderPass = renderPass,
+			.subpass = 0,
+			// others
+			.basePipelineHandle = VK_NULL_HANDLE,
+			.basePipelineIndex = -1
+		};
+
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+			ERR("failed to create graphics pipeline.");
+		}
 
 		vkDestroyShaderModule(device, vertShaderModule, nullptr);
 		vkDestroyShaderModule(device, fragShaderModule, nullptr);
+	}
+
+	void createFramebuffers() {
+		swapChainFramebuffers.resize(swapChainImageViews.size());
+		for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+			VkImageView attachments[] = { swapChainImageViews[i] };
+
+			VkFramebufferCreateInfo framebufferInfo = {
+				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+				.renderPass = renderPass, // the render pass it needs to be compatible with
+				.attachmentCount = 1,
+				.pAttachments = attachments,
+				.width = swapChainExtent.width,
+				.height = swapChainExtent.height,
+				.layers = 1
+			};
+
+			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+				ERR("failed to create framebuffer");
+			}
+		}
+	}
+
+	void createCommandPool() {
+		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+		VkCommandPoolCreateInfo poolInfo = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value(),
+			.flags = 0
+		};
+		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+			ERR("failed to create command pool");
+		}
+	}
+
+	void createCommandBuffers() {
+		commandBuffers.resize(swapChainFramebuffers.size());
+		VkCommandBufferAllocateInfo allocInfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			.commandPool = commandPool,
+			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			.commandBufferCount = (uint32_t) commandBuffers.size()
+		};
+		if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+			ERR("failed to allocate command buffers");
+		}
+
+		for (size_t i=0; i<commandBuffers.size(); i++) {
+
+			// begin recording into command buffer:
+			VkCommandBufferBeginInfo beginInfo = {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+				.flags = 0,
+				.pInheritanceInfo = nullptr
+			};
+			if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
+				ERR("failed to begin recording command buffer");
+			}
+
+			// render pass
+			VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+			VkRenderPassBeginInfo renderPassInfo = {
+				.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+				.renderPass = renderPass,
+				.framebuffer = swapChainFramebuffers[i],
+				.renderArea.offset = {0, 0},
+				.renderArea.extent = swapChainExtent,
+				.pClearValues = &clearColor
+			};
+			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			vkCmdEndRenderPass(commandBuffers[i]);
+
+			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
+				ERR("failed to end recording command buffer");
+			}
+
+		}
 	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -667,10 +827,6 @@ private:
 			VKLOG("%s", pCallbackData->pMessage);
 		}
 		return VK_TRUE;
-	}
-
-	void createRenderPass() {
-
 	}
 
 	// proxy function that looks up the extension first before calling it
