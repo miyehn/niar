@@ -162,6 +162,7 @@ private:
 
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
+		// NOTE: things that this layer reports seems different from the ones on windows?
 		"MoltenVK"
 	};
 	#endif
@@ -180,11 +181,15 @@ private:
 			.apiVersion = VK_API_VERSION_1_2
 		};
 
-		// extensions to use with sdl
-		std::vector<const char*>enabledExtensions(2);
-		uint32_t tmp_enabledExtensionCount = enabledExtensions.size();
+		//---- extensions to use with sdl ----
+
+		// get required extensions count
+		uint32_t numSDLRequiredExtensions;
+		EXPECT_M(SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, nullptr), true, "%s", SDL_GetError());
+		// get the extensions' names: "VK_KHR_surface", "VK_MVK_macos_surface"
+		std::vector<const char*>enabledExtensions(numSDLRequiredExtensions);
 		EXPECT_M(
-			SDL_Vulkan_GetInstanceExtensions(window, &tmp_enabledExtensionCount, enabledExtensions.data()), 
+			SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, enabledExtensions.data()), 
 			true, "%s", SDL_GetError());
 		#ifdef DEBUG
 		enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -221,9 +226,16 @@ private:
 			}
 		}
 
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{}; // only used if validationLayersSupported is true
 		if (validationLayersSupported) {
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 			createInfo.ppEnabledLayerNames = validationLayers.data();
+
+			populateDebugMessengerCreateInfo(debugCreateInfo);
+			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+		} else {
+			createInfo.enabledLayerCount = 0;
+			createInfo.pNext = nullptr;
 		}
 		#endif
 
@@ -235,8 +247,8 @@ private:
 		EXPECT(SDL_Vulkan_CreateSurface(window, instance, &surface), true);
 	}
 
-	void setupDebugMessenger() {
-		VkDebugUtilsMessengerCreateInfoEXT createInfo = {
+	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+		createInfo = {
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 			.messageSeverity = 
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
@@ -250,6 +262,12 @@ private:
 			.pfnUserCallback = Vulkan::debugCallback,
 			.pUserData = nullptr
 		};
+	}
+
+	void setupDebugMessenger() {
+		VkDebugUtilsMessengerCreateInfoEXT createInfo; 
+		populateDebugMessengerCreateInfo(createInfo);
+
 		if (CreateDebugUtilsMessengerEXT(&instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
 			WARN("Failed to setup vulkan debug messenger. Continuing without messenger...");
 		}
