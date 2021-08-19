@@ -9,7 +9,8 @@ find_package(Threads)
 
 set(SRC
 	src/main 
-	src/Vulkan.inl
+	src/Vulkan
+	# src/Vulkan.inl
 	src/Scene
 	src/Program 
 	src/Camera
