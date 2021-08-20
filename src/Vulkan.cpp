@@ -19,6 +19,7 @@ Vulkan::Vulkan(SDL_Window* window) {
     createFramebuffers();
     createCommandPools();
 	createVertexBuffer();
+	createIndexBuffer();
     createCommandBuffers();
     createSynchronizationObjects();
 
@@ -198,9 +199,10 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 void Vulkan::createVertexBuffer() {
 
 	// use normal as color (for now)
-	vertices[0].normal = vec3(1, 1, 1);
-	vertices[1].normal = vec3(0, 1, 0.3);
-	vertices[2].normal = vec3(0.1, 0.2, 1);
+	vertices[0].normal = vec3(1, 0, 0);
+	vertices[1].normal = vec3(0, 0, 0);
+	vertices[2].normal = vec3(0, 1, 0);
+	vertices[3].normal = vec3(1, 1, 0);
 
 	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
@@ -226,10 +228,44 @@ void Vulkan::createVertexBuffer() {
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		vertexBuffer,
-		vertexBufferMemory
-	);
+		vertexBufferMemory);
+
 	// and copy stuff from staging buffer to vertex buffer
 	copyBuffer(vertexBuffer, stagingBuffer, bufferSize);
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void Vulkan::createIndexBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(VERTEX_INDEX_TYPE) * indices.size();
+	
+	// staging buffer
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer,
+		stagingBufferMemory);
+
+	// copy data to staging buffer
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	// create the actual index buffer
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		indexBuffer,
+		indexBufferMemory);
+	
+	// move stuff from staging buffer and destroy staging buffer
+	copyBuffer(indexBuffer, stagingBuffer, bufferSize);
 	vkDestroyBuffer(device, stagingBuffer, nullptr);
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
@@ -941,7 +977,8 @@ void Vulkan::createCommandBuffers()
 		VkBuffer vertexBuffers[] = { vertexBuffer };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets); // offset, #bindings, (content)
-		vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE);
+		vkCmdDrawIndexed(commandBuffers[i], indices.size(), 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffers[i]);
 
 		EXPECT(vkEndCommandBuffer(commandBuffers[i]), VK_SUCCESS);

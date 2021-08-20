@@ -60,14 +60,28 @@ struct Vulkan {
 		return attributeDescriptions;
 	}
 
+	/*
+	https://developer.nvidia.com/vulkan-memory-management
+	"Driver developers recommend that you also store multiple buffers,
+	like the vertex and index buffer, into a single VkBuffer and
+	use offsets in commands like vkCmdBindVertexBuffers."
+	*/
+#define VERTEX_INDEX_TYPE uint16_t
+#define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 	std::vector<Vertex> vertices = {
-		Vertex(vec3(0, -0.5, 0)),
+		Vertex(vec3(-0.5, -0.5, 0)),
+		Vertex(vec3(0.5, -0.5, 0)),
 		Vertex(vec3(0.5, 0.5, 0)),
 		Vertex(vec3(-0.5, 0.5, 0))
+	};
+	std::vector<VERTEX_INDEX_TYPE> indices = {
+		0, 1, 2, 2, 3, 0
 	};
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
 
 	void createBuffer(
 		VkDeviceSize size,
@@ -79,6 +93,7 @@ struct Vulkan {
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
 	void createVertexBuffer();
+	void createIndexBuffer();
 
 private:
 
