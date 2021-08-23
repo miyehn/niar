@@ -82,6 +82,20 @@ struct Vulkan {
 	VkDeviceMemory vertexBufferMemory;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
+	// per swapchain image
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> uniformBuffersMemory;
+
+	VkDescriptorPool descriptorPool;
+
+	VkDescriptorSetLayout descriptorSetLayout;
+	std::vector<VkDescriptorSet> descriptorSets;
+
+	struct UniformBufferObject {
+		alignas(16) mat4 ModelMatrix;
+		alignas(16) mat4 ViewMatrix;
+		alignas(16) mat4 ProjectionMatrix;
+	};
 
 	void createBuffer(
 		VkDeviceSize size,
@@ -94,6 +108,12 @@ struct Vulkan {
 
 	void createVertexBuffer();
 	void createIndexBuffer();
+
+	void createDescriptorSetLayout();
+	void createDescriptorPool();
+	void createDescriptorSets();
+	void createUniformBuffers();
+	void updateUniformBuffer(uint32_t currentImage);
 
 private:
 
@@ -135,6 +155,7 @@ private:
 	std::vector<VkImageView> swapChainImageViews;
 
 	VkRenderPass renderPass;
+	// descriptor set layout goes here??
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 
