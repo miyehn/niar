@@ -2,10 +2,11 @@
 
 #include "lib.h"
 #include "logging.h"
-#include "vulkan/vulkan/vulkan.h"
+// #include "vulkan/vulkan/vulkan.h"
 #include <fstream>
 #include <set>
 #include <optional>
+#include "vulkan/vulkan/vulkan.h"
 
 #include "Mesh.hpp"
 
@@ -46,14 +47,14 @@ struct Vulkan {
 	std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
 		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
-			.binding = 0,
 			.location = 0,
+			.binding = 0,
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
 			.offset = offsetof(Vertex, position)
 		});
 		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
-			.binding = 0,
 			.location = 1,
+			.binding = 0,
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
 			.offset = offsetof(Vertex, normal)
 		});
@@ -171,7 +172,11 @@ private:
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		// NOTE: things that this layer reports seems different from the ones on windows?
+	#ifdef _WIN32
+		"VK_LAYER_KHRONOS_validation"
+	#else
 		"MoltenVK"
+	#endif
 	};
 	#endif
 	const std::vector<const char*> deviceExtensions = {

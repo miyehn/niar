@@ -5,6 +5,8 @@ Vulkan::Vulkan(SDL_Window* window) {
 
     this->window = window;
 
+	LOG("Initializing Vulkan...");
+
     createInstance(window);
     #ifdef DEBUG
     setupDebugMessenger();
@@ -129,7 +131,7 @@ void Vulkan::createBuffer(
 	VkBufferCreateInfo bufferInfo {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = size,
-		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		.usage = usage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 	EXPECT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer), VK_SUCCESS);
@@ -176,8 +178,8 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 {
 	VkCommandBufferAllocateInfo allocInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandPool = shortLivedCommandsPool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = 1,
 	};
 	VkCommandBuffer commandBuffer;
@@ -324,9 +326,9 @@ void Vulkan::createDescriptorPool() {
 	};
 	VkDescriptorPoolCreateInfo poolInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.maxSets = static_cast<uint32_t>(swapChainImages.size()),
 		.poolSizeCount = 1,
 		.pPoolSizes = &poolSize,
-		.maxSets = static_cast<uint32_t>(swapChainImages.size()),
 	};
 	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS);
 }
@@ -355,11 +357,11 @@ void Vulkan::createDescriptorSets()
 			.dstSet = descriptorSets[i],
 			.dstBinding = 0,
 			.dstArrayElement = 0,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			// actual write data (one of three)
-			.pBufferInfo = &bufferInfo, // where in which buffer
 			.pImageInfo = nullptr,
+			.pBufferInfo = &bufferInfo, // where in which buffer
 			.pTexelBufferView = nullptr,
 		};
 		vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
@@ -403,12 +405,12 @@ void Vulkan::createInstance(SDL_Window* window) {
 
     // get required extensions count
     uint32_t numSDLRequiredExtensions;
-    EXPECT_M(SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, nullptr), true, "%s", SDL_GetError());
+    EXPECT_M(SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, nullptr), SDL_TRUE, "%s", SDL_GetError());
     // get the extensions' names: "VK_KHR_surface", "VK_MVK_macos_surface"
     std::vector<const char*>enabledExtensions(numSDLRequiredExtensions);
     EXPECT_M(
         SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, enabledExtensions.data()), 
-        true, "%s", SDL_GetError());
+        SDL_TRUE, "%s", SDL_GetError());
     #ifdef DEBUG
     enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     #endif
@@ -416,9 +418,9 @@ void Vulkan::createInstance(SDL_Window* window) {
     VkInstanceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &appInfo,
-        .enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size()),
+		.enabledLayerCount = 0, // may be added later
+		.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size()),
         .ppEnabledExtensionNames = enabledExtensions.data(),
-        .enabledLayerCount = 0 // may be added later
     };
 
     #ifdef DEBUG // optionally add a validation layer
@@ -462,7 +464,7 @@ void Vulkan::createInstance(SDL_Window* window) {
 
 void Vulkan::createSurface(SDL_Window* window) {
     surface = VK_NULL_HANDLE;
-    EXPECT(SDL_Vulkan_CreateSurface(window, instance, &surface), true);
+    EXPECT(SDL_Vulkan_CreateSurface(window, instance, &surface), SDL_TRUE);
 }
 
 void Vulkan::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -576,7 +578,7 @@ inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice device) {
 		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 	}
 
-	if (properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+	if (properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU//VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
 		&& queueFamilyIndices.isComplete()
 		&& extensionsSupported
 		&& swapChainAdequate
@@ -629,11 +631,11 @@ void Vulkan::createLogicalDevice() {
 	// logical device create info
 	VkDeviceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.pQueueCreateInfos = queueCreateInfos.data(),
 		.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
-		.pEnabledFeatures = &deviceFeatures,
+		.pQueueCreateInfos = queueCreateInfos.data(),
 		.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
-		.ppEnabledExtensionNames = deviceExtensions.data()
+		.ppEnabledExtensionNames = deviceExtensions.data(),
+		.pEnabledFeatures = &deviceFeatures,
 	};
 
 	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS);
@@ -743,23 +745,31 @@ void Vulkan::createSwapChain() {
 	swapChainExtent = extent;
 }
 
-void Vulkan::createImageViews() {
+void Vulkan::createImageViews()
+{
 	swapChainImageViews.resize(swapChainImages.size());
-	for (int i=0; i<swapChainImageViews.size(); i++) {
+	VkComponentMapping componentMapping = {
+		.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+		.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+		.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+		.a = VK_COMPONENT_SWIZZLE_IDENTITY
+	};
+	VkImageSubresourceRange subresourceRange = {
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.baseMipLevel = 0,
+		.levelCount = 1,
+		.baseArrayLayer = 0,
+		.layerCount = 1
+	};
+	for (int i=0; i<swapChainImageViews.size(); i++)
+	{
 		VkImageViewCreateInfo createInfo = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			.image = swapChainImages[i],
 			.viewType = VK_IMAGE_VIEW_TYPE_2D,
 			.format = swapChainImageFormat,
-			.components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.subresourceRange.baseMipLevel = 0,
-			.subresourceRange.levelCount = 1,
-			.subresourceRange.baseArrayLayer = 0,
-			.subresourceRange.layerCount = 1
+			.components = componentMapping,
+			.subresourceRange = subresourceRange,
 		};
 		EXPECT(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]), VK_SUCCESS);
 	}
@@ -823,9 +833,9 @@ void Vulkan::createRenderPass() {
 		// wait for the swap chain to finish reading
 		// Question: first access scope includes color_attachment_output as well?? (Isn't it just read by the monitor?)
 		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		.srcAccessMask = 0,
 		// before we can write to it
 		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.srcAccessMask = 0,
 		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 	};
 	VkRenderPassCreateInfo renderPassInfo = {
@@ -841,8 +851,8 @@ void Vulkan::createRenderPass() {
 	
 }
 
-void Vulkan::createGraphicsPipeline() {
-
+void Vulkan::createGraphicsPipeline()
+{
 	//-------- shader stages --------
 	auto vertShaderCode = readFile("spirv/triangle.vert.spv");
 	auto fragShaderCode = readFile("spirv/triangle.frag.spv");
@@ -911,19 +921,19 @@ void Vulkan::createGraphicsPipeline() {
 		.depthClampEnable = VK_FALSE, // don't cull depth outside but clamp to near and far (used in shadowmapping?)
 		.rasterizerDiscardEnable = VK_FALSE, // discard everything
 		.polygonMode = VK_POLYGON_MODE_FILL,
-		.lineWidth = 1.0f,
 		.cullMode = VK_CULL_MODE_BACK_BIT,
 		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 		.depthBiasEnable = VK_FALSE, // may be useful for shadowmapping
 		.depthBiasConstantFactor = 0.0f,
 		.depthBiasClamp = 0.0f,
-		.depthBiasSlopeFactor = 0.0f
+		.depthBiasSlopeFactor = 0.0,
+		.lineWidth = 1.0f,
 	};
 	// multisampling along edges for anti aliasing
 	VkPipelineMultisampleStateCreateInfo multisampling = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.sampleShadingEnable = VK_FALSE,
 		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.sampleShadingEnable = VK_FALSE,
 		.minSampleShading = 1.0f,
 		.pSampleMask = nullptr,
 		.alphaToCoverageEnable = VK_FALSE,
@@ -936,20 +946,15 @@ void Vulkan::createGraphicsPipeline() {
 
 	// this struct is for per framebuffer
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-		.colorWriteMask =
-			VK_COLOR_COMPONENT_R_BIT 
-			| VK_COLOR_COMPONENT_G_BIT 
-			| VK_COLOR_COMPONENT_B_BIT 
-			| VK_COLOR_COMPONENT_A_BIT,
-		#if 1 // blending off
 		.blendEnable = VK_FALSE,
+		#if 1 // blending off
 		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
 		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 		.colorBlendOp = VK_BLEND_OP_ADD,
 		// is it so? also see unity shader lab: https://docs.unity3d.com/Manual/SL-Blend.html
 		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
 		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD
+		.alphaBlendOp = VK_BLEND_OP_ADD,
 		#else // alpha blending
 		.blendEnable = VK_TRUE,
 		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
@@ -959,6 +964,11 @@ void Vulkan::createGraphicsPipeline() {
 		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
 		.alphaBlendOp = VK_BLEND_OP_ADD
 		#endif
+		.colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT
+			| VK_COLOR_COMPONENT_G_BIT
+			| VK_COLOR_COMPONENT_B_BIT
+			| VK_COLOR_COMPONENT_A_BIT,
 	};
 
 	// this struct for global blend setting
@@ -969,21 +979,18 @@ void Vulkan::createGraphicsPipeline() {
 		.logicOp = VK_LOGIC_OP_COPY,
 		.attachmentCount = 1,
 		.pAttachments = &colorBlendAttachment,
-		.blendConstants[0] = 0.0f,
-		.blendConstants[1] = 0.0f,
-		.blendConstants[2] = 0.0f,
-		.blendConstants[3] = 0.0f
+		.blendConstants = { .0f, .0f, .0f, .0f }
 	};
 
 	//---- dynamic state (just a dummy example) ----
-	VkDynamicState dynamicStates[] = {
+	// VkDynamicState dynamicStates[] = {
 		// VK_DYNAMIC_STATE_VIEWPORT,
 		// VK_DYNAMIC_STATE_LINE_WIDTH
-	};
+	// };
 	VkPipelineDynamicStateCreateInfo dynamicState = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
 		.dynamicStateCount = 0,
-		.pDynamicStates = dynamicStates
+		.pDynamicStates = nullptr
 	};
 
 	//---- pipeline layout ----
@@ -1050,8 +1057,8 @@ void Vulkan::createCommandPools() {
 	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 	VkCommandPoolCreateInfo poolInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = 0,
 		.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value(),
-		.flags = 0
 	};
 	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool), VK_SUCCESS);
 	// for one-time commands
@@ -1082,12 +1089,12 @@ void Vulkan::createCommandBuffers()
 
 		// render pass
 		VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+		VkRect2D renderArea = { .offset = {0, 0}, .extent = swapChainExtent };
 		VkRenderPassBeginInfo renderPassInfo = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			.renderPass = renderPass,
 			.framebuffer = swapChainFramebuffers[i],
-			.renderArea.offset = {0, 0},
-			.renderArea.extent = swapChainExtent,
+			.renderArea = renderArea,
 			.pClearValues = &clearColor
 		};
 		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);

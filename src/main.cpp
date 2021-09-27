@@ -11,7 +11,7 @@
 #define TEST_VULKAN 1
 
 Program* Program::Instance;
-#ifdef WIN32
+#ifdef _WIN32
 #ifdef main
 #undef main
 #endif

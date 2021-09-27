@@ -1,35 +1,49 @@
 cmake_minimum_required(VERSION 3.1)
 project("niar")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "-O3")
+
+if(WIN32)
+	set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.obj)
+	set(ISPC_CXX_COMPILER cl)
+endif(WIN32)
+
+if(APPLE)
+	set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.o)
+	set(ISPC_CXX_COMPILER g++)
+endif(APPLE)
 
 find_package(OpenGL)
 find_package(Threads)
+find_package(Vulkan REQUIRED)
+message(STATUS "Vulkan Found = ${Vulkan_FOUND}")
+message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
+message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 set(SRC
-	src/main 
-	src/Vulkan
+	src/main.cpp
+	src/Vulkan.cpp
 	# src/Vulkan.inl
-	src/Scene
-	src/Program 
-	src/Camera
-	src/Drawable
-	src/Mesh
-	src/Shader
-	src/GrassField
-	src/Input
-	src/Light
-	src/Utils
-	src/Texture
-	src/Materials
-	src/Pathtracer/Primitive
-	src/Pathtracer/Pathtracer
-	src/Pathtracer/BSDF
-	src/Pathtracer/PathtracerLight
-	src/Pathtracer/BVH
-	build/pathtracer_kernel.o
-	build/tasksys.o
+	src/Scene.cpp
+	src/Program.cpp
+	src/Camera.cpp
+	src/Drawable.cpp
+	src/Mesh.cpp
+	src/Shader.cpp
+	src/GrassField.cpp
+	src/Input.cpp
+	src/Light.cpp
+	src/Utils.cpp
+	src/Texture.cpp
+	src/Materials.cpp
+	src/Pathtracer/Primitive.cpp
+	src/Pathtracer/Pathtracer.cpp
+	src/Pathtracer/BSDF.cpp
+	src/Pathtracer/PathtracerLight.cpp
+	src/Pathtracer/BVH.cpp
+	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
+	${TASKSYS_O}
 	# include/openfbx/ofbx.cpp
 	)
 
@@ -61,7 +75,7 @@ if(WIN32)
 	add_definitions(-DGLEW_STATIC)
 	target_link_libraries(niar
 		${CMAKE_THREAD_LIBS_INIT}
-		${OPENGL_gl_LIBRARY}
+		${OPENGL_gl_LIBRARY} ${Vulkan_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
 		${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
 		${CMAKE_SOURCE_DIR}/lib/stb_image.a 
@@ -78,13 +92,13 @@ endif(WIN32)
 #-------- building ispc --------
 # tasksys.o
 set(TASKSYS_SRC ${CMAKE_SOURCE_DIR}/include/ispc/tasksys.cpp)
-set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.o)
 add_custom_command(
 	OUTPUT ${TASKSYS_O}
-	COMMAND g++ -c -m64 -O3 -Wall ${TASKSYS_SRC} -lm -lpthread -o ${TASKSYS_O}
+	COMMAND ${ISPC_CXX_COMPILER} -c -m64 -O3 -Wall ${TASKSYS_SRC} -lm -lpthread -D_DEBUG -D_ITERATOR_DEBUG_LEVEL=2 -D_ALLOW_RUNTIME_LIBRARY_MISMATCH -o ${TASKSYS_O}
 	DEPENDS ${TASKSYS_SRC}
 	COMMENT "generating tasksys.o"
 )
+
 # pathtracer_kernel.o
 set(KERNEL_SRC ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel.ispc)
 set(KERNEL_INCLUDE ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel_utilities.h)
