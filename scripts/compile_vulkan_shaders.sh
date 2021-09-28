@@ -20,13 +20,14 @@ then
 	mkdir $2
 fi
 
+rm $2/*
+
 error=0
 num_shaders=0
 
 for shader in $1/*
 do
 	bn="$(basename $shader)"
-	# echo $bn
 	if ! glslc $shader -o $2"/"$bn".spv"
 	then
 		error=1

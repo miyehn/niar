@@ -50,13 +50,13 @@ struct Vulkan {
 			.location = 0,
 			.binding = 0,
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
-			.offset = offsetof(Vertex, position)
+			.offset = (uint32_t)offsetof(Vertex, position)
 		});
 		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
 			.location = 1,
 			.binding = 0,
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
-			.offset = offsetof(Vertex, normal)
+			.offset = (uint32_t)offsetof(Vertex, normal)
 		});
 		return attributeDescriptions;
 	}

@@ -104,7 +104,7 @@ void Vulkan::drawFrame() {
     };
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
-    EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), VK_SUCCESS);
+    EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), VK_SUCCESS)
 
     // because it's possible to present to multiple swap chains..
     VkSwapchainKHR swapChains[] = { swapChain };
@@ -135,7 +135,7 @@ void Vulkan::createBuffer(
 		.usage = usage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
-	EXPECT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer), VK_SUCCESS);
+	EXPECT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer), VK_SUCCESS)
 
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
@@ -155,7 +155,7 @@ void Vulkan::createBuffer(
 				return i;
 			}
 		}
-		ERR("failed to find suitable memory type!");
+		ERR("failed to find suitable memory type!")
 		throw std::runtime_error("");
 	};
 
@@ -169,7 +169,7 @@ void Vulkan::createBuffer(
 	// NOTE: vkAllocateMemory is designed for small number of large chunk allocations.
 	// in real apps, should make a custom allocator that allocates once and share it among objects of different offsets.
 	// this might help: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-	EXPECT(vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory), VK_SUCCESS);
+	EXPECT(vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory), VK_SUCCESS)
 
 	// associate this memory with the buffer
 	vkBindBufferMemory(device, buffer, bufferMemory, 0);
@@ -206,8 +206,8 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 		.commandBufferCount = 1,
 		.pCommandBuffers = &commandBuffer
 	};
-	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), VK_SUCCESS);
-	EXPECT(vkQueueWaitIdle(graphicsQueue), VK_SUCCESS); // alternatively use a fence, if want to submit a bunch of commands and wait for them all
+	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), VK_SUCCESS)
+	EXPECT(vkQueueWaitIdle(graphicsQueue), VK_SUCCESS) // alternatively use a fence, if want to submit a bunch of commands and wait for them all
 
 	// cleanup
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
@@ -302,7 +302,7 @@ void Vulkan::createDescriptorSetLayout() {
 		.pBindings = &uboLayoutBinding,
 	};
 
-	EXPECT(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout), VK_SUCCESS);
+	EXPECT(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout), VK_SUCCESS)
 }
 
 void Vulkan::createUniformBuffers() {
@@ -331,7 +331,7 @@ void Vulkan::createDescriptorPool() {
 		.poolSizeCount = 1,
 		.pPoolSizes = &poolSize,
 	};
-	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS);
+	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
 }
 
 void Vulkan::createDescriptorSets()
@@ -344,7 +344,7 @@ void Vulkan::createDescriptorSets()
 		.pSetLayouts = layouts.data(),
 	};
 	descriptorSets.resize(swapChainImages.size());
-	EXPECT(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()), VK_SUCCESS);
+	EXPECT(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
 
 	for (size_t i=0; i<swapChainImages.size(); i++) {
 		VkDescriptorBufferInfo bufferInfo = {
@@ -391,7 +391,7 @@ void Vulkan::updateUniformBuffer(uint32_t currentImage) {
 	vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
-void Vulkan::createInstance(SDL_Window* window) {
+void Vulkan::createInstance(SDL_Window* in_window) {
 
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -406,12 +406,12 @@ void Vulkan::createInstance(SDL_Window* window) {
 
     // get required extensions count
     uint32_t numSDLRequiredExtensions;
-    EXPECT_M(SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, nullptr), SDL_TRUE, "%s", SDL_GetError());
+    EXPECT_M(SDL_Vulkan_GetInstanceExtensions(in_window, &numSDLRequiredExtensions, nullptr), SDL_TRUE, "%s", SDL_GetError())
     // get the extensions' names: "VK_KHR_surface", "VK_MVK_macos_surface"
     std::vector<const char*>enabledExtensions(numSDLRequiredExtensions);
     EXPECT_M(
-        SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, enabledExtensions.data()), 
-        SDL_TRUE, "%s", SDL_GetError());
+        SDL_Vulkan_GetInstanceExtensions(in_window, &numSDLRequiredExtensions, enabledExtensions.data()),
+        SDL_TRUE, "%s", SDL_GetError())
     #ifdef DEBUG
     enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     #endif
@@ -442,7 +442,7 @@ void Vulkan::createInstance(SDL_Window* window) {
         }
         if (!layerFound) {
             validationLayersSupported = false;
-            WARN("Validation layer %s requested but not supported. Running without validation..", layerName);
+            WARN("Validation layer %s requested but not supported. Running without validation..", layerName)
             break;
         }
     }
@@ -460,12 +460,12 @@ void Vulkan::createInstance(SDL_Window* window) {
     }
     #endif
 
-    EXPECT(vkCreateInstance(&createInfo, nullptr, &instance), VK_SUCCESS);
+    EXPECT(vkCreateInstance(&createInfo, nullptr, &instance), VK_SUCCESS)
 }
 
-void Vulkan::createSurface(SDL_Window* window) {
+void Vulkan::createSurface(SDL_Window* in_window) {
     surface = VK_NULL_HANDLE;
-    EXPECT(SDL_Vulkan_CreateSurface(window, instance, &surface), SDL_TRUE);
+    EXPECT(SDL_Vulkan_CreateSurface(in_window, instance, &surface), SDL_TRUE)
 }
 
 void Vulkan::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -490,45 +490,46 @@ void Vulkan::setupDebugMessenger() {
 	populateDebugMessengerCreateInfo(createInfo);
 
 	if (CreateDebugUtilsMessengerEXT(&instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-		WARN("Failed to setup vulkan debug messenger. Continuing without messenger...");
+		WARN("Failed to setup vulkan debug messenger. Continuing without messenger...")
 	}
 }
 
-Vulkan::QueueFamilyIndices Vulkan::findQueueFamilies(VkPhysicalDevice device) {
+Vulkan::QueueFamilyIndices Vulkan::findQueueFamilies(VkPhysicalDevice in_device)
+{
 	uint32_t queueFamilyCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+	vkGetPhysicalDeviceQueueFamilyProperties(in_device, &queueFamilyCount, nullptr);
 
 	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+	vkGetPhysicalDeviceQueueFamilyProperties(in_device, &queueFamilyCount, queueFamilies.data());
 
-	QueueFamilyIndices indices;
+	QueueFamilyIndices queueFamilyIndices;
 
 	int i = 0;
 	for (const auto &queueFamily : queueFamilies) {
 		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			indices.graphicsFamily = i;
+			queueFamilyIndices.graphicsFamily = i;
 		}
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(in_device, i, surface, &presentSupport);
 		if (presentSupport) {
-			indices.presentFamily = i;
+			queueFamilyIndices.presentFamily = i;
 		}
 		if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-			indices.computeFamily = i;
+			queueFamilyIndices.computeFamily = i;
 		}
 		i++;
 	}
 
-	return indices;
+	return queueFamilyIndices;
 }
 
-inline bool Vulkan::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+inline bool Vulkan::checkDeviceExtensionSupport(VkPhysicalDevice in_device) {
 
 	uint32_t extensionCount;
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+	vkEnumerateDeviceExtensionProperties(in_device, nullptr, &extensionCount, nullptr);
 
 	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+	vkEnumerateDeviceExtensionProperties(in_device, nullptr, &extensionCount, availableExtensions.data());
 
 	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 	for (const auto& extension : availableExtensions) {
@@ -538,44 +539,45 @@ inline bool Vulkan::checkDeviceExtensionSupport(VkPhysicalDevice device) {
 	return requiredExtensions.empty();
 }
 
-inline Vulkan::SwapChainSupportDetails Vulkan::querySwapChainSupport(VkPhysicalDevice device) {
+inline Vulkan::SwapChainSupportDetails Vulkan::querySwapChainSupport(VkPhysicalDevice in_device)
+{
 	SwapChainSupportDetails details;
 	// capabilities
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(in_device, surface, &details.capabilities);
 	// formats
 	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(in_device, surface, &formatCount, nullptr);
 	if (formatCount != 0) {
 		details.formats.resize(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+		vkGetPhysicalDeviceSurfaceFormatsKHR(in_device, surface, &formatCount, details.formats.data());
 	}
 	// present modes
 	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(in_device, surface, &presentModeCount, nullptr);
 	if (presentModeCount != 0) {
 		details.presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+		vkGetPhysicalDeviceSurfacePresentModesKHR(in_device, surface, &presentModeCount, details.presentModes.data());
 	}
 
 	return details;
 }
 
-inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice device) {
+inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice in_device) {
 	VkPhysicalDeviceProperties properties;
-	vkGetPhysicalDeviceProperties(device, &properties);
+	vkGetPhysicalDeviceProperties(in_device, &properties);
 
 	#if 0
 	VkPhysicalDeviceFeatures features;
 	vkGetPhysicalDeviceFeatures(device, &features);
 	#endif
 
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(device);
+	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(in_device);
 
-	bool extensionsSupported = checkDeviceExtensionSupport(device);
+	bool extensionsSupported = checkDeviceExtensionSupport(in_device);
 
 	bool swapChainAdequate = false;
 	if (extensionsSupported) {
-		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(in_device);
 		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 	}
 
@@ -597,13 +599,16 @@ void Vulkan::pickPhysicalDevice() {
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
 	physicalDevice = VK_NULL_HANDLE;
-	for (const auto& device : devices) {
-		if (isDeviceSuitable(device)) {
-			physicalDevice = device;
+	for (const auto& dvc : devices)
+	{
+		if (isDeviceSuitable(dvc))
+		{
+			physicalDevice = dvc;
 		}
 	}
-	if (physicalDevice == VK_NULL_HANDLE) {
-		ERR("failed to find a suitable GPU with vulkan support!");
+	if (physicalDevice == VK_NULL_HANDLE)
+	{
+		ERR("failed to find a suitable GPU with vulkan support!")
 	}
 }
 
@@ -639,7 +644,7 @@ void Vulkan::createLogicalDevice() {
 		.pEnabledFeatures = &deviceFeatures,
 	};
 
-	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS);
+	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS)
 
 	// get queue handles
 	vkGetDeviceQueue(device, queueFamilyIndices.graphicsFamily.value(), 0, &graphicsQueue);
@@ -735,7 +740,7 @@ void Vulkan::createSwapChain() {
 		createInfo.pQueueFamilyIndices = nullptr;
 	}
 
-	EXPECT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain), VK_SUCCESS);
+	EXPECT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain), VK_SUCCESS)
 
 	// retrieve handles to swapchain images
 	vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
@@ -772,14 +777,14 @@ void Vulkan::createImageViews()
 			.components = componentMapping,
 			.subresourceRange = subresourceRange,
 		};
-		EXPECT(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]), VK_SUCCESS);
+		EXPECT(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]), VK_SUCCESS)
 	}
 }
 
 inline std::vector<char> Vulkan::readFile(const std::string& filename) {
 	// read binary file from the end
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-	EXPECT_M(file.is_open(), true, "failed to open file %s", filename.c_str());
+	EXPECT_M(file.is_open(), true, "failed to open file %s", filename.c_str())
 	// get file size from position
 	size_t fileSize = (size_t) file.tellg();
 	std::vector<char> buffer(fileSize);
@@ -797,7 +802,7 @@ inline VkShaderModule Vulkan::createShaderModule(const std::vector<char>& code) 
 		.pCode = reinterpret_cast<const uint32_t*>(code.data())
 	};
 	VkShaderModule shaderModule;
-	EXPECT(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), VK_SUCCESS);
+	EXPECT(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), VK_SUCCESS)
 	return shaderModule;
 }
 
@@ -848,7 +853,7 @@ void Vulkan::createRenderPass() {
 		.dependencyCount = 1,
 		.pDependencies = &dependency
 	};
-	EXPECT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass), VK_SUCCESS);
+	EXPECT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass), VK_SUCCESS)
 	
 }
 
@@ -1002,7 +1007,7 @@ void Vulkan::createGraphicsPipeline()
 		.pushConstantRangeCount = 0,
 		.pPushConstantRanges = nullptr
 	};
-	EXPECT(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS);
+	EXPECT(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
 
 	//---- create the fucking pipeline ----
 	VkGraphicsPipelineCreateInfo pipelineInfo = {
@@ -1029,7 +1034,7 @@ void Vulkan::createGraphicsPipeline()
 		.basePipelineIndex = -1
 	};
 
-	EXPECT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline), VK_SUCCESS);
+	EXPECT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline), VK_SUCCESS)
 
 	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
@@ -1050,7 +1055,7 @@ void Vulkan::createFramebuffers() {
 			.layers = 1
 		};
 
-		EXPECT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]), VK_SUCCESS);
+		EXPECT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]), VK_SUCCESS)
 	}
 }
 
@@ -1061,10 +1066,10 @@ void Vulkan::createCommandPools() {
 		.flags = 0,
 		.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value(),
 	};
-	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool), VK_SUCCESS);
+	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool), VK_SUCCESS)
 	// for one-time commands
 	poolInfo.flags |= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &shortLivedCommandsPool), VK_SUCCESS);
+	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &shortLivedCommandsPool), VK_SUCCESS)
 }
 
 void Vulkan::createCommandBuffers()
@@ -1076,7 +1081,7 @@ void Vulkan::createCommandBuffers()
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = (uint32_t) commandBuffers.size()
 	};
-	EXPECT(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()), VK_SUCCESS);
+	EXPECT(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()), VK_SUCCESS)
 
 	for (size_t i=0; i<commandBuffers.size(); i++) {
 
@@ -1086,7 +1091,7 @@ void Vulkan::createCommandBuffers()
 			.flags = 0,
 			.pInheritanceInfo = nullptr
 		};
-		EXPECT(vkBeginCommandBuffer(commandBuffers[i], &beginInfo), VK_SUCCESS);
+		EXPECT(vkBeginCommandBuffer(commandBuffers[i], &beginInfo), VK_SUCCESS)
 
 		// render pass
 		VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -1113,7 +1118,7 @@ void Vulkan::createCommandBuffers()
 		vkCmdDrawIndexed(commandBuffers[i], indices.size(), 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffers[i]);
 
-		EXPECT(vkEndCommandBuffer(commandBuffers[i]), VK_SUCCESS);
+		EXPECT(vkEndCommandBuffer(commandBuffers[i]), VK_SUCCESS)
 	}
 }
 
@@ -1137,7 +1142,7 @@ void Vulkan::createSynchronizationObjects() {
 			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
 			vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
 		{
-			ERR("failed to create semaphores");
+			ERR("failed to create semaphores")
 		}
 	}
 }
@@ -1150,11 +1155,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan::debugCallback(
 {
 	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 	{
-		VKERR("%s", pCallbackData->pMessage);
+		VKERR("%s", pCallbackData->pMessage)
 	}
 	else if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 	{
-		VKWARN("%s", pCallbackData->pMessage);
+		VKWARN("%s", pCallbackData->pMessage)
 	}
 #ifdef MYN_VK_VERBOSE
 	else

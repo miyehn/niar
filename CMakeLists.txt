@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 project("niar")
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "-O3")
+# set(CMAKE_CXX_FLAGS "-O3")
 
 if(WIN32)
 	set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.obj)
@@ -122,5 +122,5 @@ set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders/vulkan)
 set(VULKAN_SHADERS_BIN_DIR ${CMAKE_SOURCE_DIR}/build/spirv)
 add_custom_target(shaders ALL
 	COMMENT "compiling Vulkan shaders"
-	COMMAND rm ${VULKAN_SHADERS_BIN_DIR}/* && ${CMAKE_SOURCE_DIR}/scripts/compile_vulkan_shaders.sh ${VULKAN_SHADERS_SRC_DIR} ${VULKAN_SHADERS_BIN_DIR}
+	COMMAND ${CMAKE_SOURCE_DIR}/scripts/compile_vulkan_shaders.sh ${VULKAN_SHADERS_SRC_DIR} ${VULKAN_SHADERS_BIN_DIR}
 )
