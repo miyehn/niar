@@ -18,17 +18,26 @@
 
 
 // logging
+
+#ifdef WINOS
+#define NEWLINE { printf("\n"); fflush(stdout); }
+#endif
+
+#ifdef MACOS
+#define NEWLINE printf("\n");
+#endif
+
 #define LOG(...) { \
 	COLOR_GREEN \
 	printf("["); LOCATION; printf("] "); \
 	COLOR_RESET \
 	printf(__VA_ARGS__); \
-	printf("\n"); \
+	NEWLINE \
 }
 
 #define LOGR(...) { \
 	printf(__VA_ARGS__); \
-	printf("\n"); \
+	NEWLINE \
 }
 
 #define WARN(...) { \
@@ -36,7 +45,7 @@
 	printf("["); LOCATION; printf("] "); \
 	COLOR_RESET \
 	printf(__VA_ARGS__); \
-	printf("\n"); \
+	NEWLINE \
 }
 
 #define ERR(...) { \
@@ -44,7 +53,7 @@
 	printf("["); LOCATION; printf("] "); \
 	COLOR_RESET \
 	printf(__VA_ARGS__); \
-	printf("\n"); \
+	NEWLINE \
 }
 
 // pathtracer
@@ -53,7 +62,7 @@
 	printf("[Pathtracer] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
-	printf("\n"); \
+	NEWLINE \
 }
 
 #define VKLOG(...) { \
@@ -61,21 +70,21 @@
 	printf("[Vulkan validation] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
-	printf("\n"); \
+	NEWLINE \
 }
 #define VKWARN(...) { \
 	COLOR_YELLOW \
 	printf("[Vulkan validation] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
-	printf("\n"); \
+	NEWLINE \
 }
 #define VKERR(...) { \
 	COLOR_RED \
 	printf("[Vulkan validation] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
-	printf("\n"); \
+	NEWLINE \
 }
 
 // assertions
@@ -89,7 +98,7 @@
 		printf("[Assertion failed] "); \
 		printf(__VA_ARGS__); \
 		COLOR_RESET \
-		printf("\n"); \
+		NEWLINE \
 	} \
 }
 

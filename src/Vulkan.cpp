@@ -5,8 +5,6 @@ Vulkan::Vulkan(SDL_Window* window) {
 
     this->window = window;
 
-	LOG("Initializing Vulkan...");
-
     createInstance(window);
     #ifdef DEBUG
     setupDebugMessenger();
@@ -36,6 +34,8 @@ Vulkan::~Vulkan() {
 	// TODO: move to elsewhere
 	vkDestroyBuffer(device, vertexBuffer, nullptr);
 	vkFreeMemory(device, vertexBufferMemory, nullptr);
+	vkDestroyBuffer(device, indexBuffer, nullptr);
+	vkFreeMemory(device, indexBufferMemory, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 	for (size_t i=0; i<swapChainImages.size(); i++) {
 		vkDestroyBuffer(device, uniformBuffers[i], nullptr);
@@ -93,6 +93,7 @@ void Vulkan::drawFrame() {
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
     VkSubmitInfo submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = waitSemaphores,
         .pWaitDstStageMask = waitStages,
@@ -205,8 +206,8 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 		.commandBufferCount = 1,
 		.pCommandBuffers = &commandBuffer
 	};
-	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(graphicsQueue); // alternatively use a fence, if want to submit a bunch of commands and wait for them all
+	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), VK_SUCCESS);
+	EXPECT(vkQueueWaitIdle(graphicsQueue), VK_SUCCESS); // alternatively use a fence, if want to submit a bunch of commands and wait for them all
 
 	// cleanup
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
@@ -1095,6 +1096,7 @@ void Vulkan::createCommandBuffers()
 			.renderPass = renderPass,
 			.framebuffer = swapChainFramebuffers[i],
 			.renderArea = renderArea,
+			.clearValueCount = 1,
 			.pClearValues = &clearColor
 		};
 		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -1146,14 +1148,20 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
-	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+	{
 		VKERR("%s", pCallbackData->pMessage);
 	}
-	else if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+	else if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+	{
 		VKWARN("%s", pCallbackData->pMessage);
-	} else {
+	}
+#ifdef MYN_VK_VERBOSE
+	else
+	{
 		VKLOG("%s", pCallbackData->pMessage);
 	}
+#endif
 	return VK_TRUE;
 }
 
