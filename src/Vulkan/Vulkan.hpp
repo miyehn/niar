@@ -2,16 +2,19 @@
 
 #include "lib.h"
 #include "logging.h"
-// #include "vulkan/vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 #include <fstream>
 #include <set>
 #include <optional>
-#include "vulkan/vulkan/vulkan.h"
+#include <VulkanMemoryAllocator/vk_mem_alloc.h>
+#include <stack>
+#include <functional>
 
 #include "Mesh.hpp"
 
 /* references:
 https://vulkan-tutorial.com/
+https://vkguide.dev/
 https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/main.c
 https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
 */
@@ -20,6 +23,7 @@ struct Vulkan {
 
 	Vulkan(SDL_Window* window);
 
+	std::stack<std::function<void()>> cleanupStack;
 	~Vulkan();
 
 	void drawFrame();
@@ -44,7 +48,8 @@ struct Vulkan {
 	}
 
 	// about how to interpret each stride
-	std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+	std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
+	{
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
 		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
 			.location = 0,
@@ -79,10 +84,15 @@ struct Vulkan {
 		0, 1, 2, 2, 3, 0
 	};
 
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
+	struct VmaAllocatedBuffer
+	{
+		VkBuffer buffer;
+		VmaAllocation allocation;
+	};
+
+	VmaAllocatedBuffer vertexBuffer;
+	VmaAllocatedBuffer indexBuffer;
+
 	// per swapchain image
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -98,12 +108,19 @@ struct Vulkan {
 		alignas(16) mat4 ProjectionMatrix;
 	};
 
+	// manually allocate vulkan memory; should not use
 	void createBuffer(
 		VkDeviceSize size,
 		VkBufferUsageFlags usage,
 		VkMemoryPropertyFlags properties,
 		VkBuffer& buffer,
 		VkDeviceMemory& bufferMemory);
+
+	void createBufferVma(
+		VkDeviceSize size,
+		VkBufferUsageFlags vmUsage,
+		VmaMemoryUsage vmaUsage,
+		VmaAllocatedBuffer& outVmaAllocatedBuffer);
 
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
@@ -169,6 +186,8 @@ private:
 	std::vector<VkFence> inFlightFences; // per frame-in-flight
 	std::vector<VkFence> imagesInFlight; // per swap chain image
 
+	VmaAllocator memoryAllocator;
+
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		// NOTE: things that this layer reports seems different from the ones on windows?
@@ -226,6 +245,8 @@ private:
 	void createCommandPools();
 
 	void createCommandBuffers();
+
+	void createMemoryAllocator();
 
 	void createSynchronizationObjects();
 

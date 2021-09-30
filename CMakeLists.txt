@@ -23,7 +23,7 @@ message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 set(SRC
 	src/main.cpp
-	src/Vulkan.cpp
+	src/Vulkan/Vulkan.cpp
 	# src/Vulkan.inl
 	src/Scene.cpp
 	src/Program.cpp
@@ -45,13 +45,7 @@ set(SRC
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${TASKSYS_O}
 	# include/openfbx/ofbx.cpp
-	)
-
-include_directories(include src)
-add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
-add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
-
-add_definitions(-DDEBUG=1)
+	src/Vulkan/VulkanMemoryAllocatorImpl.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})
@@ -88,6 +82,14 @@ if(WIN32)
 	configure_file(lib/SDL2.dll ${niar_BINARY_DIR} COPYONLY)
 	configure_file(lib/libconfig++.dll ${niar_BINARY_DIR} COPYONLY)
 endif(WIN32)
+
+# include_directories(include src)
+target_include_directories(niar PUBLIC SRC include ${Vulkan_INCLUDE_DIR})
+add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
+add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
+
+add_definitions(-DDEBUG=1)
+
 
 #-------- building ispc --------
 # tasksys.o

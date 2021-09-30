@@ -6,7 +6,7 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
 
-#include "Vulkan.hpp"
+#include "Vulkan/Vulkan.hpp"
 
 #define TEST_VULKAN 1
 
