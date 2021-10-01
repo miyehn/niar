@@ -3,8 +3,8 @@
 #include "Engine/Input.hpp"
 #include "Scene.hpp"
 #include "Engine/Program.hpp"
-#include "Asset/Mesh.hpp"
-#include "Asset/Materials.hpp"
+#include "Asset/Mesh.h"
+#include "Asset/Material.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"

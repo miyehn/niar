@@ -1,24 +1,20 @@
 #include "Input.hpp"
 #include "Utils/Utils.hpp"
-#include "Asset/Shader.hpp"
+#include "Asset/Shader.h"
 #include "Asset/Blit.h"
-#include "Asset/Texture.hpp"
-#include "Asset/Materials.hpp"
-#include "Asset/Mesh.hpp"
+#include "Asset/Texture.h"
+#include "Asset/Material.h"
+#include "Asset/Mesh.h"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
 
 ProgramConfig Cfg;
 
-// TODO: separate pathtracer config into its own file?
-
-void initialize_pathtracer_config() {
-
-	Config config_src;
-
+void create_config_src(const std::string &path, Config& out_config_src)
+{
 	try {
-		config_src.readFile(ROOT_DIR"/config.ini");
+		out_config_src.readFile(path.c_str());
 	} catch (const FileIOException &fioex) {
 		ERR("I/O error while reading config.ini");
 		return;
@@ -26,6 +22,13 @@ void initialize_pathtracer_config() {
 		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
 		return;
 	}
+
+}
+
+void initialize_pathtracer_config()
+{
+	Config config_src;
+	create_config_src(ROOT_DIR"/config/pathtracer.ini", config_src);
 
 	try {
 		// pathtracer
@@ -52,55 +55,13 @@ void initialize_pathtracer_config() {
 
 }
 
-void initialize_config() {
-
-	//-------- read config from config.ini --------
-
+void initialize_asset_config()
+{
 	Config config_src;
+	create_config_src(ROOT_DIR"/config/assets.ini", config_src);
 
-	try {
-		config_src.readFile(ROOT_DIR"/config.ini");
-	} catch (const FileIOException &fioex) {
-		ERR("I/O error while reading config.ini");
-		return;
-	} catch (const ParseException &pex) {
-		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
-		return;
-	}
-
-	try {
-		// pathtracer
-		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
-		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
-
-		Cfg.Pathtracer.ISPC = config_src.lookup("Pathtracer.ISPC");
-		Cfg.Pathtracer.UseBVH->set(config_src.lookup("Pathtracer.UseBVH"));
-		Cfg.Pathtracer.SmallWindow = config_src.lookup("Pathtracer.SmallWindow");
-		Cfg.Pathtracer.Multithreaded = config_src.lookup("Pathtracer.Multithreaded");
-		Cfg.Pathtracer.NumThreads = config_src.lookup("Pathtracer.NumThreads");
-		Cfg.Pathtracer.TileSize = config_src.lookup("Pathtracer.TileSize");
-		Cfg.Pathtracer.UseDirectLight = config_src.lookup("Pathtracer.UseDirectLight");
-		Cfg.Pathtracer.UseJitteredSampling = config_src.lookup("Pathtracer.UseJitteredSampling");
-		Cfg.Pathtracer.UseDOF->set(config_src.lookup("Pathtracer.UseDOF"));
-		Cfg.Pathtracer.FocalDistance->set(config_src.lookup("Pathtracer.FocalDistance"));
-		Cfg.Pathtracer.ApertureRadius->set(config_src.lookup("Pathtracer.ApertureRadius"));
-		Cfg.Pathtracer.MaxRayDepth = config_src.lookup("Pathtracer.MaxRayDepth");
-		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
-		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
-
-		Cfg.ShowDebugTex->set(config_src.lookup("ShowDebugTex"));
-		Cfg.DebugTex->set(config_src.lookup("DebugTex"));
-		Cfg.DebugTexMin->set(config_src.lookup("DebugTexMin"));
-		Cfg.DebugTexMax->set(config_src.lookup("DebugTexMax"));
-
-		Cfg.MaterialSet->set(config_src.lookup("MaterialSet"));
-
-		Cfg.Exposure->set(config_src.lookup("Exposure"));
-		Cfg.Bloom->set(config_src.lookup("Bloom"));
-		Cfg.BloomThreshold->set(config_src.lookup("BloomThreshold"));
-		Cfg.ToneMapping->set(config_src.lookup("ToneMapping"));
-		Cfg.GammaCorrect->set(config_src.lookup("GammaCorrect"));
-
+	try
+	{
 		//---------------- ASSETS -------------------
 
 		// shaders
@@ -123,10 +84,10 @@ void initialize_config() {
 				std::string tc = shaders[i].lookup("TC");
 				std::string te = shaders[i].lookup("TE");
 				shader = new Shader(
-							ROOT_DIR"/" + vs, 
-							ROOT_DIR"/" + fs,
-							ROOT_DIR"/" + tc,
-							ROOT_DIR"/" + te);
+					ROOT_DIR"/" + vs,
+					ROOT_DIR"/" + fs,
+					ROOT_DIR"/" + tc,
+					ROOT_DIR"/" + te);
 			}
 			Shader::add(name, shader);
 			shader->name = name;
@@ -202,10 +163,47 @@ void initialize_config() {
 
 }
 
-std::vector<CVarBase*> cvars_list(CVarBase* new_cvar) {
-	static std::vector<CVarBase*> ConsoleVariables = std::vector<CVarBase*>();
-	if (new_cvar) ConsoleVariables.push_back(new_cvar);
-	return ConsoleVariables;
+void initialize_global_config()
+{
+	Config config_src;
+	create_config_src(ROOT_DIR"/config.ini", config_src);
+
+	try
+	{
+		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
+		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
+		Cfg.TestVulkan = config_src.lookup("TestVulkan");
+
+		Cfg.ShowDebugTex->set(config_src.lookup("ShowDebugTex"));
+		Cfg.DebugTex->set(config_src.lookup("DebugTex"));
+		Cfg.DebugTexMin->set(config_src.lookup("DebugTexMin"));
+		Cfg.DebugTexMax->set(config_src.lookup("DebugTexMax"));
+
+		Cfg.MaterialSet->set(config_src.lookup("MaterialSet"));
+
+		Cfg.Exposure->set(config_src.lookup("Exposure"));
+		Cfg.Bloom->set(config_src.lookup("Bloom"));
+		Cfg.BloomThreshold->set(config_src.lookup("BloomThreshold"));
+		Cfg.ToneMapping->set(config_src.lookup("ToneMapping"));
+		Cfg.GammaCorrect->set(config_src.lookup("GammaCorrect"));
+
+	} catch (const SettingNotFoundException &nfex) {
+		ERR("Some setting(s) not found in config.ini");
+	} catch (const SettingTypeException &tpex) {
+		ERR("Some setting(s) assigned to wrong type");
+	}
+}
+
+void initialize_all_config()
+{
+	//-------- read config from config.ini --------
+	initialize_global_config();
+
+	//-------- Pathtracer --------
+	initialize_pathtracer_config();
+
+	//-------- Assets --------
+	initialize_asset_config();
 }
 
 std::vector<NamedTex*> namedtex_list(NamedTex* new_tex) {
@@ -233,65 +231,3 @@ int find_named_tex(int index) {
 	return -1;
 }
 
-CVarBase* find_cvar(std::string name) {
-	auto ConsoleVariables = cvars_list();
-	for (int i=0; i<ConsoleVariables.size(); i++) {
-		if (lower(ConsoleVariables[i]->name) == lower(name)) {
-			return ConsoleVariables[i];
-		}
-	}
-	return nullptr;
-}
-
-void list_cvars() {
-	auto ConsoleVariables = cvars_list();
-
-	LOGR("There are %lu console variables:", ConsoleVariables.size());
-	for (int i=0; i<ConsoleVariables.size(); i++) {
-		if (CVar<int>* cvar = dynamic_cast<CVar<int>*>(ConsoleVariables[i])) {
-			LOGR("\t%s (int)\t%d", cvar->get_name().c_str(), cvar->get());
-
-		} else if (CVar<float>* cvar = dynamic_cast<CVar<float>*>(ConsoleVariables[i])) {
-			LOGR("\t%s (float)\t%f", cvar->get_name().c_str(), cvar->get());
-
-		}
-	}
-}
-
-void log_cvar(std::string name){
-	if (auto found = find_cvar(name)) {
-		if (CVar<int>* cvar = dynamic_cast<CVar<int>*>(found)) {
-			LOGR("int, %s, %d", cvar->get_name().c_str(), cvar->get());
-			return;
-
-		} else if (CVar<float>* cvar = dynamic_cast<CVar<float>*>(found)) {
-			LOGR("float, %s, %f", cvar->get_name().c_str(), cvar->get());
-			return;
-		}
-	}
-	LOGR("cvar not found.");
-}
-
-void set_cvar(std::string name, std::string val) {
-	if (auto found = find_cvar(name)) {
-		if (CVar<int>* cvar = dynamic_cast<CVar<int>*>(found)) {
-			try {
-				int n = std::stoi(val);
-				cvar->set(n);
-			} catch (std::invalid_argument const &e) {
-				LOGR("invalid int argument");
-			}
-
-		} else if (CVar<float>* cvar = dynamic_cast<CVar<float>*>(found)) {
-			try {
-				float n = std::stof(val);
-				cvar->set(n);
-			} catch (std::invalid_argument const &e) {
-				LOGR("invalid float argument");
-			}
-
-		}
-	} else {
-		LOGR("cvar not found.");
-	}
-}

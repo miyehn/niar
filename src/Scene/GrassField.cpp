@@ -1,5 +1,5 @@
 #include "GrassField.hpp"
-#include "Asset/Materials.hpp"
+#include "Asset/Material.h"
 
 GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): Drawable(_parent, _name) {
 

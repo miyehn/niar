@@ -1,9 +1,9 @@
 #include "Scene.hpp"
 #include "Engine/Program.hpp"
 #include "Engine/Input.hpp"
-#include "Asset/Mesh.hpp"
+#include "Asset/Mesh.h"
 #include "Scene/Light.hpp"
-#include "Asset/Materials.hpp"
+#include "Asset/Material.h"
 #include "Scene/Camera.hpp"
 #include "Asset/Blit.h"
 

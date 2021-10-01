@@ -1,13 +1,14 @@
 #include "Camera.hpp"
 #include "Engine/Program.hpp"
 #include "Scene.hpp"
-#include "Asset/Mesh.hpp"
+#include "Asset/Mesh.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/Input.hpp"
 #include "Light.hpp"
-#include "Asset/Texture.hpp"
-#include "Asset/Materials.hpp"
+#include "Asset/Texture.h"
+#include "Asset/Material.h"
+#include "Utils/myn/CVar.h"
 
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
@@ -48,7 +49,8 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 void Program::load_resources() {
 	
 	LOG("loading resources...");
-	initialize_config();
+	initialize_pathtracer_config();
+	initialize_asset_config();
 
 	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
 	Camera::Active = new Camera(width, height);

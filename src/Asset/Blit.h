@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shader.hpp"
+#include "Shader.h"
 
 class Blit : public Shader {
 public:

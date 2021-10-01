@@ -10,7 +10,7 @@
 #include <stack>
 #include <functional>
 
-#include "Asset/Mesh.hpp"
+#include "Asset/Mesh.h"
 
 /* references:
 https://vulkan-tutorial.com/
@@ -94,8 +94,7 @@ struct Vulkan {
 	VmaAllocatedBuffer indexBuffer;
 
 	// per swapchain image
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBuffersMemory;
+	std::vector<VmaAllocatedBuffer> uniformBuffers;
 
 	VkDescriptorPool descriptorPool;
 
@@ -108,18 +107,10 @@ struct Vulkan {
 		alignas(16) mat4 ProjectionMatrix;
 	};
 
-	// manually allocate vulkan memory; should not use
-	void createBuffer(
-		VkDeviceSize size,
-		VkBufferUsageFlags usage,
-		VkMemoryPropertyFlags properties,
-		VkBuffer& buffer,
-		VkDeviceMemory& bufferMemory);
-
 	void createBufferVma(
 		VkDeviceSize size,
-		VkBufferUsageFlags vmUsage,
-		VmaMemoryUsage vmaUsage,
+		VkBufferUsageFlags bufferUsage,
+		VmaMemoryUsage memoryUsage,
 		VmaAllocatedBuffer& outVmaAllocatedBuffer);
 
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
@@ -159,6 +150,7 @@ private:
 	VkSurfaceKHR surface;
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice;
+	VkPhysicalDeviceProperties physicalDeviceProperties;
 	VkDevice device;
 
 	VkQueue graphicsQueue;

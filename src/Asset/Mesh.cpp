@@ -1,10 +1,10 @@
-#include "Mesh.hpp"
+#include "Mesh.h"
 #include "Scene/Camera.hpp"
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/Input.hpp"
 #include "Scene/Scene.hpp"
 #include "Scene/Light.hpp"
-#include "Materials.hpp"
+#include "Material.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"

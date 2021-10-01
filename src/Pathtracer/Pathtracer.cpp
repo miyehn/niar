@@ -1,12 +1,12 @@
 #include "Pathtracer.hpp"
 #include "Scene/Camera.hpp"
-#include "Asset/Mesh.hpp"
+#include "Asset/Mesh.h"
 #include "Scene/Scene.hpp"
 #include "BSDF.hpp"
 #include "Primitive.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/Input.hpp"
-#include "Asset/Materials.hpp"
+#include "Asset/Material.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>

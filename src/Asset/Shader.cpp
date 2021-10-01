@@ -1,4 +1,4 @@
-#include "Shader.hpp"
+#include "Shader.h"
 
 uint Shader::quad_vert = 0;
 

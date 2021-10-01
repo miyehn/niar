@@ -35,7 +35,7 @@ set(SRC
 	src/Scene/Light.cpp
 	src/Utils/Utils.cpp
 	src/Asset/Texture.cpp
-	src/Asset/Materials.cpp
+	src/Asset/Material.cpp
 	src/Asset/Blit.cpp
 	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/Pathtracer.cpp
@@ -45,7 +45,10 @@ set(SRC
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${TASKSYS_O}
 	# include/openfbx/ofbx.cpp
-	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp)
+	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
+	src/Utils/myn/CVar.cpp
+	src/Utils/myn/Misc.cpp
+	)
 
 if(APPLE)
 	add_executable(niar ${SRC})

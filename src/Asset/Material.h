@@ -1,8 +1,8 @@
 #pragma once
 #include <functional>
-#include "Shader.hpp"
+#include "Shader.h"
 #include "Blit.h"
-#include "Texture.hpp"
+#include "Texture.h"
 
 /* Two types of materials:
  *

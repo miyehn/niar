@@ -7,7 +7,7 @@
 
 #include "Render/Vulkan/Vulkan.hpp"
 
-#define TEST_VULKAN 1
+#define TEST_VULKAN 0
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -15,7 +15,9 @@ Program* Program::Instance;
 #undef main
 #endif
 #endif
-int main(int argc, const char * argv[]) {
+int main(int argc, const char * argv[])
+{
+	initialize_global_config();
 
 	std::srand(time(nullptr));
 
@@ -48,11 +50,13 @@ int main(int argc, const char * argv[]) {
 	}
 
 	Program::Instance = new Program("niar", w, h);
+
 	#if TEST_VULKAN
 	Program::Instance->run_vulkan();
 	#else
 	Program::Instance->run_opengl();
 	#endif
+
 	delete Program::Instance;
 	return 0;
 }

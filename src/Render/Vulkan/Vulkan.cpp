@@ -42,13 +42,12 @@ Vulkan::~Vulkan() {
 	// TODO: move to elsewhere
 	vmaDestroyBuffer(memoryAllocator, vertexBuffer.buffer, vertexBuffer.allocation);
 	vmaDestroyBuffer(memoryAllocator, indexBuffer.buffer, indexBuffer.allocation);
+	for (size_t i=0; i<swapChainImages.size(); i++) {
+		vmaDestroyBuffer(memoryAllocator, uniformBuffers[i].buffer, uniformBuffers[i].allocation);
+	}
 	vmaDestroyAllocator(memoryAllocator);
 
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-	for (size_t i=0; i<swapChainImages.size(); i++) {
-		vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-		vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-	}
 	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
 	// stay
@@ -142,18 +141,18 @@ void Vulkan::createMemoryAllocator()
 
 void Vulkan::createBufferVma(
 	VkDeviceSize size,
-	VkBufferUsageFlags vkUsage,
-	VmaMemoryUsage vmaUsage,
+	VkBufferUsageFlags bufferUsage,
+	VmaMemoryUsage memoryUsage,
 	VmaAllocatedBuffer& outVmaAllocatedBuffer)
 {
 	VkBufferCreateInfo bufferCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = size,
-		.usage = vkUsage,
+		.usage = bufferUsage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 	VmaAllocationCreateInfo vmaAllocCreateInfo = {
-		.usage = vmaUsage
+		.usage = memoryUsage
 	};
 	EXPECT(vmaCreateBuffer(
 		memoryAllocator,
@@ -162,59 +161,6 @@ void Vulkan::createBufferVma(
 		&outVmaAllocatedBuffer.buffer,
 		&outVmaAllocatedBuffer.allocation,
 		nullptr),VK_SUCCESS);
-}
-
-void Vulkan::createBuffer(
-	VkDeviceSize size,
-	VkBufferUsageFlags usage,
-	VkMemoryPropertyFlags properties,
-	VkBuffer& buffer,
-	VkDeviceMemory& bufferMemory
-){
-	VkBufferCreateInfo bufferInfo {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = size,
-		.usage = usage,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
-	};
-	EXPECT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer), VK_SUCCESS)
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-	// typeFilter: bit field of suitable memory types.
-	auto findMemoryType = [this](uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-			if (
-				// the index of the memoryType that has at least one set bit in common with typeFilter.
-				// Namely, the ith memoryType supports the resource (buffer).
-				(typeFilter & (1 << i)) &&
-				// and also require it to support all the requested properties
-				((memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-			) {
-				return i;
-			}
-		}
-		ERR("failed to find suitable memory type!")
-		throw std::runtime_error("");
-	};
-
-	VkMemoryAllocateInfo allocInfo = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.allocationSize = memRequirements.size,
-		.memoryTypeIndex = findMemoryType(
-			memRequirements.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-	};
-	// NOTE: vkAllocateMemory is designed for small number of large chunk allocations.
-	// in real apps, should make a custom allocator that allocates once and share it among objects of different offsets.
-	// this might help: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-	EXPECT(vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory), VK_SUCCESS)
-
-	// associate this memory with the buffer
-	vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
 void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size)
@@ -329,14 +275,8 @@ void Vulkan::createDescriptorSetLayout() {
 void Vulkan::createUniformBuffers() {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 	uniformBuffers.resize(swapChainImages.size());
-	uniformBuffersMemory.resize(swapChainImages.size());
 	for (size_t i = 0; i < swapChainImages.size(); i++) {
-		createBuffer(
-			bufferSize,
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			uniformBuffers[i],
-			uniformBuffersMemory[i]);
+		createBufferVma(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, uniformBuffers[i]);
 	}
 }
 
@@ -367,9 +307,10 @@ void Vulkan::createDescriptorSets()
 	descriptorSets.resize(swapChainImages.size());
 	EXPECT(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
 
-	for (size_t i=0; i<swapChainImages.size(); i++) {
+	for (size_t i=0; i<swapChainImages.size(); i++)
+	{
 		VkDescriptorBufferInfo bufferInfo = {
-			.buffer = uniformBuffers[i],
+			.buffer = uniformBuffers[i].buffer,
 			.offset = 0,
 			.range = VK_WHOLE_SIZE,
 		};
@@ -407,9 +348,9 @@ void Vulkan::updateUniformBuffer(uint32_t currentImage) {
 
 	// upload data
 	void* data;
-	vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(UniformBufferObject), 0, &data);
+	vmaMapMemory(memoryAllocator, uniformBuffers[currentImage].allocation, &data);
 	memcpy(data, &ubo, sizeof(UniformBufferObject));
-	vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+	vmaUnmapMemory(memoryAllocator, uniformBuffers[currentImage].allocation);
 }
 
 void Vulkan::createInstance(SDL_Window* in_window) {
@@ -631,6 +572,10 @@ void Vulkan::pickPhysicalDevice() {
 	{
 		ERR("failed to find a suitable GPU with vulkan support!")
 	}
+
+	vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+	VKLOG("Picked physical device \"%s\" which has minimum buffer alignment of %llu bytes",
+		physicalDeviceProperties.deviceName, physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 }
 
 void Vulkan::createLogicalDevice() {
@@ -1104,8 +1049,8 @@ void Vulkan::createCommandBuffers()
 	};
 	EXPECT(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()), VK_SUCCESS)
 
-	for (size_t i=0; i<commandBuffers.size(); i++) {
-
+	for (size_t i=0; i<commandBuffers.size(); i++)
+	{
 		// begin recording into command buffer:
 		VkCommandBufferBeginInfo beginInfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
