@@ -1,5 +1,5 @@
 #include "Utils.hpp"
-#include "Engine/Scene.hpp"
+#include "Scene/Scene.hpp"
 #include "Asset/Mesh.hpp"
 
 #pragma GCC diagnostic push

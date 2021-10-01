@@ -1,7 +1,7 @@
 #pragma once
 
-#include "lib.h"
-#include "Utils/Log.h"
+#include "Utils/lib.h"
+#include "Utils/myn/Log.h"
 #include <vulkan/vulkan.h>
 #include <fstream>
 #include <set>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Drawable.hpp"
-#include "Utils.hpp"
+#include "Engine/Drawable.hpp"
+#include "Utils/Utils.hpp"
 
 #define MAX_SHADOWCASTING_LIGHTS 6
 #define NUM_GBUFFERS 4

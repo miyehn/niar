@@ -1,6 +1,6 @@
 #pragma once
 #include "Engine/Drawable.hpp"
-#include "Utils.hpp"
+#include "Utils/Utils.hpp"
 
 #define NUM_MATERIAL_SETS 3
 

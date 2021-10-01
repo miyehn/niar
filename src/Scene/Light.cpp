@@ -1,7 +1,7 @@
 #include "Light.hpp"
 #include "Camera.hpp"
 #include "Engine/Input.hpp"
-#include "Engine/Scene.hpp"
+#include "Scene.hpp"
 #include "Engine/Program.hpp"
 #include "Asset/Mesh.hpp"
 #include "Asset/Materials.hpp"

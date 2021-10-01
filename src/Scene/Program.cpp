@@ -1,6 +1,6 @@
 #include "Camera.hpp"
 #include "Engine/Program.hpp"
-#include "Engine/Scene.hpp"
+#include "Scene.hpp"
 #include "Asset/Mesh.hpp"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Pathtracer/BSDF.hpp"

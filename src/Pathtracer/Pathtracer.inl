@@ -1,5 +1,5 @@
 #include "Primitive.hpp"
-#include "Camera.hpp"
+#include "Scene/Camera.hpp"
 
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();

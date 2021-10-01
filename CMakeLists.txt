@@ -23,19 +23,20 @@ message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 set(SRC
 	src/Engine/main.cpp
-	src/Vulkan/Vulkan.cpp
-	src/Engine/Scene.cpp
-	src/Program.cpp
-	src/Camera.cpp
+	src/Render/Vulkan/Vulkan.cpp
+	src/Scene/Scene.cpp
+	src/Scene/Program.cpp
+	src/Scene/Camera.cpp
 	src/Engine/Drawable.cpp
 	src/Asset/Mesh.cpp
 	src/Asset/Shader.cpp
-	src/GrassField.cpp
+	src/Scene/GrassField.cpp
 	src/Engine/Input.cpp
-	src/Light.cpp
-	src/Utils.cpp
+	src/Scene/Light.cpp
+	src/Utils/Utils.cpp
 	src/Asset/Texture.cpp
 	src/Asset/Materials.cpp
+	src/Asset/Blit.cpp
 	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/Pathtracer.cpp
 	src/Pathtracer/BSDF.cpp
@@ -44,7 +45,7 @@ set(SRC
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${TASKSYS_O}
 	# include/openfbx/ofbx.cpp
-	src/Vulkan/VulkanMemoryAllocatorImpl.cpp)
+	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})

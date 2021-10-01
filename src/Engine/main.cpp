@@ -1,14 +1,13 @@
 #include "cxxopts/cxxopts.hpp"
 #include "Program.hpp"
-#include "Drawable.hpp"
-#include "Scene.hpp"
-#include "Camera.hpp"
+#include "Scene/Scene.hpp"
+#include "Scene/Camera.hpp"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
 
-#include "Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/Vulkan.hpp"
 
-#define TEST_VULKAN 0
+#define TEST_VULKAN 1
 
 Program* Program::Instance;
 #ifdef _WIN32

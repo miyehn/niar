@@ -18,7 +18,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtx/quaternion.hpp"
 
-#include "Utils/Log.h"
+#include "Utils/myn/Log.h"
 
 using namespace glm;
 using namespace myn;

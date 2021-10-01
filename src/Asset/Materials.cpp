@@ -1,6 +1,6 @@
 #include "Engine/Drawable.hpp"
 #include "Materials.hpp"
-#include "Camera.hpp"
+#include "Scene/Camera.hpp"
 
 MatGeneric* Material::mat_depth_value = nullptr;
 MatGeneric* Material::mat_depth() {

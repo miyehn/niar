@@ -1,8 +1,8 @@
 #pragma once
-#include "Utils/Timer.h"
-#include "Utils/ThreadSafeQueue.h"
+#include "Utils/myn/Timer.h"
+#include "Utils/myn/ThreadSafeQueue.h"
 #include "Engine/Drawable.hpp"
-#include "Utils.hpp"
+#include "Utils/Utils.hpp"
 #include "BVH.hpp"
 
 struct Scene;

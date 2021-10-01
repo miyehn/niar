@@ -1,5 +1,5 @@
 #include "Drawable.hpp"
-#include "Scene.hpp"
+#include "Scene/Scene.hpp"
 
 Drawable::Drawable(Drawable* _parent, std::string _name) {
 

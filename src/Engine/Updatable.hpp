@@ -1,5 +1,5 @@
 #pragma once
-#include "lib.h"
+#include "Utils/lib.h"
 
 struct Updatable {
 	std::string name = "[unnamed updatable]";
