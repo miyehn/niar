@@ -18,9 +18,10 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtx/quaternion.hpp"
 
-#include "logging.h"
+#include "Utils/Log.h"
 
 using namespace glm;
+using namespace myn;
 
 // from: https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
 template<typename ... Args>
@@ -70,7 +71,6 @@ inline void gl_errors(std::string const &where) {
 #define ONE_OVER_PI 0.31830988618f
 #define TWO_PI 6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
-typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
 
 #define CONST_PTR(T, NAME) \
 	public: \

@@ -1,5 +1,7 @@
 #pragma once
-#include "Drawable.hpp"
+#include "Utils/Timer.h"
+#include "Utils/ThreadSafeQueue.h"
+#include "Engine/Drawable.hpp"
 #include "Utils.hpp"
 #include "BVH.hpp"
 
@@ -93,7 +95,7 @@ private:
 	std::function<void(int)> raytrace_task;
 
 	std::vector<RaytraceThread*> threads;
-	TaskQueue<size_t> raytrace_tasks;
+	ThreadSafeQueue<size_t> raytrace_tasks;
 
 	//---- buffers & opengl ----
 

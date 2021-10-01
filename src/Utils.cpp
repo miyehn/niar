@@ -1,6 +1,6 @@
 #include "Utils.hpp"
-#include "Scene.hpp"
-#include "Mesh.hpp"
+#include "Engine/Scene.hpp"
+#include "Asset/Mesh.hpp"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wall"

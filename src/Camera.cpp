@@ -1,5 +1,5 @@
 #include "Camera.hpp"
-#include "Program.hpp"
+#include "Engine/Program.hpp"
 
 Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) : 
 		orthographic(_ortho), use_YPR(_use_YPR), width(w), height(h) {

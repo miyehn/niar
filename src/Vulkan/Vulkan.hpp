@@ -1,7 +1,7 @@
 #pragma once
 
 #include "lib.h"
-#include "logging.h"
+#include "Utils/Log.h"
 #include <vulkan/vulkan.h>
 #include <fstream>
 #include <set>
@@ -10,7 +10,7 @@
 #include <stack>
 #include <functional>
 
-#include "Mesh.hpp"
+#include "Asset/Mesh.hpp"
 
 /* references:
 https://vulkan-tutorial.com/

@@ -8,7 +8,7 @@
 
 #include "Vulkan/Vulkan.hpp"
 
-#define TEST_VULKAN 1
+#define TEST_VULKAN 0
 
 Program* Program::Instance;
 #ifdef _WIN32

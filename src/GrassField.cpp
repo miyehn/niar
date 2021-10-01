@@ -1,8 +1,8 @@
 #include "GrassField.hpp"
 #include "Camera.hpp"
-#include "Shader.hpp"
-#include "Program.hpp"
-#include "Materials.hpp"
+#include "Asset/Shader.hpp"
+#include "Engine/Program.hpp"
+#include "Asset/Materials.hpp"
 
 GrassField::GrassField(uint num_blades, Drawable* _parent, std::string _name): Drawable(_parent, _name) {
 

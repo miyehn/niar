@@ -1,6 +1,6 @@
 #pragma once
 #include "Updatable.hpp"
-#include "Shader.hpp"
+#include "Asset/Shader.hpp"
 
 struct Scene;
 

@@ -22,21 +22,20 @@ message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 set(SRC
-	src/main.cpp
+	src/Engine/main.cpp
 	src/Vulkan/Vulkan.cpp
-	# src/Vulkan.inl
-	src/Scene.cpp
+	src/Engine/Scene.cpp
 	src/Program.cpp
 	src/Camera.cpp
-	src/Drawable.cpp
-	src/Mesh.cpp
-	src/Shader.cpp
+	src/Engine/Drawable.cpp
+	src/Asset/Mesh.cpp
+	src/Asset/Shader.cpp
 	src/GrassField.cpp
-	src/Input.cpp
+	src/Engine/Input.cpp
 	src/Light.cpp
 	src/Utils.cpp
-	src/Texture.cpp
-	src/Materials.cpp
+	src/Asset/Texture.cpp
+	src/Asset/Materials.cpp
 	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/Pathtracer.cpp
 	src/Pathtracer/BSDF.cpp

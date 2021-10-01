@@ -1,9 +1,9 @@
 #include "Input.hpp"
 #include "Utils.hpp"
-#include "Shader.hpp"
-#include "Texture.hpp"
-#include "Materials.hpp"
-#include "Mesh.hpp"
+#include "Asset/Shader.hpp"
+#include "Asset/Texture.hpp"
+#include "Asset/Materials.hpp"
+#include "Asset/Mesh.hpp"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;

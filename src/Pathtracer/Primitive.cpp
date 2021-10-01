@@ -1,5 +1,5 @@
 #include "Primitive.hpp"
-#include "Mesh.hpp"
+#include "Asset/Mesh.hpp"
 #include "BSDF.hpp"
 
 #define USE_EMBEDDED_NORMAL 0

@@ -1,12 +1,12 @@
 #include "Pathtracer.hpp"
 #include "Camera.hpp"
-#include "Mesh.hpp"
-#include "Scene.hpp"
+#include "Asset/Mesh.hpp"
+#include "Engine/Scene.hpp"
 #include "BSDF.hpp"
 #include "Primitive.hpp"
 #include "PathtracerLight.hpp"
-#include "Input.hpp"
-#include "Materials.hpp"
+#include "Engine/Input.hpp"
+#include "Asset/Materials.hpp"
 #include <stack>
 #include <unordered_map>
 #include <chrono>
@@ -715,7 +715,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 		use_bvh = Cfg.Pathtracer.UseBVH->get();
 		if (Cfg.Pathtracer.Multithreaded)
 		{
-			TaskQueue<uint> tasks;
+			ThreadSafeQueue<uint> tasks;
 			uint task_size = tile_size * tile_size;
 			uint image_size = width * height;
 			for (uint i = 0; i < image_size; i += task_size) {
