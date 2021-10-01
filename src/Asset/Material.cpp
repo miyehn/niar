@@ -29,7 +29,7 @@ void Material::add_to_pool(const std::string& name, Material* mat) {
 Material* Material::get(const std::string& name) {
 	auto mat_pair = material_pool.find(name);
 	if (mat_pair == material_pool.end()) {
-		ERR("there isn't a material called '%s'", name.c_str());
+		WARN("there isn't a material called '%s'", name.c_str());
 		return nullptr;
 	}
 	return mat_pair->second;

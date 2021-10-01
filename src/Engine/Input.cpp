@@ -28,7 +28,7 @@ void create_config_src(const std::string &path, Config& out_config_src)
 void initialize_pathtracer_config()
 {
 	Config config_src;
-	create_config_src(ROOT_DIR"/config/pathtracer.ini", config_src);
+	create_config_src(Cfg.PathtracerConfigSource, config_src);
 
 	try {
 		// pathtracer
@@ -58,7 +58,7 @@ void initialize_pathtracer_config()
 void initialize_asset_config()
 {
 	Config config_src;
-	create_config_src(ROOT_DIR"/config/assets.ini", config_src);
+	create_config_src(Cfg.AssetsConfigSource, config_src);
 
 	try
 	{
@@ -172,6 +172,8 @@ void initialize_global_config()
 	{
 		Cfg.UseCornellBoxScene = config_src.lookup("UseCornellBoxScene");
 		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
+		Cfg.AssetsConfigSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("AssetsConfigSource");
+		Cfg.PathtracerConfigSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("PathtracerConfigSource");
 		Cfg.TestVulkan = config_src.lookup("TestVulkan");
 
 		Cfg.ShowDebugTex->set(config_src.lookup("ShowDebugTex"));

@@ -7,8 +7,6 @@
 
 #include "Render/Vulkan/Vulkan.hpp"
 
-#define TEST_VULKAN 0
-
 Program* Program::Instance;
 #ifdef _WIN32
 #ifdef main
@@ -51,11 +49,8 @@ int main(int argc, const char * argv[])
 
 	Program::Instance = new Program("niar", w, h);
 
-	#if TEST_VULKAN
-	Program::Instance->run_vulkan();
-	#else
-	Program::Instance->run_opengl();
-	#endif
+	if (Cfg.TestVulkan) Program::Instance->run_vulkan();
+	else Program::Instance->run_opengl();
 
 	delete Program::Instance;
 	return 0;
@@ -141,7 +136,6 @@ bool Program::one_loop() {
 		else if (event.type==SDL_KEYUP && 
 				event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-		#if !TEST_VULKAN
 		// console input
 		else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
 			input_str = "";
@@ -162,21 +156,20 @@ bool Program::one_loop() {
 			process_input();
 		}
 
-		else if (!receiving_text) {
+		else if (!receiving_text && !Cfg.TestVulkan) {
 			// toggle between rasterizer & pathtracer
 			if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
 				if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();
 				else Pathtracer::Instance->enable();
 			}
 			// update singletons
-			if (Pathtracer::Instance->enabled) 
+			if (Pathtracer::Instance->enabled)
 				Pathtracer::Instance->handle_event(event);
 			// let all scene(s) handle the input
 			for (uint i=0; i<scenes.size(); i++) {
 				scenes[i]->handle_event(event);
 			}
 		}
-		#endif
 	}
 	if (quit) return false;
 	
@@ -187,12 +180,9 @@ bool Program::one_loop() {
 
 	update(elapsed);
 
-	#if TEST_VULKAN
-	vulkan->drawFrame();
-	#else
-	draw();
-	#endif
-	
+	if (Cfg.TestVulkan) vulkan->drawFrame();
+	else draw();
+
 	return true;
 }
 
