@@ -1,6 +1,5 @@
 #include "Vulkan.hpp"
 
-
 Vulkan::Vulkan(SDL_Window* window) {
 
     this->window = window;
@@ -14,20 +13,20 @@ Vulkan::Vulkan(SDL_Window* window) {
     createLogicalDevice();
     createSwapChain();
     createImageViews();
-    createRenderPass();
-	createDescriptorSetLayout();
-    createGraphicsPipeline();
-    createFramebuffers();
-    createCommandPools();
 	createMemoryAllocator();
+	createCommandPools();
+	createSynchronizationObjects();
+}
+
+void Vulkan::initSampleInstance(gfx::Pipeline *pipeline)
+{
+	createFramebuffers(pipeline->getRenderPass());
 	createVertexBuffer();
 	createIndexBuffer();
 	createUniformBuffers();
 	createDescriptorPool();
-	createDescriptorSets();
-    createCommandBuffers();
-    createSynchronizationObjects();
-
+	createDescriptorSets(pipeline->getDescriptorSetLayout());
+	createCommandBuffers(pipeline);
 }
 
 Vulkan::~Vulkan() {
@@ -47,7 +46,6 @@ Vulkan::~Vulkan() {
 	}
 	vmaDestroyAllocator(memoryAllocator);
 
-	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
 	// stay
@@ -61,9 +59,6 @@ Vulkan::~Vulkan() {
     for (auto framebuffer : swapChainFramebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
     }
@@ -254,24 +249,6 @@ void Vulkan::createIndexBuffer()
 	vmaDestroyBuffer(memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
-void Vulkan::createDescriptorSetLayout() {
-	VkDescriptorSetLayoutBinding uboLayoutBinding = {
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-		.pImmutableSamplers = nullptr // for image sampling related?
-	};
-
-	VkDescriptorSetLayoutCreateInfo layoutInfo = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.bindingCount = 1,
-		.pBindings = &uboLayoutBinding,
-	};
-
-	EXPECT(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout), VK_SUCCESS)
-}
-
 void Vulkan::createUniformBuffers() {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 	uniformBuffers.resize(swapChainImages.size());
@@ -280,6 +257,7 @@ void Vulkan::createUniformBuffers() {
 	}
 }
 
+// "want a pool that can hold X uniform buffers, Y images, etc."
 // might help: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkDescriptorPoolCreateInfo.html
 void Vulkan::createDescriptorPool() {
 	VkDescriptorPoolSize poolSize = {
@@ -295,7 +273,7 @@ void Vulkan::createDescriptorPool() {
 	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
 }
 
-void Vulkan::createDescriptorSets()
+void Vulkan::createDescriptorSets(const VkDescriptorSetLayout &descriptorSetLayout)
 {
 	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo = {
@@ -772,241 +750,7 @@ inline VkShaderModule Vulkan::createShaderModule(const std::vector<char>& code) 
 	return shaderModule;
 }
 
-void Vulkan::createRenderPass() {
-	// a render pass: load the attachment, r/w operations (by subpasses), then release it?
-	// renderpass -> subpass -> attachmentReferences -> attachment
-	// a render pass holds ref to an array of color attachments.
-	// A subpass then use an array of attachmentRef to selectively get the attachments and use them
-	VkAttachmentDescription colorAttachment = {
-		.format = swapChainImageFormat,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	};
-	VkAttachmentReference colorAttachmentRef = {
-		// matches layout(location=X)
-		.attachment = 0,
-		// "which layout we'd like it to have during this subpass"
-		// so, initialLayout -> this -> finalLayout ?
-		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	};
-	VkSubpassDescription subpass = {
-		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-		.colorAttachmentCount = 1,
-		.pColorAttachments = &colorAttachmentRef // an array, index matches layout (location=X) out vec4 outColor
-	};
-	VkSubpassDependency dependency = {
-		.srcSubpass = VK_SUBPASS_EXTERNAL,
-		.dstSubpass = 0,
-		// wait for the swap chain to finish reading
-		// Question: first access scope includes color_attachment_output as well?? (Isn't it just read by the monitor?)
-		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		// before we can write to it
-		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		.srcAccessMask = 0,
-		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-	};
-	VkRenderPassCreateInfo renderPassInfo = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		.attachmentCount = 1,
-		.pAttachments = &colorAttachment,
-		.subpassCount = 1,
-		.pSubpasses = &subpass,
-		.dependencyCount = 1,
-		.pDependencies = &dependency
-	};
-	EXPECT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass), VK_SUCCESS)
-	
-}
-
-void Vulkan::createGraphicsPipeline()
-{
-	//-------- shader stages --------
-	auto vertShaderCode = readFile("spirv/triangle.vert.spv");
-	auto fragShaderCode = readFile("spirv/triangle.frag.spv");
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_VERTEX_BIT,
-		.module = vertShaderModule,
-		.pName = "main", // entry point function (should be main for glsl shaders)
-		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
-
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module = fragShaderModule,
-		.pName = "main", // entry point function (should be main for glsl shaders)
-		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
-
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-	//-------- fixed-function stages --------
-
-	//---- input ----
-	auto bindingDescription = getBindingDescription();
-	auto attributeDescriptions = getAttributeDescriptions();
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &bindingDescription,
-		.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-		.pVertexAttributeDescriptions = attributeDescriptions.data()
-	};
-
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		.primitiveRestartEnable = VK_FALSE
-	};
-	//---- viewport state ----
-	// may result in transformation of image (which portion of the image content should be rendered?)
-	VkViewport viewport = {
-		.x = 0.0f, .y = 0.0f,
-		.width = (float)swapChainExtent.width, .height = (float)swapChainExtent.height,
-		.minDepth = 0.0f, .maxDepth = 1.0f
-	};
-	// no transformation but clips out everything outside
-	VkRect2D scissor = {
-		.offset = {0, 0},
-		.extent = swapChainExtent
-	};
-	VkPipelineViewportStateCreateInfo viewportState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.pViewports = &viewport,
-		.scissorCount = 1,
-		.pScissors = &scissor
-	};
-
-	//---- rasterizer ----
-	VkPipelineRasterizationStateCreateInfo rasterizer = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.depthClampEnable = VK_FALSE, // don't cull depth outside but clamp to near and far (used in shadowmapping?)
-		.rasterizerDiscardEnable = VK_FALSE, // discard everything
-		.polygonMode = VK_POLYGON_MODE_FILL,
-		.cullMode = VK_CULL_MODE_BACK_BIT,
-		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-		.depthBiasEnable = VK_FALSE, // may be useful for shadowmapping
-		.depthBiasConstantFactor = 0.0f,
-		.depthBiasClamp = 0.0f,
-		.depthBiasSlopeFactor = 0.0,
-		.lineWidth = 1.0f,
-	};
-	// multisampling along edges for anti aliasing
-	VkPipelineMultisampleStateCreateInfo multisampling = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-		.sampleShadingEnable = VK_FALSE,
-		.minSampleShading = 1.0f,
-		.pSampleMask = nullptr,
-		.alphaToCoverageEnable = VK_FALSE,
-		.alphaToOneEnable = VK_FALSE
-	};
-
-	// VkPipelineDepthStencilStateCreateInfo skipped for now
-
-	//---- color blending ----
-
-	// this struct is for per framebuffer
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-		.blendEnable = VK_FALSE,
-		#if 1 // blending off
-		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-		.colorBlendOp = VK_BLEND_OP_ADD,
-		// is it so? also see unity shader lab: https://docs.unity3d.com/Manual/SL-Blend.html
-		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD,
-		#else // alpha blending
-		.blendEnable = VK_TRUE,
-		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-		.colorBlendOp = VK_BLEND_OP_ADD,
-		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD
-		#endif
-		.colorWriteMask =
-			VK_COLOR_COMPONENT_R_BIT
-			| VK_COLOR_COMPONENT_G_BIT
-			| VK_COLOR_COMPONENT_B_BIT
-			| VK_COLOR_COMPONENT_A_BIT,
-	};
-
-	// this struct for global blend setting
-	VkPipelineColorBlendStateCreateInfo colorBlending = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		// if set to true, disables color blending specified in colorBlendAttachment and use bitwise blend instead.
-		.logicOpEnable = VK_FALSE,
-		.logicOp = VK_LOGIC_OP_COPY,
-		.attachmentCount = 1,
-		.pAttachments = &colorBlendAttachment,
-		.blendConstants = { .0f, .0f, .0f, .0f }
-	};
-
-	//---- dynamic state (just a dummy example) ----
-	// VkDynamicState dynamicStates[] = {
-		// VK_DYNAMIC_STATE_VIEWPORT,
-		// VK_DYNAMIC_STATE_LINE_WIDTH
-	// };
-	VkPipelineDynamicStateCreateInfo dynamicState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.dynamicStateCount = 0,
-		.pDynamicStates = nullptr
-	};
-
-	//---- pipeline layout ----
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout,
-		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = nullptr
-	};
-	EXPECT(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
-
-	//---- create the fucking pipeline ----
-	VkGraphicsPipelineCreateInfo pipelineInfo = {
-		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		// shader stages
-		.stageCount = 2,
-		.pStages = shaderStages,
-		// fixed-function stages config
-		.pVertexInputState = &vertexInputInfo,
-		.pInputAssemblyState = &inputAssemblyInfo,
-		.pViewportState = &viewportState,
-		.pRasterizationState = &rasterizer,
-		.pMultisampleState = &multisampling,
-		.pDepthStencilState = nullptr,
-		.pColorBlendState = &colorBlending,
-		.pDynamicState = nullptr,
-		// layout
-		.layout = pipelineLayout,
-		// render pass
-		.renderPass = renderPass,
-		.subpass = 0,
-		// others
-		.basePipelineHandle = VK_NULL_HANDLE,
-		.basePipelineIndex = -1
-	};
-
-	EXPECT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline), VK_SUCCESS)
-
-	vkDestroyShaderModule(device, vertShaderModule, nullptr);
-	vkDestroyShaderModule(device, fragShaderModule, nullptr);
-}
-
-void Vulkan::createFramebuffers() {
+void Vulkan::createFramebuffers(const VkRenderPass &renderPass) {
 	swapChainFramebuffers.resize(swapChainImageViews.size());
 	for (size_t i = 0; i < swapChainImageViews.size(); i++) {
 		VkImageView attachments[] = { swapChainImageViews[i] };
@@ -1038,7 +782,7 @@ void Vulkan::createCommandPools() {
 	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &shortLivedCommandsPool), VK_SUCCESS)
 }
 
-void Vulkan::createCommandBuffers()
+void Vulkan::createCommandBuffers(gfx::Pipeline *pipeline)
 {
 	commandBuffers.resize(swapChainFramebuffers.size());
 	VkCommandBufferAllocateInfo allocInfo = {
@@ -1064,19 +808,19 @@ void Vulkan::createCommandBuffers()
 		VkRect2D renderArea = { .offset = {0, 0}, .extent = swapChainExtent };
 		VkRenderPassBeginInfo renderPassInfo = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			.renderPass = renderPass,
+			.renderPass = pipeline->getRenderPass(),
 			.framebuffer = swapChainFramebuffers[i],
 			.renderArea = renderArea,
 			.clearValueCount = 1,
 			.pClearValues = &clearColor
 		};
 		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
 		VkBuffer vertexBuffers[] = { vertexBuffer.buffer };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets); // offset, #bindings, (content)
 		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE);
-		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
 			0, // firstSet : uint32_t
 			1, // descriptorSetCount : uint32_t
 			&descriptorSets[i],

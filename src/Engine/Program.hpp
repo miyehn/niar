@@ -23,11 +23,6 @@ struct Program {
 	
 	SDL_Window* window;
 	SDL_GLContext context;
-	Vulkan* vulkan;
-	/*
-	VkInstance vulkan_instance;
-	VkDebugUtilsMessengerEXT vulkan_debug_messenger;
-	*/
 
 	TimePoint previous_time;
 
@@ -47,7 +42,6 @@ struct Program {
 	~Program();
 
 	void init_opengl_window();
-	void init_vulkan_window();
 
 	bool one_loop();
 
@@ -56,6 +50,7 @@ struct Program {
 	
 	// implementation of these decides game behavior.
 	void load_resources();
+	void load_resources_vulkan();
 
 	void update(float elapsed);
 	void draw();

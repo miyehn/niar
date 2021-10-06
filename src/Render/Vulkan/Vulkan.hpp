@@ -9,6 +9,7 @@
 #include <VulkanMemoryAllocator/vk_mem_alloc.h>
 #include <stack>
 #include <functional>
+#include "Render/gfx/gfx.h"
 
 #include "Asset/Mesh.h"
 
@@ -20,6 +21,8 @@ https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
 */
 
 struct Vulkan {
+
+	static Vulkan* Instance;
 
 	Vulkan(SDL_Window* window);
 
@@ -98,7 +101,6 @@ struct Vulkan {
 
 	VkDescriptorPool descriptorPool;
 
-	VkDescriptorSetLayout descriptorSetLayout;
 	std::vector<VkDescriptorSet> descriptorSets;
 
 	struct UniformBufferObject {
@@ -118,11 +120,16 @@ struct Vulkan {
 	void createVertexBuffer();
 	void createIndexBuffer();
 
-	void createDescriptorSetLayout();
 	void createDescriptorPool();
-	void createDescriptorSets();
+	void createDescriptorSets(const VkDescriptorSetLayout &descriptorSetLayout);
 	void createUniformBuffers();
 	void updateUniformBuffer(uint32_t currentImage);
+
+	VkDevice device;
+	VkFormat swapChainImageFormat;
+	VkExtent2D swapChainExtent;
+
+	void initSampleInstance(gfx::Pipeline *pipelin);
 
 private:
 
@@ -151,7 +158,6 @@ private:
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice;
 	VkPhysicalDeviceProperties physicalDeviceProperties;
-	VkDevice device;
 
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
@@ -159,15 +165,15 @@ private:
 	VkSwapchainKHR swapChain;
 	std::vector<VkImage> swapChainImages;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
-	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
 
 	std::vector<VkImageView> swapChainImageViews;
 
+#if 0
 	VkRenderPass renderPass;
-	// descriptor set layout goes here??
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
+#endif
 
 	VkCommandPool commandPool;
 	VkCommandPool shortLivedCommandsPool;
@@ -228,15 +234,11 @@ private:
 
 	inline VkShaderModule createShaderModule(const std::vector<char>& code);
 
-	void createRenderPass();
-
-	void createGraphicsPipeline();
-
-	void createFramebuffers();
+	void createFramebuffers(const VkRenderPass &renderPass);
 
 	void createCommandPools();
 
-	void createCommandBuffers();
+	void createCommandBuffers(gfx::Pipeline *pipeline);
 
 	void createMemoryAllocator();
 

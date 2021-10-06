@@ -70,12 +70,10 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 		faces.push_back(i3);
 	}
 
-	// initialize();
+	generate_aabb();
 }
 
-void Mesh::initialize() {
-
-	generate_aabb();
+void Mesh::initialize_gpu() {
 
 	//---- OpenGL setup ----
 
@@ -232,7 +230,7 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_g
 	for (int i=0; i<scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
 		Mesh* sceneMesh = new Mesh(mesh);
-		if (initialize_graphics) sceneMesh->initialize();
+		if (initialize_graphics) sceneMesh->initialize_gpu();
 		if (mesh) meshes.push_back(sceneMesh);
 	}
 

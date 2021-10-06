@@ -193,7 +193,7 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 		aiMesh* mesh = scene->mMeshes[i];
 		if (mesh) {
 			Mesh* m = new Mesh(mesh);
-			m->initialize();
+			if (!Cfg.TestVulkan) m->initialize_gpu();
 			add_child(m);
 		}
 	}

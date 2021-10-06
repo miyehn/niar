@@ -6,6 +6,8 @@
 #include "Input.hpp"
 
 #include "Render/Vulkan/Vulkan.hpp"
+#include "Render/gfx/gfx.h"
+#include "Asset/Material.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -102,22 +104,27 @@ void Program::init_opengl_window() {
 
 }
 
-void Program::init_vulkan_window() {
+void Program::load_resources_vulkan()
+{
+	LOG("loading resources (vulkan)...");
+	// initialize_asset_config();
 
-	SDL_Init(SDL_INIT_VIDEO);
-	// create window
-	this->window = SDL_CreateWindow(
-		name.c_str(),
-		100, 100, // SDL_WINDOWPOS_UNDEFINED, or SDL_WINDOWPOS_CENTERED
-		width, height, // specify window size
-		SDL_WINDOW_VULKAN
-		);
-	if (!window) {
-		std::cerr << "Error creating SDL window: " << SDL_GetError() << std::endl;
-		exit(1);
-	}
+	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
+	Camera::Active = new Camera(width, height);
 
-	vulkan = new Vulkan(window);
+	Scene* scene;
+
+	Camera::Active->move_speed = 16.0f;
+	Camera::Active->position = vec3(0, -25, 15);
+	Camera::Active->cutoffFar = 100.0f;
+
+	scene = new Scene();
+	scene->load(Cfg.SceneSource, false);
+
+	// scene->initialize_graphics();
+
+	Scene::Active = scene;
+	scenes.push_back(scene);
 }
 
 Program::~Program() {
@@ -178,10 +185,25 @@ bool Program::one_loop() {
 	elapsed = std::min(0.1f, elapsed);
 	previous_time = current_time;
 
-	update(elapsed);
-
-	if (Cfg.TestVulkan) vulkan->drawFrame();
-	else draw();
+	if (Cfg.TestVulkan)
+	{
+#if 0
+		if (Scene::Active && Scene::Active->enabled)
+		{
+			// TODO: this currently crashes because Mesh::Draw() needs a material, but mesh materials are init with the rest of opengl stuff.
+			// TODO: push back all gpu init to a specific time.
+			Scene::Active->material_set = Cfg.MaterialSet->get();
+			Scene::Active->draw_content();
+		}
+#else
+		Vulkan::Instance->drawFrame();
+#endif
+	}
+	else
+	{
+		update(elapsed);
+		draw();
+	}
 
 	return true;
 }
@@ -207,13 +229,24 @@ void Program::run_opengl() {
 	#endif
 }
 
-void Program::run_vulkan() {
-	init_vulkan_window();
+void Program::run_vulkan()
+{
+	gfx::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
+
+	MatVulkan* matVulkan = new MatVulkan();
+	matVulkan->pipeline = new gfx::Pipeline();
+
+	Vulkan::Instance->initSampleInstance(matVulkan->pipeline);
+
+	load_resources_vulkan();
 	this->previous_time = std::chrono::high_resolution_clock::now();
 	while(one_loop()){
 	}
-	vulkan->waitDeviceIdle();
-	delete vulkan;
+	Vulkan::Instance->waitDeviceIdle();
+	gfx::ShaderModule::cleanup();
+
+	delete matVulkan;
+	delete Vulkan::Instance;
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }

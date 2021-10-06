@@ -1,5 +1,6 @@
 #include "Misc.h"
-#include <locale>
+#include <fstream>
+#include "Log.h"
 
 namespace myn
 {
@@ -15,4 +16,19 @@ namespace myn
 		}
 		return res;
 	}
+
+	std::vector<char> read_file(const std::string& filename) {
+		// read binary file from the end
+		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+		EXPECT_M(file.is_open(), true, "failed to open file %s", filename.c_str())
+		// get file size from position
+		size_t fileSize = (size_t) file.tellg();
+		std::vector<char> buffer(fileSize);
+		// seek to 0
+		file.seekg(0);
+		file.read(buffer.data(), fileSize);
+		file.close();
+		return buffer;
+	}
+
 } // namespace myn

@@ -33,9 +33,6 @@ std::string string_format( const std::string& format, Args ... args ) {
 	return std::string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
 }
 
-// for showing last path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
-#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-
 //-------- gl_errors.hpp, found in Jim's base code --------
 #define STR2(X) # X
 #define STR(X) STR2(X)

@@ -8,7 +8,6 @@
 #include "Light.hpp"
 #include "Asset/Texture.h"
 #include "Asset/Material.h"
-#include "Utils/myn/CVar.h"
 
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
@@ -92,6 +91,7 @@ void Program::load_resources() {
 	Scene::Active = scene;
 	scenes.push_back(scene);
 }
+
 
 void Program::release_resources() {
 	LOG("releasing resources..");
