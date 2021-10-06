@@ -48,8 +48,7 @@ set(SRC
 	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
 	src/Utils/myn/CVar.cpp
 	src/Utils/myn/Misc.cpp
-	src/Render/gfx/gfx.cpp
-	)
+	src/Render/gfx/gfx.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})

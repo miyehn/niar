@@ -7,7 +7,6 @@
 #include <set>
 #include <optional>
 #include <VulkanMemoryAllocator/vk_mem_alloc.h>
-#include <stack>
 #include <functional>
 #include "Render/gfx/gfx.h"
 
@@ -26,10 +25,25 @@ struct Vulkan {
 
 	Vulkan(SDL_Window* window);
 
-	std::stack<std::function<void()>> cleanupStack;
 	~Vulkan();
 
-	void drawFrame();
+	VkCommandBuffer beginFrame();
+	void beginSwapChainRenderPass(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline);
+	void testDraw(VkCommandBuffer cmdbuf, gfx::Pipeline* pipeline);
+	void endSwapChainRenderPass(VkCommandBuffer cmdbuf);
+	void endFrame();
+
+	bool isFrameInProgress() const { return isFrameStarted; }
+	VkCommandBuffer getCurrentCommandBuffer() const {
+		EXPECT(isFrameStarted, true)
+		return commandBuffers[currentImageIndex];
+	}
+
+private:
+	uint32_t currentImageIndex;
+	bool isFrameStarted = false;
+
+public:
 
 	void waitDeviceIdle() {
 		EXPECT(vkDeviceWaitIdle(device), VK_SUCCESS);

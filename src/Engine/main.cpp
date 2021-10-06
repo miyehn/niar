@@ -196,7 +196,7 @@ bool Program::one_loop() {
 			Scene::Active->draw_content();
 		}
 #else
-		Vulkan::Instance->drawFrame();
+		//Vulkan::Instance->drawFrame();
 #endif
 	}
 	else
@@ -238,9 +238,31 @@ void Program::run_vulkan()
 
 	Vulkan::Instance->initSampleInstance(matVulkan->pipeline);
 
-	load_resources_vulkan();
-	this->previous_time = std::chrono::high_resolution_clock::now();
-	while(one_loop()){
+	// load_resources_vulkan();
+	while(true)
+	{
+		SDL_Event event;
+		bool quit = false;
+		while (SDL_PollEvent(&event)==1 && !quit)
+		{
+			// termination
+			if (event.type == SDL_QUIT) { quit=true; break; }
+			else if (event.type==SDL_KEYUP &&
+					 event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
+
+		}
+		if (quit) break;
+
+#if 0
+		Vulkan::Instance->drawFrame(matVulkan->pipeline);
+#else
+		auto cmdbuf = Vulkan::Instance->beginFrame();
+		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf, matVulkan->pipeline);
+		Vulkan::Instance->testDraw(cmdbuf, matVulkan->pipeline);
+		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
+		Vulkan::Instance->endFrame();
+#endif
+
 	}
 	Vulkan::Instance->waitDeviceIdle();
 	gfx::ShaderModule::cleanup();

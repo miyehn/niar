@@ -31,13 +31,6 @@ void Vulkan::initSampleInstance(gfx::Pipeline *pipeline)
 
 Vulkan::~Vulkan() {
 
-	while (!cleanupStack.empty())
-	{
-		auto cleanupFn = cleanupStack.top();
-		cleanupFn();
-		cleanupStack.pop();
-	}
-
 	// TODO: move to elsewhere
 	vmaDestroyBuffer(memoryAllocator, vertexBuffer.buffer, vertexBuffer.allocation);
 	vmaDestroyBuffer(memoryAllocator, indexBuffer.buffer, indexBuffer.allocation);
@@ -71,57 +64,120 @@ Vulkan::~Vulkan() {
     vkDestroyInstance(instance, nullptr);
 }
 
-void Vulkan::drawFrame() {
+VkCommandBuffer Vulkan::beginFrame()
+{
+	EXPECT(isFrameStarted, false)
+	isFrameStarted = true;
 
-    // inFlightFences: no other access when commands are being submitted for operations on this image.
+	// inFlightFences: no other access when commands are being submitted for operations on this image.
 
-    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &currentImageIndex);
+	auto cmdbuf = getCurrentCommandBuffer();
 
-    // check if a prev frame is using this image
-    if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-        vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-    }
-    // now mark this image as being used by this frame
-    imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+	// check if a prev frame is using this image
+	if (imagesInFlight[currentImageIndex] != VK_NULL_HANDLE) {
+		vkWaitForFences(device, 1, &imagesInFlight[currentImageIndex], VK_TRUE, UINT64_MAX);
+	}
+	// now mark this image as being used by this frame
+	imagesInFlight[currentImageIndex] = inFlightFences[currentFrame];
 
 	// update uniforms
-	updateUniformBuffer(imageIndex);
+	updateUniformBuffer(currentImageIndex);
+
+	// record command buffer
+
+	// begin recording into command buffer:
+	VkCommandBufferBeginInfo beginInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = 0,
+		.pInheritanceInfo = nullptr
+	};
+	EXPECT(vkBeginCommandBuffer(cmdbuf, &beginInfo), VK_SUCCESS)
+	return cmdbuf;
+}
+
+void Vulkan::testDraw(VkCommandBuffer cmdbuf, gfx::Pipeline* pipeline)
+{
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vertexBuffer.buffer, offsets); // offset, #bindings, (content)
+	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.buffer, 0, VK_INDEX_TYPE);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
+							0, // firstSet : uint32_t
+							1, // descriptorSetCount : uint32_t
+							&descriptorSets[currentImageIndex],
+							0, nullptr); // for dynamic descriptors (not reached yet)
+	vkCmdDrawIndexed(cmdbuf, indices.size(), 1, 0, 0, 0);
+}
+
+void Vulkan::endFrame()
+{
+	EXPECT(isFrameStarted, true)
+
+	auto cmdbuf = getCurrentCommandBuffer();
+	EXPECT(vkEndCommandBuffer(cmdbuf), VK_SUCCESS)
 
 	// submit to queue
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
-    VkSubmitInfo submitInfo = {
+	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+	VkSubmitInfo submitInfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &commandBuffers[imageIndex],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores
-    };
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = waitSemaphores,
+		.pWaitDstStageMask = waitStages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &commandBuffers[currentImageIndex],
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = signalSemaphores
+	};
 
-    vkResetFences(device, 1, &inFlightFences[currentFrame]);
-    EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), VK_SUCCESS)
+	vkResetFences(device, 1, &inFlightFences[currentFrame]);
+	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), VK_SUCCESS)
 
-    // because it's possible to present to multiple swap chains..
-    VkSwapchainKHR swapChains[] = { swapChain };
-    VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapChains,
-        .pImageIndices = &imageIndex,
-        .pResults = nullptr // can just use the function return value when there's just one swap chain
-    };
-    vkQueuePresentKHR(presentQueue, &presentInfo);
+	// because it's possible to present to multiple swap chains..
+	VkSwapchainKHR swapChains[] = { swapChain };
+	VkPresentInfoKHR presentInfo = {
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = signalSemaphores,
+		.swapchainCount = 1,
+		.pSwapchains = swapChains,
+		.pImageIndices = &currentImageIndex,
+		.pResults = nullptr // can just use the function return value when there's just one swap chain
+	};
+	vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    currentFrame = (currentFrame + 1) % MAX_FRAME_IN_FLIGHT;
+	currentFrame = (currentFrame + 1) % MAX_FRAME_IN_FLIGHT;
+	isFrameStarted = false;
+}
+
+void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline)
+{
+	EXPECT(isFrameStarted, true)
+	EXPECT(cmdbuf, getCurrentCommandBuffer())
+
+	// render pass
+	VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	VkRect2D renderArea = { .offset = {0, 0}, .extent = swapChainExtent };
+	VkRenderPassBeginInfo renderPassInfo = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = pipeline->getRenderPass(),
+		.framebuffer = swapChainFramebuffers[currentImageIndex],
+		.renderArea = renderArea,
+		.clearValueCount = 1,
+		.pClearValues = &clearColor
+	};
+	vkCmdBeginRenderPass(cmdbuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void Vulkan::endSwapChainRenderPass(VkCommandBuffer cmdbuf)
+{
+	EXPECT(isFrameStarted, true)
+	EXPECT(cmdbuf, getCurrentCommandBuffer())
+	vkCmdEndRenderPass(cmdbuf);
 }
 
 void Vulkan::createMemoryAllocator()
@@ -325,9 +381,9 @@ void Vulkan::updateUniformBuffer(uint32_t currentImage) {
 	ubo.ProjectionMatrix[1][1] *= -1;
 
 	// upload data
-	void* data;
-	vmaMapMemory(memoryAllocator, uniformBuffers[currentImage].allocation, &data);
-	memcpy(data, &ubo, sizeof(UniformBufferObject));
+	void* uniformBuffer;
+	vmaMapMemory(memoryAllocator, uniformBuffers[currentImage].allocation, &uniformBuffer);
+	memcpy(uniformBuffer, &ubo, sizeof(UniformBufferObject));
 	vmaUnmapMemory(memoryAllocator, uniformBuffers[currentImage].allocation);
 }
 
@@ -773,12 +829,12 @@ void Vulkan::createCommandPools() {
 	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 	VkCommandPoolCreateInfo poolInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.flags = 0,
+		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 		.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value(),
 	};
 	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool), VK_SUCCESS)
 	// for one-time commands
-	poolInfo.flags |= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &shortLivedCommandsPool), VK_SUCCESS)
 }
 
@@ -792,44 +848,6 @@ void Vulkan::createCommandBuffers(gfx::Pipeline *pipeline)
 		.commandBufferCount = (uint32_t) commandBuffers.size()
 	};
 	EXPECT(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()), VK_SUCCESS)
-
-	for (size_t i=0; i<commandBuffers.size(); i++)
-	{
-		// begin recording into command buffer:
-		VkCommandBufferBeginInfo beginInfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = 0,
-			.pInheritanceInfo = nullptr
-		};
-		EXPECT(vkBeginCommandBuffer(commandBuffers[i], &beginInfo), VK_SUCCESS)
-
-		// render pass
-		VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-		VkRect2D renderArea = { .offset = {0, 0}, .extent = swapChainExtent };
-		VkRenderPassBeginInfo renderPassInfo = {
-			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			.renderPass = pipeline->getRenderPass(),
-			.framebuffer = swapChainFramebuffers[i],
-			.renderArea = renderArea,
-			.clearValueCount = 1,
-			.pClearValues = &clearColor
-		};
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
-		VkBuffer vertexBuffers[] = { vertexBuffer.buffer };
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets); // offset, #bindings, (content)
-		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE);
-		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
-			0, // firstSet : uint32_t
-			1, // descriptorSetCount : uint32_t
-			&descriptorSets[i],
-			0, nullptr); // for dynamic descriptors (not reached yet)
-		vkCmdDrawIndexed(commandBuffers[i], indices.size(), 1, 0, 0, 0);
-		vkCmdEndRenderPass(commandBuffers[i]);
-
-		EXPECT(vkEndCommandBuffer(commandBuffers[i]), VK_SUCCESS)
-	}
 }
 
 void Vulkan::createSynchronizationObjects() {
