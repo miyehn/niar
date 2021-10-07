@@ -8,6 +8,7 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/gfx/gfx.h"
 #include "Asset/Material.h"
+#include "Asset/Mesh.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -238,7 +239,7 @@ void Program::run_vulkan()
 
 	Vulkan::Instance->initSampleInstance(matVulkan->pipeline);
 
-	// load_resources_vulkan();
+	load_resources_vulkan();
 	while(true)
 	{
 		SDL_Event event;
@@ -253,19 +254,25 @@ void Program::run_vulkan()
 		}
 		if (quit) break;
 
-#if 0
-		Vulkan::Instance->drawFrame(matVulkan->pipeline);
-#else
 		auto cmdbuf = Vulkan::Instance->beginFrame();
-		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf, matVulkan->pipeline);
-		Vulkan::Instance->testDraw(cmdbuf, matVulkan->pipeline);
+		// render to RT, etc...
+		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf, matVulkan->pipeline->getRenderPass());
+		//Vulkan::Instance->testDraw(cmdbuf, matVulkan->pipeline);
+		Scene* scene = Scene::Active;
+		for (int i = 0; i < scene->children.size(); i++)
+		{
+			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
+			{
+				m->draw(cmdbuf, matVulkan->pipeline);
+			}
+		}
 		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
 		Vulkan::Instance->endFrame();
-#endif
-
 	}
 	Vulkan::Instance->waitDeviceIdle();
 	gfx::ShaderModule::cleanup();
+
+	release_resources();
 
 	delete matVulkan;
 	delete Vulkan::Instance;

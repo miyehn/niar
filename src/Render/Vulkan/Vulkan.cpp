@@ -1,4 +1,5 @@
 #include "Vulkan.hpp"
+#include "Render/gfx/Pipeline.h"
 
 Vulkan::Vulkan(SDL_Window* window) {
 
@@ -11,9 +12,10 @@ Vulkan::Vulkan(SDL_Window* window) {
     createSurface(window);
     pickPhysicalDevice();
     createLogicalDevice();
-    createSwapChain();
-    createImageViews();
 	createMemoryAllocator();
+    createSwapChain();
+	createDepthImageAndView();
+    createImageViews();
 	createCommandPools();
 	createSynchronizationObjects();
 }
@@ -21,22 +23,19 @@ Vulkan::Vulkan(SDL_Window* window) {
 void Vulkan::initSampleInstance(gfx::Pipeline *pipeline)
 {
 	createFramebuffers(pipeline->getRenderPass());
-	createVertexBuffer();
-	createIndexBuffer();
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets(pipeline->getDescriptorSetLayout());
-	createCommandBuffers(pipeline);
+	createCommandBuffers();
 }
 
 Vulkan::~Vulkan() {
 
 	// TODO: move to elsewhere
-	vmaDestroyBuffer(memoryAllocator, vertexBuffer.buffer, vertexBuffer.allocation);
-	vmaDestroyBuffer(memoryAllocator, indexBuffer.buffer, indexBuffer.allocation);
 	for (size_t i=0; i<swapChainImages.size(); i++) {
 		vmaDestroyBuffer(memoryAllocator, uniformBuffers[i].buffer, uniformBuffers[i].allocation);
 	}
+	vmaDestroyImage(memoryAllocator, depthImage.image, depthImage.allocation);
 	vmaDestroyAllocator(memoryAllocator);
 
 	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -49,6 +48,7 @@ Vulkan::~Vulkan() {
     }
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyCommandPool(device, shortLivedCommandsPool, nullptr);
+	vkDestroyImageView(device, depthImageView, nullptr);
     for (auto framebuffer : swapChainFramebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
@@ -98,20 +98,6 @@ VkCommandBuffer Vulkan::beginFrame()
 	return cmdbuf;
 }
 
-void Vulkan::testDraw(VkCommandBuffer cmdbuf, gfx::Pipeline* pipeline)
-{
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vertexBuffer.buffer, offsets); // offset, #bindings, (content)
-	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.buffer, 0, VK_INDEX_TYPE);
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
-							0, // firstSet : uint32_t
-							1, // descriptorSetCount : uint32_t
-							&descriptorSets[currentImageIndex],
-							0, nullptr); // for dynamic descriptors (not reached yet)
-	vkCmdDrawIndexed(cmdbuf, indices.size(), 1, 0, 0, 0);
-}
-
 void Vulkan::endFrame()
 {
 	EXPECT(isFrameStarted, true)
@@ -129,7 +115,7 @@ void Vulkan::endFrame()
 		.pWaitSemaphores = waitSemaphores,
 		.pWaitDstStageMask = waitStages,
 		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffers[currentImageIndex],
+		.pCommandBuffers = &cmdbuf,
 		.signalSemaphoreCount = 1,
 		.pSignalSemaphores = signalSemaphores
 	};
@@ -154,21 +140,25 @@ void Vulkan::endFrame()
 	isFrameStarted = false;
 }
 
-void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline)
+void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf, VkRenderPass renderPass)
 {
 	EXPECT(isFrameStarted, true)
 	EXPECT(cmdbuf, getCurrentCommandBuffer())
 
 	// render pass
 	VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	VkClearValue clearDepth;
+	clearDepth.depthStencil.depth = 1.f;
+	VkClearValue clearValues[] = { clearColor, clearDepth };
+
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = swapChainExtent };
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = pipeline->getRenderPass(),
+		.renderPass = renderPass,
 		.framebuffer = swapChainFramebuffers[currentImageIndex],
 		.renderArea = renderArea,
-		.clearValueCount = 1,
-		.pClearValues = &clearColor
+		.clearValueCount = 2,
+		.pClearValues = clearValues
 	};
 	vkCmdBeginRenderPass(cmdbuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
@@ -250,59 +240,6 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 
 	// cleanup
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
-}
-
-void Vulkan::createVertexBuffer() {
-
-	// use normal as color (for now)
-	vertices[0].normal = vec3(1, 0, 0);
-	vertices[1].normal = vec3(0, 0, 0);
-	vertices[2].normal = vec3(0, 1, 0);
-	vertices[3].normal = vec3(1, 1, 0);
-
-	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-
-	// create a staging buffer
-	VmaAllocatedBuffer stagingBuffer;
-	createBufferVma(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer);
-
-	// copy vertex buffer memory over to staging buffer
-	void* mappedMemory;
-	vmaMapMemory(memoryAllocator, stagingBuffer.allocation, &mappedMemory);
-	memcpy(mappedMemory, vertices.data(), (size_t)bufferSize);
-	vmaUnmapMemory(memoryAllocator, stagingBuffer.allocation);
-
-	// now create the actual vertex buffer
-	createBufferVma(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, vertexBuffer);
-
-	// and copy stuff from staging buffer to vertex buffer
-	copyBuffer(vertexBuffer.buffer, stagingBuffer.buffer, bufferSize);
-
-	// then destroy the staging buffer
-	vmaDestroyBuffer(memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
-}
-
-void Vulkan::createIndexBuffer()
-{
-	VkDeviceSize bufferSize = sizeof(VERTEX_INDEX_TYPE) * indices.size();
-
-	// staging buffer
-	VmaAllocatedBuffer stagingBuffer;
-	createBufferVma(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer);
-
-	// copy data to staging buffer
-	void* mappedMemory;
-	vmaMapMemory(memoryAllocator, stagingBuffer.allocation, &mappedMemory);
-	memcpy(mappedMemory, indices.data(), (size_t)bufferSize);
-	vmaUnmapMemory(memoryAllocator, stagingBuffer.allocation);
-
-	// create the actual index buffer
-	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	createBufferVma(bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY, indexBuffer);
-
-	// move stuff from staging buffer and destroy staging buffer
-	copyBuffer(indexBuffer.buffer, stagingBuffer.buffer, bufferSize);
-	vmaDestroyBuffer(memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
 void Vulkan::createUniformBuffers() {
@@ -751,6 +688,46 @@ void Vulkan::createSwapChain() {
 	swapChainExtent = extent;
 }
 
+void Vulkan::createDepthImageAndView()
+{
+	//-------- depth image (shared across swapchain?)
+
+	VkExtent3D depthImageExtent = {swapChainExtent.width, swapChainExtent.height, 1};
+	swapChainDepthFormat = VK_FORMAT_D32_SFLOAT;
+
+	VkImageCreateInfo dimgInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.pNext = nullptr,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = swapChainDepthFormat,
+		.extent = depthImageExtent,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+	};
+
+	VmaAllocationCreateInfo dimgAllocInfo = {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY,
+		.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+	};
+	EXPECT(vmaCreateImage(memoryAllocator, &dimgInfo, &dimgAllocInfo, &depthImage.image, &depthImage.allocation, nullptr), VK_SUCCESS);
+
+	//---- imageView for the depth image
+
+	VkImageViewCreateInfo dimgViewInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.pNext = nullptr,
+		.image = depthImage.image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = swapChainDepthFormat,
+		.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}
+	};
+
+	EXPECT(vkCreateImageView(device, &dimgViewInfo, nullptr, &depthImageView), VK_SUCCESS);
+}
+
 void Vulkan::createImageViews()
 {
 	swapChainImageViews.resize(swapChainImages.size());
@@ -809,12 +786,12 @@ inline VkShaderModule Vulkan::createShaderModule(const std::vector<char>& code) 
 void Vulkan::createFramebuffers(const VkRenderPass &renderPass) {
 	swapChainFramebuffers.resize(swapChainImageViews.size());
 	for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-		VkImageView attachments[] = { swapChainImageViews[i] };
+		VkImageView attachments[] = { swapChainImageViews[i], depthImageView };
 
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = renderPass, // the render pass it needs to be compatible with
-			.attachmentCount = 1,
+			.attachmentCount = 2,
 			.pAttachments = attachments,
 			.width = swapChainExtent.width,
 			.height = swapChainExtent.height,
@@ -838,7 +815,7 @@ void Vulkan::createCommandPools() {
 	EXPECT(vkCreateCommandPool(device, &poolInfo, nullptr, &shortLivedCommandsPool), VK_SUCCESS)
 }
 
-void Vulkan::createCommandBuffers(gfx::Pipeline *pipeline)
+void Vulkan::createCommandBuffers()
 {
 	commandBuffers.resize(swapChainFramebuffers.size());
 	VkCommandBufferAllocateInfo allocInfo = {

@@ -8,9 +8,9 @@
 #include <optional>
 #include <VulkanMemoryAllocator/vk_mem_alloc.h>
 #include <functional>
-#include "Render/gfx/gfx.h"
+// #include "Render/gfx/gfx.h"
 
-#include "Asset/Mesh.h"
+// #include "Asset/Mesh.h"
 
 /* references:
 https://vulkan-tutorial.com/
@@ -18,6 +18,23 @@ https://vkguide.dev/
 https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/main.c
 https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
 */
+
+namespace gfx
+{
+	struct Pipeline;
+}
+
+struct VmaAllocatedBuffer
+{
+	VkBuffer buffer;
+	VmaAllocation allocation;
+};
+
+struct VmaAllocatedImage
+{
+	VkImage image;
+	VmaAllocation allocation;
+};
 
 struct Vulkan {
 
@@ -28,15 +45,21 @@ struct Vulkan {
 	~Vulkan();
 
 	VkCommandBuffer beginFrame();
-	void beginSwapChainRenderPass(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline);
-	void testDraw(VkCommandBuffer cmdbuf, gfx::Pipeline* pipeline);
+	void beginSwapChainRenderPass(VkCommandBuffer cmdbuf, VkRenderPass renderPass);
 	void endSwapChainRenderPass(VkCommandBuffer cmdbuf);
 	void endFrame();
 
 	bool isFrameInProgress() const { return isFrameStarted; }
-	VkCommandBuffer getCurrentCommandBuffer() const {
+	VkCommandBuffer getCurrentCommandBuffer() const
+	{
 		EXPECT(isFrameStarted, true)
-		return commandBuffers[currentImageIndex];
+		return commandBuffers[currentFrame]; // as opposed to currentImageIndex, so cmdbuf is not tied to other resource?
+	}
+
+	VkDescriptorSet getCurrentDescriptorSet() const
+	{
+		EXPECT(isFrameStarted, true)
+		return descriptorSets[currentImageIndex];
 	}
 
 private:
@@ -52,36 +75,6 @@ public:
 	// Below: testbed for learning Vulkan. Will be moved to Renderer later
 	// https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
 
-	// about how to cut the binding-th array into strides
-	VkVertexInputBindingDescription getBindingDescription() {
-
-		VkVertexInputBindingDescription bindingDescription {
-			.binding = 0, // binding index. Just one binding if all vertex data is passed as one array
-			.stride = sizeof(Vertex),
-			.inputRate = VK_VERTEX_INPUT_RATE_VERTEX, // data is per-vertex (as opposed to per-instance)
-		};
-
-		return bindingDescription;
-	}
-
-	// about how to interpret each stride
-	std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
-	{
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
-			.location = 0,
-			.binding = 0,
-			.format = VK_FORMAT_R32G32B32_SFLOAT,
-			.offset = (uint32_t)offsetof(Vertex, position)
-		});
-		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
-			.location = 1,
-			.binding = 0,
-			.format = VK_FORMAT_R32G32B32_SFLOAT,
-			.offset = (uint32_t)offsetof(Vertex, normal)
-		});
-		return attributeDescriptions;
-	}
 
 	/*
 	https://developer.nvidia.com/vulkan-memory-management
@@ -91,6 +84,7 @@ public:
 	*/
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
+	/*
 	std::vector<Vertex> vertices = {
 		Vertex(vec3(-0.5, -0.5, 0)),
 		Vertex(vec3(0.5, -0.5, 0)),
@@ -100,15 +94,7 @@ public:
 	std::vector<VERTEX_INDEX_TYPE> indices = {
 		0, 1, 2, 2, 3, 0
 	};
-
-	struct VmaAllocatedBuffer
-	{
-		VkBuffer buffer;
-		VmaAllocation allocation;
-	};
-
-	VmaAllocatedBuffer vertexBuffer;
-	VmaAllocatedBuffer indexBuffer;
+	 */
 
 	// per swapchain image
 	std::vector<VmaAllocatedBuffer> uniformBuffers;
@@ -131,9 +117,6 @@ public:
 
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
-	void createVertexBuffer();
-	void createIndexBuffer();
-
 	void createDescriptorPool();
 	void createDescriptorSets(const VkDescriptorSetLayout &descriptorSetLayout);
 	void createUniformBuffers();
@@ -141,9 +124,12 @@ public:
 
 	VkDevice device;
 	VkFormat swapChainImageFormat;
+	VkFormat swapChainDepthFormat;
 	VkExtent2D swapChainExtent;
 
-	void initSampleInstance(gfx::Pipeline *pipelin);
+	VmaAllocator memoryAllocator;
+
+	void initSampleInstance(gfx::Pipeline *pipeline);
 
 private:
 
@@ -179,8 +165,10 @@ private:
 	VkSwapchainKHR swapChain;
 	std::vector<VkImage> swapChainImages;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
-
 	std::vector<VkImageView> swapChainImageViews;
+
+	VmaAllocatedImage depthImage;
+	VkImageView depthImageView;
 
 #if 0
 	VkRenderPass renderPass;
@@ -197,8 +185,6 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences; // per frame-in-flight
 	std::vector<VkFence> imagesInFlight; // per swap chain image
-
-	VmaAllocator memoryAllocator;
 
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
@@ -242,6 +228,8 @@ private:
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void createSwapChain();
 
+	void createDepthImageAndView();
+
 	void createImageViews();
 
 	static inline std::vector<char> readFile(const std::string& filename);
@@ -252,7 +240,7 @@ private:
 
 	void createCommandPools();
 
-	void createCommandBuffers(gfx::Pipeline *pipeline);
+	void createCommandBuffers();
 
 	void createMemoryAllocator();
 

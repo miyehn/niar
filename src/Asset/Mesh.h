@@ -1,6 +1,8 @@
 #pragma once
 #include "Engine/Drawable.hpp"
 #include "Utils/Utils.hpp"
+#include "Render/Vulkan/Vulkan.hpp"
+#include "Vertex.h"
 
 #define NUM_MATERIAL_SETS 3
 
@@ -8,16 +10,6 @@ struct BSDF;
 struct aiMesh;
 struct Texture;
 struct Material;
-
-struct Vertex {
-	Vertex() {}
-	Vertex(vec3 _position) : position(_position) {}
-	vec3 position = vec3(0, 0, 0);
-	vec3 normal = vec3(0, 0, 1);
-	vec3 tangent = vec3(1, 0, 0);
-	vec2 uv = vec2(0.5f, 0.5f);
-};
-static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 3 + 2), "vertex struct should be packed");
 
 struct Mesh : Drawable {
 
@@ -34,6 +26,8 @@ struct Mesh : Drawable {
 	virtual bool handle_event(SDL_Event event) override;
 	virtual void update(float elapsed) override;
 	virtual void draw() override;
+
+	void draw(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline);
 
 	virtual void set_local_position(vec3 _local_position) override;
 	virtual void set_rotation(quat _rotation) override;
@@ -61,5 +55,13 @@ private:
 
 	//---- opengl stuff ----
 	uint vbo, ebo, vao = 0;
+
+	//---- vulkan stuff ----
+
+	VmaAllocatedBuffer vertexBuffer;
+	VmaAllocatedBuffer indexBuffer;
+
+	void create_vertex_buffer();
+	void create_index_buffer();
 
 };

@@ -10,6 +10,8 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
+#include "Render/gfx/gfx.h"
+
 Mesh::Mesh() {}
 
 std::unordered_map<std::string, std::string> Mesh::material_assignment;
@@ -73,7 +75,61 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	generate_aabb();
 }
 
+void Mesh::create_vertex_buffer()
+{
+	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+
+	// create a staging buffer
+	VmaAllocatedBuffer stagingBuffer;
+	Vulkan::Instance->createBufferVma(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer);
+
+	// copy vertex buffer memory over to staging buffer
+	void* mappedMemory;
+	vmaMapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation, &mappedMemory);
+	memcpy(mappedMemory, vertices.data(), (size_t)bufferSize);
+	vmaUnmapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation);
+
+	// now create the actual vertex buffer
+	Vulkan::Instance->createBufferVma(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, vertexBuffer);
+
+	// and copy stuff from staging buffer to vertex buffer
+	Vulkan::Instance->copyBuffer(vertexBuffer.buffer, stagingBuffer.buffer, bufferSize);
+
+	// then destroy the staging buffer
+	vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
+}
+
+void Mesh::create_index_buffer()
+{
+	VkDeviceSize bufferSize = sizeof(VERTEX_INDEX_TYPE) * faces.size();
+
+	// staging buffer
+	VmaAllocatedBuffer stagingBuffer;
+	Vulkan::Instance->createBufferVma(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer);
+
+	// copy data to staging buffer
+	void* mappedMemory;
+	vmaMapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation, &mappedMemory);
+	memcpy(mappedMemory, faces.data(), (size_t)bufferSize);
+	vmaUnmapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation);
+
+	// create the actual index buffer
+	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	Vulkan::Instance->createBufferVma(bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY, indexBuffer);
+
+	// move stuff from staging buffer and destroy staging buffer
+	Vulkan::Instance->copyBuffer(indexBuffer.buffer, stagingBuffer.buffer, bufferSize);
+	vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
+}
+
 void Mesh::initialize_gpu() {
+
+	if (Cfg.TestVulkan)
+	{
+		create_vertex_buffer();
+		create_index_buffer();
+		return;
+	}
 
 	//---- OpenGL setup ----
 
@@ -152,6 +208,12 @@ void Mesh::generate_aabb() {
 
 Mesh::~Mesh() {
 	if (bsdf) delete bsdf;
+	if (Cfg.TestVulkan)
+	{
+		vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, vertexBuffer.buffer, vertexBuffer.allocation);
+		vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, indexBuffer.buffer, indexBuffer.allocation);
+		return;
+	}
 	glDeleteBuffers(1, &vbo);
 	glDeleteBuffers(1, &ebo);
 	glDeleteVertexArrays(1, &vao);
@@ -164,6 +226,21 @@ bool Mesh::handle_event(SDL_Event event) {
 void Mesh::update(float elapsed) {
 	Drawable::update(elapsed);
 	locked = true;
+}
+
+void Mesh::draw(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline)
+{
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vertexBuffer.buffer, offsets); // offset, #bindings, (content)
+	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.buffer, 0, VK_INDEX_TYPE);
+	auto dset = Vulkan::Instance->getCurrentDescriptorSet();
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
+							0, // firstSet : uint32_t
+							1, // descriptorSetCount : uint32_t
+							&dset,
+							0, nullptr); // for dynamic descriptors (not reached yet)
+	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
 }
 
 void Mesh::draw() {
