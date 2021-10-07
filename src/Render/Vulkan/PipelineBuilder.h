@@ -1,5 +1,7 @@
 #pragma once
-#include "Render/Vulkan/Vulkan.hpp"
+#include <vector>
+#include <vulkan/vulkan.h>
+#include <string>
 
 namespace gfx
 {
@@ -58,6 +60,8 @@ namespace gfx
 		void add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
 
 		VkPipeline build();
+
+		std::vector<VkDescriptorSetLayout> getLayouts();
 
 		std::string vertPath;
 		std::string fragPath;

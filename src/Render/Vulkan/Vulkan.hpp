@@ -54,14 +54,6 @@ struct Vulkan {
 		return commandBuffers[currentFrame]; // as opposed to currentImageIndex, so cmdbuf is not tied to other resource?
 	}
 
-	/*
-	VkDescriptorSet getCurrentDescriptorSet() const
-	{
-		EXPECT(isFrameStarted, true)
-		return descriptorSets[currentImageIndex];
-	}
-	 */
-
 	uint32_t getNumSwapChainImages() const
 	{
 		return swapChainImages.size();
@@ -74,9 +66,6 @@ struct Vulkan {
 	}
 
 	VkRenderPass getSwapChainRenderPass() const { return swapChainRenderPass; }
-
-	// TEMPORARY
-	VkDescriptorPool getDescriptorPool() const { return descriptorPool; }
 
 private:
 	uint32_t currentImageIndex;
@@ -95,11 +84,7 @@ public:
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
-	VkDescriptorPool descriptorPool;
-
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
-
-	void createDescriptorPool();
 
 	VkDevice device;
 	VkFormat swapChainImageFormat;

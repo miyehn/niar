@@ -1,9 +1,11 @@
 #pragma once
 #include "Render/Vulkan/PipelineBuilder.h"
 #include "Render/Vulkan/Buffer.h"
+#include "Render/Vulkan/DescriptorSet.h"
 
 #include <string>
 #include <vector>
+#include <glm/glm.hpp>
 
 class Material
 {
@@ -12,14 +14,15 @@ public:
 	std::string name = "[anonymous material]";
 	virtual int get_id() = 0;
 	virtual void use(VkCommandBuffer &cmdbuf) = 0;
-	virtual ~Material() = default;
+	virtual ~Material();
 
-	struct
-	{
-		alignas(16) mat4 ModelMatrix;
-		alignas(16) mat4 ViewMatrix;
-		alignas(16) mat4 ProjectionMatrix;
-	} uniforms;
+protected:
+
+	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+	std::vector<DescriptorSet> descriptorSets;
+
+	VkPipelineLayout pipelineLayout{};
+	VkPipeline pipeline{};
 };
 
 class MatTest : public Material
@@ -30,14 +33,16 @@ public:
 	void use(VkCommandBuffer &cmdbuf) override;
 	~MatTest() override;
 
+	struct
+	{
+		alignas(16) glm::mat4 ModelMatrix;
+		alignas(16) glm::mat4 ViewMatrix;
+		alignas(16) glm::mat4 ProjectionMatrix;
+	} uniforms;
+
 private:
 
-	VkDescriptorSetLayout descriptorSetLayout{};
-	VkPipelineLayout pipelineLayout{};
-	VkPipeline pipeline{};
-
 	VmaBuffer uniformBuffer;
-	std::vector<VkDescriptorSet> descriptorSets;
 };
 
 Material* find_material(const std::string& name);

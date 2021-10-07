@@ -1,7 +1,7 @@
 #include "PipelineBuilder.h"
 #include "Asset/Vertex.h"
 #include "Render/gfx/gfx.h"
-#include "Render/Vulkan/RenderPassBuilder.h"
+#include "Vulkan.hpp"
 
 namespace gfx
 {
@@ -266,5 +266,15 @@ namespace gfx
 			.stageFlags = shaderStages,
 			.pImmutableSamplers = nullptr // for image sampling related?
 		};
+	}
+
+	std::vector<VkDescriptorSetLayout> PipelineBuilder::getLayouts()
+	{
+		std::vector<VkDescriptorSetLayout> layouts;
+		for (auto &layout : descriptorSetLayouts)
+		{
+			layouts.push_back(layout.layout);
+		}
+		return layouts;
 	}
 }

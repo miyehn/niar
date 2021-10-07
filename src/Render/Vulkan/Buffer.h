@@ -15,6 +15,7 @@ public:
 
 	void writeData(void* inData, uint32_t bufferIndex = 0, size_t writeSize = 0);
 
+	uint32_t getNumInstances() const { return numInstances; }
 	VkBuffer getBufferInstance(uint32_t index = 0) const;
 	VmaAllocation getAllocationInstance(uint32_t index = 0) const;
 

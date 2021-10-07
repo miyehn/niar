@@ -8,7 +8,7 @@
 #include "Asset/Material.h"
 #include "Asset/Mesh.h"
 
-#include "Render/Vulkan/PipelineBuilder.h"
+#include "Render/Vulkan/DescriptorSet.h"
 #include "Render/gfx/gfx.h"
 
 Program* Program::Instance;
@@ -238,7 +238,7 @@ void Program::run_vulkan()
 	load_resources_vulkan();
 
 	new MatTest();
-	Material* test = find_material("test material");
+	MatTest* test = dynamic_cast<MatTest*>(find_material("test material"));
 
 	while(true)
 	{
@@ -290,6 +290,7 @@ void Program::run_vulkan()
 	gfx::ShaderModule::cleanup();
 
 	delete test;
+	DescriptorSet::releasePool(Vulkan::Instance->device);
 	release_resources();
 
 	delete Vulkan::Instance;

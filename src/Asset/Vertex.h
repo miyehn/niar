@@ -5,12 +5,12 @@
 struct Vertex
 {
 	Vertex() {}
-	Vertex(vec3 _position) : position(_position) {}
+	Vertex(glm::vec3 _position) : position(_position) {}
 
-	vec3 position = glm::vec3(0, 0, 0);
-	vec3 normal = glm::vec3(0, 0, 1);
-	vec3 tangent = glm::vec3(1, 0, 0);
-	vec2 uv = glm::vec2(0.5f, 0.5f);
+	glm::vec3 position = glm::vec3(0, 0, 0);
+	glm::vec3 normal = glm::vec3(0, 0, 1);
+	glm::vec3 tangent = glm::vec3(1, 0, 0);
+	glm::vec2 uv = glm::vec2(0.5f, 0.5f);
 
 	// about how to cut the binding-th array into strides
 	static void getBindingDescription(VkVertexInputBindingDescription& bindingDescription)

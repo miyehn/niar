@@ -22,16 +22,10 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createSwapChainRenderPass();
 	createFramebuffers();
 	createCommandBuffers();
-
-	createDescriptorPool();
 }
 
 Vulkan::~Vulkan() {
 
-	// TODO: move to elsewhere
-	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-
-	// stay
 	vmaDestroyImage(memoryAllocator, depthImage.image, depthImage.allocation);
 	vmaDestroyAllocator(memoryAllocator);
 
@@ -234,22 +228,6 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 
 	// cleanup
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
-}
-
-// "want a pool that can hold X uniform buffers, Y images, etc."
-// might help: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkDescriptorPoolCreateInfo.html
-void Vulkan::createDescriptorPool() {
-	VkDescriptorPoolSize poolSize = {
-		.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = static_cast<uint32_t>(swapChainImages.size())
-	};
-	VkDescriptorPoolCreateInfo poolInfo = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.maxSets = static_cast<uint32_t>(swapChainImages.size()),
-		.poolSizeCount = 1,
-		.pPoolSizes = &poolSize,
-	};
-	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
 }
 
 void Vulkan::createInstance(SDL_Window* in_window) {
