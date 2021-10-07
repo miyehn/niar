@@ -81,9 +81,6 @@ public:
 	// https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
 
 
-#define VERTEX_INDEX_TYPE uint16_t
-#define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
-
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
 	VkDevice device;

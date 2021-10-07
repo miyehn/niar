@@ -76,7 +76,7 @@ void Program::load_resources() {
 	else
 	{	
 		Camera::Active->move_speed = 16.0f;	
-		Camera::Active->position = vec3(0, -25, 15);	
+		Camera::Active->position = vec3(0, -10, 2);
 		Camera::Active->cutoffFar = 100.0f;	
 
 		scene = new Scene();

@@ -38,6 +38,18 @@ struct Vertex
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
 			.offset = (uint32_t)offsetof(Vertex, normal)
 		});
+		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
+			.location = 2,
+			.binding = 0,
+			.format = VK_FORMAT_R32G32B32_SFLOAT,
+			.offset = (uint32_t)offsetof(Vertex, tangent)
+		});
+		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
+			.location = 3,
+			.binding = 0,
+			.format = VK_FORMAT_R32G32_SFLOAT,
+			.offset = (uint32_t)offsetof(Vertex, uv)
+		});
 	}
 };
 static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 3 + 2), "vertex struct should be packed");

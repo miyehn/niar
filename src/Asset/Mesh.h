@@ -34,7 +34,7 @@ struct Mesh : Drawable {
 	virtual void set_scale(vec3 _scale) override;
 
 	std::vector<Vertex> vertices;
-	std::vector<uint> faces;
+	std::vector<uint16_t> faces;
 	uint get_num_triangles() { return faces.size() / 3; }
 
 	AABB aabb;

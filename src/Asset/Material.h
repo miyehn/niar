@@ -19,7 +19,6 @@ public:
 protected:
 
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-	std::vector<DescriptorSet> descriptorSets;
 
 	VkPipelineLayout pipelineLayout{};
 	VkPipeline pipeline{};
@@ -28,6 +27,7 @@ protected:
 class MatTest : public Material
 {
 public:
+
 	MatTest();
 	int get_id() override { return 0; }
 	void use(VkCommandBuffer &cmdbuf) override;
@@ -43,6 +43,28 @@ public:
 private:
 
 	VmaBuffer uniformBuffer;
+	DescriptorSet descriptorSet;
+};
+
+class MatBasicVulkan : public Material
+{
+public:
+
+	MatBasicVulkan();
+	int get_id() override { return 1; }
+	void use(VkCommandBuffer &cmdbuf) override;
+	~MatBasicVulkan() override;
+
+	struct
+	{
+		alignas(16) glm::mat4 OBJECT_TO_CLIP;
+		alignas(16) glm::mat3 OBJECT_TO_CAM_ROT;
+	} uniforms;
+
+private:
+
+	VmaBuffer uniformBuffer;
+	DescriptorSet descriptorSet;
 };
 
 Material* find_material(const std::string& name);

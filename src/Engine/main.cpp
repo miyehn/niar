@@ -117,7 +117,7 @@ void Program::load_resources_vulkan()
 	Scene* scene;
 
 	Camera::Active->move_speed = 16.0f;
-	Camera::Active->position = vec3(0, -25, 15);
+	Camera::Active->position = vec3(0, -10, 2);
 	Camera::Active->cutoffFar = 100.0f;
 
 	scene = new Scene();
@@ -239,6 +239,8 @@ void Program::run_vulkan()
 
 	new MatTest();
 	MatTest* test = dynamic_cast<MatTest*>(find_material("test material"));
+	//new MatBasicVulkan();
+	//MatBasicVulkan* test = dynamic_cast<MatBasicVulkan*>(find_material("basic material"));
 
 	while(true)
 	{
@@ -255,7 +257,14 @@ void Program::run_vulkan()
 		if (quit) break;
 
 		// update
+		TimePoint current_time = std::chrono::high_resolution_clock::now();
+		float elapsed = std::chrono::duration<float>(current_time - previous_time).count();
+		elapsed = std::min(0.1f, elapsed);
+		previous_time = current_time;
 
+		update(elapsed);
+
+#if 1
 		// temporary update
 		static auto startTime = std::chrono::high_resolution_clock::now();
 		auto currentTime = std::chrono::high_resolution_clock::now();
@@ -265,9 +274,9 @@ void Program::run_vulkan()
 			.ViewMatrix = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
 			.ProjectionMatrix = glm::perspective(glm::radians(45.0f), Vulkan::Instance->swapChainExtent.width / (float) Vulkan::Instance->swapChainExtent.height, 0.1f, 10.0f),
 		};
-
 		// so it's not upside down
 		test->uniforms.ProjectionMatrix[1][1] *= -1;
+#endif
 
 		// draw
 
@@ -279,6 +288,10 @@ void Program::run_vulkan()
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 			{
+#if 0
+				test->uniforms.OBJECT_TO_CLIP = Camera::Active->world_to_clip() * m->object_to_world();
+				test->uniforms.OBJECT_TO_CAM_ROT = m->object_to_world_rotation();
+#endif
 				test->use(cmdbuf);
 				m->draw(cmdbuf);
 			}

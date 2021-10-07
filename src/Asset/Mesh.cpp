@@ -12,6 +12,9 @@
 
 #include "Render/gfx/gfx.h"
 
+#define VERTEX_INDEX_TYPE uint16_t
+#define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
+
 Mesh::Mesh() {}
 
 std::unordered_map<std::string, std::string> Mesh::material_assignment;
@@ -64,9 +67,9 @@ Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_paren
 	// iterate through faces indices and store them
 	for (int j=0; j<mesh->mNumFaces; j++) {
 		aiFace face = mesh->mFaces[j];
-		int i1 = face.mIndices[0];
-		int i2 = face.mIndices[1];
-		int i3 = face.mIndices[2];
+		VERTEX_INDEX_TYPE i1 = face.mIndices[0];
+		VERTEX_INDEX_TYPE i2 = face.mIndices[1];
+		VERTEX_INDEX_TYPE i3 = face.mIndices[2];
 		faces.push_back(i1);
 		faces.push_back(i2);
 		faces.push_back(i3);
