@@ -1,5 +1,6 @@
 #include "Vulkan.hpp"
-#include "Render/gfx/Pipeline.h"
+#include "Pipeline.h"
+#include "RenderPassBuilder.h"
 
 Vulkan::Vulkan(SDL_Window* window) {
 
@@ -18,15 +19,16 @@ Vulkan::Vulkan(SDL_Window* window) {
     createImageViews();
 	createCommandPools();
 	createSynchronizationObjects();
+	createSwapChainRenderPass();
+	createFramebuffers();
+	createCommandBuffers();
 }
 
 void Vulkan::initSampleInstance(gfx::Pipeline *pipeline)
 {
-	createFramebuffers(pipeline->getRenderPass());
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets(pipeline->getDescriptorSetLayout());
-	createCommandBuffers();
 }
 
 Vulkan::~Vulkan() {
@@ -55,6 +57,7 @@ Vulkan::~Vulkan() {
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
     }
+	vkDestroyRenderPass(device, swapChainRenderPass, nullptr);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyDevice(device, nullptr);
@@ -140,7 +143,7 @@ void Vulkan::endFrame()
 	isFrameStarted = false;
 }
 
-void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf, VkRenderPass renderPass)
+void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf)
 {
 	EXPECT(isFrameStarted, true)
 	EXPECT(cmdbuf, getCurrentCommandBuffer())
@@ -154,7 +157,7 @@ void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf, VkRenderPass rende
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = swapChainExtent };
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = renderPass,
+		.renderPass = swapChainRenderPass,
 		.framebuffer = swapChainFramebuffers[currentImageIndex],
 		.renderArea = renderArea,
 		.clearValueCount = 2,
@@ -783,14 +786,20 @@ inline VkShaderModule Vulkan::createShaderModule(const std::vector<char>& code) 
 	return shaderModule;
 }
 
-void Vulkan::createFramebuffers(const VkRenderPass &renderPass) {
+void Vulkan::createSwapChainRenderPass()
+{
+	RenderPassBuilder passBuilder{ swapChainImageFormat, swapChainDepthFormat };
+	swapChainRenderPass = passBuilder.build(device);
+}
+
+void Vulkan::createFramebuffers() {
 	swapChainFramebuffers.resize(swapChainImageViews.size());
 	for (size_t i = 0; i < swapChainImageViews.size(); i++) {
 		VkImageView attachments[] = { swapChainImageViews[i], depthImageView };
 
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			.renderPass = renderPass, // the render pass it needs to be compatible with
+			.renderPass = swapChainRenderPass, // the render pass it needs to be compatible with
 			.attachmentCount = 2,
 			.pAttachments = attachments,
 			.width = swapChainExtent.width,

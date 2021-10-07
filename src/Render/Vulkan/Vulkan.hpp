@@ -45,7 +45,7 @@ struct Vulkan {
 	~Vulkan();
 
 	VkCommandBuffer beginFrame();
-	void beginSwapChainRenderPass(VkCommandBuffer cmdbuf, VkRenderPass renderPass);
+	void beginSwapChainRenderPass(VkCommandBuffer cmdbuf);
 	void endSwapChainRenderPass(VkCommandBuffer cmdbuf);
 	void endFrame();
 
@@ -62,6 +62,8 @@ struct Vulkan {
 		return descriptorSets[currentImageIndex];
 	}
 
+	VkRenderPass getSwapChainRenderPass() const { return swapChainRenderPass; }
+
 private:
 	uint32_t currentImageIndex;
 	bool isFrameStarted = false;
@@ -76,25 +78,8 @@ public:
 	// https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
 
 
-	/*
-	https://developer.nvidia.com/vulkan-memory-management
-	"Driver developers recommend that you also store multiple buffers,
-	like the vertex and index buffer, into a single VkBuffer and
-	use offsets in commands like vkCmdBindVertexBuffers."
-	*/
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
-	/*
-	std::vector<Vertex> vertices = {
-		Vertex(vec3(-0.5, -0.5, 0)),
-		Vertex(vec3(0.5, -0.5, 0)),
-		Vertex(vec3(0.5, 0.5, 0)),
-		Vertex(vec3(-0.5, 0.5, 0))
-	};
-	std::vector<VERTEX_INDEX_TYPE> indices = {
-		0, 1, 2, 2, 3, 0
-	};
-	 */
 
 	// per swapchain image
 	std::vector<VmaAllocatedBuffer> uniformBuffers;
@@ -170,6 +155,8 @@ private:
 	VmaAllocatedImage depthImage;
 	VkImageView depthImageView;
 
+	VkRenderPass swapChainRenderPass;
+
 #if 0
 	VkRenderPass renderPass;
 	VkDescriptorSetLayout descriptorSetLayout;
@@ -236,7 +223,9 @@ private:
 
 	inline VkShaderModule createShaderModule(const std::vector<char>& code);
 
-	void createFramebuffers(const VkRenderPass &renderPass);
+	void createSwapChainRenderPass();
+
+	void createFramebuffers();
 
 	void createCommandPools();
 

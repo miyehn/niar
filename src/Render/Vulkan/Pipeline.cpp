@@ -1,7 +1,7 @@
 #include "Pipeline.h"
 #include "Asset/Vertex.h"
-#include "gfx.h"
-#include <cstddef>
+#include "Render/gfx/gfx.h"
+#include "Render/Vulkan/RenderPassBuilder.h"
 
 namespace gfx
 {
@@ -174,7 +174,7 @@ namespace gfx
 		return createInfo;
 	}
 
-	Pipeline::Pipeline()
+	Pipeline::Pipeline(VkRenderPass renderPass)
 	{
 		auto vert_module = ShaderModule::get("spirv/triangle.vert.spv");
 		auto frag_module = ShaderModule::get("spirv/triangle.frag.spv");
@@ -197,9 +197,6 @@ namespace gfx
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-		RenderPassBuilder passBuilder{};
-		renderPass = passBuilder.build();
-
 		PipelineLayoutBuilder layoutBuilder{};
 		pipelineLayout = layoutBuilder.build();
 		descriptorSetLayout = layoutBuilder.descriptorSetLayout;
@@ -221,7 +218,6 @@ namespace gfx
 		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, descriptorSetLayout, nullptr);
 		vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 		vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-		vkDestroyRenderPass(Vulkan::Instance->device, renderPass, nullptr);
 	}
 
 	void Pipeline::use()

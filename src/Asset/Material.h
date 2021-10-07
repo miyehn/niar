@@ -21,16 +21,6 @@ namespace gfx
 	struct Pipeline;
 };
 
-struct MatVulkan
-{
-	MatVulkan() {}
-	~MatVulkan()
-	{
-		delete pipeline;
-	}
-	gfx::Pipeline *pipeline;
-};
-
 struct Material {
 
 	CONST_PTR(MatGeneric, mat_depth);

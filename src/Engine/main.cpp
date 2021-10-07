@@ -4,11 +4,13 @@
 #include "Scene/Camera.hpp"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
-
-#include "Render/Vulkan/Vulkan.hpp"
-#include "Render/gfx/gfx.h"
 #include "Asset/Material.h"
 #include "Asset/Mesh.h"
+
+#include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/Pipeline.h"
+#include "Render/Vulkan/RenderPassBuilder.h"
+#include "Render/gfx/gfx.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -234,10 +236,9 @@ void Program::run_vulkan()
 {
 	gfx::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
 
-	MatVulkan* matVulkan = new MatVulkan();
-	matVulkan->pipeline = new gfx::Pipeline();
+	auto material_pipeline = new gfx::Pipeline(Vulkan::Instance->getSwapChainRenderPass());
 
-	Vulkan::Instance->initSampleInstance(matVulkan->pipeline);
+	Vulkan::Instance->initSampleInstance(material_pipeline);
 
 	load_resources_vulkan();
 	while(true)
@@ -256,14 +257,13 @@ void Program::run_vulkan()
 
 		auto cmdbuf = Vulkan::Instance->beginFrame();
 		// render to RT, etc...
-		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf, matVulkan->pipeline->getRenderPass());
-		//Vulkan::Instance->testDraw(cmdbuf, matVulkan->pipeline);
+		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
 		Scene* scene = Scene::Active;
 		for (int i = 0; i < scene->children.size(); i++)
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 			{
-				m->draw(cmdbuf, matVulkan->pipeline);
+				m->draw(cmdbuf, material_pipeline);
 			}
 		}
 		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
@@ -274,7 +274,7 @@ void Program::run_vulkan()
 
 	release_resources();
 
-	delete matVulkan;
+	delete material_pipeline;
 	delete Vulkan::Instance;
 	SDL_DestroyWindow(window);
 	SDL_Quit();

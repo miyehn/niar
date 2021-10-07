@@ -48,18 +48,6 @@ namespace gfx
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo;
 	};
 
-	struct RenderPassBuilder
-	{
-		RenderPassBuilder();
-		VkAttachmentDescription colorAttachment;
-		VkAttachmentReference colorAttachmentRef;
-		VkAttachmentDescription depthAttachment;
-		VkAttachmentReference depthAttachmentRef;
-		VkSubpassDescription subpass;
-		VkSubpassDependency dependency;
-		VkRenderPass build();
-	};
-
 	struct PipelineLayoutBuilder
 	{
 		PipelineLayoutBuilder();
@@ -71,17 +59,15 @@ namespace gfx
 	class Pipeline
 	{
 	public:
-		Pipeline();
+		Pipeline(VkRenderPass renderPass);
 		~Pipeline();
 		void use();
 
 		VkPipeline getPipeline() { return pipeline; }
-		VkRenderPass getRenderPass() { return renderPass; }
 		VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
 		VkDescriptorSetLayout getDescriptorSetLayout() { return descriptorSetLayout; }
 	private:
 		VkPipeline pipeline;
-		VkRenderPass renderPass;
 		VkPipelineLayout pipelineLayout;
 		VkDescriptorSetLayout descriptorSetLayout;
 	};
