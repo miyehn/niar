@@ -235,8 +235,6 @@ void Program::run_vulkan()
 {
 	gfx::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
 
-	auto material_pipeline = new gfx::PipelineBuilder(Vulkan::Instance->getSwapChainRenderPass());
-
 	load_resources_vulkan();
 
 	new MatTest();
@@ -256,6 +254,23 @@ void Program::run_vulkan()
 		}
 		if (quit) break;
 
+		// update
+
+		// temporary update
+		static auto startTime = std::chrono::high_resolution_clock::now();
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+		test->uniforms = {
+			.ModelMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+			.ViewMatrix = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+			.ProjectionMatrix = glm::perspective(glm::radians(45.0f), Vulkan::Instance->swapChainExtent.width / (float) Vulkan::Instance->swapChainExtent.height, 0.1f, 10.0f),
+		};
+
+		// so it's not upside down
+		test->uniforms.ProjectionMatrix[1][1] *= -1;
+
+		// draw
+
 		auto cmdbuf = Vulkan::Instance->beginFrame();
 		// render to RT, etc...
 		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
@@ -265,7 +280,7 @@ void Program::run_vulkan()
 			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 			{
 				test->use(cmdbuf);
-				m->draw(cmdbuf, material_pipeline);
+				m->draw(cmdbuf);
 			}
 		}
 		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
@@ -277,7 +292,6 @@ void Program::run_vulkan()
 	delete test;
 	release_resources();
 
-	delete material_pipeline;
 	delete Vulkan::Instance;
 	SDL_DestroyWindow(window);
 	SDL_Quit();

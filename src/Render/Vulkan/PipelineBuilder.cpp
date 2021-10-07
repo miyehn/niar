@@ -5,8 +5,12 @@
 
 namespace gfx
 {
-	PipelineState::PipelineState(uint32_t width, uint32_t height)
+	PipelineState::PipelineState()
 	{
+		// to be set manually
+		uint32_t width = 0;
+		uint32_t height = 0;
+
 		targetExtent = {.width = width, .height = height};
 
 		useVertexInput = true;
@@ -174,10 +178,26 @@ namespace gfx
 		return createInfo;
 	}
 
-	PipelineBuilder::PipelineBuilder(VkRenderPass renderPass)
+	void PipelineState::setExtent(uint32_t width, uint32_t height)
 	{
-		auto vert_module = ShaderModule::get("spirv/triangle.vert.spv");
-		auto frag_module = ShaderModule::get("spirv/triangle.frag.spv");
+		targetExtent.width = width; targetExtent.height = height;
+		viewport.width = (float)width;
+		viewport.height = (float)height;
+		scissor.extent = targetExtent;
+	}
+
+	PipelineBuilder::PipelineBuilder()
+	{
+		vertPath = "spirv/triangle.vert.spv";
+		fragPath = "spirv/triangle.frag.spv";
+	}
+
+	VkPipeline PipelineBuilder::build()
+	{
+		// shader stages
+
+		auto vert_module = ShaderModule::get(vertPath);
+		auto frag_module = ShaderModule::get(fragPath);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -195,60 +215,56 @@ namespace gfx
 			.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		};
 
-		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-		PipelineLayoutBuilder layoutBuilder{};
-		pipelineLayout = layoutBuilder.build();
-		descriptorSetLayout = layoutBuilder.descriptorSetLayout;
+		// layout
+
+		std::vector<VkDescriptorSetLayout> layouts;
+		for (auto & descriptorSetLayout : descriptorSetLayouts)
+		{
+			VkDescriptorSetLayoutCreateInfo layoutInfo = {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.bindingCount = static_cast<uint32_t>(descriptorSetLayout.bindings.size()),
+				.pBindings = descriptorSetLayout.bindings.data(),
+			};
+			EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &layoutInfo, nullptr, &descriptorSetLayout.layout), VK_SUCCESS)
+			layouts.push_back(descriptorSetLayout.layout);
+		}
+
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.setLayoutCount = static_cast<uint32_t>(layouts.size()),
+			.pSetLayouts = layouts.data(),
+			.pushConstantRangeCount = 0,
+			.pPushConstantRanges = nullptr
+		};
+		EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
 
 		// create the fucking pipeline
-		PipelineState pipelineState(Vulkan::Instance->swapChainExtent.width, Vulkan::Instance->swapChainExtent.height);
 		auto pipelineInfo = pipelineState.getPipelineInfoTemplate();
 		pipelineInfo.stageCount = 2;
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.layout = pipelineLayout;
-		pipelineInfo.renderPass = renderPass;
+		pipelineInfo.renderPass = compatibleRenderPass;
 		pipelineInfo.subpass = 0;
 
 		EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline), VK_SUCCESS)
+
+		return pipeline;
 	}
 
-	PipelineBuilder::~PipelineBuilder()
+	void PipelineBuilder::add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type)
 	{
-		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, descriptorSetLayout, nullptr);
-		vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-		vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-	}
+		if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
+		DescriptorSetLayout &layout = descriptorSetLayouts[setIndex];
 
-	PipelineLayoutBuilder::PipelineLayoutBuilder()
-	{
-		uboLayoutBinding = {
-			.binding = 0,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+		if (layout.bindings.size() <= bindingIndex) layout.bindings.resize(bindingIndex + 1);
+		layout.bindings[bindingIndex] = {
+			.binding = bindingIndex,
+			.descriptorType = type,
+			.descriptorCount = 1, // 1 for now; otherwise it's actually an array of resources
+			.stageFlags = shaderStages,
 			.pImmutableSamplers = nullptr // for image sampling related?
 		};
-	}
-
-	VkPipelineLayout PipelineLayoutBuilder::build()
-	{
-		VkDescriptorSetLayoutCreateInfo layoutInfo = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = 1,
-			.pBindings = &uboLayoutBinding,
-		};
-		EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &layoutInfo, nullptr, &descriptorSetLayout), VK_SUCCESS)
-
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-			.setLayoutCount = 1,
-			.pSetLayouts = &descriptorSetLayout,
-			.pushConstantRangeCount = 0,
-			.pPushConstantRanges = nullptr
-		};
-		VkPipelineLayout pipelineLayout;
-		EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
-		return pipelineLayout;
 	}
 }

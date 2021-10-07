@@ -221,21 +221,13 @@ void Mesh::update(float elapsed) {
 	locked = true;
 }
 
-void Mesh::draw(VkCommandBuffer cmdbuf, gfx::PipelineBuilder *pipeline)
+void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
+	//vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
 	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.getBufferInstance(), 0, VK_INDEX_TYPE);
-	/*
-	auto dset = Vulkan::Instance->getCurrentDescriptorSet();
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
-							0, // firstSet : uint32_t
-							1, // descriptorSetCount : uint32_t
-							&dset,
-							0, nullptr); // for dynamic descriptors (not reached yet)
-							*/
 	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
 }
 

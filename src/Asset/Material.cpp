@@ -32,63 +32,18 @@ MatTest::MatTest()
 	name = "test material";
 	add_material(this);
 
-	// descriptor set layout
-	VkDescriptorSetLayoutBinding uboLayoutBinding = {
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-		.pImmutableSamplers = nullptr // for image sampling related?
-	};
-	VkDescriptorSetLayoutCreateInfo layoutInfo = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.bindingCount = 1,
-		.pBindings = &uboLayoutBinding,
-	};
-	EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &layoutInfo, nullptr, &descriptorSetLayout), VK_SUCCESS)
+	auto vk = Vulkan::Instance;
 
-	// pipeline layout
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout,
-		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = nullptr
-	};
-	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
+	gfx::PipelineBuilder pipelineBuilder{};
+	pipelineBuilder.vertPath = "spirv/triangle.vert.spv";
+	pipelineBuilder.fragPath = "spirv/triangle.frag.spv";
+	pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+	pipelineBuilder.compatibleRenderPass = vk->getSwapChainRenderPass();
+	pipelineBuilder.add_binding(0, 0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	pipeline = pipelineBuilder.build();
 
-	// pipeline
-	auto vert_module = gfx::ShaderModule::get("spirv/triangle.vert.spv");
-	auto frag_module = gfx::ShaderModule::get("spirv/triangle.frag.spv");
-
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_VERTEX_BIT,
-		.module = vert_module->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
-		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
-
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module = frag_module->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
-		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
-
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-	// create the fucking pipeline
-	gfx::PipelineState pipelineState(Vulkan::Instance->swapChainExtent.width, Vulkan::Instance->swapChainExtent.height);
-	auto pipelineInfo = pipelineState.getPipelineInfoTemplate();
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.layout = pipelineLayout;
-	pipelineInfo.renderPass = Vulkan::Instance->getSwapChainRenderPass();
-	pipelineInfo.subpass = 0;
-
-	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline), VK_SUCCESS)
+	descriptorSetLayout = pipelineBuilder.descriptorSetLayouts[0].layout;
+	pipelineLayout = pipelineBuilder.pipelineLayout;
 
 	// and descriptor sets (ouch)
 	{
@@ -129,23 +84,8 @@ MatTest::MatTest()
 	}
 }
 
-#define GLM_FORCE_RADIANS
-#include <glm/gtc/matrix_transform.hpp>
-#include <chrono>
 void MatTest::use(VkCommandBuffer &cmdbuf)
 {
-	// temporary update
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	uniforms = {
-		.ModelMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		.ViewMatrix = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		.ProjectionMatrix = glm::perspective(glm::radians(45.0f), Vulkan::Instance->swapChainExtent.width / (float) Vulkan::Instance->swapChainExtent.height, 0.1f, 10.0f),
-	};
-	// so it's not upside down
-	uniforms.ProjectionMatrix[1][1] *= -1;
-
 	uniformBuffer.writeData(&uniforms, Vulkan::Instance->getCurrentFrameIndex());
 
 	auto dset = descriptorSets[Vulkan::Instance->getCurrentFrameIndex()];
@@ -154,6 +94,7 @@ void MatTest::use(VkCommandBuffer &cmdbuf)
 							1, // descriptorSetCount : uint32_t
 							&dset,
 							0, nullptr); // for dynamic descriptors (not reached yet)
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
 MatTest::~MatTest()

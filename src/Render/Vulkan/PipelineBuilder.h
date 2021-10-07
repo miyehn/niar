@@ -5,7 +5,10 @@ namespace gfx
 {
 	struct PipelineState
 	{
-		PipelineState(uint32_t width, uint32_t height);
+		PipelineState();
+
+		void setExtent(uint32_t width, uint32_t height);
+
 		VkGraphicsPipelineCreateInfo getPipelineInfoTemplate();
 
 		VkExtent2D targetExtent;
@@ -48,29 +51,29 @@ namespace gfx
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo;
 	};
 
-	struct PipelineLayoutBuilder
+	struct PipelineBuilder
 	{
-		PipelineLayoutBuilder();
-		VkDescriptorSetLayoutBinding uboLayoutBinding; // TODO: an array?
-		VkDescriptorSetLayout descriptorSetLayout;
-		VkPipelineLayout build();
-	};
+		PipelineBuilder();
 
-	class PipelineBuilder
-	{
-	public:
-		PipelineBuilder(VkRenderPass renderPass);
-		~PipelineBuilder();
+		void add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
 
 		VkPipeline build();
 
-		VkPipeline getPipeline() { return pipeline; }
-		VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
-		VkDescriptorSetLayout getDescriptorSetLayout() { return descriptorSetLayout; }
-	private:
-		VkPipeline pipeline;
-		VkPipelineLayout pipelineLayout;
-		VkDescriptorSetLayout descriptorSetLayout;
+		std::string vertPath;
+		std::string fragPath;
+
+		PipelineState pipelineState{};
+		VkRenderPass compatibleRenderPass = VK_NULL_HANDLE;
+
+		struct DescriptorSetLayout
+		{
+			std::vector<VkDescriptorSetLayoutBinding> bindings;
+			VkDescriptorSetLayout layout;
+		};
+		std::vector<DescriptorSetLayout> descriptorSetLayouts;
+
+		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+		VkPipeline pipeline = VK_NULL_HANDLE;
 	};
 }
 

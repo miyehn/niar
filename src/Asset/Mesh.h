@@ -27,7 +27,7 @@ struct Mesh : Drawable {
 	virtual void update(float elapsed) override;
 	virtual void draw() override;
 
-	void draw(VkCommandBuffer cmdbuf, gfx::PipelineBuilder *pipeline);
+	void draw(VkCommandBuffer cmdbuf);
 
 	virtual void set_local_position(vec3 _local_position) override;
 	virtual void set_rotation(quat _rotation) override;

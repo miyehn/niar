@@ -13,6 +13,13 @@ public:
 	virtual int get_id() = 0;
 	virtual void use(VkCommandBuffer &cmdbuf) = 0;
 	virtual ~Material() = default;
+
+	struct
+	{
+		alignas(16) mat4 ModelMatrix;
+		alignas(16) mat4 ViewMatrix;
+		alignas(16) mat4 ProjectionMatrix;
+	} uniforms;
 };
 
 class MatTest : public Material
@@ -22,14 +29,8 @@ public:
 	int get_id() override { return 0; }
 	void use(VkCommandBuffer &cmdbuf) override;
 	~MatTest() override;
-private:
 
-	struct
-	{
-		alignas(16) mat4 ModelMatrix;
-		alignas(16) mat4 ViewMatrix;
-		alignas(16) mat4 ProjectionMatrix;
-	} uniforms;
+private:
 
 	VkDescriptorSetLayout descriptorSetLayout{};
 	VkPipelineLayout pipelineLayout{};
