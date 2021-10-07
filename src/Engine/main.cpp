@@ -4,12 +4,11 @@
 #include "Scene/Camera.hpp"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
+#include "Asset/GlMaterial.h"
 #include "Asset/Material.h"
 #include "Asset/Mesh.h"
 
-#include "Render/Vulkan/Vulkan.hpp"
-#include "Render/Vulkan/Pipeline.h"
-#include "Render/Vulkan/RenderPassBuilder.h"
+#include "Render/Vulkan/PipelineBuilder.h"
 #include "Render/gfx/gfx.h"
 
 Program* Program::Instance;
@@ -236,11 +235,13 @@ void Program::run_vulkan()
 {
 	gfx::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
 
-	auto material_pipeline = new gfx::Pipeline(Vulkan::Instance->getSwapChainRenderPass());
-
-	Vulkan::Instance->initSampleInstance(material_pipeline);
+	auto material_pipeline = new gfx::PipelineBuilder(Vulkan::Instance->getSwapChainRenderPass());
 
 	load_resources_vulkan();
+
+	new MatTest();
+	Material* test = find_material("test material");
+
 	while(true)
 	{
 		SDL_Event event;
@@ -263,6 +264,7 @@ void Program::run_vulkan()
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 			{
+				test->use(cmdbuf);
 				m->draw(cmdbuf, material_pipeline);
 			}
 		}
@@ -272,6 +274,7 @@ void Program::run_vulkan()
 	Vulkan::Instance->waitDeviceIdle();
 	gfx::ShaderModule::cleanup();
 
+	delete test;
 	release_resources();
 
 	delete material_pipeline;

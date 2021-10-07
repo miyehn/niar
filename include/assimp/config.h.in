@@ -205,7 +205,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * performed for materials not contained in the list.
  * Property type: String. Default value: n/a
  * @note Linefeeds, tabs or carriage returns are treated as whitespace.
- *   Material names are case sensitive.
+ *   GlMaterial names are case sensitive.
  */
 #define AI_CONFIG_PP_RRM_EXCLUDE_LIST   \
     "PP_RRM_EXCLUDE_LIST"

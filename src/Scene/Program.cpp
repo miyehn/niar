@@ -7,7 +7,7 @@
 #include "Engine/Input.hpp"
 #include "Light.hpp"
 #include "Asset/Texture.h"
-#include "Asset/Material.h"
+#include "Asset/GlMaterial.h"
 
 Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
@@ -102,7 +102,7 @@ void Program::release_resources() {
 	if (Pathtracer::Instance) delete Pathtracer::Instance;
 	Texture::cleanup();
 	Shader::cleanup();
-	Material::cleanup();
+	GlMaterial::cleanup();
 }
 
 void Program::process_input() {

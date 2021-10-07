@@ -117,7 +117,7 @@ Definitions:  {
 			}
 		}
 	}
-	ObjectType: "Material" {
+	ObjectType: "GlMaterial" {
 		Count: 3
 		PropertyTemplate: "FbxSurfaceLambert" {
 			Properties70:  {
@@ -675,7 +675,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 140368203975232, "Material::White", "" {
+	GlMaterial: 140368203975232, "GlMaterial::White", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -690,7 +690,7 @@ Objects:  {
 			P: "Opacity", "double", "Number", "",1
 		}
 	}
-	Material: 140367152549264, "Material::blue", "" {
+	GlMaterial: 140367152549264, "GlMaterial::blue", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -705,7 +705,7 @@ Objects:  {
 			P: "Opacity", "double", "Number", "",1
 		}
 	}
-	Material: 140368178685104, "Material::red", "" {
+	GlMaterial: 140368178685104, "GlMaterial::red", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -745,30 +745,30 @@ Connections:  {
 	;Geometry::, Model::pPlane1
 	C: "OO",140368222775808,140368465226752
 	
-	;Material::White, Model::pPlane1
+	;GlMaterial::White, Model::pPlane1
 	C: "OO",140368203975232,140368465226752
 	
 	;Geometry::, Model::pPlane2
 	C: "OO",140367152567184,140368499809792
 	
-	;Material::blue, Model::pPlane2
+	;GlMaterial::blue, Model::pPlane2
 	C: "OO",140367152549264,140368499809792
 	
 	;Geometry::, Model::pPlane3
 	C: "OO",140367152323632,140368503002112
 	
-	;Material::red, Model::pPlane3
+	;GlMaterial::red, Model::pPlane3
 	C: "OO",140368178685104,140368503002112
 	
 	;Geometry::, Model::pPlane4
 	C: "OO",140368178389936,140368502941184
 	
-	;Material::White, Model::pPlane4
+	;GlMaterial::White, Model::pPlane4
 	C: "OO",140368203975232,140368502941184
 	
 	;Geometry::, Model::pPlane5
 	C: "OO",140368178442736,140368502928896
 	
-	;Material::White, Model::pPlane5
+	;GlMaterial::White, Model::pPlane5
 	C: "OO",140368203975232,140368502928896
 }

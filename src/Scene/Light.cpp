@@ -4,7 +4,7 @@
 #include "Scene.hpp"
 #include "Engine/Program.hpp"
 #include "Asset/Mesh.h"
-#include "Asset/Material.h"
+#include "Asset/GlMaterial.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -129,7 +129,7 @@ void DirectionalLight::render_shadow_map() {
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
-	scene->replacement_material = Material::mat_depth();
+	scene->replacement_material = GlMaterial::mat_depth();
 	scene->draw_content(true);
 	scene->replacement_material = nullptr;
 

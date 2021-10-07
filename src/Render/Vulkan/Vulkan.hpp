@@ -8,9 +8,7 @@
 #include <optional>
 #include <VulkanMemoryAllocator/vk_mem_alloc.h>
 #include <functional>
-// #include "Render/gfx/gfx.h"
-
-// #include "Asset/Mesh.h"
+#include "Buffer.h"
 
 /* references:
 https://vulkan-tutorial.com/
@@ -21,7 +19,7 @@ https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
 
 namespace gfx
 {
-	struct Pipeline;
+	struct PipelineBuilder;
 }
 
 struct VmaAllocatedBuffer
@@ -56,13 +54,29 @@ struct Vulkan {
 		return commandBuffers[currentFrame]; // as opposed to currentImageIndex, so cmdbuf is not tied to other resource?
 	}
 
+	/*
 	VkDescriptorSet getCurrentDescriptorSet() const
 	{
 		EXPECT(isFrameStarted, true)
 		return descriptorSets[currentImageIndex];
 	}
+	 */
+
+	uint32_t getNumSwapChainImages() const
+	{
+		return swapChainImages.size();
+	}
+
+	uint32_t getCurrentFrameIndex() const
+	{
+		EXPECT(isFrameStarted, true)
+		return currentFrame;
+	}
 
 	VkRenderPass getSwapChainRenderPass() const { return swapChainRenderPass; }
+
+	// TEMPORARY
+	VkDescriptorPool getDescriptorPool() const { return descriptorPool; }
 
 private:
 	uint32_t currentImageIndex;
@@ -81,31 +95,11 @@ public:
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
-	// per swapchain image
-	std::vector<VmaAllocatedBuffer> uniformBuffers;
-
 	VkDescriptorPool descriptorPool;
-
-	std::vector<VkDescriptorSet> descriptorSets;
-
-	struct UniformBufferObject {
-		alignas(16) mat4 ModelMatrix;
-		alignas(16) mat4 ViewMatrix;
-		alignas(16) mat4 ProjectionMatrix;
-	};
-
-	void createBufferVma(
-		VkDeviceSize size,
-		VkBufferUsageFlags bufferUsage,
-		VmaMemoryUsage memoryUsage,
-		VmaAllocatedBuffer& outVmaAllocatedBuffer);
 
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
 	void createDescriptorPool();
-	void createDescriptorSets(const VkDescriptorSetLayout &descriptorSetLayout);
-	void createUniformBuffers();
-	void updateUniformBuffer(uint32_t currentImage);
 
 	VkDevice device;
 	VkFormat swapChainImageFormat;
@@ -113,8 +107,6 @@ public:
 	VkExtent2D swapChainExtent;
 
 	VmaAllocator memoryAllocator;
-
-	void initSampleInstance(gfx::Pipeline *pipeline);
 
 private:
 
@@ -156,13 +148,6 @@ private:
 	VkImageView depthImageView;
 
 	VkRenderPass swapChainRenderPass;
-
-#if 0
-	VkRenderPass renderPass;
-	VkDescriptorSetLayout descriptorSetLayout;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
-#endif
 
 	VkCommandPool commandPool;
 	VkCommandPool shortLivedCommandsPool;

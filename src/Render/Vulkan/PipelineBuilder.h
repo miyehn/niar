@@ -56,12 +56,13 @@ namespace gfx
 		VkPipelineLayout build();
 	};
 
-	class Pipeline
+	class PipelineBuilder
 	{
 	public:
-		Pipeline(VkRenderPass renderPass);
-		~Pipeline();
-		void use();
+		PipelineBuilder(VkRenderPass renderPass);
+		~PipelineBuilder();
+
+		VkPipeline build();
 
 		VkPipeline getPipeline() { return pipeline; }
 		VkPipelineLayout getPipelineLayout() { return pipelineLayout; }

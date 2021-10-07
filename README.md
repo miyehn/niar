@@ -126,7 +126,7 @@ A generic material is one that can be used with any shader. It attempts to set a
 * Usage: create the material by giving its shader's name, define `set_parameters` if its shader requires properties that are not transformation matrices, then `use` just before drawing stuff.
 
 A standard material is one that's associated with a specific shader.
-* Creation: inherit from `Material` to create a new material class with all properties that should be stored with it. Define its `use` function where it should set all its properties to its shader, including the transformation matrices.
+* Creation: inherit from `GlMaterial` to create a new material class with all properties that should be stored with it. Define its `use` function where it should set all its properties to its shader, including the transformation matrices.
 * Usage: create an instance of this material somewhere else, assign the properties, optionally define `set_parameters`, and `use`.
 * To create a material that uses an existing shader, just edit `config.ini` to specify what shader to use and some properties, and assign it to meshes.
 

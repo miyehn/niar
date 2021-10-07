@@ -3,7 +3,7 @@
 #include "Engine/Input.hpp"
 #include "Asset/Mesh.h"
 #include "Scene/Light.hpp"
-#include "Asset/Material.h"
+#include "Asset/GlMaterial.h"
 #include "Scene/Camera.hpp"
 #include "Asset/Blit.h"
 

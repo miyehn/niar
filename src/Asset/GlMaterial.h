@@ -1,0 +1,99 @@
+#pragma once
+#include <functional>
+#include "Shader.h"
+#include "Blit.h"
+#include "Texture.h"
+
+/* Two types of materials:
+ *
+ * - generic (object-dependent uniforms are just the transformations),
+ *   therefore don't need to be stored for each object (but may still have multiple copies)
+ *
+ * - standard (with non-transform object-dependent properties)
+ *   stored at each object. Each object may have multiple of these (material sets)
+ */
+
+struct Drawable;
+struct MatGeneric;
+
+struct GlMaterial {
+
+	CONST_PTR(MatGeneric, mat_depth);
+	
+	GlMaterial (const std::string& shader_name) {
+		shader = Shader::get(shader_name);
+	}
+	virtual ~GlMaterial() {}
+
+	virtual void use(const Drawable* obj);
+
+	std::function<void()> set_parameters = [](){};
+
+	static void cleanup();
+
+	Shader* shader = nullptr;
+
+	// for managing the pool
+	static void add_to_pool(const std::string& name, GlMaterial* mat);
+
+	static GlMaterial* get(const std::string& name);
+
+private:
+	static std::unordered_map<std::string, GlMaterial*> material_pool;
+
+};
+
+// generic: materials whose object-dependent uniforms are just the transformations; can be used with any shader
+struct MatGeneric : GlMaterial {
+	MatGeneric(const std::string& shader_name) : GlMaterial(shader_name) {}
+	virtual ~MatGeneric() {}
+	virtual void use(const Drawable* obj);
+};
+
+// standard: materials tied to a specific shader
+struct MatBasic : GlMaterial {
+	MatBasic() : GlMaterial("basic") {
+		base_color = Texture::white();
+		tint = vec3(1);
+	}
+	virtual ~MatBasic() {}
+	virtual void use(const Drawable* obj);
+	Texture* base_color;
+	vec3 tint;
+};
+
+struct MatDeferredGeometryBasic : GlMaterial {
+	MatDeferredGeometryBasic() : GlMaterial("geometry_basic") {
+		albedo_map = Texture::white();
+		tint = vec3(1);
+	}
+	virtual ~MatDeferredGeometryBasic() {}
+	virtual void use(const Drawable* obj);
+	Texture* albedo_map;
+	vec3 tint;
+};
+
+struct MatDeferredGeometry : GlMaterial {
+	MatDeferredGeometry() : GlMaterial("geometry") {
+		albedo_map = Texture::white();
+		normal_map = Texture::default_normal();
+		metallic_map = Texture::black();
+		roughness_map = Texture::white();
+		ao_map = Texture::white();
+		tint = vec3(1);
+	}
+	virtual ~MatDeferredGeometry() {}
+	virtual void use(const Drawable* obj);
+	Texture* albedo_map;
+	Texture* normal_map;
+	Texture* metallic_map;
+	Texture* roughness_map;
+	Texture* ao_map;
+	vec3 tint;
+};
+
+struct MatGrass : GlMaterial {
+	MatGrass() : GlMaterial("grass") {}
+	virtual ~MatGrass(){}
+	virtual void use(const Drawable* obj);
+};

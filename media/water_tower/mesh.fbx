@@ -308,7 +308,7 @@ Definitions:  {
 			}
 		}
 	}
-	ObjectType: "Material" {
+	ObjectType: "GlMaterial" {
 		Count: 2
 		PropertyTemplate: "FbxSurfacePhong" {
 			Properties70:  {
@@ -912,7 +912,7 @@ Objects:  {
 		Shading: Y
 		Culling: "CullingOff"
 	}
-	Material: 140476269190480, "Material::water_tower_material", "" {
+	GlMaterial: 140476269190480, "GlMaterial::water_tower_material", "" {
 		Version: 102
 		ShadingModel: "phong"
 		MultiLayer: 0
@@ -933,7 +933,7 @@ Objects:  {
 			P: "Reflectivity", "double", "Number", "",0.200000002980232
 		}
 	}
-	Material: 140476269194160, "Material::lambert1", "" {
+	GlMaterial: 140476269194160, "GlMaterial::lambert1", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -1084,16 +1084,16 @@ Connections:  {
 	;NodeAttribute::, Model::PointLight1
 	C: "OO",140475473396864,140475758150656
 	
-	;Texture::base_color_texture, Material::water_tower_material
+	;Texture::base_color_texture, GlMaterial::water_tower_material
 	C: "OP",140476269190960,140476269190480, "DiffuseColor"
 	
-	;Texture::normalmap_texture, Material::water_tower_material
+	;Texture::normalmap_texture, GlMaterial::water_tower_material
 	C: "OP",140476269191888,140476269190480, "NormalMap"
 	
-	;Texture::roughness_texture, Material::water_tower_material
+	;Texture::roughness_texture, GlMaterial::water_tower_material
 	C: "OP",140476269191424,140476269190480, "ShininessExponent"
 	
-	;Texture::metallic_texture, Material::water_tower_material
+	;Texture::metallic_texture, GlMaterial::water_tower_material
 	C: "OP",140476269192352,140476269190480, "ReflectionFactor"
 	
 	;Video::base_color_texture, Texture::base_color_texture
@@ -1111,13 +1111,13 @@ Connections:  {
 	;Geometry::, Model::old_water_tower
 	C: "OO",140476269189664,140475760109056
 	
-	;Material::water_tower_material, Model::old_water_tower
+	;GlMaterial::water_tower_material, Model::old_water_tower
 	C: "OO",140476269190480,140475760109056
 	
 	;Geometry::, Model::floor
 	C: "OO",140476269192816,140475756348416
 	
-	;Material::lambert1, Model::floor
+	;GlMaterial::lambert1, Model::floor
 	C: "OO",140476269194160,140475756348416
 	
 	;NodeAttribute::, Model::directionalLight1

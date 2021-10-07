@@ -1,4 +1,4 @@
-#include "Pipeline.h"
+#include "PipelineBuilder.h"
 #include "Asset/Vertex.h"
 #include "Render/gfx/gfx.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
@@ -174,7 +174,7 @@ namespace gfx
 		return createInfo;
 	}
 
-	Pipeline::Pipeline(VkRenderPass renderPass)
+	PipelineBuilder::PipelineBuilder(VkRenderPass renderPass)
 	{
 		auto vert_module = ShaderModule::get("spirv/triangle.vert.spv");
 		auto frag_module = ShaderModule::get("spirv/triangle.frag.spv");
@@ -213,15 +213,42 @@ namespace gfx
 		EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline), VK_SUCCESS)
 	}
 
-	Pipeline::~Pipeline()
+	PipelineBuilder::~PipelineBuilder()
 	{
 		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, descriptorSetLayout, nullptr);
 		vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 		vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 	}
 
-	void Pipeline::use()
+	PipelineLayoutBuilder::PipelineLayoutBuilder()
 	{
+		uboLayoutBinding = {
+			.binding = 0,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+			.pImmutableSamplers = nullptr // for image sampling related?
+		};
+	}
 
+	VkPipelineLayout PipelineLayoutBuilder::build()
+	{
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = 1,
+			.pBindings = &uboLayoutBinding,
+		};
+		EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &layoutInfo, nullptr, &descriptorSetLayout), VK_SUCCESS)
+
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.setLayoutCount = 1,
+			.pSetLayouts = &descriptorSetLayout,
+			.pushConstantRangeCount = 0,
+			.pPushConstantRanges = nullptr
+		};
+		VkPipelineLayout pipelineLayout;
+		EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
+		return pipelineLayout;
 	}
 }

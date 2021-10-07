@@ -116,7 +116,7 @@ Definitions:  {
 			}
 		}
 	}
-	ObjectType: "Material" {
+	ObjectType: "GlMaterial" {
 		Count: 1
 		PropertyTemplate: "FbxSurfaceLambert" {
 			Properties70:  {
@@ -301,7 +301,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 140484573336624, "Material::lambert1", "" {
+	GlMaterial: 140484573336624, "GlMaterial::lambert1", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -329,6 +329,6 @@ Connections:  {
 	;Geometry::, Model::pSphere1
 	C: "OO",140484573478992,140483261458432
 	
-	;Material::lambert1, Model::pSphere1
+	;GlMaterial::lambert1, Model::pSphere1
 	C: "OO",140484573336624,140483261458432
 }

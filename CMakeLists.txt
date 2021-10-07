@@ -35,6 +35,7 @@ set(SRC
 	src/Scene/Light.cpp
 	src/Utils/Utils.cpp
 	src/Asset/Texture.cpp
+    src/Asset/GlMaterial.cpp
 	src/Asset/Material.cpp
 	src/Asset/Blit.cpp
 	src/Pathtracer/Primitive.cpp
@@ -49,8 +50,9 @@ set(SRC
 	src/Utils/myn/CVar.cpp
 	src/Utils/myn/Misc.cpp
 	src/Render/gfx/gfx.cpp
-	src/Render/Vulkan/Pipeline.cpp
+    src/Render/Vulkan/PipelineBuilder.cpp
 	src/Render/Vulkan/RenderPassBuilder.cpp
+	src/Render/Vulkan/Buffer.cpp
 	)
 
 if(APPLE)

@@ -3,7 +3,7 @@
 #include "Asset/Shader.h"
 #include "Asset/Blit.h"
 #include "Asset/Texture.h"
-#include "Asset/Material.h"
+#include "Asset/GlMaterial.h"
 #include "Asset/Mesh.h"
 #include "libconfig/libconfig.h++"
 
@@ -124,19 +124,19 @@ void initialize_asset_config()
 				mat->metallic_map = Texture::get(metallic);
 				mat->roughness_map = Texture::get(roughness);
 				mat->ao_map = Texture::get(ao);
-				Material::add_to_pool(name, mat);
+				GlMaterial::add_to_pool(name, mat);
 
 			} else if (shader == "basic") {
 				std::string base_color = m.exists("BaseColor") ? m.lookup("BaseColor") : "white";
 				MatBasic* mat = new MatBasic();
 				mat->base_color = Texture::get(base_color);
-				Material::add_to_pool(name, mat);
+				GlMaterial::add_to_pool(name, mat);
 
 			} else if (shader == "geometry_basic") {
 				std::string albedo = m.exists("Albedo") ? m.lookup("Albedo") : "white";
 				MatDeferredGeometryBasic* mat = new MatDeferredGeometryBasic();
 				mat->albedo_map = Texture::get(albedo);
-				Material::add_to_pool(name, mat);
+				GlMaterial::add_to_pool(name, mat);
 
 			} else {
 				WARN("cannot load materials with shader '%s' yet. skipping..", shader.c_str());
@@ -150,7 +150,7 @@ void initialize_asset_config()
 		const Setting& assignments = config_src.getRoot()["MaterialAssignments"];
 		for (int i=0; i<assignments.getLength(); i++) {
 			std::string mesh = assignments[i].lookup("Mesh");
-			std::string mat = assignments[i].lookup("Material");
+			std::string mat = assignments[i].lookup("GlMaterial");
 			Mesh::set_material_name_for(mesh, mat);
 			LOG("%s : %s", mesh.c_str(), mat.c_str());
 		}

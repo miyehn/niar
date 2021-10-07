@@ -4,7 +4,7 @@
 #include "Engine/Input.hpp"
 #include "Scene/Scene.hpp"
 #include "Scene/Light.hpp"
-#include "Material.h"
+#include "GlMaterial.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -80,46 +80,39 @@ void Mesh::create_vertex_buffer()
 	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
 	// create a staging buffer
-	VmaAllocatedBuffer stagingBuffer;
-	Vulkan::Instance->createBufferVma(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer);
+	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, bufferSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	// copy vertex buffer memory over to staging buffer
-	void* mappedMemory;
-	vmaMapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation, &mappedMemory);
-	memcpy(mappedMemory, vertices.data(), (size_t)bufferSize);
-	vmaUnmapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation);
+	stagingBuffer.writeData(vertices.data());
 
 	// now create the actual vertex buffer
-	Vulkan::Instance->createBufferVma(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, vertexBuffer);
+	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	vertexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// and copy stuff from staging buffer to vertex buffer
-	Vulkan::Instance->copyBuffer(vertexBuffer.buffer, stagingBuffer.buffer, bufferSize);
-
-	// then destroy the staging buffer
-	vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
+	Vulkan::Instance->copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	stagingBuffer.release();
 }
 
 void Mesh::create_index_buffer()
 {
 	VkDeviceSize bufferSize = sizeof(VERTEX_INDEX_TYPE) * faces.size();
 
-	// staging buffer
-	VmaAllocatedBuffer stagingBuffer;
-	Vulkan::Instance->createBufferVma(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer);
+	// create a staging buffer
+	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, bufferSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	// copy data to staging buffer
-	void* mappedMemory;
-	vmaMapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation, &mappedMemory);
-	memcpy(mappedMemory, faces.data(), (size_t)bufferSize);
-	vmaUnmapMemory(Vulkan::Instance->memoryAllocator, stagingBuffer.allocation);
+	stagingBuffer.writeData(faces.data());
 
 	// create the actual index buffer
 	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	Vulkan::Instance->createBufferVma(bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY, indexBuffer);
+	indexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// move stuff from staging buffer and destroy staging buffer
-	Vulkan::Instance->copyBuffer(indexBuffer.buffer, stagingBuffer.buffer, bufferSize);
-	vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, stagingBuffer.buffer, stagingBuffer.allocation);
+	Vulkan::Instance->copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	stagingBuffer.release();
 }
 
 void Mesh::initialize_gpu() {
@@ -136,11 +129,11 @@ void Mesh::initialize_gpu() {
 	// materials
 	for (int i=0; i<NUM_MATERIAL_SETS; i++) materials[i] = nullptr;
 
-	materials[0] = Material::get("basic");
-	materials[1] = Material::get("deferredBasic");
+	materials[0] = GlMaterial::get("basic");
+	materials[1] = GlMaterial::get("deferredBasic");
 
 	const std::string& material_name = get_material_name_for(name);
-	materials[2] = material_name!="" ? Material::get(material_name) : Material::get("deferredBasic");
+	materials[2] = material_name!="" ? GlMaterial::get(material_name) : GlMaterial::get("deferredBasic");
 
 	// generate buffers & objects
 	glGenBuffers(1, &vbo);
@@ -210,8 +203,8 @@ Mesh::~Mesh() {
 	if (bsdf) delete bsdf;
 	if (Cfg.TestVulkan)
 	{
-		vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, vertexBuffer.buffer, vertexBuffer.allocation);
-		vmaDestroyBuffer(Vulkan::Instance->memoryAllocator, indexBuffer.buffer, indexBuffer.allocation);
+		vertexBuffer.release();
+		indexBuffer.release();
 		return;
 	}
 	glDeleteBuffers(1, &vbo);
@@ -228,18 +221,21 @@ void Mesh::update(float elapsed) {
 	locked = true;
 }
 
-void Mesh::draw(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline)
+void Mesh::draw(VkCommandBuffer cmdbuf, gfx::PipelineBuilder *pipeline)
 {
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
 	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vertexBuffer.buffer, offsets); // offset, #bindings, (content)
-	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.buffer, 0, VK_INDEX_TYPE);
+	auto vb = vertexBuffer.getBufferInstance();
+	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
+	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.getBufferInstance(), 0, VK_INDEX_TYPE);
+	/*
 	auto dset = Vulkan::Instance->getCurrentDescriptorSet();
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipelineLayout(),
 							0, // firstSet : uint32_t
 							1, // descriptorSetCount : uint32_t
 							&dset,
 							0, nullptr); // for dynamic descriptors (not reached yet)
+							*/
 	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
 }
 

@@ -574,7 +574,7 @@ enum aiPropertyTypeInfo
  *  of functions to query material properties easily. Processing them
  *  manually is faster, but it is not the recommended way. It isn't worth
  *  the effort. <br>
- *  Material property names follow a simple scheme:
+ *  GlMaterial property names follow a simple scheme:
  *  @code
  *    $<name>
  *    ?<name>
@@ -650,7 +650,7 @@ struct aiMaterialProperty
 // ---------------------------------------------------------------------------
 /** @brief Data structure for a material
 *
-*  Material data is stored using a key-value structure. A single key-value
+*  GlMaterial data is stored using a key-value structure. A single key-value
 *  pair is called a 'material property'. C++ users should use the provided
 *  member functions of aiMaterial to process material properties, C users
 *  have to stick with the aiMaterialGetXXX family of unbound functions.

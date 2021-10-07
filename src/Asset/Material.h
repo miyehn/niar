@@ -1,104 +1,42 @@
 #pragma once
-#include <functional>
-#include "Shader.h"
-#include "Blit.h"
-#include "Texture.h"
+#include "Render/Vulkan/PipelineBuilder.h"
+#include "Render/Vulkan/Buffer.h"
 
-/* Two types of materials:
- *
- * - generic (object-dependent uniforms are just the transformations),
- *   therefore don't need to be stored for each object (but may still have multiple copies)
- *
- * - standard (with non-transform object-dependent properties)
- *   stored at each object. Each object may have multiple of these (material sets)
- */
+#include <string>
+#include <vector>
 
-struct Drawable;
-struct MatGeneric;
-
-namespace gfx
+class Material
 {
-	struct Pipeline;
+public:
+	Material() = default;
+	std::string name = "[anonymous material]";
+	virtual int get_id() = 0;
+	virtual void use(VkCommandBuffer &cmdbuf) = 0;
+	virtual ~Material() = default;
 };
 
-struct Material {
-
-	CONST_PTR(MatGeneric, mat_depth);
-	
-	Material (const std::string& shader_name) {
-		shader = Shader::get(shader_name);
-	}
-	virtual ~Material() {}
-
-	virtual void use(const Drawable* obj);
-
-	std::function<void()> set_parameters = [](){};
-
-	static void cleanup();
-
-	Shader* shader = nullptr;
-
-	// for managing the pool
-	static void add_to_pool(const std::string& name, Material* mat);
-
-	static Material* get(const std::string& name);
-
+class MatTest : public Material
+{
+public:
+	MatTest();
+	int get_id() override { return 0; }
+	void use(VkCommandBuffer &cmdbuf) override;
+	~MatTest() override;
 private:
-	static std::unordered_map<std::string, Material*> material_pool;
 
+	struct
+	{
+		alignas(16) mat4 ModelMatrix;
+		alignas(16) mat4 ViewMatrix;
+		alignas(16) mat4 ProjectionMatrix;
+	} uniforms;
+
+	VkDescriptorSetLayout descriptorSetLayout{};
+	VkPipelineLayout pipelineLayout{};
+	VkPipeline pipeline{};
+
+	VmaBuffer uniformBuffer;
+	std::vector<VkDescriptorSet> descriptorSets;
 };
 
-// generic: materials whose object-dependent uniforms are just the transformations; can be used with any shader
-struct MatGeneric : Material {
-	MatGeneric(const std::string& shader_name) : Material(shader_name) {}
-	virtual ~MatGeneric() {}
-	virtual void use(const Drawable* obj);
-};
-
-// standard: materials tied to a specific shader
-struct MatBasic : Material {
-	MatBasic() : Material("basic") {
-		base_color = Texture::white();
-		tint = vec3(1);
-	}
-	virtual ~MatBasic() {}
-	virtual void use(const Drawable* obj);
-	Texture* base_color;
-	vec3 tint;
-};
-
-struct MatDeferredGeometryBasic : Material {
-	MatDeferredGeometryBasic() : Material("geometry_basic") {
-		albedo_map = Texture::white();
-		tint = vec3(1);
-	}
-	virtual ~MatDeferredGeometryBasic() {}
-	virtual void use(const Drawable* obj);
-	Texture* albedo_map;
-	vec3 tint;
-};
-
-struct MatDeferredGeometry : Material {
-	MatDeferredGeometry() : Material("geometry") {
-		albedo_map = Texture::white();
-		normal_map = Texture::default_normal();
-		metallic_map = Texture::black();
-		roughness_map = Texture::white();
-		ao_map = Texture::white();
-		tint = vec3(1);
-	}
-	virtual ~MatDeferredGeometry() {}
-	virtual void use(const Drawable* obj);
-	Texture* albedo_map;
-	Texture* normal_map;
-	Texture* metallic_map;
-	Texture* roughness_map;
-	Texture* ao_map;
-	vec3 tint;
-};
-
-struct MatGrass : Material {
-	MatGrass() : Material("grass") {}
-	virtual ~MatGrass(){}
-	virtual void use(const Drawable* obj);
-};
+Material* find_material(const std::string& name);

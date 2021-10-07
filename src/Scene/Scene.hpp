@@ -10,7 +10,7 @@ struct Light;
 struct DirectionalLight;
 struct PointLight;
 struct Mesh;
-struct Material;
+struct GlMaterial;
 
 /* a scene is a tree of drawables */
 struct Scene : public Drawable {
@@ -53,7 +53,7 @@ struct Scene : public Drawable {
 	uint fbo_gaussian_pingpong[2];
 	uint tex_gaussian_pingpong[2];
 
-	Material* replacement_material = nullptr;
+	GlMaterial* replacement_material = nullptr;
 
 	//-------- OpenGL configurations --------
 	// depth test

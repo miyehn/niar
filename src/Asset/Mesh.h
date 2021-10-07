@@ -9,7 +9,7 @@
 struct BSDF;
 struct aiMesh;
 struct Texture;
-struct Material;
+struct GlMaterial;
 
 struct Mesh : Drawable {
 
@@ -27,7 +27,7 @@ struct Mesh : Drawable {
 	virtual void update(float elapsed) override;
 	virtual void draw() override;
 
-	void draw(VkCommandBuffer cmdbuf, gfx::Pipeline *pipeline);
+	void draw(VkCommandBuffer cmdbuf, gfx::PipelineBuilder *pipeline);
 
 	virtual void set_local_position(vec3 _local_position) override;
 	virtual void set_rotation(quat _rotation) override;
@@ -40,7 +40,7 @@ struct Mesh : Drawable {
 	AABB aabb;
 	BSDF* bsdf = nullptr;
 
-	Material* materials[NUM_MATERIAL_SETS];
+	GlMaterial* materials[NUM_MATERIAL_SETS];
 
 	static void set_material_name_for(const std::string& mesh_name, const std::string& mat_name);
 
@@ -58,8 +58,8 @@ private:
 
 	//---- vulkan stuff ----
 
-	VmaAllocatedBuffer vertexBuffer;
-	VmaAllocatedBuffer indexBuffer;
+	VmaBuffer vertexBuffer;
+	VmaBuffer indexBuffer;
 
 	void create_vertex_buffer();
 	void create_index_buffer();

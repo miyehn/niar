@@ -6,7 +6,7 @@
 #include "Primitive.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/Input.hpp"
-#include "Asset/Material.h"
+#include "Asset/GlMaterial.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>

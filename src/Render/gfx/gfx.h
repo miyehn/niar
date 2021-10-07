@@ -1,6 +1,6 @@
 #pragma once
 #include "Utils/lib.h"
-#include "Render/Vulkan/Pipeline.h"
+#include "Render/Vulkan/PipelineBuilder.h"
 #include <unordered_map>
 
 namespace gfx
@@ -18,7 +18,6 @@ namespace gfx
 		explicit ShaderModule(const std::string &path);
 		~ShaderModule();
 		static std::unordered_map<std::string, ShaderModule*> pool;
-		// TODO: opengl stuff
 	};
 
 }// namespace gfx

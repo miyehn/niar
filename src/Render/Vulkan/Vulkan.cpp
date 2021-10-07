@@ -1,5 +1,5 @@
 #include "Vulkan.hpp"
-#include "Pipeline.h"
+#include "PipelineBuilder.h"
 #include "RenderPassBuilder.h"
 
 Vulkan::Vulkan(SDL_Window* window) {
@@ -22,28 +22,20 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createSwapChainRenderPass();
 	createFramebuffers();
 	createCommandBuffers();
-}
 
-void Vulkan::initSampleInstance(gfx::Pipeline *pipeline)
-{
-	createUniformBuffers();
 	createDescriptorPool();
-	createDescriptorSets(pipeline->getDescriptorSetLayout());
 }
 
 Vulkan::~Vulkan() {
 
 	// TODO: move to elsewhere
-	for (size_t i=0; i<swapChainImages.size(); i++) {
-		vmaDestroyBuffer(memoryAllocator, uniformBuffers[i].buffer, uniformBuffers[i].allocation);
-	}
-	vmaDestroyImage(memoryAllocator, depthImage.image, depthImage.allocation);
-	vmaDestroyAllocator(memoryAllocator);
-
 	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
 	// stay
-    for (int i=0; i<MAX_FRAME_IN_FLIGHT; i++) {
+	vmaDestroyImage(memoryAllocator, depthImage.image, depthImage.allocation);
+	vmaDestroyAllocator(memoryAllocator);
+
+	for (int i=0; i<MAX_FRAME_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(device, inFlightFences[i], nullptr);
@@ -85,9 +77,6 @@ VkCommandBuffer Vulkan::beginFrame()
 	}
 	// now mark this image as being used by this frame
 	imagesInFlight[currentImageIndex] = inFlightFences[currentFrame];
-
-	// update uniforms
-	updateUniformBuffer(currentImageIndex);
 
 	// record command buffer
 
@@ -183,6 +172,7 @@ void Vulkan::createMemoryAllocator()
 	EXPECT(vmaCreateAllocator(&allocatorInfo, &memoryAllocator), VK_SUCCESS);
 }
 
+/*
 void Vulkan::createBufferVma(
 	VkDeviceSize size,
 	VkBufferUsageFlags bufferUsage,
@@ -206,6 +196,7 @@ void Vulkan::createBufferVma(
 		&outVmaAllocatedBuffer.allocation,
 		nullptr),VK_SUCCESS);
 }
+ */
 
 void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size)
 {
@@ -245,14 +236,6 @@ void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize siz
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
 }
 
-void Vulkan::createUniformBuffers() {
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-	uniformBuffers.resize(swapChainImages.size());
-	for (size_t i = 0; i < swapChainImages.size(); i++) {
-		createBufferVma(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, uniformBuffers[i]);
-	}
-}
-
 // "want a pool that can hold X uniform buffers, Y images, etc."
 // might help: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkDescriptorPoolCreateInfo.html
 void Vulkan::createDescriptorPool() {
@@ -267,64 +250,6 @@ void Vulkan::createDescriptorPool() {
 		.pPoolSizes = &poolSize,
 	};
 	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
-}
-
-void Vulkan::createDescriptorSets(const VkDescriptorSetLayout &descriptorSetLayout)
-{
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
-	VkDescriptorSetAllocateInfo allocInfo = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.descriptorPool = descriptorPool,
-		.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size()),
-		.pSetLayouts = layouts.data(),
-	};
-	descriptorSets.resize(swapChainImages.size());
-	EXPECT(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
-
-	for (size_t i=0; i<swapChainImages.size(); i++)
-	{
-		VkDescriptorBufferInfo bufferInfo = {
-			.buffer = uniformBuffers[i].buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-		// "Structure specifying the parameters of a descriptor set write operation"
-		VkWriteDescriptorSet descriptorWrite = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = descriptorSets[i],
-			.dstBinding = 0,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			// actual write data (one of three)
-			.pImageInfo = nullptr,
-			.pBufferInfo = &bufferInfo, // where in which buffer
-			.pTexelBufferView = nullptr,
-		};
-		vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
-	}
-}
-
-#define GLM_FORCE_RADIANS
-#include <glm/gtc/matrix_transform.hpp>
-#include <chrono>
-void Vulkan::updateUniformBuffer(uint32_t currentImage) {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	UniformBufferObject ubo = {
-		.ModelMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		.ViewMatrix = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		.ProjectionMatrix = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f),
-	};
-	// so it's not upside down
-	ubo.ProjectionMatrix[1][1] *= -1;
-
-	// upload data
-	void* uniformBuffer;
-	vmaMapMemory(memoryAllocator, uniformBuffers[currentImage].allocation, &uniformBuffer);
-	memcpy(uniformBuffer, &ubo, sizeof(UniformBufferObject));
-	vmaUnmapMemory(memoryAllocator, uniformBuffers[currentImage].allocation);
 }
 
 void Vulkan::createInstance(SDL_Window* in_window) {

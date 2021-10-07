@@ -116,7 +116,7 @@ Definitions:  {
 			}
 		}
 	}
-	ObjectType: "Material" {
+	ObjectType: "GlMaterial" {
 		Count: 1
 		PropertyTemplate: "FbxSurfaceLambert" {
 			Properties70:  {
@@ -1432,7 +1432,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 140231973512592, "Material::lambert1", "" {
+	GlMaterial: 140231973512592, "GlMaterial::lambert1", "" {
 		Version: 102
 		ShadingModel: "lambert"
 		MultiLayer: 0
@@ -1505,96 +1505,96 @@ Connections:  {
 	;Geometry::, Model::pPlane1
 	C: "OO",140231973511776,140232023541248
 	
-	;Material::lambert1, Model::pPlane1
+	;GlMaterial::lambert1, Model::pPlane1
 	C: "OO",140231973512592,140232023541248
 	
 	;Geometry::, Model::pPlane2
 	C: "OO",140231973513280,140231695467008
 	
-	;Material::lambert1, Model::pPlane2
+	;GlMaterial::lambert1, Model::pPlane2
 	C: "OO",140231973512592,140231695467008
 	
 	;Geometry::, Model::pPlane3
 	C: "OO",140231973514384,140231695612928
 	
-	;Material::lambert1, Model::pPlane3
+	;GlMaterial::lambert1, Model::pPlane3
 	C: "OO",140231973512592,140231695612928
 	
 	;Geometry::, Model::pPlane4
 	C: "OO",140231973515200,140231695618560
 	
-	;Material::lambert1, Model::pPlane4
+	;GlMaterial::lambert1, Model::pPlane4
 	C: "OO",140231973512592,140231695618560
 	
 	;Geometry::, Model::pPlane5
 	C: "OO",140231973700848,140231695472640
 	
-	;Material::lambert1, Model::pPlane5
+	;GlMaterial::lambert1, Model::pPlane5
 	C: "OO",140231973512592,140231695472640
 	
 	;Geometry::, Model::pPlane6
 	C: "OO",140231973701664,140231695539712
 	
-	;Material::lambert1, Model::pPlane6
+	;GlMaterial::lambert1, Model::pPlane6
 	C: "OO",140231973512592,140231695539712
 	
 	;Geometry::, Model::pPlane7
 	C: "OO",140231973703008,140231695531520
 	
-	;Material::lambert1, Model::pPlane7
+	;GlMaterial::lambert1, Model::pPlane7
 	C: "OO",140231973512592,140231695531520
 	
 	;Geometry::, Model::pPlane8
 	C: "OO",140231973703824,140231695537152
 	
-	;Material::lambert1, Model::pPlane8
+	;GlMaterial::lambert1, Model::pPlane8
 	C: "OO",140231973512592,140231695537152
 	
 	;Geometry::, Model::pPlane9
 	C: "OO",140231973704912,140231695501312
 	
-	;Material::lambert1, Model::pPlane9
+	;GlMaterial::lambert1, Model::pPlane9
 	C: "OO",140231973512592,140231695501312
 	
 	;Geometry::, Model::pPlane10
 	C: "OO",140231973663472,140231695505408
 	
-	;Material::lambert1, Model::pPlane10
+	;GlMaterial::lambert1, Model::pPlane10
 	C: "OO",140231973512592,140231695505408
 	
 	;Geometry::, Model::pPlane11
 	C: "OO",140231973663888,140231695391232
 	
-	;Material::lambert1, Model::pPlane11
+	;GlMaterial::lambert1, Model::pPlane11
 	C: "OO",140231973512592,140231695391232
 	
 	;Geometry::, Model::pPlane12
 	C: "OO",140234121316032,140234155308544
 	
-	;Material::lambert1, Model::pPlane12
+	;GlMaterial::lambert1, Model::pPlane12
 	C: "OO",140231973512592,140234155308544
 	
 	;Geometry::, Model::pPlane13
 	C: "OO",140234121250176,140234156109312
 	
-	;Material::lambert1, Model::pPlane13
+	;GlMaterial::lambert1, Model::pPlane13
 	C: "OO",140231973512592,140234156109312
 	
 	;Geometry::, Model::pPlane14
 	C: "OO",140234121317888,140234156014080
 	
-	;Material::lambert1, Model::pPlane14
+	;GlMaterial::lambert1, Model::pPlane14
 	C: "OO",140231973512592,140234156014080
 	
 	;Geometry::, Model::pPlane15
 	C: "OO",140234121318704,140234155821568
 	
-	;Material::lambert1, Model::pPlane15
+	;GlMaterial::lambert1, Model::pPlane15
 	C: "OO",140231973512592,140234155821568
 	
 	;Geometry::, Model::pPlane16
 	C: "OO",140234121319520,140234155991552
 	
-	;Material::lambert1, Model::pPlane16
+	;GlMaterial::lambert1, Model::pPlane16
 	C: "OO",140231973512592,140234155991552
 }
