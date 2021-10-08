@@ -9,6 +9,7 @@ Vulkan::Vulkan(SDL_Window* window) {
     this->window = window;
 
     createInstance(window);
+	findProxyFunctionPointers();
     #ifdef DEBUG
     setupDebugMessenger();
     #endif
@@ -167,32 +168,6 @@ void Vulkan::createMemoryAllocator()
 	};
 	EXPECT(vmaCreateAllocator(&allocatorInfo, &memoryAllocator), VK_SUCCESS);
 }
-
-/*
-void Vulkan::createBufferVma(
-	VkDeviceSize size,
-	VkBufferUsageFlags bufferUsage,
-	VmaMemoryUsage memoryUsage,
-	VmaAllocatedBuffer& outVmaAllocatedBuffer)
-{
-	VkBufferCreateInfo bufferCreateInfo {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = size,
-		.usage = bufferUsage,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
-	};
-	VmaAllocationCreateInfo vmaAllocCreateInfo = {
-		.usage = memoryUsage
-	};
-	EXPECT(vmaCreateBuffer(
-		memoryAllocator,
-		&bufferCreateInfo,
-		&vmaAllocCreateInfo,
-		&outVmaAllocatedBuffer.buffer,
-		&outVmaAllocatedBuffer.allocation,
-		nullptr),VK_SUCCESS);
-}
- */
 
 void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size)
 {
@@ -620,7 +595,7 @@ void Vulkan::createDepthImageAndView()
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY,
 		.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	};
-	EXPECT(vmaCreateImage(memoryAllocator, &dimgInfo, &dimgAllocInfo, &depthImage.image, &depthImage.allocation, nullptr), VK_SUCCESS);
+	EXPECT(vmaCreateImage(memoryAllocator, &dimgInfo, &dimgAllocInfo, &depthImage.image, &depthImage.allocation, nullptr), VK_SUCCESS)
 
 	//---- imageView for the depth image
 
@@ -816,23 +791,36 @@ void Vulkan::DestroyDebugUtilsMessengerEXT(
 	}
 }
 
-void Vulkan::CmdBeginDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color &color)
+void Vulkan::findProxyFunctionPointers()
+{
+	fn_vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT");
+	EXPECT(fn_vkCmdBeginDebugUtilsLabelEXT == nullptr, false)
+	fn_vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
+	EXPECT(fn_vkCmdEndDebugUtilsLabelEXT == nullptr, false)
+	fn_vkCmdInsertDebugUtilsLabelEXT = (PFN_vkCmdInsertDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdInsertDebugUtilsLabelEXT");
+	EXPECT(fn_vkCmdInsertDebugUtilsLabelEXT == nullptr, false)
+	fn_vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
+	EXPECT(fn_vkSetDebugUtilsObjectNameEXT == nullptr, false)
+}
+
+void Vulkan::cmdInsertDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color color)
 {
 	VkDebugUtilsLabelEXT markerInfo {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
 		.pLabelName = labelName.c_str(),
 		.color = {color.r, color.g, color.b, color.a}
 	};
-	auto func = (PFN_vkCmdBeginDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT");
-	if (func != nullptr) {
-		func(cmdbuf, &markerInfo);
-	}
+	fn_vkCmdInsertDebugUtilsLabelEXT(cmdbuf, &markerInfo);
 }
 
-void Vulkan::CmdEndDebugLabel(VkCommandBuffer &cmdbuf)
+void Vulkan::setObjectName(VkObjectType objectType, uint64_t objectHandle, const std::string &objectName)
 {
-	auto func = (PFN_vkCmdEndDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
-	if (func != nullptr) {
-		func(cmdbuf);
-	}
+	VkDebugUtilsObjectNameInfoEXT nameInfo {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = objectType,
+		.objectHandle = objectHandle,
+		.pObjectName = objectName.c_str()
+	};
+	fn_vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
 }

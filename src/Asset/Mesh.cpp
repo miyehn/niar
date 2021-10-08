@@ -231,6 +231,7 @@ void Mesh::draw(VkCommandBuffer cmdbuf)
 	auto vb = vertexBuffer.getBufferInstance();
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
 	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.getBufferInstance(), 0, VK_INDEX_TYPE);
+	DEBUG_LABEL(cmdbuf, "about to draw instances", {1, 0.9, 0.5, 1})
 	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
 }
 

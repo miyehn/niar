@@ -222,11 +222,18 @@ private:
 		VkDebugUtilsMessengerEXT* debugMessenger,
 		const VkAllocationCallbacks* pAllocator);
 
+	void findProxyFunctionPointers();
+
 public:
 
-	// other proxy functions for debug
-	void CmdBeginDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color &color);
-	void CmdEndDebugLabel(VkCommandBuffer &cmdbuf);
+	PFN_vkCmdBeginDebugUtilsLabelEXT  fn_vkCmdBeginDebugUtilsLabelEXT = nullptr;
+	PFN_vkCmdEndDebugUtilsLabelEXT  fn_vkCmdEndDebugUtilsLabelEXT = nullptr;
+
+	PFN_vkCmdInsertDebugUtilsLabelEXT fn_vkCmdInsertDebugUtilsLabelEXT = nullptr;
+	void cmdInsertDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color color = {1, .9f, .5f, 1});
+
+	PFN_vkSetDebugUtilsObjectNameEXT fn_vkSetDebugUtilsObjectNameEXT = nullptr;
+	void setObjectName(VkObjectType objectType, uint64_t objectHandle, const std::string &objectName);
 
 };
 
@@ -236,12 +243,22 @@ class ScopedDrawEvent
 public:
 	ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color = {1, 1, 1, 1}) : cmdbuf(cmdbuf)
 	{
-		Vulkan::Instance->CmdBeginDebugLabel(cmdbuf, name, color);
+		VkDebugUtilsLabelEXT markerInfo {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pLabelName = name.c_str(),
+			.color = {color.r, color.g, color.b, color.a}
+		};
+		Vulkan::Instance->fn_vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &markerInfo);
 	}
 
 	~ScopedDrawEvent()
 	{
-		Vulkan::Instance->CmdEndDebugLabel(cmdbuf);
+		Vulkan::Instance->fn_vkCmdEndDebugUtilsLabelEXT(cmdbuf);
 	}
 };
 #define SCOPED_DRAW_EVENT(CMDBUF, NAME, ...) ScopedDrawEvent __scopedDrawEvent(CMDBUF, NAME, __VA_ARGS__);
+
+#define DEBUG_LABEL(CMDBUF, NAME, ...) Vulkan::Instance->cmdInsertDebugLabel(CMDBUF, NAME, __VA_ARGS__);
+
+// a hack to allow it to be used within vulkan instance creation
+#define NAME_OBJECT(VK_OBJECT_TYPE, OBJECT, NAME) (Vulkan::Instance ? Vulkan::Instance : this)->setObjectName(VK_OBJECT_TYPE, (uint64_t)OBJECT, NAME);
