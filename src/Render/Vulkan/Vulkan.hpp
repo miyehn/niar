@@ -9,6 +9,7 @@
 #include <VulkanMemoryAllocator/vk_mem_alloc.h>
 #include <functional>
 #include "Buffer.h"
+#include "Utils/myn/Color.h"
 
 /* references:
 https://vulkan-tutorial.com/
@@ -99,7 +100,7 @@ private:
 		std::optional<uint32_t> graphicsFamily;
 		std::optional<uint32_t> presentFamily;
 		std::optional<uint32_t> computeFamily;
-		bool isComplete() {
+		bool isComplete() const {
 			return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value();
 		}
 	};
@@ -151,7 +152,7 @@ private:
 	};
 	#endif
 	const std::vector<const char*> deviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
 	void createInstance(SDL_Window* window);
@@ -221,4 +222,26 @@ private:
 		VkDebugUtilsMessengerEXT* debugMessenger,
 		const VkAllocationCallbacks* pAllocator);
 
+public:
+
+	// other proxy functions for debug
+	void CmdBeginDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color &color);
+	void CmdEndDebugLabel(VkCommandBuffer &cmdbuf);
+
 };
+
+class ScopedDrawEvent
+{
+	VkCommandBuffer &cmdbuf;
+public:
+	ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color = {1, 1, 1, 1}) : cmdbuf(cmdbuf)
+	{
+		Vulkan::Instance->CmdBeginDebugLabel(cmdbuf, name, color);
+	}
+
+	~ScopedDrawEvent()
+	{
+		Vulkan::Instance->CmdEndDebugLabel(cmdbuf);
+	}
+};
+#define SCOPED_DRAW_EVENT(CMDBUF, NAME, ...) ScopedDrawEvent __scopedDrawEvent(CMDBUF, NAME, __VA_ARGS__);

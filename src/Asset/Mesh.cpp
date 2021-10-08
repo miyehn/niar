@@ -226,7 +226,7 @@ void Mesh::update(float elapsed) {
 
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	//vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline());
+	SCOPED_DRAW_EVENT(cmdbuf, "draw mesh", {0.8f, 0.9f, 1, 1})
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)

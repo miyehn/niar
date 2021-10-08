@@ -2,6 +2,8 @@
 #include "PipelineBuilder.h"
 #include "RenderPassBuilder.h"
 
+//#define MYN_VK_VERBOSE
+
 Vulkan::Vulkan(SDL_Window* window) {
 
     this->window = window;
@@ -811,5 +813,26 @@ void Vulkan::DestroyDebugUtilsMessengerEXT(
 	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT");
 	if (func != nullptr) {
 		func(*instance, *debugMessenger, pAllocator);
+	}
+}
+
+void Vulkan::CmdBeginDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color &color)
+{
+	VkDebugUtilsLabelEXT markerInfo {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pLabelName = labelName.c_str(),
+		.color = {color.r, color.g, color.b, color.a}
+	};
+	auto func = (PFN_vkCmdBeginDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT");
+	if (func != nullptr) {
+		func(cmdbuf, &markerInfo);
+	}
+}
+
+void Vulkan::CmdEndDebugLabel(VkCommandBuffer &cmdbuf)
+{
+	auto func = (PFN_vkCmdEndDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
+	if (func != nullptr) {
+		func(cmdbuf);
 	}
 }

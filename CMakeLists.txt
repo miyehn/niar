@@ -54,6 +54,7 @@ set(SRC
 	src/Render/Vulkan/RenderPassBuilder.cpp
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
+	src/Utils/myn/Color.cpp
 	)
 
 if(APPLE)

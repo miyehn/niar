@@ -8,7 +8,6 @@
 #include "Asset/Material.h"
 #include "Asset/Mesh.h"
 
-#include "Render/Vulkan/DescriptorSet.h"
 #include "Render/gfx/gfx.h"
 
 Program* Program::Instance;
@@ -276,6 +275,7 @@ void Program::run_vulkan()
 		};
 		// so it's not upside down
 		test->uniforms.ProjectionMatrix[1][1] *= -1;
+
 #endif
 
 		// draw
