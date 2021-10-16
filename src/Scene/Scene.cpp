@@ -500,7 +500,7 @@ void Scene::draw() {
 	blit->begin_pass();
 	{
 		blit->set_tex2D("TEX", 0, tex_scene_colors_alt[0]);
-		blit->set_tex2D("TEX", 1, bloom ? tex_gaussian_pingpong[1] : Texture::black()->id());
+		blit->set_tex2D("TEX", 1, bloom ? tex_gaussian_pingpong[1] : GlTexture::black()->id());
 		blit->set_int("ToneMapping", Cfg.ToneMapping->get());
 		blit->set_int("GammaCorrect", Cfg.GammaCorrect->get());
 	}

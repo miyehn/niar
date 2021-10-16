@@ -2,7 +2,7 @@
 #include <functional>
 #include "Shader.h"
 #include "Blit.h"
-#include "Texture.h"
+#include "GlTexture.h"
 
 /* Two types of materials:
  *
@@ -53,42 +53,42 @@ struct MatGeneric : GlMaterial {
 // standard: materials tied to a specific shader
 struct MatBasic : GlMaterial {
 	MatBasic() : GlMaterial("basic") {
-		base_color = Texture::white();
+		base_color = GlTexture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatBasic() {}
 	virtual void use(const Drawable* obj);
-	Texture* base_color;
+	GlTexture* base_color;
 	vec3 tint;
 };
 
 struct MatDeferredGeometryBasic : GlMaterial {
 	MatDeferredGeometryBasic() : GlMaterial("geometry_basic") {
-		albedo_map = Texture::white();
+		albedo_map = GlTexture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatDeferredGeometryBasic() {}
 	virtual void use(const Drawable* obj);
-	Texture* albedo_map;
+	GlTexture* albedo_map;
 	vec3 tint;
 };
 
 struct MatDeferredGeometry : GlMaterial {
 	MatDeferredGeometry() : GlMaterial("geometry") {
-		albedo_map = Texture::white();
-		normal_map = Texture::default_normal();
-		metallic_map = Texture::black();
-		roughness_map = Texture::white();
-		ao_map = Texture::white();
+		albedo_map = GlTexture::white();
+		normal_map = GlTexture::default_normal();
+		metallic_map = GlTexture::black();
+		roughness_map = GlTexture::white();
+		ao_map = GlTexture::white();
 		tint = vec3(1);
 	}
 	virtual ~MatDeferredGeometry() {}
 	virtual void use(const Drawable* obj);
-	Texture* albedo_map;
-	Texture* normal_map;
-	Texture* metallic_map;
-	Texture* roughness_map;
-	Texture* ao_map;
+	GlTexture* albedo_map;
+	GlTexture* normal_map;
+	GlTexture* metallic_map;
+	GlTexture* roughness_map;
+	GlTexture* ao_map;
 	vec3 tint;
 };
 

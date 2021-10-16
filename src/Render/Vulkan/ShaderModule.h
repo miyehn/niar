@@ -1,0 +1,17 @@
+#pragma once
+#include <vulkan/vulkan.h>
+#include <unordered_map>
+
+class ShaderModule
+{
+public:
+	static ShaderModule* get(const std::string &path);
+	static void cleanup();
+
+	VkShaderModule module;
+private:
+	explicit ShaderModule(const std::string &path);
+	~ShaderModule();
+	static std::unordered_map<std::string, ShaderModule*> pool;
+};
+

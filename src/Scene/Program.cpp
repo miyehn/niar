@@ -6,7 +6,7 @@
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/Input.hpp"
 #include "Light.hpp"
-#include "Asset/Texture.h"
+#include "Asset/GlTexture.h"
 #include "Asset/GlMaterial.h"
 
 Pathtracer* Pathtracer::Instance;
@@ -100,7 +100,7 @@ void Program::release_resources() {
 	}
 	if (Camera::Active) delete Camera::Active;
 	if (Pathtracer::Instance) delete Pathtracer::Instance;
-	Texture::cleanup();
+	GlTexture::cleanup();
 	Shader::cleanup();
 	GlMaterial::cleanup();
 }

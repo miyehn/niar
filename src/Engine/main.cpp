@@ -7,8 +7,11 @@
 #include "Asset/GlMaterial.h"
 #include "Asset/Material.h"
 #include "Asset/Mesh.h"
+#include "Asset/Texture.h"
 
 #include "Render/gfx/gfx.h"
+#include "Render/Vulkan/Sampler.h"
+#include "Render/Vulkan/ShaderModule.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -236,10 +239,8 @@ void Program::run_vulkan()
 
 	load_resources_vulkan();
 
-	new MatTest();
+	new MatTest(std::string(ROOT_DIR"/") + "media/checkerboard.jpg");
 	MatTest* test = dynamic_cast<MatTest*>(find_material("test material"));
-	//new MatBasicVulkan();
-	//MatBasicVulkan* test = dynamic_cast<MatBasicVulkan*>(find_material("basic material"));
 
 	while(true)
 	{
@@ -263,20 +264,6 @@ void Program::run_vulkan()
 
 		update(elapsed);
 
-#if 1
-		// temporary update
-		static auto startTime = std::chrono::high_resolution_clock::now();
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-		test->uniforms = {
-			.ModelMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-			.ViewMatrix = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-			.ProjectionMatrix = glm::perspective(glm::radians(45.0f), Vulkan::Instance->swapChainExtent.width / (float) Vulkan::Instance->swapChainExtent.height, 0.1f, 10.0f),
-		};
-		// so it's not upside down
-		test->uniforms.ProjectionMatrix[1][1] *= -1;
-
-#endif
 
 		// draw
 
@@ -288,10 +275,7 @@ void Program::run_vulkan()
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 			{
-#if 0
-				test->uniforms.OBJECT_TO_CLIP = Camera::Active->world_to_clip() * m->object_to_world();
-				test->uniforms.OBJECT_TO_CAM_ROT = m->object_to_world_rotation();
-#endif
+				test->set_parameters(m);
 				test->use(cmdbuf);
 				m->draw(cmdbuf);
 			}
@@ -300,7 +284,9 @@ void Program::run_vulkan()
 		Vulkan::Instance->endFrame();
 	}
 	Vulkan::Instance->waitDeviceIdle();
-	gfx::ShaderModule::cleanup();
+	ShaderModule::cleanup();
+	Texture::cleanup();
+	Sampler::cleanup();
 
 	delete test;
 	DescriptorSet::releasePool(Vulkan::Instance->device);

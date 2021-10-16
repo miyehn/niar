@@ -39,11 +39,12 @@ struct Camera {
 	void unlock();
 
 	// functions
-	mat3 world_to_camera_rotation();
+	mat3 world_to_camera_rotation() const;
 	mat4 world_to_camera();
-	mat3 camera_to_world_rotation();
+	mat3 camera_to_world_rotation() const;
 	mat4 camera_to_world();
 
+	mat4 camera_to_clip();
 	mat4 world_to_clip();
 
 	vec3 forward();

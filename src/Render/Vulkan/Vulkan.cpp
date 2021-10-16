@@ -37,7 +37,9 @@ Vulkan::~Vulkan() {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(device, inFlightFences[i], nullptr);
     }
-    vkDestroyCommandPool(device, commandPool, nullptr);
+	vkDestroyFence(device, immediateSubmitFence, nullptr);
+
+	vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyCommandPool(device, shortLivedCommandsPool, nullptr);
 	vkDestroyImageView(device, depthImageView, nullptr);
     for (auto framebuffer : swapChainFramebuffers) {
@@ -167,6 +169,43 @@ void Vulkan::createMemoryAllocator()
 		.instance = instance
 	};
 	EXPECT(vmaCreateAllocator(&allocatorInfo, &memoryAllocator), VK_SUCCESS);
+}
+
+void Vulkan::immediateSubmit(std::function<void(VkCommandBuffer)> &&fn)
+{
+	VkCommandBufferAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.commandPool = shortLivedCommandsPool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = 1,
+	};
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+	// start recording to this command buffer
+	VkCommandBufferBeginInfo beginInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+	};
+	EXPECT(vkBeginCommandBuffer(commandBuffer, &beginInfo), VK_SUCCESS)
+
+	fn(commandBuffer);
+
+	EXPECT(vkEndCommandBuffer(commandBuffer), VK_SUCCESS)
+
+	// submit this to the queue
+	VkSubmitInfo submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &commandBuffer
+	};
+	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, immediateSubmitFence), VK_SUCCESS)
+	vkWaitForFences(device, 1, &immediateSubmitFence, true, SDL_MAX_UINT64);
+	vkResetFences(device, 1, &immediateSubmitFence);
+	//EXPECT(vkQueueWaitIdle(graphicsQueue), VK_SUCCESS) // alternatively use a fence, if want to submit a bunch of commands and wait for them all
+
+	// cleanup
+	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
 }
 
 void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size)
@@ -739,6 +778,9 @@ void Vulkan::createSynchronizationObjects() {
 			ERR("failed to create semaphores")
 		}
 	}
+
+	fenceInfo.flags = 0;
+	EXPECT(vkCreateFence(device, &fenceInfo, nullptr, &immediateSubmitFence), VK_SUCCESS)
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan::debugCallback(

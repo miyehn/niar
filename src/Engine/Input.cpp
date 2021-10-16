@@ -2,7 +2,7 @@
 #include "Utils/Utils.hpp"
 #include "Asset/Shader.h"
 #include "Asset/Blit.h"
-#include "Asset/Texture.h"
+#include "Asset/GlTexture.h"
 #include "Asset/GlMaterial.h"
 #include "Asset/Mesh.h"
 #include "libconfig/libconfig.h++"
@@ -100,7 +100,7 @@ void initialize_asset_config()
 			std::string name = textures[i].lookup("Name");
 			std::string path = textures[i].lookup("Path");
 			int SRGB = textures[i].lookup("SRGB");
-			Texture::set_resource_info(name, ROOT_DIR"/" + path, SRGB);
+			GlTexture::set_resource_info(name, ROOT_DIR"/" + path, SRGB);
 			LOG("set texture path for '%s', SRGB: %d", name.c_str(), SRGB);
 		}
 
@@ -119,23 +119,23 @@ void initialize_asset_config()
 				std::string roughness = m.exists("Roughness") ? m.lookup("Roughness") : "white";
 				std::string ao = m.exists("AO") ? m.lookup("AO") : "white";
 				MatDeferredGeometry* mat = new MatDeferredGeometry();
-				mat->albedo_map = Texture::get(albedo);
-				mat->normal_map = Texture::get(normal);
-				mat->metallic_map = Texture::get(metallic);
-				mat->roughness_map = Texture::get(roughness);
-				mat->ao_map = Texture::get(ao);
+				mat->albedo_map = GlTexture::get(albedo);
+				mat->normal_map = GlTexture::get(normal);
+				mat->metallic_map = GlTexture::get(metallic);
+				mat->roughness_map = GlTexture::get(roughness);
+				mat->ao_map = GlTexture::get(ao);
 				GlMaterial::add_to_pool(name, mat);
 
 			} else if (shader == "basic") {
 				std::string base_color = m.exists("BaseColor") ? m.lookup("BaseColor") : "white";
 				MatBasic* mat = new MatBasic();
-				mat->base_color = Texture::get(base_color);
+				mat->base_color = GlTexture::get(base_color);
 				GlMaterial::add_to_pool(name, mat);
 
 			} else if (shader == "geometry_basic") {
 				std::string albedo = m.exists("Albedo") ? m.lookup("Albedo") : "white";
 				MatDeferredGeometryBasic* mat = new MatDeferredGeometryBasic();
-				mat->albedo_map = Texture::get(albedo);
+				mat->albedo_map = GlTexture::get(albedo);
 				GlMaterial::add_to_pool(name, mat);
 
 			} else {

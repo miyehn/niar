@@ -116,7 +116,7 @@ Frustum Camera::frustum() {
 // Never really got how camera rotation control works but gonna settle for now...
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
-mat3 Camera::world_to_camera_rotation() {
+mat3 Camera::world_to_camera_rotation() const {
 	if (use_YPR) {
 		mat4 m4 = rotate(mat4(1), -roll, vec3(0, 1, 0)) *
 				 rotate(mat4(1), -pitch, vec3(1, 0, 0)) * 
@@ -130,7 +130,7 @@ mat4 Camera::world_to_camera() {
 	return mat4(world_to_camera_rotation()) * translate(mat4(1), -position);
 }
 
-mat3 Camera::camera_to_world_rotation() {
+mat3 Camera::camera_to_world_rotation() const {
 	mat4 m4;
 	if (use_YPR) { 
 		m4 = rotate(mat4(1), yaw, vec3(0, 0, 1)) *
@@ -147,10 +147,7 @@ mat4 Camera::camera_to_world() {
 }
 
 mat4 Camera::world_to_clip() {
-	mat4 camera_to_clip = orthographic ?
-		ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
-		perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
-	return camera_to_clip * world_to_camera();
+	return camera_to_clip() * world_to_camera();
 }
 
 vec3 Camera::right() {
@@ -180,4 +177,12 @@ vec4 Camera::ZBufferParams() {
 	res.z = (1.0f - cutoffFar/cutoffNear) / cutoffFar;
 	res.w = (cutoffFar / cutoffNear) / cutoffFar;
 	return res;
+}
+
+mat4 Camera::camera_to_clip()
+{
+	mat4 camera_to_clip = orthographic ?
+						  ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
+						  perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
+	return camera_to_clip;
 }

@@ -1,36 +1,34 @@
 #pragma once
-#include "Utils/lib.h"
+#include <string>
 #include <unordered_map>
+#include "Render/Vulkan/Vulkan.hpp"
 
-struct Texture {
-	
-	struct ResourceInfo {
-		std::string path;
-		bool SRGB;
-	};
+class Texture
+{
+protected:
+	Texture() = default;
+	virtual ~Texture();
 
-	CONST_PTR(Texture, white);
-	CONST_PTR(Texture, black);
-	CONST_PTR(Texture, default_normal);
+	static std::unordered_map<std::string, Texture*> pool;
 
-	static Texture* get(const std::string& name);
-	static void set_resource_info(const std::string& name, const std::string& path, bool SRGB_in);
+public:
+	static Texture* get(const std::string &path);
 	static void cleanup();
 
-	uint id() { return id_value; }
-	int width() { return width_value; }
-	int height() { return height_value; }
-	int num_channels() { return num_channels_value; }
+	VmaAllocatedImage resource;
+};
 
-private:
-	uint id_value = 0;
-	int width_value = 0;
-	int height_value = 0;
-	int num_channels_value = 0;
+class Texture2D : public Texture
+{
+	int width;
+	int height;
+	int num_slices;
 
-	static Texture* create_texture_8bit(unsigned char* data, int w, int h, int nc, bool SRGB);
+	VkImageView imageView;
 
-	static std::unordered_map<std::string, ResourceInfo> texture_resource_infos;
-	static std::unordered_map<std::string, Texture*> texture_pool;
-	
+	~Texture2D();
+
+public:
+	explicit Texture2D(const std::string &path);
+	VkImageView get_image_view() { return imageView; }
 };

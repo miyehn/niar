@@ -2,6 +2,7 @@
 #include "Asset/Vertex.h"
 #include "Render/gfx/gfx.h"
 #include "Vulkan.hpp"
+#include "ShaderModule.h"
 
 namespace gfx
 {

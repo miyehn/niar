@@ -7,12 +7,16 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+class Drawable;
+class Texture2D;
+
 class Material
 {
 public:
 	Material() = default;
 	std::string name = "[anonymous material]";
 	virtual int get_id() = 0;
+	virtual void set_parameters(Drawable* drawable) = 0;
 	virtual void use(VkCommandBuffer &cmdbuf) = 0;
 	virtual ~Material();
 
@@ -28,10 +32,13 @@ class MatTest : public Material
 {
 public:
 
-	MatTest();
+	explicit MatTest(const std::string &tex_path);
 	int get_id() override { return 0; }
+	void set_parameters(Drawable* drawable) override;
 	void use(VkCommandBuffer &cmdbuf) override;
 	~MatTest() override;
+
+private:
 
 	struct
 	{
@@ -40,28 +47,7 @@ public:
 		alignas(16) glm::mat4 ProjectionMatrix;
 	} uniforms;
 
-private:
-
-	VmaBuffer uniformBuffer;
-	DescriptorSet descriptorSet;
-};
-
-class MatBasicVulkan : public Material
-{
-public:
-
-	MatBasicVulkan();
-	int get_id() override { return 1; }
-	void use(VkCommandBuffer &cmdbuf) override;
-	~MatBasicVulkan() override;
-
-	struct
-	{
-		alignas(16) glm::mat4 OBJECT_TO_CLIP;
-		alignas(16) glm::mat3 OBJECT_TO_CAM_ROT;
-	} uniforms;
-
-private:
+	Texture2D* texture; // expected to be the same most of the time
 
 	VmaBuffer uniformBuffer;
 	DescriptorSet descriptorSet;

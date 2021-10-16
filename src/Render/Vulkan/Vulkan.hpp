@@ -23,12 +23,6 @@ namespace gfx
 	struct PipelineBuilder;
 }
 
-struct VmaAllocatedBuffer
-{
-	VkBuffer buffer;
-	VmaAllocation allocation;
-};
-
 struct VmaAllocatedImage
 {
 	VkImage image;
@@ -81,6 +75,7 @@ public:
 	// Below: testbed for learning Vulkan. Will be moved to Renderer later
 	// https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
 
+	void immediateSubmit(std::function<void(VkCommandBuffer cmdbuf)> &&fn);
 
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
@@ -140,6 +135,7 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences; // per frame-in-flight
 	std::vector<VkFence> imagesInFlight; // per swap chain image
+	VkFence immediateSubmitFence;
 
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {

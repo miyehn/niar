@@ -8,8 +8,9 @@
 
 struct BSDF;
 struct aiMesh;
-struct Texture;
+struct GlTexture;
 struct GlMaterial;
+class Material;
 
 struct Mesh : Drawable {
 
@@ -41,6 +42,9 @@ struct Mesh : Drawable {
 	BSDF* bsdf = nullptr;
 
 	GlMaterial* materials[NUM_MATERIAL_SETS];
+
+	// Vulkan
+	Material* material = nullptr;
 
 	static void set_material_name_for(const std::string& mesh_name, const std::string& mat_name);
 

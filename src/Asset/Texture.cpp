@@ -1,100 +1,177 @@
 #include "Texture.h"
+#include <stb_image/stb_image.h>
+#include "Render/Vulkan/Vulkan.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image/stb_image.h"
+std::unordered_map<std::string, Texture *> Texture::pool;
 
-// might be relevant: https://github.com/nothings/stb/issues/103
-Texture* Texture::create_texture_8bit(unsigned char* data, int w, int h, int nc, bool SRGB) {
-	Texture* tex = new Texture();
-	tex->width_value = w;
-	tex->height_value = h;
-	tex->num_channels_value = nc;
-	glGenTextures(1, &tex->id_value);
-	glBindTexture(GL_TEXTURE_2D, tex->id());
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	if (nc == 3) {
-		glTexImage2D(GL_TEXTURE_2D, 0, SRGB ? GL_SRGB : GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-	} else if (nc == 4) {
-		glTexImage2D(GL_TEXTURE_2D, 0, SRGB ? GL_SRGB_ALPHA : GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	} else {
-		WARN("trying to create a texture neither 3 channels nor 4 channels??");
+void Texture::cleanup()
+{
+	for (auto & it : Texture::pool)
+	{
+		delete it.second;
 	}
-	glGenerateMipmap(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	GL_ERRORS();
-	return tex;
 }
 
-std::unordered_map<std::string, Texture*> Texture::texture_pool;
-std::unordered_map<std::string, Texture::ResourceInfo> Texture::texture_resource_infos;
+Texture *Texture::get(const std::string &path)
+{
+	auto it = Texture::pool.find(path);
+	if (it != Texture::pool.end()) return (*it).second;
 
-void Texture::set_resource_info(const std::string& name, const std::string& path_in, bool SRGB_in) {
-	ResourceInfo info;
-	info.path = path_in;
-	info.SRGB = SRGB_in;
-	texture_resource_infos[name] = info;
+	auto new_texture = new Texture2D(path);
+	Texture::pool[path] = new_texture;
+	return new_texture;
 }
 
-#define IMPLEMENT_CONST_COLOR_TEX(NAME, R, G, B) \
-	Texture* Texture::NAME##_value = nullptr; \
-	Texture* Texture::NAME() { \
-		if (NAME##_value) return NAME##_value; \
-		std::vector<u8vec3> NAME##_data(4 * 4 * 3); \
-		for (int i=0; i<NAME##_data.size(); i++) { \
-			NAME##_data[i] = u8vec3(R, G, B); \
-		} \
-		NAME##_value = create_texture_8bit((unsigned char*)NAME##_data.data(), 4, 4, 3, false); \
-		return NAME##_value; \
-	}
-
-IMPLEMENT_CONST_COLOR_TEX(white, 255, 255, 255);
-IMPLEMENT_CONST_COLOR_TEX(black, 0, 0, 0);
-IMPLEMENT_CONST_COLOR_TEX(default_normal, 127, 127, 255);
-
-Texture* Texture::get(const std::string& name) {
-
-	std::string path;
-	bool SRGB;
-	auto info_pair = texture_resource_infos.find(name);
-	if (info_pair == texture_resource_infos.end()) {
-		if (name=="white") return white();
-		else if (name=="black") return black();
-		else if (name=="defaultNormal") return default_normal();
-		ERR("There isn't a texture called %s", name.c_str());
-		return nullptr;
-	} else {
-		path = info_pair->second.path;
-		SRGB = info_pair->second.SRGB;
-	}
-
-	auto found_tex = texture_pool.find(path);
-	if (found_tex != texture_pool.end()) {
-		return found_tex->second;
-	}
-	// make texture instance
-	int w, h, nc;
-	unsigned char* data = stbi_load(path.c_str(), &w, &h, &nc, 0);
-	if (!data) {
-		ERR("could not load image at path: %s", path.c_str());
-		return nullptr;
-	}
-
-	Texture* tex = create_texture_8bit(data, w, h, nc, SRGB);
-	stbi_image_free(data);
-
-	texture_pool[path] = tex;
-
-	LOG("(created texture '%s' of size %dx%d with %d channels)", name.c_str(), tex->width(), tex->height(), tex->num_channels());
-	return tex;
+Texture::~Texture()
+{
+	vmaDestroyImage(Vulkan::Instance->memoryAllocator, resource.image, resource.allocation);
 }
 
-void Texture::cleanup() {
-	for (auto tex : texture_pool) {
-		glDeleteTextures(1, &tex.second->id_value);
-		GL_ERRORS();
-		delete tex.second;
-	}
+//--------
+
+Texture2D::Texture2D(const std::string &path)
+{
+	num_slices = 1;
+
+	int native_channels;
+	stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &native_channels, STBI_rgb_alpha);
+	LOG("load texture w %d h %d channels %d", width, height, native_channels)
+	EXPECT(pixels != nullptr, true)
+
+	VkDeviceSize imageSize = width * height * 4;
+	VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, imageSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	stagingBuffer.writeData(pixels);
+	stbi_image_free(pixels);
+
+	VkExtent3D imageExtent = {
+		.width = static_cast<uint32_t>(width),
+		.height = static_cast<uint32_t>(height),
+		.depth = 1
+	};
+
+	VkImageCreateInfo imgInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = imageFormat,
+		.extent = imageExtent,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+	};
+
+	VmaAllocationCreateInfo imgAllocInfo = {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+
+	vmaCreateImage(Vulkan::Instance->memoryAllocator, &imgInfo, &imgAllocInfo, &resource.image, &resource.allocation, nullptr);
+
+	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
+	{
+		// image layouts
+		auto transferLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		auto shaderReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		// barrier the image into the transfer-receive layout
+		VkImageSubresourceRange range = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		};
+		VkImageMemoryBarrier imageBarrier_toTransfer = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = transferLayout,
+			.image = resource.image,
+			.subresourceRange = range,
+		};
+		vkCmdPipelineBarrier(
+			cmdbuf,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&imageBarrier_toTransfer);
+
+		// do the transfer
+		VkBufferImageCopy copyRegion = {
+			.bufferOffset = 0,
+			.bufferRowLength = 0,
+			.bufferImageHeight = 0,
+			.imageSubresource = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			},
+			.imageOffset = {0, 0, 0},
+			.imageExtent = imageExtent
+		};
+		vkCmdCopyBufferToImage(
+			cmdbuf,
+			stagingBuffer.getBufferInstance(),
+			resource.image,
+			transferLayout,
+			1,
+			&copyRegion);
+
+		// barrier it again into shader readonly optimal layout
+		VkImageMemoryBarrier imageBarrier_toShaderReadonly = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.oldLayout = transferLayout,
+			.newLayout = shaderReadLayout,
+			.image = resource.image,
+			.subresourceRange = range,
+		};
+		vkCmdPipelineBarrier(
+			cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			0,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&imageBarrier_toShaderReadonly);
+
+	});
+
+	stagingBuffer.release();
+
+	// create image view
+	VkImageViewCreateInfo viewInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.flags = 0,
+		.image = resource.image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = imageFormat,
+		.components = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		}
+	};
+	EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &imageView), VK_SUCCESS)
+}
+
+Texture2D::~Texture2D()
+{
+	vkDestroyImageView(Vulkan::Instance->device, imageView, nullptr);
 }
