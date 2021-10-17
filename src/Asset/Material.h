@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <glm/glm.hpp>
 
 class Drawable;
@@ -19,6 +20,9 @@ public:
 	virtual void set_parameters(Drawable* drawable) = 0;
 	virtual void use(VkCommandBuffer &cmdbuf) = 0;
 	virtual ~Material();
+
+	static Material* find(const std::string& name);
+	static void cleanup();
 
 protected:
 
@@ -52,5 +56,3 @@ private:
 	VmaBuffer uniformBuffer;
 	DescriptorSet descriptorSet;
 };
-
-Material* find_material(const std::string& name);

@@ -707,8 +707,8 @@ inline VkShaderModule Vulkan::createShaderModule(const std::vector<char>& code) 
 
 void Vulkan::createSwapChainRenderPass()
 {
-	RenderPassBuilder passBuilder{ swapChainImageFormat, swapChainDepthFormat };
-	swapChainRenderPass = passBuilder.build(device);
+	RenderPassBuilder displayPassBuilder;
+	swapChainRenderPass = displayPassBuilder.buildDisplayPass(device, swapChainImageFormat, swapChainDepthFormat);
 }
 
 void Vulkan::createFramebuffers() {

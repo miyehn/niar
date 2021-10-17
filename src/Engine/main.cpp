@@ -12,6 +12,7 @@
 #include "Render/gfx/gfx.h"
 #include "Render/Vulkan/Sampler.h"
 #include "Render/Vulkan/ShaderModule.h"
+#include "Render/Vulkan/Renderer.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -240,7 +241,16 @@ void Program::run_vulkan()
 	load_resources_vulkan();
 
 	new MatTest(std::string(ROOT_DIR"/") + "media/checkerboard.jpg");
-	MatTest* test = dynamic_cast<MatTest*>(find_material("test material"));
+	//MatTest* test = dynamic_cast<MatTest*>(find_material("test material"));
+
+	Scene* scene = Scene::Active;
+	for (int i = 0; i < scene->children.size(); i++)
+	{
+		if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
+		{
+			m->material = Material::find("test material");
+		}
+	}
 
 	while(true)
 	{
@@ -267,28 +277,18 @@ void Program::run_vulkan()
 
 		// draw
 
-		auto cmdbuf = Vulkan::Instance->beginFrame();
-		// render to RT, etc...
-		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
-		Scene* scene = Scene::Active;
-		for (int i = 0; i < scene->children.size(); i++)
-		{
-			if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
-			{
-				test->set_parameters(m);
-				test->use(cmdbuf);
-				m->draw(cmdbuf);
-			}
-		}
-		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
-		Vulkan::Instance->endFrame();
+		SimpleRenderer renderer;
+		renderer.camera = Camera::Active;
+		renderer.drawables = Scene::Active->children;
+		renderer.render();
 	}
+
 	Vulkan::Instance->waitDeviceIdle();
 	ShaderModule::cleanup();
 	Texture::cleanup();
 	Sampler::cleanup();
+	Material::cleanup();
 
-	delete test;
 	DescriptorSet::releasePool(Vulkan::Instance->device);
 	release_resources();
 

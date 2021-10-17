@@ -1,18 +1,10 @@
 #include "Material.h"
 #include "Engine/Drawable.hpp"
 #include "Scene/Camera.hpp"
-#include <unordered_map>
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Asset/Texture.h"
 
-static std::unordered_map<std::string, Material*> material_pool{};
-
-Material* find_material(const std::string& name)
-{
-	auto mat_iter = material_pool.find(name);
-	if (mat_iter != material_pool.end()) return mat_iter->second;
-	return nullptr;
-}
+std::unordered_map<std::string, Material*> material_pool{};
 
 void add_material(Material* material)
 {
@@ -32,6 +24,21 @@ Material::~Material()
 	for (auto layout : descriptorSetLayouts)
 	{
 		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, layout, nullptr);
+	}
+}
+
+Material *Material::find(const std::string &name)
+{
+	auto mat_iter = material_pool.find(name);
+	if (mat_iter != material_pool.end()) return mat_iter->second;
+	return nullptr;
+}
+
+void Material::cleanup()
+{
+	for (auto it : material_pool)
+	{
+		delete it.second;
 	}
 }
 
