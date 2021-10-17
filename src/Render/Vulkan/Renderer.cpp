@@ -2,6 +2,7 @@
 #include "Asset/Mesh.h"
 #include "Asset/Material.h"
 #include "RenderPassBuilder.h"
+#include "VulkanUtils.h"
 
 void SimpleRenderer::render()
 {
@@ -35,7 +36,7 @@ AnotherRenderer::AnotherRenderer()
 			.arrayLayers = 1,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.tiling = VK_IMAGE_TILING_OPTIMAL,
-			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
 		};
 		VmaAllocationCreateInfo allocInfo = {
 			.usage = VMA_MEMORY_USAGE_GPU_ONLY,
@@ -102,7 +103,7 @@ AnotherRenderer::AnotherRenderer()
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 		});
 		passBuilder.depthAttachment = {
 			.format = VK_FORMAT_D32_SFLOAT,
@@ -186,13 +187,50 @@ void AnotherRenderer::render()
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
-	//----------------- copy to screen (?) ----------------
+	//----------------- copy to screen ----------------
 
-	Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
 	{
-		// TODO
+		VkImage swapChainImage = Vulkan::Instance->getCurrentSwapChainImage();
+
+		// barrier the swapchain image into transfer-dst layout
+		vk::insertImageBarrier(cmdbuf, swapChainImage,
+							   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+							   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+							   VK_PIPELINE_STAGE_TRANSFER_BIT,
+							   0,
+							   VK_ACCESS_TRANSFER_WRITE_BIT,
+							   VK_IMAGE_LAYOUT_UNDEFINED,
+							   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		// blit to screen
+		VkOffset3D offsetMin = {0, 0, 0};
+		VkOffset3D offsetMax = {
+			static_cast<int32_t>(swapChainExtent.width),
+			static_cast<int32_t>(swapChainExtent.height),
+			1
+		};
+		VkImageBlit blitRegion = {
+			.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.srcOffsets = { offsetMin, offsetMax },
+			.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.dstOffsets = { offsetMin, offsetMax }
+		};
+		vkCmdBlitImage(cmdbuf,
+					   outColor.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					   swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					   1, &blitRegion,
+					   VK_FILTER_LINEAR);
+
+		// barrier swapchain image back to present optimal
+		vk::insertImageBarrier(cmdbuf, swapChainImage,
+							   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+							   VK_PIPELINE_STAGE_TRANSFER_BIT,
+							   VK_PIPELINE_STAGE_TRANSFER_BIT,
+							   VK_ACCESS_TRANSFER_WRITE_BIT,
+							   VK_ACCESS_MEMORY_READ_BIT,
+							   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+							   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 	}
-	Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
 	Vulkan::Instance->endFrame();
 }
 

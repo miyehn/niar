@@ -42,11 +42,19 @@ struct Vulkan {
 	void endSwapChainRenderPass(VkCommandBuffer cmdbuf);
 	void endFrame();
 
+	void immediateSubmit(std::function<void(VkCommandBuffer cmdbuf)> &&fn);
+
 	bool isFrameInProgress() const { return isFrameStarted; }
 	VkCommandBuffer getCurrentCommandBuffer() const
 	{
 		EXPECT(isFrameStarted, true)
 		return commandBuffers[currentFrame]; // as opposed to currentImageIndex, so cmdbuf is not tied to other resource?
+	}
+
+	VkImage getCurrentSwapChainImage() const
+	{
+		EXPECT(isFrameStarted, true)
+		return swapChainImages[currentImageIndex];
 	}
 
 	uint32_t getNumSwapChainImages() const
@@ -62,22 +70,18 @@ struct Vulkan {
 
 	VkRenderPass getSwapChainRenderPass() const { return swapChainRenderPass; }
 
+	void waitDeviceIdle() {
+		EXPECT(vkDeviceWaitIdle(device), VK_SUCCESS);
+	}
+
 private:
 	uint32_t currentImageIndex;
 	bool isFrameStarted = false;
 
 public:
 
-	void waitDeviceIdle() {
-		EXPECT(vkDeviceWaitIdle(device), VK_SUCCESS);
-	}
-
 	// Below: testbed for learning Vulkan. Will be moved to Renderer later
 	// https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
-
-	void immediateSubmit(std::function<void(VkCommandBuffer cmdbuf)> &&fn);
-
-	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
 	VkDevice device;
 	VkFormat swapChainImageFormat;
@@ -232,28 +236,3 @@ public:
 	void setObjectName(VkObjectType objectType, uint64_t objectHandle, const std::string &objectName);
 
 };
-
-class ScopedDrawEvent
-{
-	VkCommandBuffer &cmdbuf;
-public:
-	ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color = {1, 1, 1, 1}) : cmdbuf(cmdbuf)
-	{
-		VkDebugUtilsLabelEXT markerInfo {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-			.pLabelName = name.c_str(),
-			.color = {color.r, color.g, color.b, color.a}
-		};
-		Vulkan::Instance->fn_vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &markerInfo);
-	}
-
-	~ScopedDrawEvent()
-	{
-		Vulkan::Instance->fn_vkCmdEndDebugUtilsLabelEXT(cmdbuf);
-	}
-};
-#define SCOPED_DRAW_EVENT(CMDBUF, NAME, ...) ScopedDrawEvent __scopedDrawEvent(CMDBUF, NAME, __VA_ARGS__);
-
-#define DEBUG_LABEL(CMDBUF, NAME, ...) Vulkan::Instance->cmdInsertDebugLabel(CMDBUF, NAME, __VA_ARGS__);
-
-#define NAME_OBJECT(VK_OBJECT_TYPE, OBJECT, NAME) Vulkan::Instance->setObjectName(VK_OBJECT_TYPE, (uint64_t)OBJECT, NAME);

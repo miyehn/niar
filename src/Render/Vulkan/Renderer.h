@@ -26,7 +26,7 @@ class AnotherRenderer : public Renderer
 {
 protected:
 	AnotherRenderer();
-	~AnotherRenderer();
+	~AnotherRenderer() override;
 
 	// need to be responsible for tracking the intermediate image attachments, framebuffers, renderpasses
 	VmaAllocatedImage outColor;

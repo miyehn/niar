@@ -55,7 +55,7 @@ set(SRC
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
 	src/Utils/myn/Color.cpp
-	src/Asset/Texture.cpp src/Render/StbImageImpl.cpp src/Render/Vulkan/Sampler.cpp src/Render/Vulkan/Sampler.h src/Render/Vulkan/ShaderModule.cpp src/Render/Vulkan/ShaderModule.h src/Render/Vulkan/Renderer.cpp src/Render/Vulkan/Renderer.h)
+	src/Asset/Texture.cpp src/Render/StbImageImpl.cpp src/Render/Vulkan/Sampler.cpp src/Render/Vulkan/Sampler.h src/Render/Vulkan/ShaderModule.cpp src/Render/Vulkan/ShaderModule.h src/Render/Vulkan/Renderer.cpp src/Render/Vulkan/Renderer.h src/Render/Vulkan/VulkanUtils.cpp src/Render/Vulkan/VulkanUtils.h)
 
 if(APPLE)
 	add_executable(niar ${SRC})

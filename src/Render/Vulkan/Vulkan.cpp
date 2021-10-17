@@ -208,44 +208,6 @@ void Vulkan::immediateSubmit(std::function<void(VkCommandBuffer)> &&fn)
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
 }
 
-void Vulkan::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size)
-{
-	VkCommandBufferAllocateInfo allocInfo = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandPool = shortLivedCommandsPool,
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		.commandBufferCount = 1,
-	};
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-	// start recording to this command buffer
-	VkCommandBufferBeginInfo beginInfo = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-	};
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-	VkBufferCopy copyRegion = {
-		.srcOffset = 0,
-		.dstOffset = 0,
-		.size = size
-	};
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-	vkEndCommandBuffer(commandBuffer);
-
-	// submit this to the queue
-	VkSubmitInfo submitInfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffer
-	};
-	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), VK_SUCCESS)
-	EXPECT(vkQueueWaitIdle(graphicsQueue), VK_SUCCESS) // alternatively use a fence, if want to submit a bunch of commands and wait for them all
-
-	// cleanup
-	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
-}
-
 void Vulkan::createInstance(SDL_Window* in_window) {
 
     VkApplicationInfo appInfo = {
@@ -361,9 +323,6 @@ Vulkan::QueueFamilyIndices Vulkan::findQueueFamilies(VkPhysicalDevice in_device)
 
 	int i = 0;
 	for (const auto &queueFamily : queueFamilies) {
-		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			queueFamilyIndices.graphicsFamily = i;
-		}
 		VkBool32 presentSupport = false;
 		vkGetPhysicalDeviceSurfaceSupportKHR(in_device, i, surface, &presentSupport);
 		if (presentSupport) {
@@ -371,6 +330,9 @@ Vulkan::QueueFamilyIndices Vulkan::findQueueFamilies(VkPhysicalDevice in_device)
 		}
 		if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
 			queueFamilyIndices.computeFamily = i;
+		}
+		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			queueFamilyIndices.graphicsFamily = i;
 		}
 		i++;
 	}
@@ -580,7 +542,7 @@ void Vulkan::createSwapChain() {
 		.imageColorSpace = surfaceFormat.colorSpace,
 		.imageExtent = extent,
 		.imageArrayLayers = 1, // 1 unless for stereoscopic 3D app
-		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // VK_IMAGE_USAGE_TRANSFER_DST_BIT if copied from other buffers
+		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, // VK_IMAGE_USAGE_TRANSFER_DST_BIT if copied from other buffers
 		.preTransform = swapChainSupport.capabilities.currentTransform,
 		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // for blending with other windows
 		.presentMode = presentMode,

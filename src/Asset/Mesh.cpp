@@ -10,7 +10,8 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-#include "Render/gfx/gfx.h"
+#include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/VulkanUtils.h"
 
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
@@ -94,7 +95,7 @@ void Mesh::create_vertex_buffer()
 	vertexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// and copy stuff from staging buffer to vertex buffer
-	Vulkan::Instance->copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
 	stagingBuffer.release();
 }
 
@@ -114,7 +115,7 @@ void Mesh::create_index_buffer()
 	indexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// move stuff from staging buffer and destroy staging buffer
-	Vulkan::Instance->copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
 	stagingBuffer.release();
 }
 
