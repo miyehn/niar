@@ -720,7 +720,7 @@ void Vulkan::createFramebuffers() {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = swapChainRenderPass, // the render pass it needs to be compatible with
 			.attachmentCount = 2,
-			.pAttachments = attachments,
+			.pAttachments = attachments, // a pointer to an array of VkImageView handles, each of which will be used as the corresponding attachment in a render pass instance.
 			.width = swapChainExtent.width,
 			.height = swapChainExtent.height,
 			.layers = 1

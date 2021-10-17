@@ -252,6 +252,8 @@ void Program::run_vulkan()
 		}
 	}
 
+	Renderer* renderer = AnotherRenderer::get();
+
 	while(true)
 	{
 		SDL_Event event;
@@ -274,16 +276,15 @@ void Program::run_vulkan()
 
 		update(elapsed);
 
-
 		// draw
 
-		SimpleRenderer renderer;
-		renderer.camera = Camera::Active;
-		renderer.drawables = Scene::Active->children;
-		renderer.render();
+		renderer->camera = Camera::Active;
+		renderer->drawables = Scene::Active->children;
+		renderer->render();
 	}
 
 	Vulkan::Instance->waitDeviceIdle();
+	AnotherRenderer::cleanup();
 	ShaderModule::cleanup();
 	Texture::cleanup();
 	Sampler::cleanup();

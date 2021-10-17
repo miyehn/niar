@@ -2,6 +2,7 @@
 #include "Engine/Drawable.hpp"
 #include "Scene/Camera.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/Renderer.h"
 #include "Asset/Texture.h"
 
 std::unordered_map<std::string, Material*> material_pool{};
@@ -60,7 +61,7 @@ MatTest::MatTest(const std::string &tex_path)
 		pipelineBuilder.vertPath = "spirv/basic.vert.spv";
 		pipelineBuilder.fragPath = "spirv/basic.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.compatibleRenderPass = vk->getSwapChainRenderPass();
+		pipelineBuilder.compatibleRenderPass = AnotherRenderer::get()->getRenderPass();
 		pipelineBuilder.add_binding(0, 0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		pipelineBuilder.add_binding(0, 1, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		pipeline = pipelineBuilder.build();

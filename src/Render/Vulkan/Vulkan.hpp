@@ -256,5 +256,4 @@ public:
 
 #define DEBUG_LABEL(CMDBUF, NAME, ...) Vulkan::Instance->cmdInsertDebugLabel(CMDBUF, NAME, __VA_ARGS__);
 
-// a hack to allow it to be used within vulkan instance creation
-#define NAME_OBJECT(VK_OBJECT_TYPE, OBJECT, NAME) (Vulkan::Instance ? Vulkan::Instance : this)->setObjectName(VK_OBJECT_TYPE, (uint64_t)OBJECT, NAME);
+#define NAME_OBJECT(VK_OBJECT_TYPE, OBJECT, NAME) Vulkan::Instance->setObjectName(VK_OBJECT_TYPE, (uint64_t)OBJECT, NAME);
