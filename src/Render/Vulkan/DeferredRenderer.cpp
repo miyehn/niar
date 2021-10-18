@@ -169,6 +169,19 @@ DeferredRenderer::DeferredRenderer()
 				.pColorAttachments = &sceneColorAttachmentReference,
 				.pDepthStencilAttachment = nullptr
 			});
+
+		// dependencies
+		passBuilder.dependencies.push_back(
+			{
+				.srcSubpass = 0,
+				.dstSubpass = 1,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT
+			});
+
+		// build the renderpass
 		renderPass = passBuilder.build(Vulkan::Instance->device);
 	}
 
