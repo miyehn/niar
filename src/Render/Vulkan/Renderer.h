@@ -14,6 +14,7 @@ public:
 	Camera* camera = nullptr;
 
 	virtual void render() = 0;
+	virtual VkRenderPass getRenderPass() = 0;
 };
 
 class SimpleRenderer : public Renderer
@@ -42,7 +43,7 @@ protected:
 
 public:
 	void render() override;
-	VkRenderPass getRenderPass() { return intermediatePass; }
+	VkRenderPass getRenderPass() override { return intermediatePass; }
 
 	static AnotherRenderer* get();
 	static void cleanup();

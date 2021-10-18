@@ -57,7 +57,7 @@ MatTest::MatTest(const std::string &tex_path)
 	auto vk = Vulkan::Instance;
 
 	{// create the layouts and build the pipeline
-		gfx::PipelineBuilder pipelineBuilder{};
+		PipelineBuilder pipelineBuilder{};
 		pipelineBuilder.vertPath = "spirv/basic.vert.spv";
 		pipelineBuilder.fragPath = "spirv/basic.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);

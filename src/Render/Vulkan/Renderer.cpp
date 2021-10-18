@@ -3,6 +3,7 @@
 #include "Asset/Material.h"
 #include "RenderPassBuilder.h"
 #include "VulkanUtils.h"
+#include "ImageCreator.h"
 
 void SimpleRenderer::render()
 {
@@ -25,74 +26,28 @@ void SimpleRenderer::render()
 AnotherRenderer::AnotherRenderer()
 {
 	swapChainExtent = Vulkan::Instance->swapChainExtent;
-	{
+
+	{// allocate images
 		// create outColor
-		VkImageCreateInfo imageInfo = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			.imageType = VK_IMAGE_TYPE_2D,
-			.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-			.extent = {swapChainExtent.width, swapChainExtent.height, 1},
-			.mipLevels = 1,
-			.arrayLayers = 1,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.tiling = VK_IMAGE_TILING_OPTIMAL,
-			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-		};
-		VmaAllocationCreateInfo allocInfo = {
-			.usage = VMA_MEMORY_USAGE_GPU_ONLY,
-			.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-		};
-		EXPECT(vmaCreateImage(Vulkan::Instance->memoryAllocator, &imageInfo, &allocInfo, &outColor.image, &outColor.allocation, nullptr), VK_SUCCESS)
-		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, outColor.image, "outColor")
+		ImageCreator outColorCreator(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			{swapChainExtent.width, swapChainExtent.height, 1},
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"outColor");
+		outColorCreator.create(outColor, outColorView);
 
-		// create outColor view
-		VkImageViewCreateInfo viewInfo = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.image = outColor.image,
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-			.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
-		};
-		EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &outColorView), VK_SUCCESS)
-		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, outColorView, "outColorView")
-	}
-
-	{
 		// create depth
-		VkImageCreateInfo dimgInfo = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			.pNext = nullptr,
-			.imageType = VK_IMAGE_TYPE_2D,
-			.format = VK_FORMAT_D32_SFLOAT,
-			.extent = {swapChainExtent.width, swapChainExtent.height, 1},
-			.mipLevels = 1,
-			.arrayLayers = 1,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.tiling = VK_IMAGE_TILING_OPTIMAL,
-			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
-		};
-		VmaAllocationCreateInfo dimgAllocInfo = {
-			.usage = VMA_MEMORY_USAGE_GPU_ONLY,
-			.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-		};
-		EXPECT(vmaCreateImage(Vulkan::Instance->memoryAllocator, &dimgInfo, &dimgAllocInfo, &outDepth.image, &outDepth.allocation, nullptr), VK_SUCCESS)
-		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, outDepth.image, "outDepth")
-
-		// create depth view
-		VkImageViewCreateInfo dimgViewInfo = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.pNext = nullptr,
-			.image = outDepth.image,
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = VK_FORMAT_D32_SFLOAT,
-			.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}
-		};
-		EXPECT(vkCreateImageView(Vulkan::Instance->device, &dimgViewInfo, nullptr, &outDepthView), VK_SUCCESS)
-		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, outDepthView, "outDepthView")
+		ImageCreator outDepthCreator(
+			VK_FORMAT_D32_SFLOAT,
+			{swapChainExtent.width, swapChainExtent.height, 1},
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			VK_IMAGE_ASPECT_DEPTH_BIT,
+			"outDepth");
+		outDepthCreator.create(outDepth, outDepthView);
 	}
 
-	{
-		// create renderpass
+	{// create renderpass
 		RenderPassBuilder passBuilder;
 		passBuilder.colorAttachments.push_back(
 			{
@@ -136,8 +91,7 @@ AnotherRenderer::AnotherRenderer()
 		intermediatePass = passBuilder.build(Vulkan::Instance->device);
 	}
 
-	{
-		// create intermediate FB
+	{// create intermediate FB
 		VkImageView attachments[] = {outColorView, outDepthView};
 
 		VkFramebufferCreateInfo framebufferInfo = {

@@ -13,6 +13,7 @@
 #include "Render/Vulkan/Sampler.h"
 #include "Render/Vulkan/ShaderModule.h"
 #include "Render/Vulkan/Renderer.h"
+#include "Render/Vulkan/DeferredRenderer.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -253,6 +254,7 @@ void Program::run_vulkan()
 	}
 
 	Renderer* renderer = AnotherRenderer::get();
+	Renderer* deferredRenderer = DeferredRenderer::get();
 
 	while(true)
 	{
@@ -285,6 +287,7 @@ void Program::run_vulkan()
 
 	Vulkan::Instance->waitDeviceIdle();
 	AnotherRenderer::cleanup();
+	DeferredRenderer::cleanup();
 	ShaderModule::cleanup();
 	Texture::cleanup();
 	Sampler::cleanup();
