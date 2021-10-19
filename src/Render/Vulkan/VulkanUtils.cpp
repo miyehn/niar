@@ -48,6 +48,51 @@ void vk::insertImageBarrier(VkCommandBuffer cmdbuf,
 		&imageBarrier);
 }
 
+void vk::blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax)
+{
+	VkImage swapChainImage = Vulkan::Instance->getCurrentSwapChainImage();
+	VkExtent2D swapChainExtent = Vulkan::Instance->swapChainExtent;
+
+	// barrier the swapchain image into transfer-dst layout
+	vk::insertImageBarrier(cmdbuf, swapChainImage,
+						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+						   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   0,
+						   VK_ACCESS_TRANSFER_WRITE_BIT,
+						   VK_IMAGE_LAYOUT_UNDEFINED,
+						   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	// blit to screen
+	VkOffset3D dstOffsetMin = {0, 0, 0};
+	VkOffset3D dstOffsetMax = {
+		static_cast<int32_t>(swapChainExtent.width),
+		static_cast<int32_t>(swapChainExtent.height),
+		1
+	};
+	VkImageBlit blitRegion = {
+		.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+		.srcOffsets = { srcOffsetMin, srcOffsetMax },
+		.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+		.dstOffsets = { dstOffsetMin, dstOffsetMax }
+	};
+	vkCmdBlitImage(cmdbuf,
+				   image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				   swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				   1, &blitRegion,
+				   VK_FILTER_LINEAR);
+
+	// barrier swapchain image back to present optimal
+	vk::insertImageBarrier(cmdbuf, swapChainImage,
+						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_ACCESS_TRANSFER_WRITE_BIT,
+						   VK_ACCESS_MEMORY_READ_BIT,
+						   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+						   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+}
+
 ScopedDrawEvent::ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color) : cmdbuf(cmdbuf)
 {
 	VkDebugUtilsLabelEXT markerInfo {

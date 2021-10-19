@@ -3,6 +3,7 @@
 #include "Scene/Camera.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/Renderer.h"
+#include "Render/Vulkan/DeferredRenderer.h"
 #include "Asset/Texture.h"
 
 std::unordered_map<std::string, Material*> material_pool{};
@@ -49,8 +50,7 @@ MatTest::MatTest(const std::string &tex_path)
 	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(uniforms),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							  VMA_MEMORY_USAGE_CPU_TO_GPU,
-							  Vulkan::Instance->getNumSwapChainImages());
+							  VMA_MEMORY_USAGE_CPU_TO_GPU);
 	texture = dynamic_cast<Texture2D*>(Texture::get(tex_path));
 	add_material(this);
 
@@ -71,9 +71,7 @@ MatTest::MatTest(const std::string &tex_path)
 	}
 
 	{// allocate the descriptor sets
-		auto numImages = vk->getNumSwapChainImages();
-
-		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0], numImages);
+		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0]);
 		descriptorSet.pointToUniformBuffer(uniformBuffer, 0);
 		descriptorSet.pointToImageView(texture->get_image_view(), 1);
 	}
@@ -81,7 +79,7 @@ MatTest::MatTest(const std::string &tex_path)
 
 void MatTest::use(VkCommandBuffer &cmdbuf)
 {
-	uniformBuffer.writeData(&uniforms, Vulkan::Instance->getCurrentFrameIndex());
+	uniformBuffer.writeData(&uniforms);
 
 	auto dset = descriptorSet.getInstance();
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
@@ -103,6 +101,99 @@ void MatTest::set_parameters(Drawable *drawable)
 		.ModelMatrix = drawable->object_to_world(),
 		.ViewMatrix = Camera::Active->world_to_camera(),
 		.ProjectionMatrix = Camera::Active->camera_to_clip()
+	};
+	// so it's not upside down
+	uniforms.ProjectionMatrix[1][1] *= -1;
+}
+
+Geometry::Geometry(
+	const std::string &albedo_path,
+	const std::string &normal_path,
+	const std::string &metallic_path,
+	const std::string &roughness_path,
+	const std::string &ao_path,
+	const glm::vec3 &in_tint
+){
+	name = "geometry";
+	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+							  sizeof(uniforms),
+							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+							  VMA_MEMORY_USAGE_CPU_TO_GPU,
+							  Vulkan::Instance->getNumSwapChainImages());
+	add_material(this);
+
+	{// params
+		albedo = dynamic_cast<Texture2D*>(Texture::get(albedo_path));
+		normal = dynamic_cast<Texture2D*>(Texture::get(normal_path));
+		metallic = dynamic_cast<Texture2D*>(Texture::get(metallic_path));
+		roughness = dynamic_cast<Texture2D*>(Texture::get(roughness_path));
+		ao = dynamic_cast<Texture2D*>(Texture::get(ao_path));
+		uniforms.tint = in_tint;
+	}
+
+	auto vk = Vulkan::Instance;
+
+	{// pipeline and layouts
+		PipelineBuilder pipelineBuilder{};
+		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
+		pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
+		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
+		pipelineBuilder.add_binding(0, 0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		pipelineBuilder.add_binding(0, 1, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		pipelineBuilder.add_binding(0, 2, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		pipelineBuilder.add_binding(0, 3, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		pipelineBuilder.add_binding(0, 4, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		pipelineBuilder.add_binding(0, 5, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		// since it has 4 color outputs:
+		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
+		const VkPipelineColorBlendAttachmentState blendInfoArray[4] = { blendInfo, blendInfo, blendInfo, blendInfo };
+		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
+		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
+		// build
+		pipeline = pipelineBuilder.build();
+
+		descriptorSetLayouts = pipelineBuilder.getLayouts();
+		pipelineLayout = pipelineBuilder.pipelineLayout;
+	}
+	{// allocate the descriptor sets
+		auto numImages = vk->getNumSwapChainImages();
+
+		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0], numImages);
+		descriptorSet.pointToUniformBuffer(uniformBuffer, 0);
+		descriptorSet.pointToImageView(albedo->get_image_view(), 1);
+		descriptorSet.pointToImageView(normal->get_image_view(), 2);
+		descriptorSet.pointToImageView(metallic->get_image_view(), 3);
+		descriptorSet.pointToImageView(roughness->get_image_view(), 4);
+		descriptorSet.pointToImageView(ao->get_image_view(), 5);
+	}
+
+}
+void Geometry::use(VkCommandBuffer &cmdbuf)
+{
+	uniformBuffer.writeData(&uniforms, Vulkan::Instance->getCurrentFrameIndex());
+
+	auto dset = descriptorSet.getInstance();
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+							0, // firstSet : uint32_t
+							1, // descriptorSetCount : uint32_t
+							&dset,
+							0, nullptr); // for dynamic descriptors (not reached yet)
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+}
+
+Geometry::~Geometry()
+{
+	uniformBuffer.release();
+}
+
+void Geometry::set_parameters(Drawable *drawable)
+{
+	uniforms = {
+		.ModelMatrix = drawable->object_to_world(),
+		.ViewMatrix = Camera::Active->world_to_camera(),
+		.ProjectionMatrix = Camera::Active->camera_to_clip(),
+		.tint = glm::vec3(1)
 	};
 	// so it's not upside down
 	uniforms.ProjectionMatrix[1][1] *= -1;

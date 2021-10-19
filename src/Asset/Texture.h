@@ -20,15 +20,18 @@ public:
 
 class Texture2D : public Texture
 {
+protected:
 	int width;
 	int height;
 	int num_slices;
 
 	VkImageView imageView;
 
+	Texture2D() = default;
 	~Texture2D();
 
 public:
+	static void createDefaultTextures();
 	explicit Texture2D(const std::string &path);
 	VkImageView get_image_view() { return imageView; }
 };

@@ -1,6 +1,6 @@
 #include "Texture.h"
 #include <stb_image/stb_image.h>
-#include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/VulkanUtils.h"
 
 std::unordered_map<std::string, Texture *> Texture::pool;
 
@@ -29,22 +29,19 @@ Texture::~Texture()
 
 //--------
 
-Texture2D::Texture2D(const std::string &path)
+void createTexture2DFromPixelData(
+	uint8_t *pixels,
+	uint32_t width,
+	uint32_t height,
+	VkFormat imageFormat,
+	uint32_t pixelSize,
+	VmaAllocatedImage &outResource,
+	VkImageView &outImageView)
 {
-	num_slices = 1;
-
-	int native_channels;
-	stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &native_channels, STBI_rgb_alpha);
-	LOG("load texture w %d h %d channels %d", width, height, native_channels)
-	EXPECT(pixels != nullptr, true)
-
-	VkDeviceSize imageSize = width * height * 4;
-	VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-
+	VkDeviceSize imageSize = width * height * pixelSize;
 	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, imageSize,
 							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	stagingBuffer.writeData(pixels);
-	stbi_image_free(pixels);
 
 	VkExtent3D imageExtent = {
 		.width = static_cast<uint32_t>(width),
@@ -68,42 +65,25 @@ Texture2D::Texture2D(const std::string &path)
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};
 
-	vmaCreateImage(Vulkan::Instance->memoryAllocator, &imgInfo, &imgAllocInfo, &resource.image, &resource.allocation, nullptr);
+	vmaCreateImage(Vulkan::Instance->memoryAllocator, &imgInfo, &imgAllocInfo, &outResource.image, &outResource.allocation, nullptr);
 
 	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
 	{
-		// image layouts
+		// image layout
 		auto transferLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		auto shaderReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		// barrier the image into the transfer-receive layout
-		VkImageSubresourceRange range = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1
-		};
-		VkImageMemoryBarrier imageBarrier_toTransfer = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = transferLayout,
-			.image = resource.image,
-			.subresourceRange = range,
-		};
-		vkCmdPipelineBarrier(
+		vk::insertImageBarrier(
 			cmdbuf,
+			outResource.image,
+			{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0,1},
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0,
-			0,
-			nullptr,
-			0,
-			nullptr,
-			1,
-			&imageBarrier_toTransfer);
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			transferLayout);
 
 		// do the transfer
 		VkBufferImageCopy copyRegion = {
@@ -122,33 +102,22 @@ Texture2D::Texture2D(const std::string &path)
 		vkCmdCopyBufferToImage(
 			cmdbuf,
 			stagingBuffer.getBufferInstance(),
-			resource.image,
+			outResource.image,
 			transferLayout,
 			1,
 			&copyRegion);
 
-		// barrier it again into shader readonly optimal layout
-		VkImageMemoryBarrier imageBarrier_toShaderReadonly = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-			.oldLayout = transferLayout,
-			.newLayout = shaderReadLayout,
-			.image = resource.image,
-			.subresourceRange = range,
-		};
-		vkCmdPipelineBarrier(
+		//barrier it again into shader readonly optimal layout
+		vk::insertImageBarrier(
 			cmdbuf,
+			outResource.image,
+			{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0,1},
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			0,
-			0,
-			nullptr,
-			0,
-			nullptr,
-			1,
-			&imageBarrier_toShaderReadonly);
-
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			transferLayout,
+			shaderReadLayout);
 	});
 
 	stagingBuffer.release();
@@ -157,7 +126,7 @@ Texture2D::Texture2D(const std::string &path)
 	VkImageViewCreateInfo viewInfo = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.flags = 0,
-		.image = resource.image,
+		.image = outResource.image,
 		.viewType = VK_IMAGE_VIEW_TYPE_2D,
 		.format = imageFormat,
 		.components = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
@@ -169,7 +138,42 @@ Texture2D::Texture2D(const std::string &path)
 			.layerCount = 1
 		}
 	};
-	EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &imageView), VK_SUCCESS)
+	EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &outImageView), VK_SUCCESS)
+}
+
+Texture2D::Texture2D(const std::string &path)
+{
+	num_slices = 1;
+
+	int native_channels;
+	stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &native_channels, STBI_rgb_alpha);
+	LOG("load texture w %d h %d channels %d", width, height, native_channels)
+	EXPECT(pixels != nullptr, true)
+
+	createTexture2DFromPixelData(
+		pixels,
+		width,
+		height,
+		VK_FORMAT_R8G8B8A8_SRGB,
+		4,
+		resource,
+		imageView
+		);
+
+	stbi_image_free(pixels);
+}
+
+void Texture2D::createDefaultTextures()
+{
+	auto* whiteTexture = new Texture2D();
+	whiteTexture->num_slices = 1;
+	whiteTexture->width = 1;
+	whiteTexture->height = 1;
+	uint8_t whitePixel[] = {1, 1, 1, 1};
+	createTexture2DFromPixelData(whitePixel, 1, 1, VK_FORMAT_R8G8B8A8_SRGB, 4, whiteTexture->resource, whiteTexture->imageView);
+	Texture::pool["_white"] = whiteTexture;
+
+	// TODO: more
 }
 
 Texture2D::~Texture2D()

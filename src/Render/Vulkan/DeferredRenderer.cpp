@@ -1,6 +1,9 @@
 #include "DeferredRenderer.h"
 #include "RenderPassBuilder.h"
 #include "ImageCreator.h"
+#include "Asset/Mesh.h"
+#include "Asset/Material.h"
+#include "VulkanUtils.h"
 
 #define GPOSITION_ATTACHMENT 0
 #define GNORMAL_ATTACHMENT 1
@@ -30,7 +33,7 @@ DeferredRenderer::DeferredRenderer()
 		ImageCreator GColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GColor");
 
@@ -51,7 +54,7 @@ DeferredRenderer::DeferredRenderer()
 		ImageCreator sceneColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"sceneColor");
 
@@ -100,7 +103,7 @@ DeferredRenderer::DeferredRenderer()
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 			});
 		// GMetallicRoughnessAO
 		passBuilder.colorAttachments.push_back(
@@ -124,7 +127,7 @@ DeferredRenderer::DeferredRenderer()
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
-				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			});
 		// sceneDepth
 		passBuilder.depthAttachment = {
@@ -226,7 +229,43 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::render()
 {
+	auto cmdbuf = Vulkan::Instance->beginFrame();
 
+	VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	VkClearValue clearDepth;
+	clearDepth.depthStencil.depth = 1.f;
+	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
+
+	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
+	VkRenderPassBeginInfo intermediatePassInfo = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = renderPass,
+		.framebuffer = framebuffer,
+		.renderArea = renderArea,
+		.clearValueCount = 6,
+		.pClearValues = clearValues
+	};
+	vkCmdBeginRenderPass(cmdbuf, &intermediatePassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	{
+		for (auto drawable : drawables)
+		{
+			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
+			{
+				m->material->set_parameters(m);
+				m->material->use(cmdbuf);
+				m->draw(cmdbuf);
+			}
+		}
+	}
+	vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
+	{
+
+	}
+	vkCmdEndRenderPass(cmdbuf);
+
+	vk::blitToScreen(cmdbuf, GColor.image, {0, 0, 0}, {(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
+
+	Vulkan::Instance->endFrame();
 }
 
 DeferredRenderer* deferredRenderer = nullptr;

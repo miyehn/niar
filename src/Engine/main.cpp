@@ -241,14 +241,22 @@ void Program::run_vulkan()
 
 	load_resources_vulkan();
 
+	Texture2D::createDefaultTextures();
+
 	new MatTest(std::string(ROOT_DIR"/") + "media/checkerboard.jpg");
-	//MatTest* test = dynamic_cast<MatTest*>(find_material("test material"));
+	new Geometry(
+		std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png",
+		std::string(ROOT_DIR"/") + "media/water_tower/normal.png",
+		std::string(ROOT_DIR"/") + "media/water_tower/metallic.png",
+		std::string(ROOT_DIR"/") + "media/water_tower/roughness.png",
+		"_white", glm::vec3(1));
 
 	Scene* scene = Scene::Active;
 	for (int i = 0; i < scene->children.size(); i++)
 	{
 		if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 		{
+			//m->material = Material::find("geometry");
 			m->material = Material::find("test material");
 		}
 	}
@@ -280,9 +288,15 @@ void Program::run_vulkan()
 
 		// draw
 
+#if 1
 		renderer->camera = Camera::Active;
 		renderer->drawables = Scene::Active->children;
 		renderer->render();
+#else
+		deferredRenderer->camera = Camera::Active;
+		deferredRenderer->drawables = Scene::Active->children;
+		deferredRenderer->render();
+#endif
 	}
 
 	Vulkan::Instance->waitDeviceIdle();

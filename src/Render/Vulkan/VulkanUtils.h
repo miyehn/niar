@@ -16,6 +16,8 @@ namespace vk
 							VkAccessFlags dstAccessMask,
 							VkImageLayout oldLayout,
 							VkImageLayout newLayout);
+
+	void blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax);
 }
 
 class ScopedDrawEvent

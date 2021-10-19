@@ -199,6 +199,8 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 	}
 	generate_aabb();
 
+	if (Cfg.TestVulkan) return;
+
 	// lights
 	for (int i=0; i<scene->mNumLights; i++) {
 		aiLight* light = scene->mLights[i];
