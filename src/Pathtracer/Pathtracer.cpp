@@ -864,7 +864,7 @@ void Pathtracer::draw() {
 
 	glViewport(0, 0, width, height);
 
-	Blit* blit = Blit::blit();
+	GlBlit* blit = GlBlit::blit();
 	blit->begin_pass();
 	blit->set_tex2D("TEX", 0, texture);
 	blit->end_pass();

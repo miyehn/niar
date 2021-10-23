@@ -66,6 +66,7 @@ struct PipelineBuilder
 
 	PipelineState pipelineState{};
 	VkRenderPass compatibleRenderPass = VK_NULL_HANDLE;
+	uint32_t compatibleSubpass = 0;
 
 	struct DescriptorSetLayout
 	{

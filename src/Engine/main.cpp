@@ -6,6 +6,7 @@
 #include "Input.hpp"
 #include "Asset/GlMaterial.h"
 #include "Asset/Material.h"
+#include "Asset/DeferredPointLighting.h"
 #include "Asset/Mesh.h"
 #include "Asset/Texture.h"
 
@@ -127,8 +128,6 @@ void Program::load_resources_vulkan()
 	scene = new Scene();
 	scene->load(Cfg.SceneSource, false);
 
-	// scene->initialize_graphics();
-
 	Scene::Active = scene;
 	scenes.push_back(scene);
 }
@@ -243,6 +242,9 @@ void Program::run_vulkan()
 
 	Texture2D::createDefaultTextures();
 
+	AnotherRenderer* renderer = AnotherRenderer::get();
+	DeferredRenderer* deferredRenderer = DeferredRenderer::get();
+
 	new MatTest(std::string(ROOT_DIR"/") + "media/checkerboard.jpg");
 	new Geometry(
 		std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png",
@@ -250,19 +252,17 @@ void Program::run_vulkan()
 		std::string(ROOT_DIR"/") + "media/water_tower/metallic.png",
 		std::string(ROOT_DIR"/") + "media/water_tower/roughness.png",
 		"_white", glm::vec3(1));
+	new DeferredPointLighting(*deferredRenderer);
 
 	Scene* scene = Scene::Active;
 	for (int i = 0; i < scene->children.size(); i++)
 	{
 		if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 		{
-			//m->material = Material::find("geometry");
-			m->material = Material::find("test material");
+			m->material = Material::find("geometry");
+			//m->material = Material::find("test material");
 		}
 	}
-
-	Renderer* renderer = AnotherRenderer::get();
-	Renderer* deferredRenderer = DeferredRenderer::get();
 
 	while(true)
 	{
@@ -288,7 +288,7 @@ void Program::run_vulkan()
 
 		// draw
 
-#if 1
+#if 0
 		renderer->camera = Camera::Active;
 		renderer->drawables = Scene::Active->children;
 		renderer->render();

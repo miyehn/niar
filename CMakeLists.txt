@@ -37,7 +37,7 @@ set(SRC
 	src/Asset/GlTexture.cpp
     src/Asset/GlMaterial.cpp
 	src/Asset/Material.cpp
-	src/Asset/Blit.cpp
+	src/Asset/GlBlit.cpp
 	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/Pathtracer.cpp
 	src/Pathtracer/BSDF.cpp
@@ -55,7 +55,7 @@ set(SRC
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
 	src/Utils/myn/Color.cpp
-	src/Asset/Texture.cpp src/Render/StbImageImpl.cpp src/Render/Vulkan/Sampler.cpp src/Render/Vulkan/Sampler.h src/Render/Vulkan/ShaderModule.cpp src/Render/Vulkan/ShaderModule.h src/Render/Vulkan/Renderer.cpp src/Render/Vulkan/Renderer.h src/Render/Vulkan/VulkanUtils.cpp src/Render/Vulkan/VulkanUtils.h src/Render/Vulkan/DeferredRenderer.cpp src/Render/Vulkan/DeferredRenderer.h src/Render/Vulkan/ImageCreator.cpp src/Render/Vulkan/ImageCreator.h)
+	src/Asset/Texture.cpp src/Render/StbImageImpl.cpp src/Render/Vulkan/Sampler.cpp src/Render/Vulkan/Sampler.h src/Render/Vulkan/ShaderModule.cpp src/Render/Vulkan/ShaderModule.h src/Render/Vulkan/Renderer.cpp src/Render/Vulkan/Renderer.h src/Render/Vulkan/VulkanUtils.cpp src/Render/Vulkan/VulkanUtils.h src/Render/Vulkan/DeferredRenderer.cpp src/Render/Vulkan/DeferredRenderer.h src/Render/Vulkan/ImageCreator.cpp src/Render/Vulkan/ImageCreator.h src/Asset/DeferredPointLighting.cpp src/Asset/DeferredPointLighting.h)
 
 if(APPLE)
 	add_executable(niar ${SRC})

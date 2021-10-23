@@ -45,5 +45,6 @@ void ImageCreator::create(VmaAllocatedImage &image, VkImageView &imageView)
 	if (debugName.length() > 0)
 	{
 		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, image.image, debugName)
+		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, debugName + "_defaultView")
 	}
 }

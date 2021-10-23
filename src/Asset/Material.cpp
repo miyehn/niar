@@ -73,7 +73,7 @@ MatTest::MatTest(const std::string &tex_path)
 	{// allocate the descriptor sets
 		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0]);
 		descriptorSet.pointToUniformBuffer(uniformBuffer, 0);
-		descriptorSet.pointToImageView(texture->get_image_view(), 1);
+		descriptorSet.pointToImageView(texture->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
 }
 
@@ -118,8 +118,7 @@ Geometry::Geometry(
 	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(uniforms),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							  VMA_MEMORY_USAGE_CPU_TO_GPU,
-							  Vulkan::Instance->getNumSwapChainImages());
+							  VMA_MEMORY_USAGE_CPU_TO_GPU);
 	add_material(this);
 
 	{// params
@@ -157,21 +156,19 @@ Geometry::Geometry(
 		pipelineLayout = pipelineBuilder.pipelineLayout;
 	}
 	{// allocate the descriptor sets
-		auto numImages = vk->getNumSwapChainImages();
-
-		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0], numImages);
+		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0]);
 		descriptorSet.pointToUniformBuffer(uniformBuffer, 0);
-		descriptorSet.pointToImageView(albedo->get_image_view(), 1);
-		descriptorSet.pointToImageView(normal->get_image_view(), 2);
-		descriptorSet.pointToImageView(metallic->get_image_view(), 3);
-		descriptorSet.pointToImageView(roughness->get_image_view(), 4);
-		descriptorSet.pointToImageView(ao->get_image_view(), 5);
+		descriptorSet.pointToImageView(albedo->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		descriptorSet.pointToImageView(normal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		descriptorSet.pointToImageView(metallic->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		descriptorSet.pointToImageView(roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		descriptorSet.pointToImageView(ao->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
 
 }
 void Geometry::use(VkCommandBuffer &cmdbuf)
 {
-	uniformBuffer.writeData(&uniforms, Vulkan::Instance->getCurrentFrameIndex());
+	uniformBuffer.writeData(&uniforms);
 
 	auto dset = descriptorSet.getInstance();
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,

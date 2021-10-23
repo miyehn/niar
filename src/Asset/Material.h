@@ -17,7 +17,7 @@ public:
 	Material() = default;
 	std::string name = "[anonymous material]";
 	virtual int get_id() = 0;
-	virtual void set_parameters(Drawable* drawable) = 0;
+	virtual void set_parameters(Drawable* drawable) {};
 	virtual void use(VkCommandBuffer &cmdbuf) = 0;
 	virtual ~Material();
 
@@ -31,6 +31,8 @@ protected:
 	VkPipelineLayout pipelineLayout{};
 	VkPipeline pipeline{};
 };
+
+extern void add_material(Material* material);
 
 class MatTest : public Material
 {

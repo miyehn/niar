@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/ImageCreator.h"
 
 class Texture
 {
@@ -21,17 +22,23 @@ public:
 class Texture2D : public Texture
 {
 protected:
-	int width;
-	int height;
-	int num_slices;
-
-	VkImageView imageView;
+	uint32_t width;
+	uint32_t height;
+	uint32_t num_slices;
 
 	Texture2D() = default;
-	~Texture2D();
 
 public:
+
+	VkImageView imageView;
+	VkFormat imageFormat;
+
 	static void createDefaultTextures();
+
+	~Texture2D() override;
+
 	explicit Texture2D(const std::string &path);
-	VkImageView get_image_view() { return imageView; }
+
+	// TODO: also take a string argument and use it to add it to pool?
+	explicit Texture2D(ImageCreator &imageCreator);
 };

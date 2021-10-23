@@ -5,7 +5,7 @@
 #include "Scene/Light.hpp"
 #include "Asset/GlMaterial.h"
 #include "Scene/Camera.hpp"
-#include "Asset/Blit.h"
+#include "Asset/GlBlit.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -199,22 +199,20 @@ void Scene::load(std::string source, bool preserve_existing_objects) {
 	}
 	generate_aabb();
 
-	if (Cfg.TestVulkan) return;
-
 	// lights
 	for (int i=0; i<scene->mNumLights; i++) {
 		aiLight* light = scene->mLights[i];
 		if (light->mType == aiLightSource_DIRECTIONAL) {
 			DirectionalLight* d_light = new DirectionalLight(light, scene->mRootNode);
 			d_lights.push_back(d_light);
-			d_light->set_cast_shadow(true);
+			d_light->set_cast_shadow(false);
 			add_child(d_light);
 			LOG("loaded directional light '%s', color: %s", d_light->name.c_str(), s3(d_light->get_emission()).c_str());
 			
 		} else if (light->mType == aiLightSource_POINT) {
 			PointLight* p_light = new PointLight(light, scene->mRootNode);
 			p_lights.push_back(p_light);
-			p_light->set_cast_shadow(true);
+			p_light->set_cast_shadow(false);
 			add_child(p_light);
 			LOG("loaded point light '%s', color: %s", p_light->name.c_str(), s3(p_light->get_emission()).c_str());
 
@@ -345,7 +343,7 @@ void Scene::draw() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// then blit
-	Blit* blit = Blit::shadow_mask_directional();
+	GlBlit* blit = GlBlit::shadow_mask_directional();
 	blit->begin_pass();
 	{
 		int num_shadow_casters = 0;
@@ -382,7 +380,7 @@ void Scene::draw() {
 	glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	blit = Blit::shadow_mask_point();
+	blit = GlBlit::shadow_mask_point();
 	blit->begin_pass();
 	{
 		int num_shadow_casters = 0;
@@ -405,7 +403,7 @@ void Scene::draw() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color);
 	
 	// directional lights
-	blit = Blit::lighting_directional();
+	blit = GlBlit::lighting_directional();
 	blit->begin_pass();
 	{
 		// g buffers
@@ -433,7 +431,7 @@ void Scene::draw() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-	blit = Blit::lighting_point();
+	blit = GlBlit::lighting_point();
 	blit->begin_pass();
 	{
 		// g buffers
@@ -461,7 +459,7 @@ void Scene::draw() {
 	glDisable(GL_BLEND);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene_color_alt);
-	blit = Blit::exposure_extract_bright();
+	blit = GlBlit::exposure_extract_bright();
 	blit->begin_pass();
 	{
 		blit->set_tex2D("TEX", 0, tex_scene_color);
@@ -476,7 +474,7 @@ void Scene::draw() {
 	if (bloom) {
 		// horizontal
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo_gaussian_pingpong[0]);
-		blit = Blit::gaussian_horizontal();
+		blit = GlBlit::gaussian_horizontal();
 		blit->begin_pass();
 		{
 			blit->set_tex2D("TEX", 0, tex_scene_colors_alt[1]);
@@ -486,7 +484,7 @@ void Scene::draw() {
 
 		// vertical
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo_gaussian_pingpong[1]);
-		blit = Blit::gaussian_vertical();
+		blit = GlBlit::gaussian_vertical();
 		blit->begin_pass();
 		{
 			blit->set_tex2D("TEX", 0, tex_gaussian_pingpong[0]);
@@ -498,7 +496,7 @@ void Scene::draw() {
 	//-------- final post processing (combine bloom & tone mapping & gamma correction) --> screen
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	blit = Blit::tone_map_gamma_correct();
+	blit = GlBlit::tone_map_gamma_correct();
 	blit->begin_pass();
 	{
 		blit->set_tex2D("TEX", 0, tex_scene_colors_alt[0]);
@@ -512,10 +510,10 @@ void Scene::draw() {
 	if (Cfg.ShowDebugTex->get()) {
 		int debugtex = find_named_tex(Cfg.DebugTex->get());
 		if (debugtex >= 0) {
-			Blit::copy_debug()->begin_pass();
-			Blit::copy_debug()->set_tex2D("TEX", 0, debugtex);
-			Blit::copy_debug()->set_vec2("MinMax", vec2(Cfg.DebugTexMin->get(), Cfg.DebugTexMax->get()));
-			Blit::copy_debug()->end_pass();
+			GlBlit::copy_debug()->begin_pass();
+			GlBlit::copy_debug()->set_tex2D("TEX", 0, debugtex);
+			GlBlit::copy_debug()->set_vec2("MinMax", vec2(Cfg.DebugTexMin->get(), Cfg.DebugTexMax->get()));
+			GlBlit::copy_debug()->end_pass();
 		}
 	}
 

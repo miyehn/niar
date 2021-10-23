@@ -14,7 +14,7 @@ public:
 
 	void pointToUniformBuffer(VmaBuffer &uniformBuffer, uint32_t binding);
 
-	void pointToImageView(VkImageView imageView, uint32_t binding);
+	void pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType);
 
 	static void releasePool(VkDevice &device);
 

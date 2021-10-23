@@ -1,16 +1,18 @@
 #include "DeferredRenderer.h"
 #include "RenderPassBuilder.h"
+#include "Asset/Texture.h"
 #include "ImageCreator.h"
 #include "Asset/Mesh.h"
 #include "Asset/Material.h"
+#include "Asset/DeferredPointLighting.h"
 #include "VulkanUtils.h"
 
 #define GPOSITION_ATTACHMENT 0
 #define GNORMAL_ATTACHMENT 1
 #define GCOLOR_ATTACHMENT 2
 #define GMETALLICROUGHNESSAO_ATTACHMENT 3
-#define GSCENECOLOR_ATTACHMENT 4
-#define GSCENEDEPTH_ATTACHMENT 5
+#define SCENECOLOR_ATTACHMENT 4
+#define SCENEDEPTH_ATTACHMENT 5
 
 DeferredRenderer::DeferredRenderer()
 {
@@ -19,30 +21,37 @@ DeferredRenderer::DeferredRenderer()
 		ImageCreator GPositionCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GPosition");
 
 		ImageCreator GNormalCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GNormal");
 
 		ImageCreator GColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GColor");
 
 		ImageCreator GMetallicRoughnessAOCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GMetallicRoughnessAO");
+
+		ImageCreator sceneColorCreator(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			{renderExtent.width, renderExtent.height, 1},
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"sceneColor");
 
 		ImageCreator sceneDepthCreator(
 			VK_FORMAT_D32_SFLOAT,
@@ -51,19 +60,12 @@ DeferredRenderer::DeferredRenderer()
 			VK_IMAGE_ASPECT_DEPTH_BIT,
 			"sceneDepth");
 
-		ImageCreator sceneColorCreator(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
-			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			"sceneColor");
-
-		GPositionCreator.create(GPosition, GPositionView);
-		GNormalCreator.create(GNormal, GNormalView);
-		GColorCreator.create(GColor, GColorView);
-		GMetallicRoughnessAOCreator.create(GMetallicRoughnessAO, GMetallicRoughnessAOView);
-		sceneColorCreator.create(sceneColor, sceneColorView);
-		sceneDepthCreator.create(sceneDepth, sceneDepthView);
+		GPosition = new Texture2D(GPositionCreator);
+		GNormal = new Texture2D(GNormalCreator);
+		GColor = new Texture2D(GColorCreator);
+		GMetallicRoughnessAO = new Texture2D(GMetallicRoughnessAOCreator);
+		sceneColor = new Texture2D(sceneColorCreator);
+		sceneDepth = new Texture2D(sceneDepthCreator);
 	}
 
 	{// renderpass
@@ -78,7 +80,7 @@ DeferredRenderer::DeferredRenderer()
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			});
 		// GNormal
@@ -90,7 +92,7 @@ DeferredRenderer::DeferredRenderer()
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			});
 		// GColor
@@ -102,8 +104,8 @@ DeferredRenderer::DeferredRenderer()
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
-				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			});
 		// GMetallicRoughnessAO
 		passBuilder.colorAttachments.push_back(
@@ -114,7 +116,7 @@ DeferredRenderer::DeferredRenderer()
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			});
 		// sceneColor
@@ -126,8 +128,8 @@ DeferredRenderer::DeferredRenderer()
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // layout when attachment is loaded
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 			});
 		// sceneDepth
 		passBuilder.depthAttachment = {
@@ -149,7 +151,7 @@ DeferredRenderer::DeferredRenderer()
 			{GMETALLICROUGHNESSAO_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
 		VkAttachmentReference depthAttachmentReference = {
-			GSCENEDEPTH_ATTACHMENT,
+			SCENEDEPTH_ATTACHMENT,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		};
 		passBuilder.subpasses.push_back(
@@ -160,28 +162,58 @@ DeferredRenderer::DeferredRenderer()
 				.pDepthStencilAttachment = &depthAttachmentReference
 			});
 
-		// composition pass
-		VkAttachmentReference sceneColorAttachmentReference = {
-			GSCENECOLOR_ATTACHMENT,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		// point lighting pass
+		std::vector<VkAttachmentReference> pointLightingInputAttachmentRefs = {
+			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+			{GMETALLICROUGHNESSAO_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
+		};
+		std::vector<VkAttachmentReference> pointLightingColorAttachmentRefs = {
+			{SCENECOLOR_ATTACHMENT,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
 		passBuilder.subpasses.push_back(
 			{
 				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-				.colorAttachmentCount = 1,
-				.pColorAttachments = &sceneColorAttachmentReference,
+				// input attachments
+				.inputAttachmentCount = static_cast<uint32_t>(pointLightingInputAttachmentRefs.size()),
+				.pInputAttachments = pointLightingInputAttachmentRefs.data(),
+				// output attachments
+				.colorAttachmentCount = static_cast<uint32_t>(pointLightingColorAttachmentRefs.size()),
+				.pColorAttachments = pointLightingColorAttachmentRefs.data(),
 				.pDepthStencilAttachment = nullptr
 			});
 
 		// dependencies
 		passBuilder.dependencies.push_back(
 			{
+				.srcSubpass = VK_SUBPASS_EXTERNAL,
+				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+			});
+		passBuilder.dependencies.push_back(
+			{
 				.srcSubpass = 0,
 				.dstSubpass = 1,
-				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT
+				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+			});
+		passBuilder.dependencies.push_back(
+			{
+				.srcSubpass = 1,
+				.dstSubpass = VK_SUBPASS_EXTERNAL,
+				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 			});
 
 		// build the renderpass
@@ -190,12 +222,12 @@ DeferredRenderer::DeferredRenderer()
 
 	{// framebuffer
 		VkImageView attachments[] = {
-			GPositionView,
-			GNormalView,
-			GColorView,
-			GMetallicRoughnessAOView,
-			sceneColorView,
-			sceneDepthView
+			GPosition->imageView,
+			GNormal->imageView,
+			GColor->imageView,
+			GMetallicRoughnessAO->imageView,
+			sceneColor->imageView,
+			sceneDepth->imageView
 		};
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -206,7 +238,11 @@ DeferredRenderer::DeferredRenderer()
 			.height = renderExtent.height,
 			.layers = 1
 		};
-		EXPECT(vkCreateFramebuffer(Vulkan::Instance->device, &framebufferInfo, nullptr, &framebuffer), VK_SUCCESS)
+		EXPECT(vkCreateFramebuffer(
+			Vulkan::Instance->device,
+			&framebufferInfo,
+			nullptr,
+			&framebuffer), VK_SUCCESS)
 	}
 }
 
@@ -216,25 +252,21 @@ DeferredRenderer::~DeferredRenderer()
 	vkDestroyRenderPass(vk->device, renderPass, nullptr);
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
 
-	std::vector<VkImageView> imageViews = {
-		GPositionView, GNormalView, GColorView, GMetallicRoughnessAOView, sceneColorView, sceneDepthView
-	};
-	for (auto imageView : imageViews) vkDestroyImageView(vk->device, imageView, nullptr);
-
-	std::vector<VmaAllocatedImage> images = {
+	std::vector<Texture2D*> images = {
 		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth
 	};
-	for (auto image : images) vmaDestroyImage(vk->memoryAllocator, image.image, image.allocation);
+	for (auto image : images) delete image;
 }
 
 void DeferredRenderer::render()
 {
 	auto cmdbuf = Vulkan::Instance->beginFrame();
 
-	VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	VkClearValue clearColor = {0, 0, 0, 1.0f};
+	VkClearValue clearColor2 = {0.9f, 0.5f, 0.3f, 1.0f};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
-	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
+	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor2, clearDepth };
 
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
 	VkRenderPassBeginInfo intermediatePassInfo = {
@@ -259,11 +291,21 @@ void DeferredRenderer::render()
 	}
 	vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	{
+		DeferredPointLighting* lighting = dynamic_cast<DeferredPointLighting*>(Material::find("deferred lighting pass"));
 
+		lighting->uniforms.CameraPosition = Camera::Active->position;
+		lighting->uniforms.NumLights = 0;
+
+		lighting->use(cmdbuf);
+		vk::draw_fullscreen_triangle(cmdbuf);
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
-	vk::blitToScreen(cmdbuf, GColor.image, {0, 0, 0}, {(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
+	vk::blitToScreen(
+		cmdbuf,
+		sceneColor->resource.image,
+		{0, 0, 0},
+		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
 
 	Vulkan::Instance->endFrame();
 }

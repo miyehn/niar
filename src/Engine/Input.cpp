@@ -1,7 +1,7 @@
 #include "Input.hpp"
 #include "Utils/Utils.hpp"
 #include "Asset/Shader.h"
-#include "Asset/Blit.h"
+#include "Asset/GlBlit.h"
 #include "Asset/GlTexture.h"
 #include "Asset/GlMaterial.h"
 #include "Asset/Mesh.h"
@@ -73,7 +73,7 @@ void initialize_asset_config()
 			Shader* shader;
 			if (type == 1) {
 				std::string fs = shaders[i].lookup("FS");
-				shader = new Blit(ROOT_DIR"/" + fs);
+				shader = new GlBlit(ROOT_DIR"/" + fs);
 			} else if (type == 2) {
 				std::string vs = shaders[i].lookup("VS");
 				std::string fs = shaders[i].lookup("FS");

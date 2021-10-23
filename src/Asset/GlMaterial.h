@@ -1,7 +1,7 @@
 #pragma once
 #include <functional>
 #include "Shader.h"
-#include "Blit.h"
+#include "GlBlit.h"
 #include "GlTexture.h"
 
 /* Two types of materials:

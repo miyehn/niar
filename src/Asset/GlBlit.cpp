@@ -1,4 +1,4 @@
-#include "Blit.h"
+#include "GlBlit.h"
 
 //-------------------- Blit -------------------------
 
@@ -12,17 +12,17 @@ std::vector<float> quad_vertices = {
 	n, n, 1, 1 // tr
 };
 
-uint Blit::vao = 0;
-uint Blit::vbo = 0;
+uint GlBlit::vao = 0;
+uint GlBlit::vbo = 0;
 
-Blit::Blit(const std::string& frag_path) : Shader(frag_path) {
+GlBlit::GlBlit(const std::string& frag_path) : Shader(frag_path) {
 
-	if (!Blit::vao || !Blit::vbo) {
-		glGenBuffers(1, &Blit::vbo);
-		glGenVertexArrays(1, &Blit::vao);
-		glBindVertexArray(Blit::vao);
+	if (!GlBlit::vao || !GlBlit::vbo) {
+		glGenBuffers(1, &GlBlit::vbo);
+		glGenVertexArrays(1, &GlBlit::vao);
+		glBindVertexArray(GlBlit::vao);
 		{
-			glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
+			glBindBuffer(GL_ARRAY_BUFFER, GlBlit::vbo);
 			glBufferData(GL_ARRAY_BUFFER,
 						 quad_vertices.size() * sizeof(float), quad_vertices.data(), GL_STATIC_DRAW);
 
@@ -49,15 +49,15 @@ Blit::Blit(const std::string& frag_path) : Shader(frag_path) {
 	}
 }
 
-void Blit::begin_pass() {
+void GlBlit::begin_pass() {
 	glGetBooleanv(GL_DEPTH_TEST, &cached_depth_test);
 	glDisable(GL_DEPTH_TEST);
 	glUseProgram(id);
-	glBindVertexArray(Blit::vao);
-	glBindBuffer(GL_ARRAY_BUFFER, Blit::vbo);
+	glBindVertexArray(GlBlit::vao);
+	glBindBuffer(GL_ARRAY_BUFFER, GlBlit::vbo);
 }
 
-void Blit::end_pass() {
+void GlBlit::end_pass() {
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -67,10 +67,10 @@ void Blit::end_pass() {
 }
 
 #define IMPLEMENT_BLIT(NAME, SHADER_NAME) \
-	Blit* Blit::NAME##_value = nullptr; \
-	Blit* Blit::NAME() { \
+	GlBlit* GlBlit::NAME##_value = nullptr; \
+	GlBlit* GlBlit::NAME() { \
 		if (NAME##_value) return NAME##_value; \
-		NAME##_value = dynamic_cast<Blit*>(Shader::get(SHADER_NAME)); \
+		NAME##_value = dynamic_cast<GlBlit*>(Shader::get(SHADER_NAME)); \
 		if (!NAME##_value) ERR(SHADER_NAME" blit is not correctly loaded!"); \
 		return NAME##_value; \
 	}

@@ -120,12 +120,12 @@ PipelineState::PipelineState()
 			.alphaBlendOp = VK_BLEND_OP_ADD,
 #else // alpha blending
 			.blendEnable = VK_TRUE,
-		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-		.colorBlendOp = VK_BLEND_OP_ADD,
-		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD
+			.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+			.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+			.colorBlendOp = VK_BLEND_OP_ADD,
+			.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+			.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+			.alphaBlendOp = VK_BLEND_OP_ADD
 #endif
 			.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT
@@ -164,14 +164,30 @@ VkGraphicsPipelineCreateInfo PipelineState::getPipelineInfoTemplate()
 {
 	VkGraphicsPipelineCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	createInfo.pVertexInputState = useVertexInput ? &vertexInputInfo : nullptr;
+
+	if (!useVertexInput)
+	{
+		vertexInputInfo.vertexBindingDescriptionCount = 0;
+		vertexInputInfo.pVertexBindingDescriptions = nullptr;
+		vertexInputInfo.vertexAttributeDescriptionCount = 0;
+		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+	}
+	createInfo.pVertexInputState = &vertexInputInfo;
+
 	createInfo.pInputAssemblyState = useInputAssembly ? &inputAssemblyInfo : nullptr;
+
 	createInfo.pViewportState = useViewport ? &viewportInfo : nullptr;
+
 	createInfo.pRasterizationState = useRasterization ? &rasterizationInfo : nullptr;
+
 	createInfo.pMultisampleState = useMultisampling ? &multisamplingInfo : nullptr;
+
 	createInfo.pDepthStencilState = useDepthStencil ? &depthStencilInfo : nullptr;
+
 	createInfo.pColorBlendState = useColorBlending ? &colorBlendInfo : nullptr;
+
 	createInfo.pDynamicState = useDynamicState ? &dynamicStateInfo : nullptr;
+
 	createInfo.basePipelineHandle = VK_NULL_HANDLE;
 	createInfo.basePipelineIndex = -1;
 	return createInfo;
@@ -245,7 +261,7 @@ VkPipeline PipelineBuilder::build()
 	pipelineInfo.pStages = shaderStages;
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = compatibleRenderPass;
-	pipelineInfo.subpass = 0;
+	pipelineInfo.subpass = compatibleSubpass;
 
 	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline), VK_SUCCESS)
 

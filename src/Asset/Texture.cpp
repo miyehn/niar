@@ -143,12 +143,17 @@ void createTexture2DFromPixelData(
 
 Texture2D::Texture2D(const std::string &path)
 {
+	int native_channels;
+	int iwidth, iheight;
+	stbi_uc* pixels = stbi_load(path.c_str(), &iwidth, &iheight, &native_channels, STBI_rgb_alpha);
+	LOG("load texture w %d h %d channels %d", iwidth, iheight, native_channels)
+	EXPECT(pixels != nullptr, true)
+
+	width = iwidth;
+	height = iheight;
 	num_slices = 1;
 
-	int native_channels;
-	stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &native_channels, STBI_rgb_alpha);
-	LOG("load texture w %d h %d channels %d", width, height, native_channels)
-	EXPECT(pixels != nullptr, true)
+	imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
 	createTexture2DFromPixelData(
 		pixels,
@@ -166,6 +171,7 @@ Texture2D::Texture2D(const std::string &path)
 void Texture2D::createDefaultTextures()
 {
 	auto* whiteTexture = new Texture2D();
+	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 	whiteTexture->num_slices = 1;
 	whiteTexture->width = 1;
 	whiteTexture->height = 1;
@@ -179,4 +185,19 @@ void Texture2D::createDefaultTextures()
 Texture2D::~Texture2D()
 {
 	vkDestroyImageView(Vulkan::Instance->device, imageView, nullptr);
+}
+
+Texture2D::Texture2D(ImageCreator &imageCreator)
+{
+	imageFormat = imageCreator.imageInfo.format;
+	width = imageCreator.imageInfo.extent.width;
+	height = imageCreator.imageInfo.extent.height;
+	num_slices = imageCreator.imageInfo.extent.depth;
+
+	imageCreator.create(resource, imageView);
+	if (imageCreator.debugName.length() > 0)
+	{
+		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, imageCreator.debugName)
+		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, imageCreator.debugName + "_defaultView")
+	}
 }

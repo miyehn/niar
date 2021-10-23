@@ -1,7 +1,7 @@
 #pragma once
 #include "Updatable.hpp"
 #include "Asset/Shader.h"
-#include "Asset/Blit.h"
+#include "Asset/GlBlit.h"
 
 struct Scene;
 

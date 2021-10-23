@@ -68,7 +68,7 @@ void DescriptorSet::pointToUniformBuffer(VmaBuffer &uniformBuffer, uint32_t bind
 	}
 }
 
-void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding)
+void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType)
 {
 	EXPECT(numInstances != 0, true)
 
@@ -97,7 +97,7 @@ void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding)
 			.dstBinding = binding,
 			.dstArrayElement = 0,
 			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorType = descriptorType,
 			// actual write data (one of three)
 			.pImageInfo = &imageInfo,
 			.pBufferInfo = nullptr,

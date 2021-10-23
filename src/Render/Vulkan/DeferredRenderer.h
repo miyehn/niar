@@ -1,29 +1,13 @@
 #pragma once
 #include "Renderer.h"
 
+class Texture2D;
+
 class DeferredRenderer : public Renderer
 {
 protected:
 	DeferredRenderer();
 	~DeferredRenderer() override;
-
-	VmaAllocatedImage GPosition;
-	VkImageView GPositionView;
-
-	VmaAllocatedImage GNormal;
-	VkImageView GNormalView;
-
-	VmaAllocatedImage GColor;
-	VkImageView GColorView;
-
-	VmaAllocatedImage GMetallicRoughnessAO;
-	VkImageView GMetallicRoughnessAOView;
-
-	VmaAllocatedImage sceneColor;
-	VkImageView sceneColorView;
-
-	VmaAllocatedImage sceneDepth;
-	VkImageView sceneDepthView;
 
 	VkRenderPass renderPass;
 	VkFramebuffer framebuffer;
@@ -31,6 +15,19 @@ protected:
 	VkExtent2D renderExtent;
 
 public:
+
+	Texture2D* GPosition;
+
+	Texture2D* GNormal;
+
+	Texture2D* GColor;
+
+	Texture2D* GMetallicRoughnessAO;
+
+	Texture2D* sceneColor;
+
+	Texture2D* sceneDepth;
+
 	void render() override;
 	VkRenderPass getRenderPass() override { return renderPass; }
 

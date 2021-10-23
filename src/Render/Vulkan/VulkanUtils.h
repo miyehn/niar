@@ -18,6 +18,8 @@ namespace vk
 							VkImageLayout newLayout);
 
 	void blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax);
+
+	void draw_fullscreen_triangle(VkCommandBuffer cmdbuf);
 }
 
 class ScopedDrawEvent

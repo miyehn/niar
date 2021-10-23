@@ -93,6 +93,11 @@ void vk::blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffse
 						   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
+void vk::draw_fullscreen_triangle(VkCommandBuffer cmdbuf)
+{
+	vkCmdDraw(cmdbuf, 3, 1, 0, 0);
+}
+
 ScopedDrawEvent::ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color) : cmdbuf(cmdbuf)
 {
 	VkDebugUtilsLabelEXT markerInfo {

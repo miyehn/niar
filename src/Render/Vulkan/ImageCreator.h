@@ -13,7 +13,7 @@ struct ImageCreator
 	VkImageCreateInfo imageInfo;
 	VmaAllocationCreateInfo allocInfo;
 	VkImageViewCreateInfo viewInfo;
-	const std::string& debugName;
+	const std::string debugName;
 
 	void create(VmaAllocatedImage& image, VkImageView &imageView);
 };
