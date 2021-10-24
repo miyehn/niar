@@ -13,6 +13,8 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 
+#include "Render/Materials/Material.h"
+
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
@@ -227,7 +229,8 @@ void Mesh::update(float elapsed) {
 
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	SCOPED_DRAW_EVENT(cmdbuf, "draw mesh", {0.8f, 0.9f, 1, 1})
+	material->setParameters(this);
+
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)

@@ -56,22 +56,21 @@ struct PipelineBuilder
 {
 	PipelineBuilder();
 
-	void add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
+	// void add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
 
-	void include_descriptor_set_layout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
+	void useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
 
-	VkPipeline build();
+	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout);
 
 	std::string vertPath;
 	std::string fragPath;
 
 	PipelineState pipelineState{};
+
 	VkRenderPass compatibleRenderPass = VK_NULL_HANDLE;
 	uint32_t compatibleSubpass = 0;
 
+private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
-
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	VkPipeline pipeline = VK_NULL_HANDLE;
 };
 

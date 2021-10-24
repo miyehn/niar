@@ -56,13 +56,13 @@ set(SRC
 	src/Utils/myn/Color.cpp
 	src/Render/Materials/Texture.cpp
 	src/Render/StbImageImpl.cpp
-	src/Render/Vulkan/Sampler.cpp
+	src/Render/Vulkan/SamplerCache.cpp
 	src/Render/Vulkan/ShaderModule.cpp
-	src/Render/Renderers/Renderer.cpp
 	src/Render/Vulkan/VulkanUtils.cpp
 	src/Render/Renderers/DeferredRenderer.cpp
 	src/Render/Vulkan/ImageCreator.cpp
-	src/Render/Materials/DeferredPointLighting.cpp)
+	src/Render/Materials/DeferredPointLighting.cpp
+	src/Render/Materials/DeferredBasepass.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})

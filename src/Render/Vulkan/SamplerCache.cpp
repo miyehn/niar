@@ -1,4 +1,4 @@
-#include "Sampler.h"
+#include "SamplerCache.h"
 #include "Vulkan.hpp"
 
 bool operator==(const VkSamplerCreateInfo &info1, const VkSamplerCreateInfo &info2)
@@ -31,9 +31,9 @@ namespace std
 	};
 }
 
-std::unordered_map<VkSamplerCreateInfo, VkSampler> Sampler::pool;
+std::unordered_map<VkSamplerCreateInfo, VkSampler> SamplerCache::pool;
 
-VkSampler Sampler::get(VkSamplerCreateInfo &createInfo)
+VkSampler SamplerCache::get(VkSamplerCreateInfo &createInfo)
 {
 	auto it = pool.find(createInfo);
 	if (it != pool.end()) {
@@ -46,9 +46,9 @@ VkSampler Sampler::get(VkSamplerCreateInfo &createInfo)
 	return sampler;
 }
 
-void Sampler::cleanup()
+void SamplerCache::cleanup()
 {
-	for (auto & it : Sampler::pool)
+	for (auto & it : SamplerCache::pool)
 	{
 		vkDestroySampler(Vulkan::Instance->device, it.second, nullptr);
 	}

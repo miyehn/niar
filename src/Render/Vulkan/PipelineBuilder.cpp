@@ -206,17 +206,17 @@ PipelineBuilder::PipelineBuilder()
 	fragPath = "spirv/triangle.frag.spv";
 }
 
-VkPipeline PipelineBuilder::build()
+void PipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout)
 {
 	// shader stages
 
-	auto vert_module = ShaderModule::get(vertPath);
-	auto frag_module = ShaderModule::get(fragPath);
+	auto vertModule = ShaderModule::get(vertPath);
+	auto fragModule = ShaderModule::get(fragPath);
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_VERTEX_BIT,
-		.module = vert_module->module,
+		.module = vertModule->module,
 		.pName = "main", // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	};
@@ -224,7 +224,7 @@ VkPipeline PipelineBuilder::build()
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module = frag_module->module,
+		.module = fragModule->module,
 		.pName = "main", // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	};
@@ -233,56 +233,32 @@ VkPipeline PipelineBuilder::build()
 
 	// layout
 
-	std::vector<VkDescriptorSetLayout> layouts;
-	for (auto & descriptorSetLayout : descriptorSetLayouts)
+	std::vector<VkDescriptorSetLayout> setLayouts;
+	for (auto layout : descriptorSetLayouts)
 	{
-		VkDescriptorSetLayoutCreateInfo layoutInfo = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = static_cast<uint32_t>(descriptorSetLayout.bindings.size()),
-			.pBindings = descriptorSetLayout.bindings.data(),
-		};
-		EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &layoutInfo, nullptr, &descriptorSetLayout.layout), VK_SUCCESS)
-		layouts.push_back(descriptorSetLayout.layout);
+		setLayouts.push_back(layout.getLayout());
 	}
-
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = static_cast<uint32_t>(layouts.size()),
-		.pSetLayouts = layouts.data(),
+		.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+		.pSetLayouts = setLayouts.data(),
 		.pushConstantRangeCount = 0,
 		.pPushConstantRanges = nullptr
 	};
-	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &pipelineLayout), VK_SUCCESS)
+	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &outPipelineLayout), VK_SUCCESS)
 
 	// create the fucking pipeline
 	auto pipelineInfo = pipelineState.getPipelineInfoTemplate();
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.layout = pipelineLayout;
+	pipelineInfo.layout = outPipelineLayout;
 	pipelineInfo.renderPass = compatibleRenderPass;
 	pipelineInfo.subpass = compatibleSubpass;
 
-	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline), VK_SUCCESS)
-
-	return pipeline;
+	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
 }
 
-void PipelineBuilder::add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type)
-{
-	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
-	DescriptorSetLayout &layout = descriptorSetLayouts[setIndex];
-
-	if (layout.bindings.size() <= bindingIndex) layout.bindings.resize(bindingIndex + 1);
-	layout.bindings[bindingIndex] = {
-		.binding = bindingIndex,
-		.descriptorType = type,
-		.descriptorCount = 1, // 1 for now; otherwise it's actually an array of resources
-		.stageFlags = shaderStages,
-		.pImmutableSamplers = nullptr // for image sampling related?
-	};
-}
-
-void PipelineBuilder::include_descriptor_set_layout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
+void PipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
 {
 	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
 	descriptorSetLayouts[setIndex] = setLayout;

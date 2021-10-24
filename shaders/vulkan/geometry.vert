@@ -1,10 +1,9 @@
 #version 450 core
 
-layout(set = 0, binding = 0) uniform UniformBufferObject {
+#include "scene_common.glsl"
+
+layout(set = 3, binding = 0) uniform UniformBufferObject {
   mat4 ModelMatrix;
-  mat4 ViewMatrix;
-  mat4 ProjectionMatrix;
-  vec3 Tint;
 } ubo;
 
 layout (location = 0) in vec3 in_position;
@@ -16,8 +15,11 @@ layout (location = 0) out vec4 vf_position;
 layout (location = 1) out vec2 vf_uv;
 layout (location = 2) out mat3 TANGENT_TO_WORLD_ROT;
 
-void main() {
-  gl_Position = ubo.ProjectionMatrix * ubo.ViewMatrix * ubo.ModelMatrix * vec4(in_position, 1.0);//OBJECT_TO_CLIP * vec4(in_position, 1);
+void main()
+{
+  ViewInfo viewInfo = GetViewInfo();
+
+  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * ubo.ModelMatrix * vec4(in_position, 1.0);//OBJECT_TO_CLIP * vec4(in_position, 1);
   vf_position = ubo.ModelMatrix * vec4(in_position, 1.0);
 
   vf_uv = in_uv;

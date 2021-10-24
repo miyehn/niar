@@ -185,6 +185,7 @@ DeferredRenderer::DeferredRenderer()
 			});
 
 		// dependencies
+		// TODO: relax the synchronization constraints
 		passBuilder.dependencies.push_back(
 			{
 				.srcSubpass = VK_SUBPASS_EXTERNAL,
@@ -252,55 +253,14 @@ DeferredRenderer::DeferredRenderer()
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-		DescriptorSetLayout setLayout;
-		setLayout.bindings.push_back(
-			{
-				.binding = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.pImmutableSamplers = nullptr
-			});
-		setLayout.bindings.push_back(
-			{
-				.binding = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.pImmutableSamplers = nullptr
-			});
-		setLayout.bindings.push_back(
-			{
-				.binding = 2,
-				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.pImmutableSamplers = nullptr
-			});
-		setLayout.bindings.push_back(
-			{
-				.binding = 3,
-				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.pImmutableSamplers = nullptr
-			});
-		setLayout.bindings.push_back(
-			{
-				.binding = 4,
-				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.pImmutableSamplers = nullptr
-			});
 
-		VkDescriptorSetLayoutCreateInfo frameGlobalLayoutInfo = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = static_cast<uint32_t>(setLayout.bindings.size()),
-			.pBindings = setLayout.bindings.data(),
-		};
-		EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &frameGlobalLayoutInfo, nullptr, &setLayout.layout), VK_SUCCESS)
-		frameGlobalDescriptorSet = DescriptorSet(Vulkan::Instance->device, setLayout);
+		DescriptorSetLayout frameGlobalSetLayout{};
+		frameGlobalSetLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		frameGlobalSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 
 		frameGlobalDescriptorSet.pointToUniformBuffer(viewInfoUbo, 0);
 		frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
@@ -315,7 +275,6 @@ DeferredRenderer::~DeferredRenderer()
 	auto vk = Vulkan::Instance;
 	vkDestroyRenderPass(vk->device, renderPass, nullptr);
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
-	vkDestroyDescriptorSetLayout(vk->device, frameGlobalDescriptorSet.layout.layout, nullptr);
 	viewInfoUbo.release();
 
 	std::vector<Texture2D*> images = {
@@ -326,24 +285,25 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::render()
 {
-	ViewInfo.CameraPosition = camera->position;
-	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
-	ViewInfo.ViewDir = camera->forward();
-	ViewInfo.ViewMatrix = camera->world_to_camera_rotation();
-	ViewInfo.NumDirectionalLights = 0;
-	ViewInfo.NumPointLights = 1;
-	viewInfoUbo.writeData(&ViewInfo);
-
 	auto cmdbuf = Vulkan::Instance->beginFrame();
 
+	{// update frame-global uniforms
+		ViewInfo.CameraPosition = camera->position;
+		ViewInfo.ProjectionMatrix = camera->camera_to_clip();
+		ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+		ViewInfo.ViewDir = camera->forward();
+		ViewInfo.ViewMatrix = camera->world_to_camera();
+		ViewInfo.NumDirectionalLights = 0;
+		ViewInfo.NumPointLights = 1;
+		viewInfoUbo.writeData(&ViewInfo);
+	}
+
 	VkClearValue clearColor = {0, 0, 0, 1.0f};
-	VkClearValue clearColor2 = {0.9f, 0.5f, 0.3f, 1.0f};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
-	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor2, clearDepth };
-
+	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
-	VkRenderPassBeginInfo intermediatePassInfo = {
+	VkRenderPassBeginInfo passInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = renderPass,
 		.framebuffer = framebuffer,
@@ -351,22 +311,29 @@ void DeferredRenderer::render()
 		.clearValueCount = 6,
 		.pClearValues = clearValues
 	};
-	vkCmdBeginRenderPass(cmdbuf, &intermediatePassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	Material* lastMaterial = nullptr;
+	for (auto drawable : drawables) // (assume they're sorted by material)
 	{
-		for (auto drawable : drawables)
+		if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 		{
-			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
+			if (m->material != lastMaterial)
 			{
-				m->material->set_parameters(m);
-				m->material->use(cmdbuf);
-				m->draw(cmdbuf);
+				m->material->usePipeline(cmdbuf, {
+					{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
+				});
+				lastMaterial = m->material;
 			}
+			m->draw(cmdbuf);
 		}
 	}
+
 	vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
+
 	{
-		DeferredPointLighting* point_lighting_comp =
-			dynamic_cast<DeferredPointLighting*>(Material::find("deferred lighting pass"));
+		MatDeferredPointLighting* point_lighting_comp =
+			dynamic_cast<MatDeferredPointLighting*>(Material::find("deferred lighting pass"));
 
 		int num_lights = 0;
 		for (auto drawable : drawables)
@@ -381,14 +348,12 @@ void DeferredRenderer::render()
 			}
 		}
 
-		auto dset = frameGlobalDescriptorSet.getInstance();
-		vkCmdBindDescriptorSets(
-			cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, point_lighting_comp->get_pipeline_layout(),
-			0, 1, &dset, 0, nullptr);
-
-		point_lighting_comp->use(cmdbuf);
+		point_lighting_comp->usePipeline(cmdbuf, {
+			{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
+		});
 		vk::draw_fullscreen_triangle(cmdbuf);
 	}
+
 	vkCmdEndRenderPass(cmdbuf);
 
 	vk::blitToScreen(

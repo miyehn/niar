@@ -1,10 +1,19 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <unordered_map>
 #include "Buffer.h"
 
-struct DescriptorSetLayout
+#define DSET_FRAMEGLOBAL 0
+#define DSET_DYNAMIC 3
+
+class DescriptorSetLayout
 {
+public:
+	void addBinding(uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
+	VkDescriptorSetLayout getLayout();
+
+private:
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	VkDescriptorSetLayout layout = VK_NULL_HANDLE;
 };
@@ -13,7 +22,8 @@ class DescriptorSet
 {
 public:
 	DescriptorSet() = default;
-	DescriptorSet(VkDevice &device, DescriptorSetLayout &layouts, uint32_t numInstances = 1);
+
+	DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances = 1);
 
 	VkDescriptorSet getInstance(uint32_t index = 0) const { return descriptorSets[index]; }
 
@@ -21,15 +31,15 @@ public:
 
 	void pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType);
 
-	DescriptorSetLayout layout;
+	void bind(VkCommandBuffer cmdbuf, uint32_t setIndex, VkPipelineLayout pipelineLayout, uint32_t instanceId = 0);
 
-	static void releasePool(VkDevice &device);
+	DescriptorSetLayout getLayout() { return layout; }
+
+	static void releasePool();
 
 private:
 
-	VkDevice device = VK_NULL_HANDLE;
-
-	uint32_t numInstances = 0;
+	DescriptorSetLayout layout;
 
 	std::vector<VkDescriptorSet> descriptorSets;
 
@@ -39,6 +49,10 @@ private:
 // TODO
 class DescriptorSetLayoutCache
 {
-public:
+protected:
+	static std::unordered_map<VkDescriptorSetLayoutCreateInfo, VkDescriptorSetLayout> pool;
 
+public:
+	static VkDescriptorSetLayout get(VkDescriptorSetLayoutCreateInfo& createInfo);
+	static void cleanup();
 };

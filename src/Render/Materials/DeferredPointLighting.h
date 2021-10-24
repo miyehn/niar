@@ -2,27 +2,32 @@
 #include "Material.h"
 #include "Render/Renderers/DeferredRenderer.h"
 
-class DeferredPointLighting : public Material
+#define MAX_LIGHTS_PER_PASS 4
+
+class MatDeferredPointLighting : public Material
 {
 public:
 
-	explicit DeferredPointLighting(DeferredRenderer& deferredRenderer);
-	void use(VkCommandBuffer &cmdbuf) override;
-	int get_id() override { return 5; }
-	~DeferredPointLighting() override;
+	explicit MatDeferredPointLighting();
+	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets={}) override;
+	~MatDeferredPointLighting() override;
 
-	struct PointLight {
+	struct PointLightInfo {
 		alignas(16) glm::vec3 position;
 		alignas(16) glm::vec3 color;
 	};
 
 	struct
 	{
-		PointLight Lights[4]; // need to match shader
+		PointLightInfo Lights[MAX_LIGHTS_PER_PASS]; // need to match shader
 	} uniforms;
 
 private:
 
 	VmaBuffer uniformBuffer;
+
 	DescriptorSet dynamicSet;
+
+	VkPipeline pipeline;
+	VkPipelineLayout pipelineLayout;
 };

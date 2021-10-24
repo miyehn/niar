@@ -5,12 +5,12 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
 #include "Asset/GlMaterial.h"
-#include "Render/Materials/Material.h"
+#include "Render/Materials/DeferredBasepass.h"
 #include "Render/Materials/DeferredPointLighting.h"
 #include "Asset/Mesh.h"
 #include "Render/Materials/Texture.h"
 
-#include "Render/Vulkan/Sampler.h"
+#include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/ShaderModule.h"
 #include "Render/Vulkan/VulkanUtils.h"
 
@@ -240,17 +240,15 @@ void Program::run_vulkan()
 
 	Texture2D::createDefaultTextures();
 
-	AnotherRenderer* renderer = AnotherRenderer::get();
 	DeferredRenderer* deferredRenderer = DeferredRenderer::get();
 
-	new MatTest(std::string(ROOT_DIR"/") + "media/checkerboard.jpg");
-	new Geometry(
+	new MatDeferredBasepass(
 		std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png",
 		std::string(ROOT_DIR"/") + "media/water_tower/normal.png",
 		std::string(ROOT_DIR"/") + "media/water_tower/metallic.png",
 		std::string(ROOT_DIR"/") + "media/water_tower/roughness.png",
-		"_white", glm::vec3(1));
-	new DeferredPointLighting(*deferredRenderer);
+		"");
+	new MatDeferredPointLighting();
 
 	Scene* scene = Scene::Active;
 	for (int i = 0; i < scene->children.size(); i++)
@@ -285,26 +283,20 @@ void Program::run_vulkan()
 
 		// draw
 
-#if 0
-		renderer->camera = Camera::Active;
-		renderer->drawables = Scene::Active->children;
-		renderer->render();
-#else
 		deferredRenderer->camera = Camera::Active;
 		deferredRenderer->drawables = Scene::Active->children;
 		deferredRenderer->render();
-#endif
 	}
 
 	Vulkan::Instance->waitDeviceIdle();
-	AnotherRenderer::cleanup();
 	DeferredRenderer::cleanup();
 	ShaderModule::cleanup();
 	Texture::cleanup();
-	Sampler::cleanup();
+	SamplerCache::cleanup();
 	Material::cleanup();
 
-	DescriptorSet::releasePool(Vulkan::Instance->device);
+	DescriptorSet::releasePool();
+	DescriptorSetLayoutCache::cleanup();
 	release_resources();
 
 	delete Vulkan::Instance;
