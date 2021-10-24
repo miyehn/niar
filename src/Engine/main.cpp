@@ -242,6 +242,12 @@ void Program::run_vulkan()
 
 	DeferredRenderer* deferredRenderer = DeferredRenderer::get();
 
+	// TODO: format mysteries?
+	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png", {4, 8, 1});
+	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/normal.png", {4, 8, 1});
+	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/metallic.png", {4, 8, 1});
+	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/roughness.png", {4, 8, 1});
+
 	new MatDeferredBasepass(
 		std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png",
 		std::string(ROOT_DIR"/") + "media/water_tower/normal.png",

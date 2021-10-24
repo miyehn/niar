@@ -4,23 +4,45 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/ImageCreator.h"
 
+struct ImageFormat {
+	int numChannels;
+	int channelDepth;
+	int SRGB;
+};
+
 class Texture
 {
+public:
+	static Texture* get(const std::string &path);
+
+	static void cleanup();
+
+	VmaAllocatedImage resource;
+
 protected:
 	Texture() = default;
 	virtual ~Texture();
 
 	static std::unordered_map<std::string, Texture*> pool;
-
-public:
-	static Texture* get(const std::string &path);
-	static void cleanup();
-
-	VmaAllocatedImage resource;
 };
 
 class Texture2D : public Texture
 {
+public:
+
+	VkImageView imageView;
+	VkFormat imageFormat;
+
+	~Texture2D() override;
+
+	explicit Texture2D(
+		const std::string &path,
+		ImageFormat textureFormat={4,8,1});
+
+	explicit Texture2D(ImageCreator &imageCreator);
+
+	static void createDefaultTextures();
+
 protected:
 	uint32_t width;
 	uint32_t height;
@@ -28,17 +50,4 @@ protected:
 
 	Texture2D() = default;
 
-public:
-
-	VkImageView imageView;
-	VkFormat imageFormat;
-
-	static void createDefaultTextures();
-
-	~Texture2D() override;
-
-	explicit Texture2D(const std::string &path);
-
-	// TODO: also take a string argument and use it to add it to pool?
-	explicit Texture2D(ImageCreator &imageCreator);
 };

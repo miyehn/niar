@@ -17,6 +17,8 @@ Texture *Texture::get(const std::string &path)
 	auto it = Texture::pool.find(path);
 	if (it != Texture::pool.end()) return (*it).second;
 
+	WARN("retrieving texture '%s' before it is added to the pool. Trying to load from file with default settings (SRGB)..",
+		 path.c_str())
 	auto new_texture = new Texture2D(path);
 	Texture::pool[path] = new_texture;
 	return new_texture;
@@ -141,35 +143,79 @@ void createTexture2DFromPixelData(
 	EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &outImageView), VK_SUCCESS)
 }
 
-Texture2D::Texture2D(const std::string &path)
+bool operator==(const ImageFormat& f1, const ImageFormat& f2)
 {
+	return f1.numChannels==f2.numChannels && f1.channelDepth==f2.channelDepth && f1.SRGB==f2.SRGB;
+}
+namespace std
+{
+	template<> struct hash<ImageFormat>
+	{
+		std::size_t operator()(const ImageFormat &format) const noexcept
+		{
+			return
+			    hash<int>{}(format.numChannels << 0) ^
+				hash<int>{}(format.channelDepth << 8) ^
+				hash<int>{}(format.SRGB << 16);
+		}
+	};
+}
+
+Texture2D::Texture2D(const std::string &path, ImageFormat textureFormat)
+{
+#ifdef DEBUG
+	auto it = Texture::pool.find(path);
+	if (it != Texture::pool.end()) WARN("trying to load texture '%s' that's already in the pool. Overriding..", path.c_str())
+	EXPECT(textureFormat.channelDepth % 8, 0)
+#endif
+
 	int native_channels;
 	int iwidth, iheight;
-	stbi_uc* pixels = stbi_load(path.c_str(), &iwidth, &iheight, &native_channels, STBI_rgb_alpha);
+	uint8_t* pixels = nullptr;
+	if (textureFormat.channelDepth==8) {
+		pixels = stbi_load(path.c_str(), &iwidth, &iheight, &native_channels, textureFormat.numChannels);
+	} else if (textureFormat.channelDepth==16) {
+		pixels = (uint8_t*)stbi_load_16(path.c_str(), &iwidth, &iheight, &native_channels, textureFormat.numChannels);
+	} else if (textureFormat.channelDepth==32) {
+		pixels = (uint8_t*)stbi_loadf(path.c_str(), &iwidth, &iheight, &native_channels, textureFormat.numChannels);
+	} else {
+		ERR("Trying to load image '%s' with wrong channelDepth", path.c_str())
+	}
+
 	LOG("load texture w %d h %d channels %d", iwidth, iheight, native_channels)
 	EXPECT(pixels != nullptr, true)
+
+	std::unordered_map<ImageFormat, VkFormat> formatMap;
+	formatMap[{1, 16, 0}] = VK_FORMAT_R16_SFLOAT;
+	formatMap[{1, 32, 0}] = VK_FORMAT_R32_SFLOAT;
+	formatMap[{4, 16, 0}] = VK_FORMAT_R16G16B16A16_SFLOAT;
+	formatMap[{4, 8, 1}] = VK_FORMAT_R8G8B8A8_SRGB; // since {3, 8, 1} is not valid
+	// TODO: move to elsewhere?
+
+	imageFormat = formatMap[textureFormat];
 
 	width = iwidth;
 	height = iheight;
 	num_slices = 1;
 
-	imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-
-	createTexture2DFromPixelData(
-		pixels,
-		width,
-		height,
-		VK_FORMAT_R8G8B8A8_SRGB,
-		4,
-		resource,
-		imageView
-		);
+	uint32_t pixelSize = textureFormat.numChannels * (textureFormat.channelDepth / 8);
+	createTexture2DFromPixelData(pixels, width, height, imageFormat, pixelSize,resource,imageView);
 
 	stbi_image_free(pixels);
+
+	Texture::pool[path] = this;
 }
 
 void Texture2D::createDefaultTextures()
 {
+	static bool createdDefaultTextures = false;
+
+	if (createdDefaultTextures)
+	{
+		WARN("Trying to re-create default textures. Skipping..")
+		return;
+	}
+
 	auto* whiteTexture = new Texture2D();
 	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
 	whiteTexture->num_slices = 1;
@@ -178,8 +224,8 @@ void Texture2D::createDefaultTextures()
 	uint8_t whitePixel[] = {1, 1, 1, 1};
 	createTexture2DFromPixelData(
 		whitePixel, 1, 1,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
-		8,
+		VK_FORMAT_R8G8B8A8_SRGB,
+		4,
 		whiteTexture->resource,
 		whiteTexture->imageView);
 	Texture::pool["_white"] = whiteTexture;

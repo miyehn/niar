@@ -17,4 +17,3 @@ struct ImageCreator
 
 	void create(VmaAllocatedImage& image, VkImageView &imageView);
 };
-
