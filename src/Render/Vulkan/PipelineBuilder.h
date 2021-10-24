@@ -2,6 +2,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <string>
+#include "DescriptorSet.h"
 
 struct PipelineState
 {
@@ -57,9 +58,9 @@ struct PipelineBuilder
 
 	void add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
 
-	VkPipeline build();
+	void include_descriptor_set_layout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
 
-	std::vector<VkDescriptorSetLayout> getLayouts();
+	VkPipeline build();
 
 	std::string vertPath;
 	std::string fragPath;
@@ -68,11 +69,6 @@ struct PipelineBuilder
 	VkRenderPass compatibleRenderPass = VK_NULL_HANDLE;
 	uint32_t compatibleSubpass = 0;
 
-	struct DescriptorSetLayout
-	{
-		std::vector<VkDescriptorSetLayoutBinding> bindings;
-		VkDescriptorSetLayout layout;
-	};
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
 
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;

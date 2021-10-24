@@ -5,7 +5,13 @@
 namespace myn
 {
 	// for showing last path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
-	#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+	#ifdef WINOS
+	#define PATH_ELIM_SLASH '\\'
+	#endif
+	#ifdef MACOS
+	#define PATH_ELIM_SLASH '/'
+	#endif
+	#define __FILENAME__ (strrchr(__FILE__, PATH_ELIM_SLASH) ? strrchr(__FILE__, PATH_ELIM_SLASH) + 1 : __FILE__)
 
 	// colors
 	// for color formatting, see: https://stackoverflow.com/questions/2616906/how-do-i-output-coloured-text-to-a-linux-terminal

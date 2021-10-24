@@ -1,6 +1,5 @@
 #include "PipelineBuilder.h"
-#include "Asset/Vertex.h"
-#include "Render/gfx/gfx.h"
+#include "Render/Vertex.h"
 #include "Vulkan.hpp"
 #include "ShaderModule.h"
 
@@ -283,12 +282,8 @@ void PipelineBuilder::add_binding(uint32_t setIndex, uint32_t bindingIndex, VkSh
 	};
 }
 
-std::vector<VkDescriptorSetLayout> PipelineBuilder::getLayouts()
+void PipelineBuilder::include_descriptor_set_layout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
 {
-	std::vector<VkDescriptorSetLayout> layouts;
-	for (auto &layout : descriptorSetLayouts)
-	{
-		layouts.push_back(layout.layout);
-	}
-	return layouts;
+	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
+	descriptorSetLayouts[setIndex] = setLayout;
 }

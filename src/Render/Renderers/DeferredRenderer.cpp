@@ -1,11 +1,11 @@
 #include "DeferredRenderer.h"
-#include "RenderPassBuilder.h"
-#include "Asset/Texture.h"
-#include "ImageCreator.h"
+#include "Render/Vulkan/RenderPassBuilder.h"
+#include "Render/Materials/Texture.h"
 #include "Asset/Mesh.h"
-#include "Asset/Material.h"
-#include "Asset/DeferredPointLighting.h"
-#include "VulkanUtils.h"
+#include "Render/Materials/Material.h"
+#include "Render/Materials/DeferredPointLighting.h"
+#include "Scene/Light.hpp"
+#include "Render/Vulkan/VulkanUtils.h"
 
 #define GPOSITION_ATTACHMENT 0
 #define GNORMAL_ATTACHMENT 1
@@ -244,6 +244,70 @@ DeferredRenderer::DeferredRenderer()
 			nullptr,
 			&framebuffer), VK_SUCCESS)
 	}
+
+	{// frame-global descriptor set
+
+		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+								  sizeof(ViewInfo),
+								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								  VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+		DescriptorSetLayout setLayout;
+		setLayout.bindings.push_back(
+			{
+				.binding = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.pImmutableSamplers = nullptr
+			});
+		setLayout.bindings.push_back(
+			{
+				.binding = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.pImmutableSamplers = nullptr
+			});
+		setLayout.bindings.push_back(
+			{
+				.binding = 2,
+				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.pImmutableSamplers = nullptr
+			});
+		setLayout.bindings.push_back(
+			{
+				.binding = 3,
+				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.pImmutableSamplers = nullptr
+			});
+		setLayout.bindings.push_back(
+			{
+				.binding = 4,
+				.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.pImmutableSamplers = nullptr
+			});
+
+		VkDescriptorSetLayoutCreateInfo frameGlobalLayoutInfo = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = static_cast<uint32_t>(setLayout.bindings.size()),
+			.pBindings = setLayout.bindings.data(),
+		};
+		EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &frameGlobalLayoutInfo, nullptr, &setLayout.layout), VK_SUCCESS)
+		frameGlobalDescriptorSet = DescriptorSet(Vulkan::Instance->device, setLayout);
+
+		frameGlobalDescriptorSet.pointToUniformBuffer(viewInfoUbo, 0);
+		frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalDescriptorSet.pointToImageView(GMetallicRoughnessAO->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+	}
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -251,6 +315,8 @@ DeferredRenderer::~DeferredRenderer()
 	auto vk = Vulkan::Instance;
 	vkDestroyRenderPass(vk->device, renderPass, nullptr);
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
+	vkDestroyDescriptorSetLayout(vk->device, frameGlobalDescriptorSet.layout.layout, nullptr);
+	viewInfoUbo.release();
 
 	std::vector<Texture2D*> images = {
 		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth
@@ -260,6 +326,14 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::render()
 {
+	ViewInfo.CameraPosition = camera->position;
+	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
+	ViewInfo.ViewDir = camera->forward();
+	ViewInfo.ViewMatrix = camera->world_to_camera_rotation();
+	ViewInfo.NumDirectionalLights = 0;
+	ViewInfo.NumPointLights = 1;
+	viewInfoUbo.writeData(&ViewInfo);
+
 	auto cmdbuf = Vulkan::Instance->beginFrame();
 
 	VkClearValue clearColor = {0, 0, 0, 1.0f};
@@ -291,12 +365,28 @@ void DeferredRenderer::render()
 	}
 	vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	{
-		DeferredPointLighting* lighting = dynamic_cast<DeferredPointLighting*>(Material::find("deferred lighting pass"));
+		DeferredPointLighting* point_lighting_comp =
+			dynamic_cast<DeferredPointLighting*>(Material::find("deferred lighting pass"));
 
-		lighting->uniforms.CameraPosition = Camera::Active->position;
-		lighting->uniforms.NumLights = 0;
+		int num_lights = 0;
+		for (auto drawable : drawables)
+		{
+			if (auto L = dynamic_cast<PointLight*>(drawable))
+			{
+				if (num_lights >= 4) break;
+				point_lighting_comp->uniforms.Lights[num_lights].position = L->world_position();
+				point_lighting_comp->uniforms.Lights[num_lights].color =
+					(L->get_emission() + glm::vec3(2, 1, 0)) * 20.0f;
+				num_lights++;
+			}
+		}
 
-		lighting->use(cmdbuf);
+		auto dset = frameGlobalDescriptorSet.getInstance();
+		vkCmdBindDescriptorSets(
+			cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, point_lighting_comp->get_pipeline_layout(),
+			0, 1, &dset, 0, nullptr);
+
+		point_lighting_comp->use(cmdbuf);
 		vk::draw_fullscreen_triangle(cmdbuf);
 	}
 	vkCmdEndRenderPass(cmdbuf);

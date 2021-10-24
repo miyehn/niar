@@ -3,7 +3,7 @@
 #include "Utils/Utils.hpp"
 // #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/Buffer.h"
-#include "Vertex.h"
+#include "Render/Vertex.h"
 
 #define NUM_MATERIAL_SETS 3
 

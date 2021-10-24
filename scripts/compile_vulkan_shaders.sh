@@ -27,13 +27,14 @@ num_shaders=0
 
 for shader in $1/*
 do
-	bn="$(basename $shader)"
-	if ! glslc $shader -o $2"/"$bn".spv"
-	then
-		error=1
-	else
-		num_shaders=$((num_shaders+1))
-	fi
+  if [[ $shader == *".vert" ]] || [[ $shader == *".frag" ]]; then
+    bn="$(basename $shader)"
+    if ! glslc $shader -o $2"/"$bn".spv"; then
+      error=1
+    else
+      num_shaders=$((num_shaders+1))
+    fi
+  fi
 done
 
 if [ $error -ne 1 ]

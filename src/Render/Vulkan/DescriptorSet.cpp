@@ -1,6 +1,7 @@
 #include "DescriptorSet.h"
 #include "Utils/myn/Log.h"
 #include "Render/Vulkan/Sampler.h"
+#include "Render/Vulkan/Vulkan.hpp"
 
 VkDescriptorPool DescriptorSet::descriptorPool = VK_NULL_HANDLE;
 
@@ -9,8 +10,8 @@ void DescriptorSet::releasePool(VkDevice &device)
 	if (descriptorPool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
 
-DescriptorSet::DescriptorSet(VkDevice &device, VkDescriptorSetLayout &layout, uint32_t numInstances)
-: device(device), numInstances(numInstances)
+DescriptorSet::DescriptorSet(VkDevice &device, DescriptorSetLayout &layout, uint32_t numInstances)
+: device(device), numInstances(numInstances), layout(layout)
 {
 	// create the pool first if it isn't created yet
 	if (descriptorPool == VK_NULL_HANDLE)
@@ -29,7 +30,7 @@ DescriptorSet::DescriptorSet(VkDevice &device, VkDescriptorSetLayout &layout, ui
 		EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
 	}
 
-	std::vector<VkDescriptorSetLayout> layouts(numInstances, layout);
+	std::vector<VkDescriptorSetLayout> layouts(numInstances, layout.layout);
 	VkDescriptorSetAllocateInfo allocInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = descriptorPool,

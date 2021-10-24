@@ -176,7 +176,12 @@ void Texture2D::createDefaultTextures()
 	whiteTexture->width = 1;
 	whiteTexture->height = 1;
 	uint8_t whitePixel[] = {1, 1, 1, 1};
-	createTexture2DFromPixelData(whitePixel, 1, 1, VK_FORMAT_R8G8B8A8_SRGB, 4, whiteTexture->resource, whiteTexture->imageView);
+	createTexture2DFromPixelData(
+		whitePixel, 1, 1,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		8,
+		whiteTexture->resource,
+		whiteTexture->imageView);
 	Texture::pool["_white"] = whiteTexture;
 
 	// TODO: more

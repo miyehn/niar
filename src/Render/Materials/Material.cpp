@@ -2,9 +2,9 @@
 #include "Engine/Drawable.hpp"
 #include "Scene/Camera.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
-#include "Render/Vulkan/Renderer.h"
-#include "Render/Vulkan/DeferredRenderer.h"
-#include "Asset/Texture.h"
+#include "Render/Renderers/Renderer.h"
+#include "Render/Renderers/DeferredRenderer.h"
+#include "Texture.h"
 
 std::unordered_map<std::string, Material*> material_pool{};
 
@@ -25,7 +25,7 @@ Material::~Material()
 	vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 	for (auto layout : descriptorSetLayouts)
 	{
-		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, layout, nullptr);
+		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, layout.layout, nullptr);
 	}
 }
 
@@ -56,7 +56,7 @@ MatTest::MatTest(const std::string &tex_path)
 
 	auto vk = Vulkan::Instance;
 
-	{// create the layouts and build the pipeline
+	{// pipeline and descriptor sets
 		PipelineBuilder pipelineBuilder{};
 		pipelineBuilder.vertPath = "spirv/basic.vert.spv";
 		pipelineBuilder.fragPath = "spirv/basic.frag.spv";
@@ -66,11 +66,9 @@ MatTest::MatTest(const std::string &tex_path)
 		pipelineBuilder.add_binding(0, 1, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		pipeline = pipelineBuilder.build();
 
-		descriptorSetLayouts = pipelineBuilder.getLayouts();
+		descriptorSetLayouts = pipelineBuilder.descriptorSetLayouts;
 		pipelineLayout = pipelineBuilder.pipelineLayout;
-	}
 
-	{// allocate the descriptor sets
 		descriptorSet = DescriptorSet(vk->device, descriptorSetLayouts[0]);
 		descriptorSet.pointToUniformBuffer(uniformBuffer, 0);
 		descriptorSet.pointToImageView(texture->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -152,7 +150,7 @@ Geometry::Geometry(
 		// build
 		pipeline = pipelineBuilder.build();
 
-		descriptorSetLayouts = pipelineBuilder.getLayouts();
+		descriptorSetLayouts = pipelineBuilder.descriptorSetLayouts;
 		pipelineLayout = pipelineBuilder.pipelineLayout;
 	}
 	{// allocate the descriptor sets

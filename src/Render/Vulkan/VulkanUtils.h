@@ -3,8 +3,18 @@
 #include <string>
 #include "Utils/myn/Color.h"
 
+class SDL_Window;
+
 namespace vk
 {
+	bool init_window(
+		const std::string& name,
+		int width,
+		int height,
+		SDL_Window** window,
+		int* drawable_width = nullptr,
+		int* drawable_height = nullptr);
+
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 
 	void insertImageBarrier(VkCommandBuffer cmdbuf,

@@ -1,5 +1,8 @@
 #version 450 core
 
+#include "rendertargets.glsl"
+#include "scene_common.glsl"
+
 #define PI 3.14159265359
 
 struct PointLight {
@@ -8,17 +11,10 @@ struct PointLight {
 };
 
 const int MaxLights = 4;
-layout(set = 0, binding = 0) uniform LightsInfo
+layout(set = 3, binding = 0) uniform LightsInfo
 {
-	vec3 CameraPosition;
-	int NumLights;
 	PointLight[MaxLights] Lights;
 } ubo;
-
-layout(set = 0, binding = 1, input_attachment_index = 0) uniform subpassInput GBUF0;
-layout(set = 0, binding = 2, input_attachment_index = 1) uniform subpassInput GBUF1;
-layout(set = 0, binding = 3, input_attachment_index = 2) uniform subpassInput GBUF2;
-layout(set = 0, binding = 4, input_attachment_index = 3) uniform subpassInput GBUF3;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -71,23 +67,24 @@ void main() {
 	float roughness = GMRA.g;
 	float ambientOcclusion = GMRA.b;
 
-	FragColor = vec4(0.5, 0.8, 0.8, 1);
+	ViewInfo viewInfo = GetViewInfo();
 
-	/*
+	int NumLights = viewInfo.NumPointLights;
+
 	// other light-independent properties
-	vec3 viewDir = normalize(position - CameraPosition);
+	vec3 viewDir = viewInfo.ViewDir;
 	float NdotV = max(dot(normal, -viewDir), 0);
 
 	FragColor = vec4(0, 0, 0, 1);
-	for (int i=0; i<NumPointLights; i++)
+	for (int i = 0; i < NumLights; i++)
 	{
 		// some useful properties
-		vec3 lightDir = position - PointLights[i].position;
+		vec3 lightDir = position - ubo.Lights[i].position;
 		float atten = 1.0 / dot(lightDir, lightDir);
 		lightDir = normalize(lightDir);
 		vec3 halfVec = -normalize(viewDir + lightDir); // TODO: just use normal here??
 		float NdotL = max(dot(normal, -lightDir), 0);
-		vec3 radiance = PointLights[i].color * atten;
+		vec3 radiance = ubo.Lights[i].color * atten;
 
 		//---- specular ----
 
@@ -115,14 +112,9 @@ void main() {
 		vec3 diffuse = kDiffuse * albedo / PI;
 
 		//---- contribution ----
-		vec3 Lo = (diffuse + specular) * radiance * NdotL;
+		vec3 Lo = (diffuse + specular) * radiance * NdotL * (1 - ambientOcclusion);
 
-		if (PointLights[i].castShadow) {
-			float Occlusion = texture(PointLights[i].shadowMask, vf_uv).r;
-			Lo *= Occlusion;
-		}
 		FragColor.rgb += Lo;
 	}
-	*/
 
 }

@@ -1,5 +1,42 @@
+#include <SDL2/SDL.h>
 #include "VulkanUtils.h"
 #include "Vulkan.hpp"
+
+Vulkan* Vulkan::Instance = nullptr;
+
+bool vk::init_window(
+	const std::string &name,
+	int width,
+	int height,
+	SDL_Window **window,
+	int *drawable_width,
+	int *drawable_height)
+{
+	if (Vulkan::Instance) return true;
+
+	SDL_Init(SDL_INIT_VIDEO);
+
+	// create window
+	*window = SDL_CreateWindow(
+		name.c_str(),
+		100, 100, // SDL_WINDOWPOS_UNDEFINED, or SDL_WINDOWPOS_CENTERED
+		width, height, // specify window size
+		SDL_WINDOW_VULKAN
+	);
+	if (*window == nullptr)
+	{
+		ERR("Error creating SDL window: %s", SDL_GetError());
+		return false;
+	}
+
+	Vulkan::Instance = new Vulkan(*window);
+
+	// TODO: get drawable size (vulkan)?
+	*drawable_width = width;
+	*drawable_height = height;
+
+	return true;
+}
 
 void vk::copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size)
 {

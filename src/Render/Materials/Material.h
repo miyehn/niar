@@ -21,12 +21,14 @@ public:
 	virtual void use(VkCommandBuffer &cmdbuf) = 0;
 	virtual ~Material();
 
+	VkPipelineLayout get_pipeline_layout() const { return pipelineLayout; }
+
 	static Material* find(const std::string& name);
 	static void cleanup();
 
 protected:
 
-	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+	std::vector<DescriptorSetLayout> descriptorSetLayouts;
 
 	VkPipelineLayout pipelineLayout{};
 	VkPipeline pipeline{};

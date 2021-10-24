@@ -1,9 +1,9 @@
 #include "Renderer.h"
 #include "Asset/Mesh.h"
-#include "Asset/Material.h"
-#include "RenderPassBuilder.h"
-#include "VulkanUtils.h"
-#include "ImageCreator.h"
+#include "Render/Materials/Material.h"
+#include "Render/Vulkan/RenderPassBuilder.h"
+#include "Render/Vulkan/VulkanUtils.h"
+#include "Render/Vulkan/ImageCreator.h"
 
 void SimpleRenderer::render()
 {

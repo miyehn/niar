@@ -5,16 +5,14 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Input.hpp"
 #include "Asset/GlMaterial.h"
-#include "Asset/Material.h"
-#include "Asset/DeferredPointLighting.h"
+#include "Render/Materials/Material.h"
+#include "Render/Materials/DeferredPointLighting.h"
 #include "Asset/Mesh.h"
-#include "Asset/Texture.h"
+#include "Render/Materials/Texture.h"
 
-#include "Render/gfx/gfx.h"
 #include "Render/Vulkan/Sampler.h"
 #include "Render/Vulkan/ShaderModule.h"
-#include "Render/Vulkan/Renderer.h"
-#include "Render/Vulkan/DeferredRenderer.h"
+#include "Render/Vulkan/VulkanUtils.h"
 
 Program* Program::Instance;
 #ifdef _WIN32
@@ -236,7 +234,7 @@ void Program::run_opengl() {
 
 void Program::run_vulkan()
 {
-	gfx::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
+	vk::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
 
 	load_resources_vulkan();
 
@@ -260,7 +258,6 @@ void Program::run_vulkan()
 		if (Mesh* m = dynamic_cast<Mesh*>(scene->children[i]))
 		{
 			m->material = Material::find("geometry");
-			//m->material = Material::find("test material");
 		}
 	}
 
