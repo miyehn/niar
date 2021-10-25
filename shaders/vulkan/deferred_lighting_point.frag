@@ -112,7 +112,7 @@ void main() {
 		vec3 diffuse = kDiffuse * albedo / PI;
 
 		//---- contribution ----
-		vec3 Lo = (diffuse + specular) * radiance * NdotL * (1 - ambientOcclusion);
+		vec3 Lo = (diffuse + specular) * radiance * NdotL * ambientOcclusion;
 
 		FragColor.rgb += Lo;
 	}

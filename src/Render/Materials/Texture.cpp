@@ -161,6 +161,8 @@ namespace std
 	};
 }
 
+#include "TextureFormatMappings.inl"
+
 Texture2D::Texture2D(const std::string &path, ImageFormat textureFormat)
 {
 #ifdef DEBUG
@@ -185,14 +187,7 @@ Texture2D::Texture2D(const std::string &path, ImageFormat textureFormat)
 	LOG("load texture w %d h %d channels %d", iwidth, iheight, native_channels)
 	EXPECT(pixels != nullptr, true)
 
-	std::unordered_map<ImageFormat, VkFormat> formatMap;
-	formatMap[{1, 16, 0}] = VK_FORMAT_R16_SFLOAT;
-	formatMap[{1, 32, 0}] = VK_FORMAT_R32_SFLOAT;
-	formatMap[{4, 16, 0}] = VK_FORMAT_R16G16B16A16_SFLOAT;
-	formatMap[{4, 8, 1}] = VK_FORMAT_R8G8B8A8_SRGB; // since {3, 8, 1} is not valid
-	// TODO: move to elsewhere?
-
-	imageFormat = formatMap[textureFormat];
+	imageFormat = getFormatFromMap(textureFormat);
 
 	width = iwidth;
 	height = iheight;
@@ -221,10 +216,10 @@ void Texture2D::createDefaultTextures()
 	whiteTexture->num_slices = 1;
 	whiteTexture->width = 1;
 	whiteTexture->height = 1;
-	uint8_t whitePixel[] = {1, 1, 1, 1};
+	uint8_t whitePixel[] = {255, 255, 255, 255};
 	createTexture2DFromPixelData(
 		whitePixel, 1, 1,
-		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_FORMAT_R8G8B8A8_UNORM,
 		4,
 		whiteTexture->resource,
 		whiteTexture->imageView);
