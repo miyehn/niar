@@ -1,3 +1,20 @@
+bool operator==(const ImageFormat& f1, const ImageFormat& f2)
+{
+	return f1.numChannels==f2.numChannels && f1.channelDepth==f2.channelDepth && f1.SRGB==f2.SRGB;
+}
+namespace std
+{
+	template<> struct hash<ImageFormat>
+	{
+		std::size_t operator()(const ImageFormat &format) const noexcept
+		{
+			return
+				hash<int>{}(format.numChannels << 0) ^
+				hash<int>{}(format.channelDepth << 8) ^
+				hash<int>{}(format.SRGB << 16);
+		}
+	};
+}
 
 VkFormat getFormatFromMap(ImageFormat imageFormat)
 {

@@ -3,16 +3,20 @@
 #include "Asset/Mesh.h"
 #include "Scene/Scene.hpp"
 #include "BSDF.hpp"
-#include "Primitive.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/Input.hpp"
 #include "Asset/GlMaterial.h"
+#include "Render/Materials/Texture.h"
+#include "Render/Vulkan/VulkanUtils.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
+
+#define NUM_CHANNELS 4
+#define SIZE_PER_CHANNEL 1
 
 // include this generated header to be able to use the kernels
 #include "pathtracer_kernel_ispc.h"
@@ -88,10 +92,18 @@ Pathtracer::Pathtracer(
 
 Pathtracer::~Pathtracer() {
 	if (!initialized) return;
-	if (has_window) {
-		glDeleteTextures(1, &texture);
-		glDeleteBuffers(1, &loggedrays_vbo);
-		glDeleteVertexArrays(1, &loggedrays_vao);
+	if (has_window)
+	{
+		if (Cfg.TestVulkan)
+		{
+			delete window_surface;
+		}
+		else
+		{
+			glDeleteTextures(1, &texture);
+			glDeleteBuffers(1, &loggedrays_vbo);
+			glDeleteVertexArrays(1, &loggedrays_vao);
+		}
 	}
 	delete image_buffer;
 	for (size_t i=0; i<num_threads; i++) {
@@ -193,10 +205,10 @@ void Pathtracer::initialize() {
 	tiles_X = std::ceil(float(width) / tile_size);
 	tiles_Y = std::ceil(float(height) / tile_size);
 
-	image_buffer = new unsigned char[width * height * 3]; 
+	image_buffer = new unsigned char[width * height * NUM_CHANNELS * SIZE_PER_CHANNEL];
 	subimage_buffers = new unsigned char*[num_threads];
 	for (int i=0; i<num_threads; i++) {
-		subimage_buffers[i] = new unsigned char[tile_size * tile_size * 3];
+		subimage_buffers[i] = new unsigned char[tile_size * tile_size * NUM_CHANNELS *SIZE_PER_CHANNEL];
 	}
 
 	//-------- load scene --------
@@ -220,36 +232,49 @@ void Pathtracer::initialize() {
 
 	if (has_window) {
 
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
+		if (Cfg.TestVulkan)
 		{
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
+			ImageCreator windowSurfaceCreator(
+				VK_FORMAT_R8G8B8A8_UNORM,
+				{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
+				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				"Pathtracer window surface image");
+			window_surface = new Texture2D(windowSurfaceCreator);
 		}
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		// and for debug draw
-		loggedrays_mat = new MatGeneric("yellow");
-
-		glGenBuffers(1, &loggedrays_vbo);
-		glGenVertexArrays(1, &loggedrays_vao);
-		glBindVertexArray(loggedrays_vao);
+		else
 		{
-			glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
-			glVertexAttribPointer(
+			glGenTextures(1, &texture);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
+			}
+			glBindTexture(GL_TEXTURE_2D, 0);
+
+			// and for debug draw
+			loggedrays_mat = new MatGeneric("yellow");
+
+			glGenBuffers(1, &loggedrays_vbo);
+			glGenVertexArrays(1, &loggedrays_vao);
+			glBindVertexArray(loggedrays_vao);
+			{
+				glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
+				glVertexAttribPointer(
 					0, // atrib index
 					3, // num of data elems
 					GL_FLOAT, // data type
 					GL_FALSE, // normalized
 					3 * sizeof(float), // stride size
 					(void*)0); // offset in bytes since stride start
-			glEnableVertexAttribArray(0);
+				glEnableVertexAttribArray(0);
+			}
+			glBindVertexArray(0);
 		}
-		glBindVertexArray(0);
 
 		if (Cfg.Pathtracer.Multithreaded) {
 			//------------- threading ---------------
@@ -423,48 +448,82 @@ void Pathtracer::reset() {
 	cumulative_render_time = 0.0f;
 	generate_pixel_offsets();
 
-	memset(image_buffer, 40, width * height * 3);
+	memset(image_buffer, 40, width * height * NUM_CHANNELS * SIZE_PER_CHANNEL);
 	if (has_window) upload_rows(0, height);
 }
 
 void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
-	image_buffer[3 * i] = char(rgb.r * 255.0f);
-	image_buffer[3 * i + 1] = char(rgb.g * 255.0f);
-	image_buffer[3 * i + 2] = char(rgb.b * 255.0f);
+	uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
+	image_buffer[pixel_size * i] = char(rgb.r * 255.0f);
+	image_buffer[pixel_size * i + 1] = char(rgb.g * 255.0f);
+	image_buffer[pixel_size * i + 2] = char(rgb.b * 255.0f);
+	image_buffer[pixel_size * i + 3] = 255;
 }
 
 void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
+	uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
 	unsigned char* buf = subimage_buffers[buf_i];
-	buf[3 * i] = char(rgb.r * 255.0f);
-	buf[3 * i + 1] = char(rgb.g * 255.0f);
-	buf[3 * i + 2] = char(rgb.b * 255.0f);
+	buf[pixel_size * i] = char(rgb.r * 255.0f);
+	buf[pixel_size * i + 1] = char(rgb.g * 255.0f);
+	buf[pixel_size * i + 2] = char(rgb.b * 255.0f);
+	buf[pixel_size * i + 3] = 255;
 }
 
-void Pathtracer::upload_rows(GLint begin, GLsizei rows) {
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	GLsizei subimage_offset = width * begin * 3;
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 
-			0, begin, // min x, min y
-			width, rows, // subimage width, subimage height
-			GL_RGB, GL_UNSIGNED_BYTE, 
-			image_buffer + subimage_offset);
-	glBindTexture(GL_TEXTURE_2D, 0);
+void Pathtracer::upload_rows(GLint begin, GLsizei rows)
+{
+	if (Cfg.TestVulkan)
+	{
+		uint32_t subimage_offset = width * begin * NUM_CHANNELS * SIZE_PER_CHANNEL;
+		uint8_t* data = image_buffer + subimage_offset;
+		vk::uploadPixelsToImage(
+			data,
+			0, begin,
+			width, rows,
+			NUM_CHANNELS *SIZE_PER_CHANNEL,
+			window_surface->resource
+			);
+	}
+	else
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		GLsizei subimage_offset = width * begin * 3;
+		glTexSubImage2D(GL_TEXTURE_2D, 0,
+						0, begin, // min x, min y
+						width, rows, // subimage width, subimage height
+						GL_RGB, GL_UNSIGNED_BYTE,
+						image_buffer + subimage_offset);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 
 	int percentage = int(float(begin + rows) / float(height) * 100.0f);
 	TRACE("refresh! updated %d rows, %d%% done.", rows, percentage);
 }
 
-void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h) {
+void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h)
+{
 	unsigned char* buffer = subimage_buffers[subbuf_index];
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexSubImage2D(GL_TEXTURE_2D, 0,
+	if (Cfg.TestVulkan)
+	{
+		vk::uploadPixelsToImage(
+			buffer,
 			begin_x, begin_y,
 			w, h,
-			GL_RGB, GL_UNSIGNED_BYTE,
-			buffer);
-	glBindTexture(GL_TEXTURE_2D, 0);
+			NUM_CHANNELS *SIZE_PER_CHANNEL,
+			window_surface->resource
+		);
+	}
+	else
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexSubImage2D(GL_TEXTURE_2D, 0,
+						begin_x, begin_y,
+						w, h,
+						GL_RGB, GL_UNSIGNED_BYTE,
+						buffer);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 }
 
 void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
@@ -532,7 +591,8 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 			for (size_t x = 0; x < tile_w; x++) {
 
 				size_t px_index_main = width * (y_offset + y) + (x_offset + x);
-				vec3 color = gamma_correct(raytrace_pixel(px_index_main));
+				vec3 color = raytrace_pixel(px_index_main);
+				if (!has_window) color = gamma_correct(color);
 				set_mainbuffer_rgb(px_index_main, color);
 
 				size_t px_index_sub = y * tile_w + x;
@@ -728,7 +788,8 @@ void Pathtracer::raytrace_scene_to_buf() {
 					uint task_end = glm::min(image_size, task_begin + task_size);
 					for (uint task = task_begin; task < task_end; task++)
 					{
-						vec3 color = gamma_correct(raytrace_pixel(task));
+						vec3 color = raytrace_pixel(task);
+						if (!has_window) color = gamma_correct(color);
 						set_mainbuffer_rgb(task, color);
 					}
 				}
@@ -773,12 +834,13 @@ void Pathtracer::output_file(const std::string& path) {
 		ofs << "P6\n" << width << " " << height << "\n255\n"; 
 		unsigned char r, g, b; 
 		// loop over each pixel in the image, clamp and convert to byte format
-		for (int y = height-1; y >= 0; y--) {
+		uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
+		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				int i = y * width + x;
-				r = image_buffer[3 * i];
-				g = image_buffer[3 * i + 1];
-				b = image_buffer[3 * i + 2];
+				r = image_buffer[pixel_size * i];
+				g = image_buffer[pixel_size * i + 1];
+				b = image_buffer[pixel_size * i + 2];
 				ofs << r << g << b; 
 			}
 		}
@@ -880,6 +942,34 @@ void Pathtracer::draw() {
 	glEnable(GL_DEPTH_TEST);
 
 	Drawable::draw();
+}
+
+void Pathtracer::draw_vulkan()
+{
+	auto cmdbuf = Vulkan::Instance->beginFrame();
+	// barrier source into trasfer source
+	vk::insertImageBarrier(cmdbuf, window_surface->resource.image,
+						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_ACCESS_TRANSFER_WRITE_BIT,
+						   VK_ACCESS_TRANSFER_WRITE_BIT,
+						   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	vk::blitToScreen(
+		cmdbuf,
+		window_surface->resource.image,
+		{0, 0, 0},
+		{(int32_t)width, (int32_t)height, 1});
+	vk::insertImageBarrier(cmdbuf, window_surface->resource.image,
+						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_ACCESS_TRANSFER_WRITE_BIT,
+						   VK_ACCESS_TRANSFER_WRITE_BIT,
+						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+						   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	Vulkan::Instance->endFrame();
 }
 
 // file that contains the actual pathtracing meat

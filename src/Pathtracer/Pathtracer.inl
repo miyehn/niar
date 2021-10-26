@@ -40,7 +40,7 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 	tasks.clear();
 
 	size_t w = index % width;
-	size_t h = index / width;
+	size_t h = height - index / width;
 	float fov = Camera::Active->fov;
 	float half_width = float(width) / 2.0f;
 	float half_height = float(height) / 2.0f;

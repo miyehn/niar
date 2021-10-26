@@ -113,18 +113,30 @@ void Program::load_resources_vulkan()
 {
 	LOG("loading resources (vulkan)...");
 	// initialize_asset_config();
+	initialize_pathtracer_config();
 
 	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
 	Camera::Active = new Camera(width, height);
 
 	Scene* scene;
 
-	Camera::Active->move_speed = 16.0f;
-	Camera::Active->position = vec3(0, -10, 2);
-	Camera::Active->cutoffFar = 100.0f;
+	if (Cfg.UseCornellBoxScene)
+	{
+		scene = Pathtracer::load_cornellbox_scene(true);
+	}
 
-	scene = new Scene();
-	scene->load(Cfg.SceneSource, false);
+	/* Load from file or manually setup scene
+	 * Renders with specified shader set: defaults to 0 (full deferred)
+	 */
+	else
+	{
+		Camera::Active->move_speed = 16.0f;
+		Camera::Active->position = vec3(0, -10, 2);
+		Camera::Active->cutoffFar = 100.0f;
+
+		scene = new Scene();
+		scene->load(Cfg.SceneSource, false);
+	}
 
 	Scene::Active = scene;
 	scenes.push_back(scene);
@@ -276,6 +288,40 @@ void Program::run_vulkan()
 			else if (event.type==SDL_KEYUP &&
 					 event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
+			// console input
+			else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
+				input_str = "";
+				receiving_text = true;
+				std::cout << "> " << std::flush;
+			}
+			else if (event.type == SDL_TEXTINPUT && receiving_text) {
+				input_str += event.text.text;
+				std::cout << event.text.text << std::flush;
+			}
+			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_BACKSPACE) {
+				input_str = input_str.substr(0, input_str.length()-1);
+				std::cout << "\r> " << input_str << std::flush;
+			}
+			else if (event.type == SDL_KEYUP && receiving_text && event.key.keysym.sym==SDLK_RETURN) {
+				receiving_text = false;
+				std::cout << std::endl;
+				process_input();
+			}
+
+			else if (!receiving_text) {
+				// toggle between rasterizer & pathtracer
+				if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
+					if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();
+					else Pathtracer::Instance->enable();
+				}
+				// update singletons
+				if (Pathtracer::Instance->enabled)
+					Pathtracer::Instance->handle_event(event);
+				// let all scene(s) handle the input
+				for (uint i=0; i<scenes.size(); i++) {
+					scenes[i]->handle_event(event);
+				}
+			}
 		}
 		if (quit) break;
 
@@ -289,9 +335,17 @@ void Program::run_vulkan()
 
 		// draw
 
-		deferredRenderer->camera = Camera::Active;
-		deferredRenderer->drawables = Scene::Active->children;
-		deferredRenderer->render();
+		if (Pathtracer::Instance && Pathtracer::Instance->enabled)
+		{
+			Pathtracer::Instance->draw_vulkan();
+		}
+		else
+		{
+			deferredRenderer->camera = Camera::Active;
+			deferredRenderer->drawables = Scene::Active->children;
+			deferredRenderer->render();
+		}
+
 	}
 
 	Vulkan::Instance->waitDeviceIdle();

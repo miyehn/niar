@@ -18,11 +18,6 @@ https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/m
 https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
 */
 
-namespace gfx
-{
-	struct PipelineBuilder;
-}
-
 struct VmaAllocatedImage
 {
 	VkImage image;

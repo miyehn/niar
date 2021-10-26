@@ -12,6 +12,7 @@ struct Primitive;
 struct PathtracerLight;
 struct RaytraceThread;
 struct MatGeneric;
+class Texture2D;
 
 struct ISPC_Data;
 
@@ -29,6 +30,8 @@ struct Pathtracer : public Drawable {
 	virtual bool handle_event(SDL_Event event);
 	virtual void update(float elapsed);
 	virtual void draw();
+
+	void draw_vulkan();
 
 	void initialize();
 	void enable();
@@ -109,11 +112,16 @@ private:
 	void set_mainbuffer_rgb(size_t i, vec3 rgb);
 	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
 
+	// opengl
+
 	uint texture;
 
 	// for debug
 	MatGeneric* loggedrays_mat = nullptr;
 	uint loggedrays_vbo, loggedrays_vao;
+
+	// vulkan
+	Texture2D* window_surface;
 
 	virtual void set_local_position(vec3 _local_position) {}
 	virtual void set_rotation(quat _rotation) {}

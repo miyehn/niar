@@ -82,8 +82,8 @@ void Program::load_resources() {
 		scene = new Scene();
 		scene->load(Cfg.SceneSource, false);	
 
-		// decided it's too much hassle to switch to ofbx for now, so will stay with assimp a little longer.	
-		// f::import_scene(scene, Cfg.SceneSource.c_str());	
+		// decided it's too much hassle to switch to ofbx for now, so will stay with assimp a little longer.
+		// f::import_scene(scene, Cfg.SceneSource.c_str());
 	}
 
 	scene->initialize_graphics();

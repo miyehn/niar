@@ -93,9 +93,9 @@ void vk::blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffse
 	// barrier the swapchain image into transfer-dst layout
 	vk::insertImageBarrier(cmdbuf, swapChainImage,
 						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-						   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 						   VK_PIPELINE_STAGE_TRANSFER_BIT,
-						   0,
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_ACCESS_TRANSFER_READ_BIT,
 						   VK_ACCESS_TRANSFER_WRITE_BIT,
 						   VK_IMAGE_LAYOUT_UNDEFINED,
 						   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -133,6 +133,76 @@ void vk::blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffse
 void vk::draw_fullscreen_triangle(VkCommandBuffer cmdbuf)
 {
 	vkCmdDraw(cmdbuf, 3, 1, 0, 0);
+}
+
+void vk::uploadPixelsToImage(
+	uint8_t *pixels,
+	int32_t offsetX,
+	int32_t offsetY,
+	uint32_t extentX,
+	uint32_t extentY,
+	uint32_t pixelSize,
+	VmaAllocatedImage outResource)
+{
+	VkDeviceSize copyRegionSize = extentX * extentY * pixelSize;
+	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, copyRegionSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	stagingBuffer.writeData(pixels);
+	Vulkan::Instance->immediateSubmit(
+		[&](VkCommandBuffer cmdbuf)
+		{
+			// image layout
+			auto transferLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			auto shaderReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			// barrier the image into the transfer-receive layout
+			vk::insertImageBarrier(
+				cmdbuf,
+				outResource.image,
+				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0,1},
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0,
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				transferLayout);
+
+			// do the transfer
+			VkBufferImageCopy copyRegion = {
+				.bufferOffset = 0,
+				.bufferRowLength = 0,
+				.bufferImageHeight = 0,
+				.imageSubresource = {
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.mipLevel = 0,
+					.baseArrayLayer = 0,
+					.layerCount = 1
+				},
+				.imageOffset = {offsetX, offsetY, 0},
+				.imageExtent = {extentX, extentY, 1}
+			};
+			vkCmdCopyBufferToImage(
+				cmdbuf,
+				stagingBuffer.getBufferInstance(),
+				outResource.image,
+				transferLayout,
+				1,
+				&copyRegion);
+
+			//barrier it again into shader readonly optimal layout
+			vk::insertImageBarrier(
+				cmdbuf,
+				outResource.image,
+				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0,1},
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_SHADER_READ_BIT,
+				transferLayout,
+				shaderReadLayout);
+		});
+
+	stagingBuffer.release();
 }
 
 ScopedDrawEvent::ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color) : cmdbuf(cmdbuf)
