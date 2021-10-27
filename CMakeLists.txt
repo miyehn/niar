@@ -45,6 +45,14 @@ set(SRC
 	src/Pathtracer/BVH.cpp
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${TASKSYS_O}
+	${CMAKE_SOURCE_DIR}/include/imgui/imgui.h
+	${CMAKE_SOURCE_DIR}/include/imgui/imgui.cpp
+	${CMAKE_SOURCE_DIR}/include/imgui/imgui_demo.cpp
+	${CMAKE_SOURCE_DIR}/include/imgui/imgui_tables.cpp
+	${CMAKE_SOURCE_DIR}/include/imgui/imgui_draw.cpp
+	${CMAKE_SOURCE_DIR}/include/imgui/backends/imgui_impl_sdl.cpp
+	${CMAKE_SOURCE_DIR}/include/imgui/backends/imgui_impl_vulkan.cpp
+	${CMAKE_SOURCE_DIR}/include/imgui/imgui_widgets.cpp
 	# include/openfbx/ofbx.cpp
 	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
 	src/Utils/myn/CVar.cpp
@@ -102,6 +110,8 @@ endif(WIN32)
 
 # include_directories(include src)
 target_include_directories(niar PUBLIC SRC include ${Vulkan_INCLUDE_DIR})
+target_include_directories(niar PUBLIC include/SDL2)
+target_include_directories(niar PUBLIC include/imgui)
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 

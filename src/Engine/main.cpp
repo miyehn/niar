@@ -14,6 +14,10 @@
 #include "Render/Vulkan/ShaderModule.h"
 #include "Render/Vulkan/VulkanUtils.h"
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl.h>
+#include <backends/imgui_impl_vulkan.h>
+
 Program* Program::Instance;
 #ifdef _WIN32
 #ifdef main
@@ -36,8 +40,8 @@ int main(int argc, const char * argv[])
 	auto result = options.parse(argc, argv);
 	//--------------------
 
-	uint w = 800;
-	uint h = 600;
+	uint w = 1280;
+	uint h = 720;
 
 	if (result.count("output")) {
 		// render pathtracer scene to file
@@ -279,10 +283,19 @@ void Program::run_vulkan()
 
 	while(true)
 	{
+		// update
+		TimePoint current_time = std::chrono::high_resolution_clock::now();
+		float elapsed = std::chrono::duration<float>(current_time - previous_time).count();
+		elapsed = std::min(0.1f, elapsed);
+		previous_time = current_time;
+
 		SDL_Event event;
 		bool quit = false;
 		while (SDL_PollEvent(&event)==1 && !quit)
 		{
+			// imgui
+			if (ImGui_ImplSDL2_ProcessEvent(&event)) continue;
+
 			// termination
 			if (event.type == SDL_QUIT) { quit=true; break; }
 			else if (event.type==SDL_KEYUP &&
@@ -325,15 +338,17 @@ void Program::run_vulkan()
 		}
 		if (quit) break;
 
-		// update
-		TimePoint current_time = std::chrono::high_resolution_clock::now();
-		float elapsed = std::chrono::duration<float>(current_time - previous_time).count();
-		elapsed = std::min(0.1f, elapsed);
-		previous_time = current_time;
+		if (Camera::Active &&
+			!ImGui::GetIO().WantCaptureMouse &&
+			!ImGui::GetIO().WantCaptureKeyboard)
+		{
+			Camera::Active->update_control(elapsed);
+		}
 
 		update(elapsed);
 
 		// draw
+		auto cmdbuf = Vulkan::Instance->beginFrame();
 
 		if (Pathtracer::Instance && Pathtracer::Instance->enabled)
 		{
@@ -343,9 +358,21 @@ void Program::run_vulkan()
 		{
 			deferredRenderer->camera = Camera::Active;
 			deferredRenderer->drawables = Scene::Active->children;
-			deferredRenderer->render();
+			deferredRenderer->render(cmdbuf);
 		}
 
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplSDL2_NewFrame(window);
+		ImGui::NewFrame();
+
+		ImGui::ShowDemoWindow();
+		ImGui::Render();
+
+		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdbuf);
+		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
+
+		Vulkan::Instance->endFrame();
 	}
 
 	Vulkan::Instance->waitDeviceIdle();
@@ -367,7 +394,7 @@ void Program::run_vulkan()
 void Program::update(float elapsed) {
 	
 	// camera
-	if (Camera::Active) Camera::Active->update_control(elapsed);
+	// if (Camera::Active) Camera::Active->update_control(elapsed);
 	// pathtracer
 	if (Pathtracer::Instance && Pathtracer::Instance->enabled)
 		Pathtracer::Instance->update(elapsed);

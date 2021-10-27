@@ -39,7 +39,10 @@ struct Vulkan {
 
 	void immediateSubmit(std::function<void(VkCommandBuffer cmdbuf)> &&fn);
 
+	void initImGui();
+
 	bool isFrameInProgress() const { return isFrameStarted; }
+
 	VkCommandBuffer getCurrentCommandBuffer() const
 	{
 		EXPECT(isFrameStarted, true)
@@ -65,18 +68,10 @@ struct Vulkan {
 
 	VkRenderPass getSwapChainRenderPass() const { return swapChainRenderPass; }
 
-	void waitDeviceIdle() {
+	void waitDeviceIdle()
+	{
 		EXPECT(vkDeviceWaitIdle(device), VK_SUCCESS);
 	}
-
-private:
-	uint32_t currentImageIndex;
-	bool isFrameStarted = false;
-
-public:
-
-	// Below: testbed for learning Vulkan. Will be moved to Renderer later
-	// https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
 
 	VkDevice device;
 	VkFormat swapChainImageFormat;
@@ -86,6 +81,9 @@ public:
 	VmaAllocator memoryAllocator;
 
 private:
+
+	uint32_t currentImageIndex;
+	bool isFrameStarted = false;
 
 	const int MAX_FRAME_IN_FLIGHT = 2;
 	size_t currentFrame = 0;
@@ -136,6 +134,8 @@ private:
 	std::vector<VkFence> imagesInFlight; // per swap chain image
 	VkFence immediateSubmitFence;
 
+	VkDescriptorPool imguiPool = VK_NULL_HANDLE;
+
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		// NOTE: things that this layer reports seems different from the ones on windows?
@@ -150,9 +150,9 @@ private:
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
-	void createInstance(SDL_Window* window);
+	void createInstance();
 
-	void createSurface(SDL_Window* window);
+	void createSurface();
 
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 

@@ -283,10 +283,8 @@ DeferredRenderer::~DeferredRenderer()
 	for (auto image : images) delete image;
 }
 
-void DeferredRenderer::render()
+void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	auto cmdbuf = Vulkan::Instance->beginFrame();
-
 	{// update frame-global uniforms
 		ViewInfo.CameraPosition = camera->position;
 		ViewInfo.ProjectionMatrix = camera->camera_to_clip();
@@ -361,8 +359,6 @@ void DeferredRenderer::render()
 		sceneColor->resource.image,
 		{0, 0, 0},
 		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
-
-	Vulkan::Instance->endFrame();
 }
 
 DeferredRenderer* deferredRenderer = nullptr;

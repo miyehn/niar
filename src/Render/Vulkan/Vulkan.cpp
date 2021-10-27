@@ -1,6 +1,9 @@
 #include "Vulkan.hpp"
 #include "PipelineBuilder.h"
 #include "RenderPassBuilder.h"
+#include <imgui.h>
+#include <backends/imgui_impl_sdl.h>
+#include <backends/imgui_impl_vulkan.h>
 
 //#define MYN_VK_VERBOSE
 
@@ -8,12 +11,12 @@ Vulkan::Vulkan(SDL_Window* window) {
 
     this->window = window;
 
-    createInstance(window);
+    createInstance();
 	findProxyFunctionPointers();
     #ifdef DEBUG
     setupDebugMessenger();
     #endif
-    createSurface(window);
+    createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
 	createMemoryAllocator();
@@ -25,9 +28,16 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createSwapChainRenderPass();
 	createFramebuffers();
 	createCommandBuffers();
+
+	initImGui();
 }
 
 Vulkan::~Vulkan() {
+
+	if (imguiPool != VK_NULL_HANDLE) {
+		vkDestroyDescriptorPool(device, imguiPool, nullptr);
+		ImGui_ImplVulkan_Shutdown();
+	}
 
 	vmaDestroyImage(memoryAllocator, depthImage.image, depthImage.allocation);
 	vmaDestroyAllocator(memoryAllocator);
@@ -208,7 +218,63 @@ void Vulkan::immediateSubmit(std::function<void(VkCommandBuffer)> &&fn)
 	vkFreeCommandBuffers(device, shortLivedCommandsPool, 1, &commandBuffer);
 }
 
-void Vulkan::createInstance(SDL_Window* in_window) {
+void Vulkan::initImGui()
+{
+	if (imguiPool != VK_NULL_HANDLE)
+	{
+		ERR("ImGui is already initialized??")
+		return;
+	}
+#define IMGUI_POOL_SIZE 256
+	VkDescriptorPoolSize poolSizes[] = {
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, IMGUI_POOL_SIZE },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, IMGUI_POOL_SIZE },
+	};
+	VkDescriptorPoolCreateInfo poolInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+		.maxSets = IMGUI_POOL_SIZE,
+		.poolSizeCount = std::size(poolSizes),
+		.pPoolSizes = poolSizes
+	};
+#undef IMGUI_POOL_SIZE
+
+	EXPECT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &imguiPool), VK_SUCCESS)
+
+	ImGui::CreateContext();
+
+	ImGui_ImplSDL2_InitForVulkan(window);
+
+	ImGui_ImplVulkan_InitInfo initInfo = {
+		.Instance = instance,
+		.PhysicalDevice = physicalDevice,
+		.Device = device,
+		.Queue = graphicsQueue,
+		.DescriptorPool = imguiPool,
+		.MinImageCount = getNumSwapChainImages(),
+		.ImageCount = getNumSwapChainImages(),
+		.MSAASamples = VK_SAMPLE_COUNT_1_BIT
+	};
+
+	EXPECT(ImGui_ImplVulkan_Init(&initInfo, swapChainRenderPass), true)
+
+	immediateSubmit(
+		[&](VkCommandBuffer cmdbuf){
+			EXPECT(ImGui_ImplVulkan_CreateFontsTexture(cmdbuf), true)
+		});
+}
+
+//=============================================================================
+
+void Vulkan::createInstance() {
 
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -223,11 +289,11 @@ void Vulkan::createInstance(SDL_Window* in_window) {
 
     // get required extensions count
     uint32_t numSDLRequiredExtensions;
-    EXPECT_M(SDL_Vulkan_GetInstanceExtensions(in_window, &numSDLRequiredExtensions, nullptr), SDL_TRUE, "%s", SDL_GetError())
+    EXPECT_M(SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, nullptr), SDL_TRUE, "%s", SDL_GetError())
     // get the extensions' names: "VK_KHR_surface", "VK_MVK_macos_surface"
     std::vector<const char*>enabledExtensions(numSDLRequiredExtensions);
     EXPECT_M(
-        SDL_Vulkan_GetInstanceExtensions(in_window, &numSDLRequiredExtensions, enabledExtensions.data()),
+        SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, enabledExtensions.data()),
         SDL_TRUE, "%s", SDL_GetError())
     #ifdef DEBUG
     enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -280,9 +346,9 @@ void Vulkan::createInstance(SDL_Window* in_window) {
     EXPECT(vkCreateInstance(&createInfo, nullptr, &instance), VK_SUCCESS)
 }
 
-void Vulkan::createSurface(SDL_Window* in_window) {
+void Vulkan::createSurface() {
     surface = VK_NULL_HANDLE;
-    EXPECT(SDL_Vulkan_CreateSurface(in_window, instance, &surface), SDL_TRUE)
+    EXPECT(SDL_Vulkan_CreateSurface(window, instance, &surface), SDL_TRUE)
 }
 
 void Vulkan::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {

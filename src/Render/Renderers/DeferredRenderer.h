@@ -45,7 +45,7 @@ public:
 
 	} ViewInfo;
 
-	void render() override;
+	void render(VkCommandBuffer cmdbuf) override;
 	VkRenderPass getRenderPass() override { return renderPass; }
 
 	static DeferredRenderer* get();
