@@ -20,6 +20,7 @@
 #include <backends/imgui_impl_vulkan.h>
 
 Program* Program::Instance;
+
 #ifdef _WIN32
 #ifdef main
 #undef main
@@ -249,11 +250,6 @@ void Program::run_opengl() {
 	#endif
 }
 
-void renderdoc_capture()
-{
-	LOG("capture!")
-}
-
 void Program::run_vulkan()
 {
 	vk::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
@@ -286,8 +282,6 @@ void Program::run_vulkan()
 			m->material = Material::find("geometry");
 		}
 	}
-
-	ui::button("capture frame", renderdoc_capture);
 
 	static bool show_imgui_demo = false;
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
