@@ -70,7 +70,7 @@ set(SRC
 	src/Render/Renderers/DeferredRenderer.cpp
 	src/Render/Vulkan/ImageCreator.cpp
 	src/Render/Materials/DeferredPointLighting.cpp
-	src/Render/Materials/DeferredBasepass.cpp)
+	src/Render/Materials/DeferredBasepass.cpp src/Engine/DebugUI.cpp src/Engine/DebugUI.h)
 
 if(APPLE)
 	add_executable(niar ${SRC})

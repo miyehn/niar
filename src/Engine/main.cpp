@@ -13,6 +13,7 @@
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/ShaderModule.h"
 #include "Render/Vulkan/VulkanUtils.h"
+#include "Engine/DebugUI.h"
 
 #include <imgui.h>
 #include <backends/imgui_impl_sdl.h>
@@ -248,6 +249,11 @@ void Program::run_opengl() {
 	#endif
 }
 
+void renderdoc_capture()
+{
+	LOG("capture!")
+}
+
 void Program::run_vulkan()
 {
 	vk::init_window("niar", width, height, &window, &drawable_width, &drawable_height);
@@ -281,6 +287,11 @@ void Program::run_vulkan()
 		}
 	}
 
+	ui::button("capture frame", renderdoc_capture);
+
+	static bool show_imgui_demo = false;
+	ui::checkBox("show ImGui demo", &show_imgui_demo);
+
 	while(true)
 	{
 		// update
@@ -293,13 +304,13 @@ void Program::run_vulkan()
 		bool quit = false;
 		while (SDL_PollEvent(&event)==1 && !quit)
 		{
-			// imgui
-			if (ImGui_ImplSDL2_ProcessEvent(&event)) continue;
-
 			// termination
 			if (event.type == SDL_QUIT) { quit=true; break; }
 			else if (event.type==SDL_KEYUP &&
 					 event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
+
+			// imgui
+			if (ImGui_ImplSDL2_ProcessEvent(&event)) continue;
 
 			// console input
 			else if (event.type==SDL_KEYUP && !receiving_text && event.key.keysym.sym==SDLK_SLASH) {
@@ -347,6 +358,14 @@ void Program::run_vulkan()
 
 		update(elapsed);
 
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplSDL2_NewFrame(window);
+		ImGui::NewFrame();
+
+		if (show_imgui_demo) ImGui::ShowDemoWindow();
+
+		ui::drawUI();
+
 		// draw
 		auto cmdbuf = Vulkan::Instance->beginFrame();
 
@@ -361,11 +380,6 @@ void Program::run_vulkan()
 			deferredRenderer->render(cmdbuf);
 		}
 
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplSDL2_NewFrame(window);
-		ImGui::NewFrame();
-
-		ImGui::ShowDemoWindow();
 		ImGui::Render();
 
 		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
