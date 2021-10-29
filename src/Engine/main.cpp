@@ -287,6 +287,8 @@ void Program::run_vulkan()
 		}
 	}
 
+	ui::usePurpleStyle();
+
 	ui::button("capture frame", RenderDoc::captureNextFrame);
 
 	ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay);

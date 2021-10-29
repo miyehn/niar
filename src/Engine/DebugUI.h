@@ -39,5 +39,7 @@ void sliderFloat(
 
 void drawUI();
 
+void usePurpleStyle();
+
 };
 
