@@ -4,6 +4,29 @@
 
 std::unordered_map<std::string, std::vector<std::function<void()>>> UIMap;
 
+void ui::elem(const std::function<void()>& fn, const std::string &category)
+{
+	if (!UIMap.contains(category))
+		UIMap[category] = std::vector<std::function<void()>>();
+
+	auto& categoryList = UIMap[category];
+	categoryList.emplace_back(fn);
+}
+
+void ui::text(
+	const std::string &content,
+	const std::string &category)
+{
+	if (!UIMap.contains(category))
+		UIMap[category] = std::vector<std::function<void()>>();
+
+	auto& categoryList = UIMap[category];
+
+	categoryList.emplace_back([content](){
+		ImGui::Text("%s", content.c_str());
+	});
+}
+
 void ui::button(const std::string &name, std::function<void()> fn, const std::string &category)
 {
 	if (!UIMap.contains(category))
@@ -57,6 +80,9 @@ void ui::drawUI()
 	{
 		if (ImGui::CollapsingHeader(category.first.c_str()))
 		{
+			if (category.first == "Default")
+			{
+			}
 			for (const auto& makeElemFn : category.second)
 			{
 				makeElemFn();

@@ -4,6 +4,13 @@
 
 namespace ui
 {
+void elem(
+	const std::function<void()>& fn,
+	const std::string &category="Default");
+
+void text(
+	const std::string &content,
+	const std::string &category="Default");
 
 void button(
 	const std::string &name,

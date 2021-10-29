@@ -15,6 +15,8 @@
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Engine/DebugUI.h"
 
+#include "Utils/myn/RenderDoc.h"
+
 #include <imgui.h>
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>
@@ -28,6 +30,8 @@ Program* Program::Instance;
 #endif
 int main(int argc, const char * argv[])
 {
+	RenderDoc::load("niar");
+
 	initialize_global_config();
 
 	std::srand(time(nullptr));
@@ -283,6 +287,10 @@ void Program::run_vulkan()
 		}
 	}
 
+	ui::button("capture frame", RenderDoc::captureNextFrame);
+
+	ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay);
+
 	static bool show_imgui_demo = false;
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
@@ -343,6 +351,8 @@ void Program::run_vulkan()
 		}
 		if (quit) break;
 
+		RenderDoc::potentiallyStartCapture();
+
 		if (Camera::Active &&
 			!ImGui::GetIO().WantCaptureMouse &&
 			!ImGui::GetIO().WantCaptureKeyboard)
@@ -381,6 +391,8 @@ void Program::run_vulkan()
 		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
 
 		Vulkan::Instance->endFrame();
+
+		RenderDoc::potentiallyEndCapture();
 	}
 
 	Vulkan::Instance->waitDeviceIdle();
