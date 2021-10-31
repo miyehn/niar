@@ -76,14 +76,14 @@ void DirectionalLight::render_shadow_map() {
 	
 	// set camera properties
 	
-	shadow_map_cam->rotation = rotation();
-	shadow_map_cam->position = vec3(0); // temporary
+	shadow_map_cam->set_rotation(rotation());
+	shadow_map_cam->set_local_position(vec3(0, 0, 0));
 
 	// x, y bounds: compute both frustum-based and scene-based, take the smaller
 	Frustum fr = Camera::Active->frustum();
 	float minx_fr = INF; float maxx_fr = -INF;
 	float miny_fr = INF; float maxy_fr = -INF;
-	mat4 w2c0 = shadow_map_cam->world_to_camera();
+	mat4 w2c0 = shadow_map_cam->world_to_object();
 	for (int i=0; i<8; i++) {
 		vec4 v = w2c0 * vec4(fr[i], 1);
 		minx_fr = min(minx_fr, v.x);
@@ -111,9 +111,9 @@ void DirectionalLight::render_shadow_map() {
 	float maxy = min(maxy_fr, maxy_sc);
 	
 	// now compute the actual location
-	mat4 c2w0 = shadow_map_cam->camera_to_world();
+	mat4 c2w0 = shadow_map_cam->object_to_world();
 	vec3 position0 = vec3( (minx + maxx)/2, (miny+maxy)/2, maxz + 1.0f );
-	shadow_map_cam->position = vec3(c2w0 * vec4(position0, 1));
+	shadow_map_cam->set_local_position(vec3(c2w0 * vec4(position0, 1)));
 
 	shadow_map_cam->width = maxx - minx;
 	shadow_map_cam->height = maxy - miny;
@@ -252,7 +252,7 @@ void PointLight::render_shadow_map() {
 
 	float effective_radius = sqrt(255.0f * intensity); // a heuristic
 
-	shadow_map_cam->position = world_position();
+	shadow_map_cam->set_local_position(world_position());
 	shadow_map_cam->cutoffFar = effective_radius;
 
 	Camera* cached_camera = Camera::Active;
@@ -278,15 +278,15 @@ void PointLight::render_shadow_map() {
 		if (i==2 || i==3) dir = -shadow_map_normals[i];
 		else dir = shadow_map_normals[i];
 
-		shadow_map_cam->rotation = lookAt(
-				shadow_map_cam->position, 
-				shadow_map_cam->position + dir,
-				up);
+		shadow_map_cam->set_rotation(lookAt(
+				shadow_map_cam->world_position(),
+				shadow_map_cam->world_position() + dir,
+				up));
 
 #if POINT_LIGHT_OPTIMIZE
 		// z far bound (is this effective at all??)
 		float minz = INF;
-		mat4 w2c0 = shadow_map_cam->world_to_camera();
+		mat4 w2c0 = shadow_map_cam->world_to_object();
 		for (int i=0; i<8; i++) {
 			vec3 v = w2c0 * vec4(sc[i], 1);
 			minz = min(minz, v.z);

@@ -131,7 +131,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	 * Also this scene itself doesn't contain the two spheres - they're later added in Pathtracer::initialize()
 	 * Can alternatively disable the two spheres over there and add other custom meshes (see below)
 	 */
-	Camera::Active->position = vec3(0, 0, 0);
+	Camera::Active->set_local_position(vec3(0));
 	Camera::Active->cutoffFar = 1000.0f;
 	Camera::Active->fov = radians(30.0f);
 
@@ -665,11 +665,11 @@ void Pathtracer::load_ispc_data() {
 
 	// construct camera
 	ispc_data->camera.resize(1);
-	mat3 c2wr = Camera::Active->camera_to_world_rotation();
+	mat3 c2wr = mat3(Camera::Active->object_to_world());
 	ispc_data->camera[0].camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
 	ispc_data->camera[0].camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
 	ispc_data->camera[0].camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
-	ispc_data->camera[0].position = ispc_vec3(Camera::Active->position);
+	ispc_data->camera[0].position = ispc_vec3(Camera::Active->world_position());
 	ispc_data->camera[0].fov = Camera::Active->fov;
 	ispc_data->camera[0].aspect_ratio = Camera::Active->aspect_ratio;
 
@@ -944,9 +944,8 @@ void Pathtracer::draw() {
 	Drawable::draw();
 }
 
-void Pathtracer::draw_vulkan()
+void Pathtracer::draw_vulkan(VkCommandBuffer cmdbuf)
 {
-	auto cmdbuf = Vulkan::Instance->beginFrame();
 	// barrier source into trasfer source
 	vk::insertImageBarrier(cmdbuf, window_surface->resource.image,
 						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
@@ -969,7 +968,6 @@ void Pathtracer::draw_vulkan()
 						   VK_ACCESS_TRANSFER_WRITE_BIT,
 						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 						   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	Vulkan::Instance->endFrame();
 }
 
 // file that contains the actual pathtracing meat

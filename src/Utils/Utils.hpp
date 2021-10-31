@@ -20,9 +20,3 @@ struct AABB {
 };
 
 //---------------------------------------------------------
-
-namespace f {
-
-bool import_scene(Scene* scene, const char* path);
-
-}

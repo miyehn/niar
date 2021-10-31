@@ -163,7 +163,7 @@ void Scene::initialize_graphics() {
 Scene::~Scene() {
 }
 
-void Scene::load(std::string source, bool preserve_existing_objects) {
+void Scene::loadOld(std::string source, bool preserve_existing_objects) {
 	if (!preserve_existing_objects) {
 		d_lights.clear();
 		p_lights.clear();
@@ -423,7 +423,7 @@ void Scene::draw() {
 		blit->set_int("NumDirectionalLights", d_lights.size());
 
 		// camera
-		blit->set_vec3("CameraPosition", Camera::Active->position);
+		blit->set_vec3("CameraPosition", Camera::Active->world_position());
 	}
 	blit->end_pass();
 
@@ -451,7 +451,7 @@ void Scene::draw() {
 		blit->set_int("NumPointLights", p_lights.size());
 
 		// camera
-		blit->set_vec3("CameraPosition", Camera::Active->position);
+		blit->set_vec3("CameraPosition", Camera::Active->world_position());
 	}
 	blit->end_pass();
 

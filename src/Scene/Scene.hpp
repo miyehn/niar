@@ -23,7 +23,10 @@ struct Scene : public Drawable {
 	int w, h;
 
 	void initialize_graphics();
-	void load(std::string source, bool preserve_existing_objects = false);
+	void loadOld(std::string source, bool preserve_existing_objects = false);
+
+	void load(const std::string& path, bool preserve_existing_objects = true);
+
 	std::vector<DirectionalLight*> d_lights;
 	std::vector<PointLight*> p_lights;
 

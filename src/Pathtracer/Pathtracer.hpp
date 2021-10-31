@@ -4,6 +4,7 @@
 #include "Engine/Drawable.hpp"
 #include "Utils/Utils.hpp"
 #include "BVH.hpp"
+#include <vulkan/vulkan.h>
 
 struct Scene;
 struct Ray;
@@ -31,7 +32,7 @@ struct Pathtracer : public Drawable {
 	virtual void update(float elapsed);
 	virtual void draw();
 
-	void draw_vulkan();
+	void draw_vulkan(VkCommandBuffer cmdbuf);
 
 	void initialize();
 	void enable();

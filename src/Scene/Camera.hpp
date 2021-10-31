@@ -1,20 +1,27 @@
 #pragma once
-#include "Engine/Updatable.hpp"
+#include "Engine/Drawable.hpp"
+#include <vector>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 
-typedef std::vector<vec3> Frustum;
+typedef std::vector<glm::vec3> Frustum;
 
-struct Camera {
+class aiCamera;
+
+struct Camera : Drawable {
 
 	static Camera* Active;
 
 	Camera(size_t w, size_t h, bool _ortho = false, bool use_YPR = true);
+	Camera(aiCamera* inCamera);
 	~Camera();
 
 	void update_control(float time_elapsed);
 
 	// properties, can be set by the program
-	vec3 position;
-	quat rotation;
+	//glm::vec3 position;
+	//glm::quat rotation;
 	float yaw;
 	float pitch;
 	float roll;
@@ -39,19 +46,23 @@ struct Camera {
 	void unlock();
 
 	// functions
-	mat3 world_to_camera_rotation() const;
-	mat4 world_to_camera();
-	mat3 camera_to_world_rotation() const;
-	mat4 camera_to_world();
+	// glm::mat3 world_to_camera_rotation() const;
+	// glm::mat4 world_to_camera();
+	// glm::mat3 camera_to_world_rotation() const;
+	// glm::mat4 camera_to_world();
 
-	mat4 camera_to_clip();
-	mat4 world_to_clip();
+	void set_local_position(glm::vec3 _local_position) override;
+	void set_rotation(quat _rotation) override;
+	void set_scale(glm::vec3 _scale) override;
 
-	vec3 forward();
-	vec3 up();
-	vec3 right();
+	glm::mat4 camera_to_clip();
+	glm::mat4 world_to_clip();
 
-	vec4 ZBufferParams();
+	glm::vec3 forward();
+	glm::vec3 up();
+	glm::vec3 right();
+
+	glm::vec4 ZBufferParams();
 
 private:
 	int prev_mouse_x;

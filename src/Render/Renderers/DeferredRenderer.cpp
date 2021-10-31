@@ -286,11 +286,11 @@ DeferredRenderer::~DeferredRenderer()
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
 	{// update frame-global uniforms
-		ViewInfo.CameraPosition = camera->position;
+		ViewInfo.CameraPosition = camera->world_position();
 		ViewInfo.ProjectionMatrix = camera->camera_to_clip();
 		ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
 		ViewInfo.ViewDir = camera->forward();
-		ViewInfo.ViewMatrix = camera->world_to_camera();
+		ViewInfo.ViewMatrix = camera->world_to_object();
 		ViewInfo.NumDirectionalLights = 0;
 		ViewInfo.NumPointLights = 1;
 		viewInfoUbo.writeData(&ViewInfo);

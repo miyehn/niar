@@ -52,8 +52,8 @@ IMPLEMENT_MATERIAL(MatGeneric)
 	mat4 o2w = obj->object_to_world();
 	mat3 o2wr = obj->object_to_world_rotation();
 
-	mat4 w2c = Camera::Active->world_to_camera();
-	mat3 w2cr = Camera::Active->world_to_camera_rotation();
+	mat4 w2c = Camera::Active->world_to_object();
+	mat3 w2cr = glm::mat3(w2c);
 	mat4 w2cl = Camera::Active->world_to_clip();
 
 	// set transformation matrices
@@ -70,7 +70,7 @@ IMPLEMENT_MATERIAL(MatBasic)
 	mat4 o2w = obj->object_to_world();
 	mat3 o2wr = obj->object_to_world_rotation();
 
-	mat3 w2cr = Camera::Active->world_to_camera_rotation();
+	mat3 w2cr = glm::mat3(Camera::Active->world_to_object());
 	mat4 w2cl = Camera::Active->world_to_clip();
 
 	shader->set_mat3("OBJECT_TO_CAM_ROT", w2cr * o2wr);

@@ -76,11 +76,11 @@ void Program::load_resources() {
 	else
 	{	
 		Camera::Active->move_speed = 16.0f;	
-		Camera::Active->position = vec3(0, -10, 2);
+		Camera::Active->set_local_position(vec3(0, -10, 2));
 		Camera::Active->cutoffFar = 100.0f;	
 
 		scene = new Scene();
-		scene->load(Cfg.SceneSource, false);	
+		scene->loadOld(Cfg.SceneSource, false);
 
 		// decided it's too much hassle to switch to ofbx for now, so will stay with assimp a little longer.
 		// f::import_scene(scene, Cfg.SceneSource.c_str());

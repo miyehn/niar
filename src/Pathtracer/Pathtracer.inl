@@ -54,7 +54,7 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 	for (int i = 0; i < (jittered ? pixel_offsets.size() : Cfg.Pathtracer.MinRaysPerPixel->get()); i++) {
 		vec2 offset = jittered ? pixel_offsets[i] : sample::unit_square_uniform();
 
-		ray.o = Camera::Active->position;
+		ray.o = Camera::Active->world_position();
 		ray.tmin = 0.0;
 		ray.tmax = INF;
 
@@ -63,15 +63,15 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 		float dy = (h + offset.y - half_height) / half_height;
 
 		vec3 d_unnormalized_c = vec3(k_x * dx, k_y * dy, -1);
-		vec3 d_unnormalized_w = Camera::Active->camera_to_world_rotation() * d_unnormalized_c;
+		vec3 d_unnormalized_w = mat3(Camera::Active->object_to_world()) * d_unnormalized_c;
 		ray.d = normalize(d_unnormalized_w);
 
 		if (Cfg.Pathtracer.UseDOF->get()) {
 			vec3 focal_p = ray.o + Cfg.Pathtracer.FocalDistance->get() * d_unnormalized_w;
 
 			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * Cfg.Pathtracer.ApertureRadius->get(), 0);
-			vec3 aperture_shift_world = Camera::Active->camera_to_world_rotation() * aperture_shift_cam;
-			ray.o = Camera::Active->position + aperture_shift_world;
+			vec3 aperture_shift_world = mat3(Camera::Active->object_to_world()) * aperture_shift_cam;
+			ray.o = Camera::Active->world_position() + aperture_shift_world;
 			ray.d = normalize(focal_p - ray.o);
 		}
 
@@ -96,7 +96,7 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 // DEBUG ONLY!!!
 void Pathtracer::raytrace_debug(size_t index) {
 	logged_rays.clear();
-	logged_rays.push_back(Camera::Active->position);
+	logged_rays.push_back(Camera::Active->world_position());
 
 	int w = index % width;
 	int h = index / width;
@@ -118,7 +118,7 @@ void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 
 	Ray& ray = task.ray;
 
-	ray.o = Camera::Active->position;
+	ray.o = Camera::Active->world_position();
 	ray.tmin = 0.0f;
 	ray.tmax = INF;
 
@@ -134,7 +134,7 @@ void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 	float k_x = k_y * Camera::Active->aspect_ratio;
 
 	vec3 d_cam = normalize(vec3(k_x * dx, k_y * dy, -1));
-	ray.d = Camera::Active->camera_to_world_rotation() * d_cam;
+	ray.d = mat3(Camera::Active->object_to_world()) * d_cam;
 }
 
 float Pathtracer::depth_of_first_hit(int x, int y) {
