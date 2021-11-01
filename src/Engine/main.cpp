@@ -260,7 +260,6 @@ void Program::run_vulkan()
 
 	DeferredRenderer* deferredRenderer = DeferredRenderer::get();
 
-	// TODO: format mysteries?
 	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png", {4, 8, 1});
 	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/normal.png", {4, 8, 0});
 	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/metallic.png", {1, 8, 0});
@@ -275,7 +274,7 @@ void Program::run_vulkan()
 	new MatDeferredPointLighting();
 
 	Scene* scene = Scene::Active;
-	scene->foreach_bfs([](Drawable* child){
+	scene->foreach_descendent_bfs([](Drawable* child){
 		if (Mesh* m = dynamic_cast<Mesh*>(child))
 		{
 			m->material = Material::find("geometry");
@@ -290,6 +289,20 @@ void Program::run_vulkan()
 
 	static bool show_imgui_demo = false;
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
+
+	ui::elem([scene]()
+	{
+		std::function<void(Drawable* node)> make_tree = [&make_tree](Drawable* node)
+		{
+			if (ImGui::TreeNode(node->name.c_str()))
+			{
+				// TODO: transform properties?
+				for (auto child : node->children) make_tree(child);
+				ImGui::TreePop();
+			}
+		};
+		for (auto child : scene->children) make_tree(child);
+	}, scene->name);
 
 	while(true)
 	{

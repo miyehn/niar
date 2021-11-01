@@ -299,7 +299,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 
 	std::vector<Drawable*> drawables;
-	drawable->foreach_bfs([&drawables](Drawable* child) {
+	drawable->foreach_descendent_bfs([&drawables](Drawable* child) {
 		drawables.push_back(child);
 	});
 

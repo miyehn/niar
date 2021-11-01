@@ -355,7 +355,7 @@ void Pathtracer::load_scene(Scene *scene) {
 	bvh = new BVH(&primitives, 0);
 
 	int meshes_count = 0;
-	scene->foreach_bfs([&](Drawable* drawable)
+	scene->foreach_descendent_bfs([&](Drawable* drawable)
 	{
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {

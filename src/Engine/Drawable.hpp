@@ -21,7 +21,8 @@ struct Drawable: public Updatable {
 
 	// hierarchy
 	Drawable* parent;
-	void foreach_bfs(const std::function<void(Drawable*)>& fn);
+	std::vector<Drawable*> children = std::vector<Drawable*>();
+	void foreach_descendent_bfs(const std::function<void(Drawable*)>& fn);
 	virtual bool add_child(Drawable* child);
 
 	// transformation
@@ -47,7 +48,6 @@ protected:
 	quat rotation_value;
 	vec3 scale_value;
 
-	std::vector<Drawable*> children = std::vector<Drawable*>();
 };
 
 struct SceneObject : public Drawable

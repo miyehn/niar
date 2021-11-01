@@ -115,7 +115,7 @@ vec3 Drawable::world_position() const {
 	return vec3(position.x, position.y, position.z) / position.w;
 }
 
-void Drawable::foreach_bfs(const std::function<void(Drawable*)>& fn)
+void Drawable::foreach_descendent_bfs(const std::function<void(Drawable*)>& fn)
 {
 	std::queue<Drawable*> Q;
 	Q.push(this);
