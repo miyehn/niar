@@ -290,19 +290,21 @@ void Program::run_vulkan()
 	static bool show_imgui_demo = false;
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
-	ui::elem([scene]()
+	static bool show_global_transform = false;
+	ui::checkBox("show global transform", &show_global_transform, scene->name + " (scene)");
+	ui::elem([&]()
 	{
 		std::function<void(Drawable* node)> make_tree = [&make_tree](Drawable* node)
 		{
 			if (ImGui::TreeNode(node->name.c_str()))
 			{
-				// TODO: transform properties?
+				node->draw_transform_ui(show_global_transform);
 				for (auto child : node->children) make_tree(child);
 				ImGui::TreePop();
 			}
 		};
 		for (auto child : scene->children) make_tree(child);
-	}, scene->name);
+	}, scene->name + " (scene)");
 
 	while(true)
 	{

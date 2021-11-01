@@ -95,7 +95,7 @@ void ui::usePurpleStyle()
 {
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text]                   = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-	colors[ImGuiCol_TextDisabled]           = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+	colors[ImGuiCol_TextDisabled]           = ImVec4(0.23f, 0.23f, 0.23f, 1.00f);
 	colors[ImGuiCol_WindowBg]               = ImVec4(0.01f, 0.01f, 0.01f, 0.76f);
 	colors[ImGuiCol_ChildBg]                = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 	colors[ImGuiCol_PopupBg]                = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);

@@ -1,5 +1,5 @@
 #include "Drawable.hpp"
-#include "Scene/Scene.hpp"
+#include <imgui.h>
 #include <queue>
 
 Drawable::Drawable(Drawable* _parent, std::string _name) {
@@ -129,4 +129,27 @@ void Drawable::foreach_descendent_bfs(const std::function<void(Drawable*)>& fn)
 			Q.push(child);
 		}
 	}
+}
+
+void Drawable::draw_transform_ui(bool global) const
+{
+	vec3 pos = global ? world_position() : local_position();
+	quat qrot = rotation();
+	vec3 scl = scale();
+	if (global)
+	{
+		auto ptr = parent;
+		while (ptr != nullptr)
+		{
+			qrot = ptr->rotation() * qrot;
+			scl = ptr->scale() * scl;
+			ptr = ptr->parent;
+		}
+	}
+
+	vec3 rot = eulerAngles(qrot);
+
+	ImGui::TextDisabled("[pos] %.3f, %.3f, %.3f", pos.x, pos.y, pos.z);
+	ImGui::TextDisabled("[rot] %.3f, %.3f, %.3f", degrees(rot.x), degrees(rot.y), degrees(rot.z));
+	ImGui::TextDisabled("[scl] %.3f, %.3f, %.3f", scl.x, scl.y, scl.z);
 }

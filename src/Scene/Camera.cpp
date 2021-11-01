@@ -108,6 +108,11 @@ void Camera::update_control(float elapsed) {
 			set_rotation(quat_cast(m4));
 		}
 	}
+	else
+	{
+		// HACK
+		// rotation_value = quatLookAt(normalize(-world_position()), vec3(0, 1, 0));
+	}
 }
 
 Camera::~Camera() {
@@ -218,7 +223,7 @@ Camera::Camera(aiCamera* inCamera)
 	pitch = radians(90.0f);
 	roll = 0.0f;
 
-	move_speed = 16;
+	move_speed = 4;
 	rotate_speed = 0.002f;
 
 	fov = inCamera->mHorizontalFOV / inCamera->mAspect;
@@ -231,7 +236,7 @@ Camera::Camera(aiCamera* inCamera)
 
 	prev_mouse_x = 0;
 	prev_mouse_y = 0;
-	locked = false;
+	locked = true;
 	orthographic = false;
 
 	auto toVec3 = [](aiVector3D& inVec) {
@@ -241,7 +246,7 @@ Camera::Camera(aiCamera* inCamera)
 	// inherited
 	name = inCamera->mName.C_Str();
 	local_position_value = toVec3(inCamera->mPosition);
-	vec3 viewDir = toVec3(inCamera->mLookAt);
-	rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
+
+	//rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
 
 }

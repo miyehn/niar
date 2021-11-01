@@ -89,6 +89,7 @@ SceneNodeIntermediate* loadSceneTree(const aiScene* scene)
 void collapseSceneTree(SceneNodeIntermediate* root)
 {
 	if (root == nullptr) return;
+	for (auto child : root->children) collapseSceneTree(child);
 	if (root->children.size() == 1 &&
 		!root->camera &&
 		!root->light &&
@@ -108,7 +109,6 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 		oldRoot->children.clear();
 		delete oldRoot;
 	}
-	for (auto child : root->children) collapseSceneTree(child);
 }
 
 void Scene::load(const std::string& path, bool preserve_existing_objects)
@@ -190,15 +190,12 @@ void Scene::load(const std::string& path, bool preserve_existing_objects)
 		node->transformation.Decompose(aiScale, aiRotation, aiPosition);
 
 		vec3 position = vec3(aiPosition.x, aiPosition.y, aiPosition.z);
-		quat rotation = quat(aiRotation.x, aiRotation.y, aiRotation.z, aiRotation.w);
+		quat rotation = quat(aiRotation.w, aiRotation.x, aiRotation.y, aiRotation.z);
 		vec3 scale = vec3(aiScale.x, aiScale.y, aiScale.z);
 
-		if (dynamic_cast<Mesh*>(drawable))
-		{
-			drawable->set_local_position(drawable->local_position() + position);
-			drawable->set_rotation(rotation * drawable->rotation());
-			drawable->set_scale(drawable->scale() * scale);
-		}
+		drawable->set_local_position(drawable->local_position() + position);
+		drawable->set_rotation(rotation * drawable->rotation());
+		drawable->set_scale(drawable->scale() * scale);
 
 		if (node->parent)
 		{

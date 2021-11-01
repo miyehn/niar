@@ -43,6 +43,8 @@ struct Drawable: public Updatable {
 	virtual void set_rotation(quat _rotation) = 0;
 	virtual void set_scale(vec3 _scale) = 0;
 
+	void draw_transform_ui(bool global) const;
+
 protected:
 	vec3 local_position_value;
 	quat rotation_value;
