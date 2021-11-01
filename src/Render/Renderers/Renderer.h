@@ -10,7 +10,7 @@ protected:
 	virtual ~Renderer() = default;
 public:
 
-	std::vector<Drawable*> drawables;
+	Drawable* drawable = nullptr;
 	Camera* camera = nullptr;
 
 	virtual void render(VkCommandBuffer cmdbuf) = 0;

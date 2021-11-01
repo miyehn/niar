@@ -7,6 +7,8 @@
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 
+#include <queue>
+
 #define GPOSITION_ATTACHMENT 0
 #define GNORMAL_ATTACHMENT 1
 #define GCOLOR_ATTACHMENT 2
@@ -296,6 +298,11 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		viewInfoUbo.writeData(&ViewInfo);
 	}
 
+	std::vector<Drawable*> drawables;
+	drawable->foreach_bfs([&drawables](Drawable* child) {
+		drawables.push_back(child);
+	});
+
 	VkClearValue clearColor = {0, 0, 0, 1.0f};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
@@ -311,6 +318,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	};
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+	// deferred base pass: draw the meshes with materials
 	Material* lastMaterial = nullptr;
 	for (auto drawable : drawables) // (assume they're sorted by material)
 	{
@@ -329,7 +337,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 
-	{
+	{// lighting pass
 		MatDeferredPointLighting* point_lighting_comp =
 			dynamic_cast<MatDeferredPointLighting*>(Material::find("deferred lighting pass"));
 

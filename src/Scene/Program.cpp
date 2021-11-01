@@ -80,13 +80,13 @@ void Program::load_resources() {
 		Camera::Active->cutoffFar = 100.0f;	
 
 		scene = new Scene();
-		scene->loadOld(Cfg.SceneSource, false);
+		//scene->loadOld(Cfg.SceneSource, false);
 
 		// decided it's too much hassle to switch to ofbx for now, so will stay with assimp a little longer.
 		// f::import_scene(scene, Cfg.SceneSource.c_str());
 	}
 
-	scene->initialize_graphics();
+	//scene->initialize_graphics();
 
 	Scene::Active = scene;
 	scenes.push_back(scene);
@@ -98,7 +98,7 @@ void Program::release_resources() {
 	for (uint i=0; i<scenes.size(); i++) {
 		delete scenes[i];
 	}
-	if (Camera::Active) delete Camera::Active;
+	//if (Camera::Active) delete Camera::Active;
 	if (Pathtracer::Instance) delete Pathtracer::Instance;
 	GlTexture::cleanup();
 	Shader::cleanup();

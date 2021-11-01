@@ -215,7 +215,7 @@ void Pathtracer::initialize() {
 	
 	bvh = nullptr;
 	use_bvh = true;
-	if (Scene::Active) load_scene(*Scene::Active);
+	if (Scene::Active) load_scene(Scene::Active);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
 	ispc_data = nullptr;
@@ -347,20 +347,23 @@ bool Pathtracer::handle_event(SDL_Event event) {
 }
 
 // TODO: load scene recursively
-void Pathtracer::load_scene(const Scene& scene) {
+void Pathtracer::load_scene(Scene *scene) {
 
 	primitives.clear();
 	lights.clear();
 
 	bvh = new BVH(&primitives, 0);
 
-	for (Drawable* drawable : scene.children) {
+	int meshes_count = 0;
+	scene->foreach_bfs([&](Drawable* drawable)
+	{
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {
 			if (!mesh->bsdf) {
 				WARN("trying to load a mesh without bsdf. skipping...");
-				continue;
+				return;
 			}
+			meshes_count++;
 
 			bool emissive = mesh->bsdf->is_emissive;
 			for (int i=0; i<mesh->faces.size(); i+=3) {
@@ -371,21 +374,22 @@ void Pathtracer::load_scene(const Scene& scene) {
 				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
 				Primitive* P = static_cast<Primitive*>(T);
 				primitives.push_back(P);
-				
+
 				// also load as light if emissive
 				if (emissive) {
 					lights.push_back(static_cast<PathtracerLight*>(new AreaLight(T)));
 				}
 			}
 		}
-	}
+	});
+
 	bvh->primitives_start = 0;
 	bvh->primitives_count = primitives.size();
 	bvh->update_extents();
 	bvh->expand_bvh();
 
-	TRACE("loaded a scene with %lu meshes, %lu triangles, %lu lights", 
-			scene.children.size(), primitives.size(), lights.size());
+	TRACE("loaded a scene with %d meshes, %lu triangles, %lu lights",
+		  meshes_count, primitives.size(), lights.size());
 }
 
 void Pathtracer::enable() {

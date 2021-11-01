@@ -1,5 +1,6 @@
 #include "Drawable.hpp"
 #include "Scene/Scene.hpp"
+#include <queue>
 
 Drawable::Drawable(Drawable* _parent, std::string _name) {
 
@@ -18,6 +19,7 @@ Drawable::Drawable(Drawable* _parent, std::string _name) {
 
 Drawable::~Drawable() {
 	for (uint i=0; i<children.size(); i++) delete children[i];
+	children.clear();
 }
 
 bool Drawable::handle_event(SDL_Event event) {
@@ -113,8 +115,18 @@ vec3 Drawable::world_position() const {
 	return vec3(position.x, position.y, position.z) / position.w;
 }
 
-Scene* Drawable::get_scene() {
-	Drawable* node = this;
-	while (node->parent) node = node->parent;
-	return static_cast<Scene*>(node);
+void Drawable::foreach_bfs(const std::function<void(Drawable*)>& fn)
+{
+	std::queue<Drawable*> Q;
+	Q.push(this);
+	while (!Q.empty())
+	{
+		auto node = Q.front();
+		Q.pop();
+		fn(node);
+		for (auto child : node->children)
+		{
+			Q.push(child);
+		}
+	}
 }

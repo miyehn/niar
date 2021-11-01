@@ -2,8 +2,6 @@
 #include "Scene/Camera.hpp"
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/Input.hpp"
-#include "Scene/Scene.hpp"
-#include "Scene/Light.hpp"
 #include "GlMaterial.h"
 
 #include "assimp/Importer.hpp"
@@ -240,6 +238,7 @@ void Mesh::draw(VkCommandBuffer cmdbuf)
 
 void Mesh::draw() {
 
+	/*
 	Scene* scene = get_scene();
 
 	// set material
@@ -258,13 +257,14 @@ void Mesh::draw() {
 
 	// draw children
 	Drawable::draw();
+	 */
 }
 
 void Mesh::set_local_position(vec3 _local_position) {
 	if (!locked) {
 		local_position_value = _local_position;
 		generate_aabb();
-		get_scene()->generate_aabb();
+		//get_scene()->generate_aabb();
 	}
 }
 
@@ -272,7 +272,7 @@ void Mesh::set_rotation(quat _rotation) {
 	if (!locked) {
 		rotation_value = _rotation;
 		generate_aabb();
-		get_scene()->generate_aabb();
+		//get_scene()->generate_aabb();
 	}
 }
 
@@ -280,7 +280,7 @@ void Mesh::set_scale(vec3 _scale) {
 	if (!locked) {
 		scale_value = _scale;
 		generate_aabb();
-		get_scene()->generate_aabb();
+		//get_scene()->generate_aabb();
 	}
 }
 

@@ -21,8 +21,7 @@ struct Drawable: public Updatable {
 
 	// hierarchy
 	Drawable* parent;
-	std::vector<Drawable*> children = std::vector<Drawable*>();
-	Scene* get_scene();
+	void foreach_bfs(const std::function<void(Drawable*)>& fn);
 	virtual bool add_child(Drawable* child);
 
 	// transformation
@@ -48,4 +47,15 @@ protected:
 	quat rotation_value;
 	vec3 scale_value;
 
+	std::vector<Drawable*> children = std::vector<Drawable*>();
+};
+
+struct SceneObject : public Drawable
+{
+	explicit SceneObject(
+		Drawable* _parent = nullptr,
+		std::string _name = "[unnamed drawable]") : Drawable(_parent, _name){}
+	void set_local_position(vec3 _local_position) override { local_position_value = _local_position; }
+	void set_rotation(quat _rotation) override { rotation_value = _rotation; }
+	void set_scale(vec3 _scale) override { scale_value = _scale; }
 };

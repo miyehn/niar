@@ -67,7 +67,7 @@ private:
 	std::vector<Primitive*> primitives;
 	std::vector<PathtracerLight*> lights;
 	BVH* bvh;
-	void load_scene(const Scene& scene);
+	void load_scene(Scene *scene);
 	bool use_bvh;
 
 	ISPC_Data* ispc_data;

@@ -49,6 +49,8 @@ struct DirectionalLight : public Light {
 			vec3 dir = vec3(0, 0, -1));
 	DirectionalLight(aiLight* light, aiNode* mRootNode);
 
+	DirectionalLight(aiLight* light);
+
 	virtual ~DirectionalLight();
 
 	virtual void set_cast_shadow(bool cast);
@@ -77,6 +79,8 @@ struct PointLight: public Light {
 			vec3 _local_pos = vec3(0));
 
 	PointLight(aiLight* light, aiNode* mRootNode);
+
+	PointLight(aiLight* light);
 
 	virtual ~PointLight();
 

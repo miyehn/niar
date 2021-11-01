@@ -31,9 +31,9 @@ struct Mesh : Drawable {
 
 	void draw(VkCommandBuffer cmdbuf);
 
-	virtual void set_local_position(vec3 _local_position) override;
-	virtual void set_rotation(quat _rotation) override;
-	virtual void set_scale(vec3 _scale) override;
+	void set_local_position(vec3 _local_position) override;
+	void set_rotation(quat _rotation) override;
+	void set_scale(vec3 _scale) override;
 
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> faces;

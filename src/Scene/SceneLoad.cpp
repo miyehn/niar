@@ -1,4 +1,7 @@
 #include "Scene.hpp"
+#include "Camera.hpp"
+#include "Light.hpp"
+#include "Asset/Mesh.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -7,24 +10,24 @@
 #include <unordered_map>
 #include <queue>
 
-struct NodeTmp
+struct SceneNodeIntermediate
 {
 	// converter
-	NodeTmp(aiNode* node) :
+	SceneNodeIntermediate(aiNode* node) :
 	transformation(node->mTransformation),
 	name(node->mName.C_Str()) {}
 
-	~NodeTmp()
+	~SceneNodeIntermediate()
 	{
 		for (auto c : children) delete c;
 	}
 
 	// hierarchy
-	NodeTmp* parent = nullptr;
-	std::vector<NodeTmp*> children;
+	SceneNodeIntermediate* parent = nullptr;
+	std::vector<SceneNodeIntermediate*> children;
 
 	// transformation
-	aiMatrix4x4t<ai_real> transformation;
+	aiMatrix4x4t<float> transformation;
 
 	// data
 	std::string name;
@@ -33,12 +36,12 @@ struct NodeTmp
 	aiCamera* camera = nullptr;
 };
 
-NodeTmp* loadSceneTree(const aiScene* scene)
+SceneNodeIntermediate* loadSceneTree(const aiScene* scene)
 {
 	// map from name to node
 	// load the tree hierarchy and transformation; construct map
 	// use the map to add data
-	std::unordered_map<std::string, NodeTmp*> nodesMap;
+	std::unordered_map<std::string, SceneNodeIntermediate*> nodesMap;
 
 	// hierarchy
 	std::queue<aiNode*> nodesQueue;
@@ -48,7 +51,7 @@ NodeTmp* loadSceneTree(const aiScene* scene)
 		aiNode* ainode = nodesQueue.front();
 		nodesQueue.pop();
 
-		auto tmpnode = new NodeTmp(ainode);
+		auto tmpnode = new SceneNodeIntermediate(ainode);
 		nodesMap[ainode->mName.C_Str()] = tmpnode;
 		if (ainode->mParent)
 		{
@@ -83,10 +86,13 @@ NodeTmp* loadSceneTree(const aiScene* scene)
 	return nodesMap[scene->mRootNode->mName.C_Str()];
 }
 
-void collapseSceneTree(NodeTmp* root)
+void collapseSceneTree(SceneNodeIntermediate* root)
 {
 	if (root == nullptr) return;
-	if (root->children.size() == 1)
+	if (root->children.size() == 1 &&
+		!root->camera &&
+		!root->light &&
+		!root->mesh)
 	{
 		auto oldRoot = root;
 		root = *oldRoot->children.begin();
@@ -108,8 +114,6 @@ void collapseSceneTree(NodeTmp* root)
 void Scene::load(const std::string& path, bool preserve_existing_objects)
 {
 	if (!preserve_existing_objects) {
-		d_lights.clear();
-		p_lights.clear();
 		for (int i=0; i<children.size(); i++) delete children[i];
 		children.clear();
 	}
@@ -127,15 +131,87 @@ void Scene::load(const std::string& path, bool preserve_existing_objects)
 	if (!scene) {
 		ERR("%s", importer.GetErrorString());
 	}
-	LOG(" - %d meshes", scene->mNumMeshes);
+	LOG(" - %d cameras", scene->mNumCameras);
 	LOG(" - %d lights", scene->mNumLights);
+	LOG(" - %d meshes", scene->mNumMeshes);
 
-	NodeTmp* sceneTree = loadSceneTree(scene);
+	SceneNodeIntermediate* sceneTree = loadSceneTree(scene);
 	collapseSceneTree(sceneTree);
 
 	//-------- load from intermediate tree --------
 
 	// camera, light, or mesh
+
+	std::unordered_map<SceneNodeIntermediate*, Drawable*> nodeToDrawable;
+	std::queue<SceneNodeIntermediate*> nodesQueue;
+	nodesQueue.push(sceneTree);
+	while (!nodesQueue.empty())
+	{
+		auto node = nodesQueue.front();
+		nodesQueue.pop();
+
+		Drawable* drawable = nullptr;
+		if (node->camera)
+		{
+			aiCamera* camera = node->camera;
+			Camera* loaded_camera = new Camera(camera);
+			drawable = loaded_camera;
+			if (!Camera::Active) Camera::Active = loaded_camera;
+			else WARN("There're multiple cameras in the scene. Only one is used as the active one.")
+		}
+		else if (node->light)
+		{
+			aiLight* light = node->light;
+			if (light->mType == aiLightSource_POINT)
+			{
+				drawable = new PointLight(light);
+			}
+			else if (light->mType == aiLightSource_DIRECTIONAL)
+			{
+				drawable = new DirectionalLight(light);
+			}
+		}
+		else if (node->mesh)
+		{
+			Mesh* m = new Mesh(node->mesh);
+			m->initialize_gpu();
+			drawable = m;
+		}
+		else
+		{
+			drawable = new SceneObject(nullptr, "[transform node]");
+		}
+
+		nodeToDrawable[node] = drawable;
+
+		aiVector3t<float> aiPosition;
+		aiQuaterniont<float> aiRotation;
+		aiVector3t<float> aiScale;
+		node->transformation.Decompose(aiScale, aiRotation, aiPosition);
+
+		vec3 position = vec3(aiPosition.x, aiPosition.y, aiPosition.z);
+		quat rotation = quat(aiRotation.x, aiRotation.y, aiRotation.z, aiRotation.w);
+		vec3 scale = vec3(aiScale.x, aiScale.y, aiScale.z);
+
+		if (dynamic_cast<Mesh*>(drawable))
+		{
+			drawable->set_local_position(drawable->local_position() + position);
+			drawable->set_rotation(rotation * drawable->rotation());
+			drawable->set_scale(drawable->scale() * scale);
+		}
+
+		if (node->parent)
+		{
+			nodeToDrawable[node->parent]->add_child(drawable);
+		}
+
+		for (auto child : node->children)
+		{
+			nodesQueue.push(child);
+		}
+	}
+
+	add_child(nodeToDrawable[sceneTree]);
 
 	delete sceneTree;
 }

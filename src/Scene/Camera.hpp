@@ -14,8 +14,8 @@ struct Camera : Drawable {
 	static Camera* Active;
 
 	Camera(size_t w, size_t h, bool _ortho = false, bool use_YPR = true);
-	Camera(aiCamera* inCamera);
-	~Camera();
+	explicit Camera(aiCamera* inCamera);
+	~Camera() override;
 
 	void update_control(float time_elapsed);
 
@@ -46,10 +46,6 @@ struct Camera : Drawable {
 	void unlock();
 
 	// functions
-	// glm::mat3 world_to_camera_rotation() const;
-	// glm::mat4 world_to_camera();
-	// glm::mat3 camera_to_world_rotation() const;
-	// glm::mat4 camera_to_world();
 
 	void set_local_position(glm::vec3 _local_position) override;
 	void set_rotation(quat _rotation) override;

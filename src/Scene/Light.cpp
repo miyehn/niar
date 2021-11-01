@@ -72,7 +72,7 @@ void DirectionalLight::render_shadow_map() {
 
 	if (!cast_shadow) return;
 
-	Scene* scene = get_scene();
+	Scene* scene = nullptr;//get_scene();
 	
 	// set camera properties
 	
@@ -129,9 +129,7 @@ void DirectionalLight::render_shadow_map() {
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
-	scene->replacement_material = GlMaterial::mat_depth();
 	scene->draw_content(true);
-	scene->replacement_material = nullptr;
 
 	Camera::Active = cached_camera;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -199,6 +197,20 @@ void DirectionalLight::set_cast_shadow(bool cast) {
 	new NamedTex(name + " shadow mask", shadow_mask_tex);
 }
 
+DirectionalLight::DirectionalLight(aiLight *light)
+{
+	name = light->mName.C_Str();
+	auto pos = light->mPosition;
+	local_position_value = vec3(pos.x, pos.y, pos.z);
+	auto dir = light->mDirection;
+	rotation_value = quat_from_dir(vec3(dir.x, dir.y, dir.z));
+	scale_value = vec3(1);
+	auto col = light->mColorDiffuse;
+	color = vec3(col.r, col.g, col.b);
+	intensity = 1;
+	cast_shadow = false;
+}
+
 //-------- point light --------
 
 void PointLight::init(vec3 _color, float _intensity, vec3 _local_pos) {
@@ -258,7 +270,7 @@ void PointLight::render_shadow_map() {
 	Camera* cached_camera = Camera::Active;
 	Camera::Active = shadow_map_cam;
 
-	Scene* scene = get_scene();
+	Scene* scene = nullptr;//get_scene();
 	glViewport(0, 0, shadow_map_dim, shadow_map_dim);
 
 #define POINT_LIGHT_OPTIMIZE 1
@@ -297,9 +309,7 @@ void PointLight::render_shadow_map() {
 		// draw
 		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map_fbos[i]);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		scene->replacement_material = distance_to_light_mat;
 		scene->draw_content(true);
-		scene->replacement_material = nullptr;
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -381,5 +391,20 @@ void PointLight::set_cast_shadow(bool cast) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	new NamedTex(name + " shadow mask", shadow_mask_tex);
 
+}
+
+PointLight::PointLight(aiLight *light)
+{
+	name = light->mName.C_Str();
+	auto lcol = light->mColorDiffuse;
+	color = vec3(lcol.r, lcol.g, lcol.b);
+	intensity = 1.0f;
+
+	auto pos = light->mPosition;
+	local_position_value = vec3(pos.x, pos.y, pos.z);
+
+	scale_value = vec3(1);
+
+	cast_shadow = false;
 }
 

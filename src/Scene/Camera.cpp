@@ -35,11 +35,14 @@ Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) :
 
 	locked = false;
 
-	int prev_mouse_x = 0;
-	int prev_mouse_y = 0;
+	prev_mouse_x = 0;
+	prev_mouse_y = 0;
 
 }
 
+// Never really got how camera rotation control works but gonna settle for now...
+// Camera is looking down z axis when yaw, pitch, row = 0
+// UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
 void Camera::update_control(float elapsed) {
 
 	if (!locked && !Program::Instance->receiving_text) {
@@ -136,9 +139,6 @@ Frustum Camera::frustum() {
 }
 
 /*
-// Never really got how camera rotation control works but gonna settle for now...
-// Camera is looking down z axis when yaw, pitch, row = 0
-// UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
 mat3 Camera::world_to_camera_rotation() const {
 	if (use_YPR) {
 		mat4 m4 = rotate(mat4(1), -roll, vec3(0, 1, 0)) *
@@ -213,5 +213,35 @@ mat4 Camera::camera_to_clip()
 
 Camera::Camera(aiCamera* inCamera)
 {
+	use_YPR = true;
+	yaw = radians(0.0f);
+	pitch = radians(90.0f);
+	roll = 0.0f;
+
+	move_speed = 16;
+	rotate_speed = 0.002f;
+
+	fov = inCamera->mHorizontalFOV / inCamera->mAspect;
+	cutoffNear = inCamera->mClipPlaneNear;
+	cutoffFar = inCamera->mClipPlaneFar;
+
+	width = 0;
+	height = 0;
+	aspect_ratio = inCamera->mAspect;
+
+	prev_mouse_x = 0;
+	prev_mouse_y = 0;
+	locked = false;
+	orthographic = false;
+
+	auto toVec3 = [](aiVector3D& inVec) {
+		return vec3(inVec.x, inVec.y, inVec.z);
+	};
+
+	// inherited
+	name = inCamera->mName.C_Str();
+	local_position_value = toVec3(inCamera->mPosition);
+	vec3 viewDir = toVec3(inCamera->mLookAt);
+	rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
 
 }
