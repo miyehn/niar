@@ -179,7 +179,7 @@ void Scene::load(const std::string& path, bool preserve_existing_objects)
 		}
 		else
 		{
-			drawable = new SceneObject(nullptr, "[transform node]");
+			drawable = new SceneObject(nullptr, "[transform] " + node->name);
 		}
 
 		nodeToDrawable[node] = drawable;

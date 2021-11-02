@@ -155,7 +155,7 @@ void DirectionalLight::set_cast_shadow(bool cast) {
 
 	shadow_map_dim = 1024;
 
-	shadow_map_cam = new Camera(1, 1, true, false);
+	shadow_map_cam = new Camera(1, 1, true);
 	shadow_map_cam->lock();
 	shadow_map_cam->cutoffNear = 1.0f;
 	
@@ -332,7 +332,7 @@ void PointLight::set_cast_shadow(bool cast) {
 
 	shadow_map_dim = 256;
 
-	shadow_map_cam = new Camera(0, 0, false, false);
+	shadow_map_cam = new Camera();
 	shadow_map_cam->lock();
 	shadow_map_cam->cutoffNear = 0.1f;
 	shadow_map_cam->fov = radians(90.0f);

@@ -13,15 +13,13 @@ void Camera::set_rotation(quat _rotation) {
 }
 
 void Camera::set_scale(vec3 _scale) {
-	scale_value = _scale;
+	scale_value = vec3(1);
 }
 
-Camera::Camera(size_t w, size_t h, bool _ortho, bool _use_YPR) : 
-		orthographic(_ortho), use_YPR(_use_YPR), width(w), height(h) {
-	set_local_position(glm::vec3(0, 0, 0));
-	yaw = radians(0.0f);
-	pitch = radians(90.0f);
-	roll = 0.0f;
+Camera::Camera(size_t w, size_t h, bool _ortho) :
+		orthographic(_ortho), width(w), height(h) {
+
+	local_position_value = vec3(0);
 
 	// TODO: make these properties
 	move_speed = 150.0f;
@@ -60,14 +58,6 @@ void Camera::update_control(float elapsed) {
 				local_position_value.z -= move_speed * elapsed;
 			}
 
-			// roll
-			if (state[SDL_SCANCODE_A]) {
-				roll -= 2 * elapsed;
-			}
-			if (state[SDL_SCANCODE_D]) {
-				roll += 2 * elapsed;
-			}
-
 		} else {
 			// WASD movement; E - up; Q - down
 			if (state[SDL_SCANCODE_A]) {
@@ -83,30 +73,29 @@ void Camera::update_control(float elapsed) {
 				local_position_value += move_speed * elapsed * forward;
 			}
 			if (state[SDL_SCANCODE_E]) {
-				local_position_value.z += move_speed * elapsed;
+				local_position_value.y += move_speed * elapsed;
 			}
 			if (state[SDL_SCANCODE_Q]) {
-				local_position_value.z -= move_speed * elapsed;
+				local_position_value.y -= move_speed * elapsed;
 			}
 		}
 
 		// rotation
+		float yaw = glm::yaw(rotation_value);
+		float pitch = glm::pitch(rotation_value);
+		float roll = glm::roll(rotation_value);
+
 		int mouse_x, mouse_y;
 		if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON_LEFT) {
-			float dx = mouse_x - prev_mouse_x;
-			float dy = mouse_y - prev_mouse_y;
-			yaw -= dx * rotate_speed;
-			pitch -= dy * rotate_speed;
+			float dx = (float)mouse_x - prev_mouse_x;
+			float dy = (float)mouse_y - prev_mouse_y;
+			yaw += -dx * rotate_speed;
+			pitch += -dy * rotate_speed;
 		}
 		prev_mouse_x = mouse_x;
 		prev_mouse_y = mouse_y;
 
-		if (use_YPR) {
-			mat4 m4 = rotate(mat4(1), yaw, vec3(0, 0, 1)) *
-				 rotate(mat4(1), pitch, vec3(1, 0, 0)) *
-				 rotate(mat4(1), roll, vec3(0, 1, 0));
-			set_rotation(quat_cast(m4));
-		}
+		set_rotation(vec3(pitch, yaw, roll));
 	}
 	else
 	{
@@ -143,52 +132,20 @@ Frustum Camera::frustum() {
 	return frus;
 }
 
-/*
-mat3 Camera::world_to_camera_rotation() const {
-	if (use_YPR) {
-		mat4 m4 = rotate(mat4(1), -roll, vec3(0, 1, 0)) *
-				 rotate(mat4(1), -pitch, vec3(1, 0, 0)) * 
-				 rotate(mat4(1), -yaw, vec3(0, 0, 1));
-		return mat3(m4);
-	}
-	return transpose(camera_to_world_rotation());
-}
-
-mat4 Camera::world_to_camera() {
-	return mat4(world_to_camera_rotation()) * translate(mat4(1), -position);
-}
-
-mat3 Camera::camera_to_world_rotation() const {
-	mat4 m4;
-	if (use_YPR) { 
-		m4 = rotate(mat4(1), yaw, vec3(0, 0, 1)) *
-				 rotate(mat4(1), pitch, vec3(1, 0, 0)) *
-				 rotate(mat4(1), roll, vec3(0, 1, 0)); }
-	else {
-		m4 = mat4_cast(rotation);
-	}
-	return mat3(m4);
-}
-
-mat4 Camera::camera_to_world() {
-	return translate(mat4(1), position) * mat4(camera_to_world_rotation());
-}
- */
-
 mat4 Camera::world_to_clip() {
 	return camera_to_clip() * world_to_object();
 }
 
 vec3 Camera::right() {
-	return glm::mat3(object_to_world()) * vec3(1, 0, 0);
+	return glm::normalize(glm::mat3(object_to_world()) * vec3(1, 0, 0));
 }
 
 vec3 Camera::up() {
-	return glm::mat3(object_to_world()) * vec3(0, 1, 0);
+	return glm::normalize(glm::mat3(object_to_world()) * vec3(0, 1, 0));
 }
 
 vec3 Camera::forward() {
-	return glm::mat3(object_to_world()) * vec3(0, 0, -1);
+	return glm::normalize(glm::mat3(object_to_world()) * vec3(0, 0, -1));
 }
 
 void Camera::lock() {
@@ -218,25 +175,20 @@ mat4 Camera::camera_to_clip()
 
 Camera::Camera(aiCamera* inCamera)
 {
-	use_YPR = true;
-	yaw = radians(0.0f);
-	pitch = radians(90.0f);
-	roll = 0.0f;
-
-	move_speed = 4;
+	move_speed = 16;
 	rotate_speed = 0.002f;
 
-	fov = inCamera->mHorizontalFOV / inCamera->mAspect;
+	fov = 2 * inCamera->mHorizontalFOV / inCamera->mAspect;
 	cutoffNear = inCamera->mClipPlaneNear;
 	cutoffFar = inCamera->mClipPlaneFar;
 
-	width = 0;
-	height = 0;
+	width = 0; // only matters for orthographic cameras
+	height = 0; // only matters for orthographic cameras
 	aspect_ratio = inCamera->mAspect;
 
 	prev_mouse_x = 0;
 	prev_mouse_y = 0;
-	locked = true;
+	locked = false;
 	orthographic = false;
 
 	auto toVec3 = [](aiVector3D& inVec) {
@@ -247,6 +199,5 @@ Camera::Camera(aiCamera* inCamera)
 	name = inCamera->mName.C_Str();
 	local_position_value = toVec3(inCamera->mPosition);
 
-	//rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
-
+	rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
 }
