@@ -74,7 +74,7 @@ void main() {
 	vec3 albedo = GColor.rgb;
 	float metallic = GMRA.r;
 	float roughness = GMRA.g;
-	float ambientOcclusion = GMRA.b;
+	// float ambientOcclusion = GMRA.b;
 
 	ViewInfo viewInfo = GetViewInfo();
 

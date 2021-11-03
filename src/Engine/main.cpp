@@ -211,7 +211,8 @@ void Program::run_vulkan()
 				process_input();
 			}
 
-			else if (!receiving_text) {
+			else if (!receiving_text)
+            {
 				// toggle between rasterizer & pathtracer
 				if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
 					if (Pathtracer::Instance->enabled) Pathtracer::Instance->disable();

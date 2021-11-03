@@ -51,8 +51,12 @@ public:
 	~ScopedDrawEvent();
 };
 
+#ifdef WINOS
 #define SCOPED_DRAW_EVENT(CMDBUF, NAME, ...) ScopedDrawEvent __scopedDrawEvent(CMDBUF, NAME, __VA_ARGS__);
-
 #define DEBUG_LABEL(CMDBUF, NAME, ...) Vulkan::Instance->cmdInsertDebugLabel(CMDBUF, NAME, __VA_ARGS__);
-
 #define NAME_OBJECT(VK_OBJECT_TYPE, OBJECT, NAME) Vulkan::Instance->setObjectName(VK_OBJECT_TYPE, (uint64_t)OBJECT, NAME);
+#else
+#define SCOPED_DRAW_EVENT(CMDBUF, NAME, ...) ;
+#define DEBUG_LABEL(CMDBUF, NAME, ...) ;
+#define NAME_OBJECT(VK_OBJECT_TYPE, OBJECT, NAME) ;
+#endif
