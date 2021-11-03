@@ -1,6 +1,7 @@
 #include "DebugUI.h"
 #include <unordered_map>
 #include <imgui.h>
+#include <vector>
 
 std::unordered_map<std::string, std::vector<std::function<void()>>> UIMap;
 
