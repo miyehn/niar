@@ -3,11 +3,9 @@
 #include "Render/Materials/Texture.h"
 #include "Asset/Mesh.h"
 #include "Render/Materials/Material.h"
-#include "Render/Materials/DeferredPointLighting.h"
+#include "Render/Materials/DeferredLighting.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
-
-#include <queue>
 
 #define GPOSITION_ATTACHMENT 0
 #define GNORMAL_ATTACHMENT 1
@@ -288,13 +286,12 @@ DeferredRenderer::~DeferredRenderer()
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
 	{// update frame-global uniforms
+		memset(&ViewInfo, 0, sizeof(ViewInfo)); // clear
 		ViewInfo.CameraPosition = camera->world_position();
 		ViewInfo.ProjectionMatrix = camera->camera_to_clip();
 		ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
 		ViewInfo.ViewDir = camera->forward();
 		ViewInfo.ViewMatrix = camera->world_to_object();
-		ViewInfo.NumDirectionalLights = 0;
-		ViewInfo.NumPointLights = 1;
 		viewInfoUbo.writeData(&ViewInfo);
 	}
 
@@ -318,55 +315,76 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	};
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	// deferred base pass: draw the meshes with materials
-	Material* lastMaterial = nullptr;
-	for (auto drawable : drawables) // (assume they're sorted by material)
 	{
-		if (Mesh* m = dynamic_cast<Mesh*>(drawable))
+		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
+		// deferred base pass: draw the meshes with materials
+		Material* lastMaterial = nullptr;
+		for (auto drawable : drawables) // (assume they're sorted by material)
 		{
-			if (m->material != lastMaterial)
+			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
-				m->material->usePipeline(cmdbuf, {
-					{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
-				});
-				lastMaterial = m->material;
+				if (m->material != lastMaterial)
+				{
+					m->material->usePipeline(cmdbuf, {
+						{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
+					});
+					lastMaterial = m->material;
+				}
+				m->draw(cmdbuf);
 			}
-			m->draw(cmdbuf);
 		}
+
+		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
-	vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "Lighting pass")
+		MatDeferredLighting* mat_lighting =
+			dynamic_cast<MatDeferredLighting*>(Material::find("deferred lighting"));
 
-	{// lighting pass
-		MatDeferredPointLighting* point_lighting_comp =
-			dynamic_cast<MatDeferredPointLighting*>(Material::find("deferred lighting pass"));
-
-		int num_lights = 0;
+		int point_light_ctr = 0;
+		int directional_light_ctr = 0;
 		for (auto drawable : drawables)
 		{
 			if (auto L = dynamic_cast<PointLight*>(drawable))
 			{
-				if (num_lights >= 4) break;
-				point_lighting_comp->uniforms.Lights[num_lights].position = L->world_position();
-				point_lighting_comp->uniforms.Lights[num_lights].color =
-					(L->get_emission() + glm::vec3(2, 1, 0)) * 20.0f;
-				num_lights++;
+				if (point_light_ctr >= MAX_LIGHTS_PER_PASS) break;
+				mat_lighting->pointLights.Data[point_light_ctr].position = L->world_position();
+				mat_lighting->pointLights.Data[point_light_ctr].color = L->get_emission();
+				point_light_ctr++;
+			}
+			else if (auto L = dynamic_cast<DirectionalLight*>(drawable))
+			{
+				if (directional_light_ctr >= MAX_LIGHTS_PER_PASS) break;
+				mat_lighting->directionalLights.Data[directional_light_ctr].direction = L->get_direction();
+				mat_lighting->directionalLights.Data[directional_light_ctr].color = L->get_emission();
+				directional_light_ctr++;
 			}
 		}
 
-		point_lighting_comp->usePipeline(cmdbuf, {
+		// update ViewInfo to include num lights
+		ViewInfo.NumPointLights = point_light_ctr;
+		ViewInfo.NumDirectionalLights = directional_light_ctr;
+		viewInfoUbo.writeData(&ViewInfo);
+
+		mat_lighting->numPointLights = point_light_ctr;
+		mat_lighting->numDirectionalLights = directional_light_ctr;
+		mat_lighting->usePipeline(cmdbuf, {
 			{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
 		});
 		vk::draw_fullscreen_triangle(cmdbuf);
+
+		vkCmdEndRenderPass(cmdbuf);
 	}
 
-	vkCmdEndRenderPass(cmdbuf);
-
-	vk::blitToScreen(
-		cmdbuf,
-		sceneColor->resource.image,
-		{0, 0, 0},
-		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "Present to screen")
+		vk::blitToScreen(
+			cmdbuf,
+			sceneColor->resource.image,
+			{0, 0, 0},
+			{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
+	}
 }
 
 DeferredRenderer* deferredRenderer = nullptr;

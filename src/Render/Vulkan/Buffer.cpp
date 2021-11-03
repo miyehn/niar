@@ -49,12 +49,11 @@ VmaAllocation VmaBuffer::getAllocationInstance(uint32_t index) const
 	return allocations[index];
 }
 
-void VmaBuffer::writeData(void *inData, uint32_t bufferIndex, size_t writeSize)
+void VmaBuffer::writeData(void *inData, size_t writeSize, size_t bufferIndex)
 {
 	EXPECT(allocator == nullptr, false)
 	if (writeSize == 0) writeSize = (size_t)size;
 	void* mappedMemory;
-	auto alloc = getAllocationInstance(bufferIndex);
 	vmaMapMemory(*allocator, getAllocationInstance(bufferIndex), &mappedMemory);
 	memcpy(mappedMemory, inData, writeSize);
 	vmaUnmapMemory(*allocator, getAllocationInstance(bufferIndex));

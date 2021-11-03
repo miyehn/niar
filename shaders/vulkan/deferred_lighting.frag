@@ -10,11 +10,20 @@ struct PointLight {
 	vec3 color;
 };
 
-const int MaxLights = 4;
-layout(set = 3, binding = 0) uniform LightsInfo
-{
-	PointLight[MaxLights] Lights;
-} ubo;
+struct DirectionalLight {
+	vec3 direction;
+	vec3 color;
+};
+
+const int MaxLights = 128; // 4KB if each light takes { vec4, vec4 }. must match c++
+
+layout (set = 3, binding = 0) uniform PointLightsInfo {
+	PointLight[MaxLights] Data;
+} PointLights;
+
+layout (set = 3, binding = 1) uniform DirectionalLightsInfo {
+	DirectionalLight[MaxLights] Data;
+} DirectionalLights;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -69,22 +78,22 @@ void main() {
 
 	ViewInfo viewInfo = GetViewInfo();
 
-	int NumLights = viewInfo.NumPointLights;
-
 	// other light-independent properties
 	vec3 viewDir = viewInfo.ViewDir;
 	float NdotV = max(dot(normal, -viewDir), 0);
 
 	FragColor = vec4(0, 0, 0, 1);
-	for (int i = 0; i < NumLights; i++)
+
+	// point lights
+	for (int i = 0; i < viewInfo.NumPointLights; i++)
 	{
 		// some useful properties
-		vec3 lightDir = position - ubo.Lights[i].position;
+		vec3 lightDir = position - PointLights.Data[i].position;
 		float atten = 1.0 / dot(lightDir, lightDir);
 		lightDir = normalize(lightDir);
 		vec3 halfVec = -normalize(viewDir + lightDir); // TODO: just use normal here??
 		float NdotL = max(dot(normal, -lightDir), 0);
-		vec3 radiance = ubo.Lights[i].color * atten;
+		vec3 radiance = PointLights.Data[i].color * atten;
 
 		//---- specular ----
 
@@ -112,9 +121,45 @@ void main() {
 		vec3 diffuse = kDiffuse * albedo / PI;
 
 		//---- contribution ----
-		vec3 Lo = (diffuse + specular) * radiance * NdotL * ambientOcclusion;
+		vec3 Lo = (diffuse + specular) * radiance * NdotL;
 
 		FragColor.rgb += Lo;
 	}
 
+	// directional lights
+	for (int i = 0; i < viewInfo.NumDirectionalLights; i++)
+	{
+		vec3 lightDir = DirectionalLights.Data[i].direction;
+		vec3 halfVec = -normalize(viewInfo.ViewDir + lightDir);
+		float NdotL = max(dot(normal, -lightDir), 0);
+		vec3 radiance = DirectionalLights.Data[i].color;
+
+		// Fresnel
+		vec3 F0 = vec3(0.04); // base reflectivity for non-metals
+		F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
+		vec3 F = fresnelSchlick( max(dot(halfVec, -viewDir), 0), F0 ); // TODO: use normal or H here?
+
+		// Distribution
+		float D = distributionFn(normal, halfVec, roughness);
+
+		// Geometry
+		float G = geometrySmith(NdotL, NdotV, roughness);
+
+		// specular
+		vec3 num = F * D * G;
+		float denom = 4.0 * NdotV * NdotL;
+		vec3 specular = num / max(denom, 0.001);
+
+		//---- diffuse ----
+
+		vec3 kSpecular = F;
+		vec3 kDiffuse = vec3(1.0) - kSpecular;
+		kDiffuse *= 1.0 - metallic;
+		vec3 diffuse = kDiffuse * albedo / PI;
+
+		//---- contribution ----
+		vec3 Lo = (diffuse + specular) * radiance * NdotL;
+
+		FragColor.rgb += Lo;
+	}
 }

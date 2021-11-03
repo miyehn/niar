@@ -1,13 +1,17 @@
-#include "DeferredPointLighting.h"
+#include "DeferredLighting.h"
 #include "Texture.h"
 
-MatDeferredPointLighting::MatDeferredPointLighting()
+MatDeferredLighting::MatDeferredLighting()
 {
-	name = "deferred lighting pass";
-	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
-							  sizeof(uniforms),
+	name = "deferred lighting";
+	pointLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+							  sizeof(pointLights),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU);
+	directionalLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+								  sizeof(directionalLights),
+								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								  VMA_MEMORY_USAGE_CPU_TO_GPU);
 	Material::add(this);
 
 	auto vk = Vulkan::Instance;
@@ -18,15 +22,17 @@ MatDeferredPointLighting::MatDeferredPointLighting()
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
 		DescriptorSetLayout dynamicSetLayout{};
 		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSet = DescriptorSet(dynamicSetLayout);
 
 		// assign values
-		dynamicSet.pointToUniformBuffer(uniformBuffer, 0);
+		dynamicSet.pointToUniformBuffer(pointLightsBuffer, 0);
+		dynamicSet.pointToUniformBuffer(directionalLightsBuffer, 1);
 
 		// build the pipeline
 		PipelineBuilder pipelineBuilder{};
 		pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
-		pipelineBuilder.fragPath = "spirv/deferred_lighting_point.frag.spv";
+		pipelineBuilder.fragPath = "spirv/deferred_lighting.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.pipelineState.useVertexInput = false;
 		pipelineBuilder.pipelineState.useDepthStencil = false;
@@ -40,9 +46,10 @@ MatDeferredPointLighting::MatDeferredPointLighting()
 	}
 }
 
-void MatDeferredPointLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void MatDeferredLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
 {
-	uniformBuffer.writeData(&uniforms);
+	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
+	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
 
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
@@ -54,9 +61,10 @@ void MatDeferredPointLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<D
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-MatDeferredPointLighting::~MatDeferredPointLighting()
+MatDeferredLighting::~MatDeferredLighting()
 {
-	uniformBuffer.release();
+	pointLightsBuffer.release();
+	directionalLightsBuffer.release();
 	vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 	vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }

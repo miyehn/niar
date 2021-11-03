@@ -13,7 +13,7 @@ public:
 			  VmaMemoryUsage memoryUsage,
 			  uint32_t numInstances=1);
 
-	void writeData(void* inData, uint32_t bufferIndex = 0, size_t writeSize = 0);
+	void writeData(void* inData, size_t writeSize = 0, size_t bufferIndex = 0);
 
 	uint32_t getNumInstances() const { return numInstances; }
 	VkBuffer getBufferInstance(uint32_t index = 0) const;

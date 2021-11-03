@@ -41,11 +41,6 @@ struct Program {
 			int height);
 	~Program();
 
-	void init_opengl_window();
-
-	bool one_loop();
-
-	void run_opengl();
 	void run_vulkan();
 	
 	// implementation of these decides game behavior.
@@ -53,7 +48,6 @@ struct Program {
 	void load_resources_vulkan();
 
 	void update(float elapsed);
-	void draw();
 
 	void release_resources();
 

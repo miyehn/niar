@@ -23,7 +23,7 @@ public:
 	std::string name = "[anonymous material]";
 
 	virtual void setParameters(Drawable* drawable) {};
-	virtual void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets={}) = 0;
+	virtual void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) = 0;
 
 	virtual ~Material() = default;
 

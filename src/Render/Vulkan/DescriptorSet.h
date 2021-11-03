@@ -46,7 +46,6 @@ private:
 	static VkDescriptorPool descriptorPool;
 };
 
-// TODO
 class DescriptorSetLayoutCache
 {
 protected:

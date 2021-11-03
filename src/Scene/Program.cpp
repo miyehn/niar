@@ -41,8 +41,6 @@ void Program::pathtrace_to_file(size_t w, size_t h, const std::string& path) {
 	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()
 	delete Camera::Active;
 	delete Pathtracer::Instance;
-
-	return;
 }
 
 void Program::load_resources() {

@@ -33,6 +33,8 @@ bool RenderDoc::load(const std::string &appName)
 
 		LOG("loaded renderdoc. captures will be saved at renderdoc/")
 
+		hideOverlay();
+
 		return true;
 	}
 	return false;
@@ -44,7 +46,10 @@ bool RenderDoc::load(const std::string &appName)
 
 void RenderDoc::captureNextFrame()
 {
+#ifdef WINOS
+	showOverlay();
 	shouldCaptureFrame = true;
+#endif
 }
 
 void RenderDoc::potentiallyStartCapture()
