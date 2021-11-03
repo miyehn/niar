@@ -43,7 +43,7 @@ SceneNodeIntermediate* loadSceneTree(const aiScene* scene)
 	// use the map to add data
 	std::unordered_map<std::string, SceneNodeIntermediate*> nodesMap;
 
-	// hierarchy
+	// hierarchy; mesh
 	std::queue<aiNode*> nodesQueue;
 	nodesQueue.push(scene->mRootNode);
 	while (!nodesQueue.empty())
@@ -59,6 +59,13 @@ SceneNodeIntermediate* loadSceneTree(const aiScene* scene)
 			tmpnode->parent->children.push_back(tmpnode);
 		}
 
+        for (auto i = 0; i < ainode->mNumMeshes; i++)
+        {
+            auto mesh_idx = ainode->mMeshes[i];
+            auto aimesh = scene->mMeshes[mesh_idx];
+            tmpnode->mesh = aimesh;
+        }
+
 		for (auto i = 0; i < ainode->mNumChildren; i++)
 		{
 			auto aichild = ainode->mChildren[i];
@@ -66,7 +73,7 @@ SceneNodeIntermediate* loadSceneTree(const aiScene* scene)
 		}
 	}
 
-	// data
+	// data other than meshes
 	for (auto i = 0; i < scene->mNumCameras; i++)
 	{
 		aiCamera* camera = scene->mCameras[i];
@@ -76,11 +83,6 @@ SceneNodeIntermediate* loadSceneTree(const aiScene* scene)
 	{
 		aiLight* light = scene->mLights[i];
 		nodesMap[light->mName.C_Str()]->light = light;
-	}
-	for (auto i = 0; i < scene->mNumMeshes; i++)
-	{
-		aiMesh* mesh = scene->mMeshes[i];
-		nodesMap[mesh->mName.C_Str()]->mesh = mesh;
 	}
 
 	return nodesMap[scene->mRootNode->mName.C_Str()];
