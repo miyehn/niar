@@ -13,18 +13,13 @@ struct Camera : Drawable {
 
 	static Camera* Active;
 
-	Camera(size_t w, size_t h, bool _ortho = false, bool use_YPR = true);
+	Camera(size_t w = 0, size_t h = 0, bool _ortho = false);
 	explicit Camera(aiCamera* inCamera);
 	~Camera() override;
 
 	void update_control(float time_elapsed);
 
 	// properties, can be set by the program
-	//glm::vec3 position;
-	//glm::quat rotation;
-	float yaw;
-	float pitch;
-	float roll;
 
 	float move_speed;
 	float rotate_speed;
@@ -37,7 +32,6 @@ struct Camera : Drawable {
 	float aspect_ratio;
 
 	bool orthographic;
-	bool use_YPR;
 
 	Frustum frustum();
 
