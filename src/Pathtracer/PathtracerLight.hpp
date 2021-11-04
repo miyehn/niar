@@ -1,5 +1,5 @@
 #pragma once
-#include "Utils/lib.h"
+#include <glm/glm.hpp>
 
 struct Ray;
 struct Triangle;
@@ -14,9 +14,9 @@ struct PathtracerLight {
 
 	virtual ~PathtracerLight() {}
 
-	virtual vec3 get_emission() = 0;
+	virtual glm::vec3 get_emission() = 0;
 
-	virtual float ray_to_light_pdf(Ray& ray, const vec3& origin) = 0;
+	virtual float ray_to_light_pdf(Ray& ray, const glm::vec3& origin) = 0;
 };
 
 struct AreaLight : public PathtracerLight {
@@ -26,9 +26,9 @@ struct AreaLight : public PathtracerLight {
 
 	Triangle* triangle;
 
-	vec3 get_emission() override;
+	glm::vec3 get_emission() override;
 
 	// returns pdf for sampling this particular ray among A' (area projected onto hemisphere)
-	float ray_to_light_pdf(Ray& ray, const vec3& origin) override;
+	float ray_to_light_pdf(Ray& ray, const glm::vec3& origin) override;
 };
 

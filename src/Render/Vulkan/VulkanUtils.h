@@ -12,9 +12,7 @@ namespace vk
 		const std::string& name,
 		int width,
 		int height,
-		SDL_Window** window,
-		int* drawable_width = nullptr,
-		int* drawable_height = nullptr);
+		SDL_Window** window);
 
 	void copyBuffer(VkBuffer dstBuffer, VkBuffer srcBuffer, VkDeviceSize size);
 

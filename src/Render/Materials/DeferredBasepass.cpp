@@ -1,8 +1,8 @@
 #include "DeferredBasepass.h"
-#include "Engine/Drawable.hpp"
+#include "Engine/SceneObject.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Renderers/DeferredRenderer.h"
-#include "Texture.h"
+#include "Render/Texture.h"
 
 VkPipelineLayout MatDeferredBasepass::pipelineLayout = VK_NULL_HANDLE;
 VkPipeline MatDeferredBasepass::pipeline = VK_NULL_HANDLE;
@@ -89,7 +89,7 @@ void MatDeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descri
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-void MatDeferredBasepass::setParameters(Drawable *drawable)
+void MatDeferredBasepass::setParameters(SceneObject *drawable)
 {
 	uniforms = {
 		.ModelMatrix = drawable->object_to_world(),

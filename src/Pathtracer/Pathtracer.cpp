@@ -1,12 +1,11 @@
 #include "Pathtracer.hpp"
 #include "Scene/Camera.hpp"
-#include "Asset/Mesh.h"
+#include "Render/Mesh.h"
 #include "Scene/Scene.hpp"
 #include "BSDF.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/Input.hpp"
-#include "Asset/GlMaterial.h"
-#include "Render/Materials/Texture.h"
+#include "Render/Texture.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include <stack>
 #include <unordered_map>
@@ -71,11 +70,11 @@ struct ISPC_Data
 };
 
 Pathtracer::Pathtracer(
-	size_t _width, 
-	size_t _height, 
+	uint32_t _width,
+	uint32_t _height,
 	std::string _name,
 	bool _has_window
-	) : Drawable(nullptr, _name) {
+	) {
 
 	if (Cfg.Pathtracer.SmallWindow) {
 		width = _width / 2;
@@ -94,16 +93,7 @@ Pathtracer::~Pathtracer() {
 	if (!initialized) return;
 	if (has_window)
 	{
-		if (Cfg.TestVulkan)
-		{
-			delete window_surface;
-		}
-		else
-		{
-			glDeleteTextures(1, &texture);
-			glDeleteBuffers(1, &loggedrays_vbo);
-			glDeleteVertexArrays(1, &loggedrays_vao);
-		}
+		delete window_surface;
 	}
 	delete image_buffer;
 	for (size_t i=0; i<num_threads; i++) {
@@ -117,7 +107,6 @@ Pathtracer::~Pathtracer() {
 
 	if (bvh) delete bvh;
 
-	if (loggedrays_mat) delete loggedrays_mat;
 	TRACE("deleted pathtracer");
 }
 
@@ -149,7 +138,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 		} else if (i==2) {// left
 			mesh->bsdf->albedo = vec3(0.8f, 0.32f, 0.32f); 
 		}
-		scene->add_child(static_cast<Drawable*>(mesh));
+		scene->add_child(static_cast<SceneObject*>(mesh));
 	}
 
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_light.fbx", init_graphics);
@@ -157,7 +146,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	light->bsdf = new Diffuse();
 	light->name = "light";
 	light->bsdf->set_emission(vec3(8.0f));
-	scene->add_child(static_cast<Drawable*>(light));
+	scene->add_child(static_cast<SceneObject*>(light));
 #endif
 
 	// add more items to it
@@ -167,13 +156,13 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	mesh = meshes[0];
 	mesh->bsdf = new Mirror();
 	mesh->name = "prism 1";
-	scene->add_child(static_cast<Drawable*>(mesh));
+	scene->add_child(static_cast<SceneObject*>(mesh));
 
 	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_2.fbx", init_graphics);
 	mesh = meshes[0];
 	mesh->bsdf = new Diffuse(vec3(0.25f, 0.4f, 0.6f));
 	mesh->name = "prism 2";
-	scene->add_child(static_cast<Drawable*>(mesh));
+	scene->add_child(static_cast<SceneObject*>(mesh));
 #endif
 
 #if 1
@@ -181,7 +170,7 @@ Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
 	mesh = meshes[0];
 	mesh->bsdf = new Glass();
 	mesh->name = "sphere1";
-	scene->add_child(static_cast<Drawable*>(mesh));
+	scene->add_child(static_cast<SceneObject*>(mesh));
 #endif
 
 #if 0
@@ -232,49 +221,13 @@ void Pathtracer::initialize() {
 
 	if (has_window) {
 
-		if (Cfg.TestVulkan)
-		{
-			ImageCreator windowSurfaceCreator(
-				VK_FORMAT_R8G8B8A8_UNORM,
-				{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
-				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT,
-				"Pathtracer window surface image");
-			window_surface = new Texture2D(windowSurfaceCreator);
-		}
-		else
-		{
-			glGenTextures(1, &texture);
-			glBindTexture(GL_TEXTURE_2D, texture);
-			{
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_buffer);
-			}
-			glBindTexture(GL_TEXTURE_2D, 0);
-
-			// and for debug draw
-			loggedrays_mat = new MatGeneric("yellow");
-
-			glGenBuffers(1, &loggedrays_vbo);
-			glGenVertexArrays(1, &loggedrays_vao);
-			glBindVertexArray(loggedrays_vao);
-			{
-				glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
-				glVertexAttribPointer(
-					0, // atrib index
-					3, // num of data elems
-					GL_FLOAT, // data type
-					GL_FALSE, // normalized
-					3 * sizeof(float), // stride size
-					(void*)0); // offset in bytes since stride start
-				glEnableVertexAttribArray(0);
-			}
-			glBindVertexArray(0);
-		}
+		ImageCreator windowSurfaceCreator(
+			VK_FORMAT_R8G8B8A8_UNORM,
+			{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"Pathtracer window surface image");
+		window_surface = new Texture2D(windowSurfaceCreator);
 
 		if (Cfg.Pathtracer.Multithreaded) {
 			//------------- threading ---------------
@@ -343,7 +296,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 		logged_rays.clear();
 	}
 
-	return Drawable::handle_event(event);
+	return false;
 }
 
 // TODO: load scene recursively
@@ -355,7 +308,7 @@ void Pathtracer::load_scene(Scene *scene) {
 	bvh = new BVH(&primitives, 0);
 
 	int meshes_count = 0;
-	scene->foreach_descendent_bfs([&](Drawable* drawable)
+	scene->foreach_descendent_bfs([&](SceneObject* drawable)
 	{
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {
@@ -396,17 +349,15 @@ void Pathtracer::enable() {
 	if (!initialized) initialize();
 	TRACE("pathtracer enabled");
 	Camera::Active->lock();
-	Drawable::enable();
 }
 
 void Pathtracer::disable() {
 	TRACE("pathtracer disabled");
 	Camera::Active->unlock();
-	Drawable::disable();
 }
 
 void Pathtracer::pause_trace() {
-	TimePoint end_time = std::chrono::high_resolution_clock::now();
+	myn::TimePoint end_time = std::chrono::high_resolution_clock::now();
 	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
 	TRACE("rendered %f seconds so far.", cumulative_render_time);
 	notified_pause_finish = false;
@@ -473,61 +424,32 @@ void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
 	buf[pixel_size * i + 3] = 255;
 }
 
-void Pathtracer::upload_rows(GLint begin, GLsizei rows)
+void Pathtracer::upload_rows(int32_t begin, int32_t rows)
 {
-	if (Cfg.TestVulkan)
-	{
-		uint32_t subimage_offset = width * begin * NUM_CHANNELS * SIZE_PER_CHANNEL;
-		uint8_t* data = image_buffer + subimage_offset;
-		vk::uploadPixelsToImage(
-			data,
-			0, begin,
-			width, rows,
-			NUM_CHANNELS *SIZE_PER_CHANNEL,
-			window_surface->resource
-			);
-	}
-	else
-	{
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		GLsizei subimage_offset = width * begin * 3;
-		glTexSubImage2D(GL_TEXTURE_2D, 0,
-						0, begin, // min x, min y
-						width, rows, // subimage width, subimage height
-						GL_RGB, GL_UNSIGNED_BYTE,
-						image_buffer + subimage_offset);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
+	uint32_t subimage_offset = width * begin * NUM_CHANNELS * SIZE_PER_CHANNEL;
+	uint8_t* data = image_buffer + subimage_offset;
+	vk::uploadPixelsToImage(
+		data,
+		0, begin,
+		width, rows,
+		NUM_CHANNELS *SIZE_PER_CHANNEL,
+		window_surface->resource
+		);
 
 	int percentage = int(float(begin + rows) / float(height) * 100.0f);
 	TRACE("refresh! updated %d rows, %d%% done.", rows, percentage);
 }
 
-void Pathtracer::upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h)
+void Pathtracer::upload_tile(size_t subbuf_index, int32_t begin_x, int32_t begin_y, int32_t w, int32_t h)
 {
 	unsigned char* buffer = subimage_buffers[subbuf_index];
-	if (Cfg.TestVulkan)
-	{
-		vk::uploadPixelsToImage(
-			buffer,
-			begin_x, begin_y,
-			w, h,
-			NUM_CHANNELS *SIZE_PER_CHANNEL,
-			window_surface->resource
-		);
-	}
-	else
-	{
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexSubImage2D(GL_TEXTURE_2D, 0,
-						begin_x, begin_y,
-						w, h,
-						GL_RGB, GL_UNSIGNED_BYTE,
-						buffer);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
+	vk::uploadPixelsToImage(
+		buffer,
+		begin_x, begin_y,
+		w, h,
+		NUM_CHANNELS *SIZE_PER_CHANNEL,
+		window_surface->resource
+	);
 }
 
 void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
@@ -779,7 +701,7 @@ void Pathtracer::raytrace_scene_to_buf() {
 		use_bvh = Cfg.Pathtracer.UseBVH->get();
 		if (Cfg.Pathtracer.Multithreaded)
 		{
-			ThreadSafeQueue<uint> tasks;
+			myn::ThreadSafeQueue<uint> tasks;
 			uint task_size = tile_size * tile_size;
 			uint image_size = width * height;
 			for (uint i = 0; i < image_size; i += task_size) {
@@ -920,35 +842,9 @@ void Pathtracer::update(float elapsed) {
 			}
 		}
 	}
-
-	Drawable::update(elapsed);
 }
 
-void Pathtracer::draw() {
-	
-	//---- draw the image buffer first ----
-
-	glViewport(0, 0, width, height);
-
-	GlBlit* blit = GlBlit::blit();
-	blit->begin_pass();
-	blit->set_tex2D("TEX", 0, texture);
-	blit->end_pass();
-
-	//---- then draw the logged rays ----
-	glDisable(GL_DEPTH_TEST); // TODO: make this a state push & pop
-	loggedrays_mat->use(this);
-	glBindVertexArray(loggedrays_vao);
-	glDrawArrays(GL_LINE_STRIP, 0, logged_rays.size());
-
-	glBindVertexArray(0);
-	glUseProgram(0);
-	glEnable(GL_DEPTH_TEST);
-
-	Drawable::draw();
-}
-
-void Pathtracer::draw_vulkan(VkCommandBuffer cmdbuf)
+void Pathtracer::draw(VkCommandBuffer cmdbuf)
 {
 	// barrier source into trasfer source
 	vk::insertImageBarrier(cmdbuf, window_surface->resource.image,
@@ -972,6 +868,36 @@ void Pathtracer::draw_vulkan(VkCommandBuffer cmdbuf)
 						   VK_ACCESS_TRANSFER_WRITE_BIT,
 						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 						   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &path)
+{
+	initialize_pathtracer_config();
+
+	Pathtracer::Instance = new Pathtracer(w, h, "command line pathtracer", false);
+
+	Camera::Active = new Camera(w, h);
+
+	Scene::Active = Pathtracer::load_cornellbox_scene();
+
+	Pathtracer::Instance->initialize();
+	TRACE("starting..");
+
+	if (Cfg.Pathtracer.ISPC) {
+		TRACE("---- ISPC ON ----");
+	} else {
+		TRACE("---- ISPC OFF ----");
+	}
+
+	TIMER_BEGIN();
+	Pathtracer::Instance->raytrace_scene_to_buf();
+	TIMER_END();
+	TRACE("done! took %f seconds", execution_time);
+	Pathtracer::Instance->output_file(path);
+
+	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()
+	delete Camera::Active;
+	delete Pathtracer::Instance;
 }
 
 // file that contains the actual pathtracing meat

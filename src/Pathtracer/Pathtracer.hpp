@@ -1,8 +1,8 @@
 #pragma once
 #include "Utils/myn/Timer.h"
 #include "Utils/myn/ThreadSafeQueue.h"
-#include "Engine/Drawable.hpp"
-#include "Utils/Utils.hpp"
+#include "Engine/SceneObject.hpp"
+#include "Scene/AABB.hpp"
 #include "BVH.hpp"
 #include <vulkan/vulkan.h>
 
@@ -12,31 +12,32 @@ struct RayTask;
 struct Primitive;
 struct PathtracerLight;
 struct RaytraceThread;
-struct MatGeneric;
 class Texture2D;
 
 struct ISPC_Data;
 
-struct Pathtracer : public Drawable {
+struct Pathtracer {
 
 	static Pathtracer* Instance;
+
+	static void pathtrace_to_file(uint32_t w, uint32_t h, const std::string& path);
 	
 	Pathtracer(
-			size_t _width,
-			size_t _height,
-			std::string _name = "[unamed pathtracer]",
+			uint32_t _width,
+			uint32_t _height,
+			std::string _name = "Pathtracer",
 			bool _has_window = true);
-	virtual ~Pathtracer();
+	~Pathtracer();
 
-	virtual bool handle_event(SDL_Event event);
-	virtual void update(float elapsed);
-	virtual void draw();
-
-	void draw_vulkan(VkCommandBuffer cmdbuf);
+	bool handle_event(SDL_Event event);
+	void update(float elapsed);
+	void draw(VkCommandBuffer cmdbuf);
 
 	void initialize();
 	void enable();
 	void disable();
+
+	bool is_enabled() const { return enabled; }
 
 	static Scene* load_cornellbox_scene(bool init_graphics = false);
 
@@ -47,7 +48,7 @@ private:
 
 	// size for the pathtraced image - could be different from display window.
 	bool has_window;
-	size_t width, height;
+	uint32_t width, height;
 	size_t tile_size, tiles_X, tiles_Y;
 
 	// ray tracing state and control
@@ -57,9 +58,10 @@ private:
 	void pause_trace();
 	void continue_trace();
 	bool initialized;
+	bool enabled;
 	void reset();
 
-	TimePoint last_begin_time;
+	myn::TimePoint last_begin_time;
 	float cumulative_render_time;
 	size_t rendered_tiles;
 
@@ -99,7 +101,7 @@ private:
 	std::function<void(int)> raytrace_task;
 
 	std::vector<RaytraceThread*> threads;
-	ThreadSafeQueue<size_t> raytrace_tasks;
+	myn::ThreadSafeQueue<size_t> raytrace_tasks;
 
 	//---- buffers & opengl ----
 
@@ -107,25 +109,13 @@ private:
 	unsigned char* image_buffer;
 	unsigned char** subimage_buffers;
 
-	void upload_rows(GLint begin, GLint end);
+	void upload_rows(int32_t begin, int32_t end);
 	void upload_tile(size_t subbuf_index, size_t tile_index);
-	void upload_tile(size_t subbuf_index, GLint begin_x, GLint begin_y, GLint w, GLint h);
+	void upload_tile(size_t subbuf_index, int32_t begin_x, int32_t begin_y, int32_t w, int32_t h);
 	void set_mainbuffer_rgb(size_t i, vec3 rgb);
 	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
 
-	// opengl
-
-	uint texture;
-
-	// for debug
-	MatGeneric* loggedrays_mat = nullptr;
-	uint loggedrays_vbo, loggedrays_vao;
-
 	// vulkan
 	Texture2D* window_surface;
-
-	virtual void set_local_position(vec3 _local_position) {}
-	virtual void set_rotation(quat _rotation) {}
-	virtual void set_scale(vec3 _scale) {}
 
 };

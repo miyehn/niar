@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Drawable.hpp"
+#include "Engine/SceneObject.hpp"
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,13 +9,12 @@ typedef std::vector<glm::vec3> Frustum;
 
 class aiCamera;
 
-struct Camera : Drawable {
+struct Camera : SceneObject {
 
 	static Camera* Active;
 
-	Camera(size_t w = 0, size_t h = 0, bool _ortho = false);
+	explicit Camera(uint32_t w = 0, uint32_t h = 0, bool _ortho = false);
 	explicit Camera(aiCamera* inCamera);
-	~Camera() override;
 
 	void update_control(float time_elapsed);
 
@@ -42,7 +41,7 @@ struct Camera : Drawable {
 	// functions
 
 	void set_local_position(glm::vec3 _local_position) override;
-	void set_rotation(quat _rotation) override;
+	void set_rotation(glm::quat _rotation) override;
 	void set_scale(glm::vec3 _scale) override;
 
 	glm::mat4 camera_to_clip();

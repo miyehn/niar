@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 
-class Drawable;
+class SceneObject;
 
 struct DescriptorSetBindingSlot
 {
@@ -22,7 +22,7 @@ public:
 	Material() = default;
 	std::string name = "[anonymous material]";
 
-	virtual void setParameters(Drawable* drawable) {};
+	virtual void setParameters(SceneObject* drawable) {};
 	virtual void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) = 0;
 
 	virtual ~Material() = default;

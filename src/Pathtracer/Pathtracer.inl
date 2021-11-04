@@ -107,10 +107,8 @@ void Pathtracer::raytrace_debug(size_t index) {
 	vec3& color = task.output;
 	LOG("result color: %f %f %f", color.x, color.y, color.z);
 	
-	// upload ray vertices
-	glBindBuffer(GL_ARRAY_BUFFER, loggedrays_vbo);
-	glBufferData(GL_ARRAY_BUFFER, logged_rays.size()*sizeof(vec3), logged_rays.data(), GL_STREAM_DRAW);
-
+	// TODO (Vulkan): upload ray vertices
+	// ...
 	LOG("--------------------------------------");
 }
 

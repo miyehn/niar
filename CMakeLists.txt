@@ -14,7 +14,6 @@ if(APPLE)
 	set(ISPC_CXX_COMPILER g++)
 endif(APPLE)
 
-find_package(OpenGL)
 find_package(Threads)
 find_package(Vulkan REQUIRED)
 message(STATUS "Vulkan Found = ${Vulkan_FOUND}")
@@ -25,20 +24,15 @@ set(SRC
 	src/Engine/main.cpp
 	src/Render/Vulkan/Vulkan.cpp
 	src/Scene/Scene.cpp
-	src/Scene/Program.cpp
-	src/Scene/Camera.cpp
-	src/Engine/Drawable.cpp
-	src/Asset/Mesh.cpp
-	src/Asset/Shader.cpp
-	src/Scene/GrassField.cpp
+    src/Scene/Camera.cpp
+	src/Engine/SceneObject.cpp
+	src/Render/Mesh.cpp
+    src/Scene/GrassField.cpp
 	src/Engine/Input.cpp
 	src/Scene/Light.cpp
-	src/Utils/Utils.cpp
-	src/Asset/GlTexture.cpp
-    src/Asset/GlMaterial.cpp
+	src/Scene/AABB.cpp
 	src/Render/Materials/Material.cpp
-	src/Asset/GlBlit.cpp
-	src/Pathtracer/Primitive.cpp
+    src/Pathtracer/Primitive.cpp
 	src/Pathtracer/Pathtracer.cpp
 	src/Pathtracer/BSDF.cpp
 	src/Pathtracer/PathtracerLight.cpp
@@ -62,7 +56,7 @@ set(SRC
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
 	src/Utils/myn/Color.cpp
-	src/Render/Materials/Texture.cpp
+	src/Render/Texture.cpp
 	src/Render/StbImageImpl.cpp
 	src/Render/Vulkan/SamplerCache.cpp
 	src/Render/Vulkan/ShaderModule.cpp
@@ -70,14 +64,17 @@ set(SRC
 	src/Render/Renderers/DeferredRenderer.cpp
 	src/Render/Vulkan/ImageCreator.cpp
     src/Render/Materials/DeferredLighting.cpp
-	src/Render/Materials/DeferredBasepass.cpp src/Engine/DebugUI.cpp src/Engine/DebugUI.h src/Utils/myn/RenderDoc.cpp src/Scene/SceneLoad.cpp)
+	src/Render/Materials/DeferredBasepass.cpp
+	src/Engine/DebugUI.cpp
+	src/Engine/DebugUI.h
+	src/Utils/myn/RenderDoc.cpp
+	src/Scene/SceneLoad.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})
 	add_definitions(-DMACOS)
 	target_link_libraries(niar
 		${CMAKE_THREAD_LIBS_INIT}
-		${OPENGL_gl_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
 		${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
 		${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
@@ -94,7 +91,7 @@ if(WIN32)
 	add_definitions(-DGLEW_STATIC)
 	target_link_libraries(niar
 		${CMAKE_THREAD_LIBS_INIT}
-		${OPENGL_gl_LIBRARY} ${Vulkan_LIBRARY}
+		${Vulkan_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
 		${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
 		${CMAKE_SOURCE_DIR}/lib/stb_image.a 

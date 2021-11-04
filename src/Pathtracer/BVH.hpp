@@ -1,6 +1,7 @@
 #pragma once
-#include "Utils/lib.h"
 #include "Primitive.hpp"
+
+using namespace glm;
 
 struct BVH
 {

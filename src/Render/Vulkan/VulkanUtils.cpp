@@ -8,9 +8,7 @@ bool vk::init_window(
 	const std::string &name,
 	int width,
 	int height,
-	SDL_Window **window,
-	int *drawable_width,
-	int *drawable_height)
+	SDL_Window **window)
 {
 	if (Vulkan::Instance) return true;
 
@@ -30,10 +28,6 @@ bool vk::init_window(
 	}
 
 	Vulkan::Instance = new Vulkan(*window);
-
-	// TODO: get drawable size (vulkan)?
-	*drawable_width = width;
-	*drawable_height = height;
 
 	return true;
 }

@@ -1,8 +1,11 @@
-#include "Drawable.hpp"
+#include "SceneObject.hpp"
+#include "Utils/myn/Log.h"
 #include <imgui.h>
 #include <queue>
 
-Drawable::Drawable(Drawable* _parent, std::string _name) {
+using namespace glm;
+
+SceneObject::SceneObject(SceneObject* _parent, std::string _name) {
 
 	parent = _parent;
 	name = _name;
@@ -17,12 +20,12 @@ Drawable::Drawable(Drawable* _parent, std::string _name) {
 	scale_value = vec3(1, 1, 1);
 }
 
-Drawable::~Drawable() {
+SceneObject::~SceneObject() {
 	for (uint i=0; i<children.size(); i++) delete children[i];
 	children.clear();
 }
 
-bool Drawable::handle_event(SDL_Event event) {
+bool SceneObject::handle_event(SDL_Event event) {
 	bool handled = false;
 	for (uint i=0; i<children.size(); i++) {
 		if (children[i]->enabled)
@@ -31,17 +34,17 @@ bool Drawable::handle_event(SDL_Event event) {
 	return handled;
 }
 
-void Drawable::update(float elapsed) {
+void SceneObject::update(float elapsed) {
 	for (uint i=0; i<children.size(); i++) 
 		if (children[i]->enabled) children[i]->update(elapsed);
 }
 
-void Drawable::draw() {
+void SceneObject::draw() {
 	for (uint i=0; i<children.size(); i++) 
 		if (children[i]->enabled) children[i]->draw();
 }
 
-bool Drawable::add_child(Drawable* child) {
+bool SceneObject::add_child(SceneObject* child) {
 	if (!child) {
 		WARN("trying to add a null child to %s, skipping..", name.c_str());
 		return false;
@@ -59,7 +62,7 @@ bool Drawable::add_child(Drawable* child) {
 	return true;
 }
 
-mat4 Drawable::object_to_parent() const {
+mat4 SceneObject::object_to_parent() const {
 	vec3 sc = scale();
 	return mat4( // translate
 		vec4(1, 0, 0, 0),
@@ -75,12 +78,12 @@ mat4 Drawable::object_to_parent() const {
 	);
 }
 
-mat4 Drawable::object_to_world() const {
+mat4 SceneObject::object_to_world() const {
 	if (parent) return parent->object_to_world() * object_to_parent();
 	else return object_to_parent();
 }
 
-mat4 Drawable::parent_to_object() const {
+mat4 SceneObject::parent_to_object() const {
 	vec3 sc = scale();
 	return mat4( // inv scale
 		vec4(1.0f / sc.x, 0, 0, 0),
@@ -96,28 +99,28 @@ mat4 Drawable::parent_to_object() const {
 	);
 }
 
-mat3 Drawable::object_to_world_rotation() const {
+mat3 SceneObject::object_to_world_rotation() const {
 	if (!parent) return mat3_cast(rotation());
 	return parent->object_to_world_rotation() * mat3_cast(rotation());
 }
 
-mat3 Drawable::world_to_object_rotation() const {
+mat3 SceneObject::world_to_object_rotation() const {
 	return transpose(object_to_world_rotation());
 }
 
-mat4 Drawable::world_to_object() const {
+mat4 SceneObject::world_to_object() const {
 	if (parent) return parent_to_object() * parent->world_to_object();
 	else return parent_to_object();
 }
 
-vec3 Drawable::world_position() const {
+vec3 SceneObject::world_position() const {
 	vec4 position = object_to_world() * vec4(0, 0, 0, 1);
 	return vec3(position.x, position.y, position.z) / position.w;
 }
 
-void Drawable::foreach_descendent_bfs(const std::function<void(Drawable*)>& fn)
+void SceneObject::foreach_descendent_bfs(const std::function<void(SceneObject*)>& fn)
 {
-	std::queue<Drawable*> Q;
+	std::queue<SceneObject*> Q;
 	Q.push(this);
 	while (!Q.empty())
 	{
@@ -131,7 +134,7 @@ void Drawable::foreach_descendent_bfs(const std::function<void(Drawable*)>& fn)
 	}
 }
 
-void Drawable::draw_transform_ui(bool global) const
+void SceneObject::draw_transform_ui(bool global) const
 {
 	vec3 pos = global ? world_position() : local_position();
 	quat qrot = rotation();

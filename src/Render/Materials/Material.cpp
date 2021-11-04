@@ -1,5 +1,5 @@
 #include "Material.h"
-#include "Engine/Drawable.hpp"
+#include "Engine/SceneObject.hpp"
 #include "DeferredBasepass.h"
 #include "DeferredLighting.h"
 

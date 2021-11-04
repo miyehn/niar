@@ -2,6 +2,8 @@
 #include "Primitive.hpp"
 #include "BSDF.hpp"
 
+using namespace glm;
+
 AreaLight::AreaLight(Triangle* _triangle)
 	: triangle(_triangle)
 {

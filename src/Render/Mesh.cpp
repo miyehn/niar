@@ -2,7 +2,6 @@
 #include "Scene/Camera.hpp"
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/Input.hpp"
-#include "GlMaterial.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -16,7 +15,7 @@
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
-Mesh::Mesh() {}
+using namespace glm;
 
 std::unordered_map<std::string, std::string> Mesh::material_assignment;
 
@@ -32,7 +31,7 @@ std::string Mesh::get_material_name_for(const std::string& mesh_name) {
 	return pair->second;
 }
 
-Mesh::Mesh(aiMesh* mesh, Drawable* _parent, std::string _name) : Drawable(_parent, _name) {
+Mesh::Mesh(aiMesh* mesh, SceneObject* _parent, std::string _name) : SceneObject(_parent, _name) {
 
 	if (!mesh->HasPositions() || !mesh->HasFaces() || !mesh->HasNormals()) {
 		ERR("creating a mesh that has some data missing. skipping..");
@@ -121,76 +120,8 @@ void Mesh::create_index_buffer()
 
 void Mesh::initialize_gpu() {
 
-	if (Cfg.TestVulkan)
-	{
-		create_vertex_buffer();
-		create_index_buffer();
-		return;
-	}
-
-	//---- OpenGL setup ----
-
-	// materials
-	for (int i=0; i<NUM_MATERIAL_SETS; i++) materials[i] = nullptr;
-
-	materials[0] = GlMaterial::get("basic");
-	materials[1] = GlMaterial::get("deferredBasic");
-
-	const std::string& material_name = get_material_name_for(name);
-	materials[2] = material_name!="" ? GlMaterial::get(material_name) : GlMaterial::get("deferredBasic");
-
-	// generate buffers & objects
-	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &ebo);
-	glGenVertexArrays(1, &vao);
-
-	glBindVertexArray(vao);
-	{
-		//---- set buffers and upload data
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint) * faces.size(), faces.data(), GL_STATIC_DRAW);
-
-		//---- set vertex attrib pointsers
-		glVertexAttribPointer(
-				0, // attrib index
-				3, // num of data elems
-				GL_FLOAT, // data type
-				GL_FALSE, // normalized
-				sizeof(Vertex), // stride size
-				(void*)offsetof(Vertex, position)); // offset from stride start
-		glEnableVertexAttribArray(0);
-
-		glVertexAttribPointer(
-				1, // attrib index
-				3, // num of data elems
-				GL_FLOAT, // data type
-				GL_FALSE, // normalized
-				sizeof(Vertex), // stride size
-				(void*)offsetof(Vertex, normal)); // offset from stride start
-		glEnableVertexAttribArray(1);
-
-		glVertexAttribPointer(
-				2, // attrib index
-				3, // num of data elems
-				GL_FLOAT, // data type
-				GL_FALSE, // normalized
-				sizeof(Vertex), // stride size
-				(void*)offsetof(Vertex, tangent)); // offset from stride start
-		glEnableVertexAttribArray(2);
-
-		glVertexAttribPointer(
-				3, // attrib index
-				2, // num of data elems
-				GL_FLOAT, // data type
-				GL_FALSE, // normalized
-				sizeof(Vertex), // stride size
-				(void*)offsetof(Vertex, uv)); // offset from stride start
-		glEnableVertexAttribArray(3);
-	}
-	glBindVertexArray(0);
+	create_vertex_buffer();
+	create_index_buffer();
 
 	LOG("loaded mesh '%s' of %lu vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 }
@@ -205,23 +136,16 @@ void Mesh::generate_aabb() {
 
 Mesh::~Mesh() {
 	if (bsdf) delete bsdf;
-	if (Cfg.TestVulkan)
-	{
-		vertexBuffer.release();
-		indexBuffer.release();
-		return;
-	}
-	glDeleteBuffers(1, &vbo);
-	glDeleteBuffers(1, &ebo);
-	glDeleteVertexArrays(1, &vao);
+	vertexBuffer.release();
+	indexBuffer.release();
 }
 
 bool Mesh::handle_event(SDL_Event event) {
-	return Drawable::handle_event(event);
+	return SceneObject::handle_event(event);
 }
 
 void Mesh::update(float elapsed) {
-	Drawable::update(elapsed);
+	SceneObject::update(elapsed);
 	locked = true;
 }
 
@@ -234,30 +158,6 @@ void Mesh::draw(VkCommandBuffer cmdbuf)
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
 	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.getBufferInstance(), 0, VK_INDEX_TYPE);
 	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
-}
-
-void Mesh::draw() {
-
-	/*
-	Scene* scene = get_scene();
-
-	// set material
-	if (scene->replacement_material) {
-		scene->replacement_material->use(this);
-	} else {
-		materials[scene->material_set]->use(this);
-	}
-
-	// bind vao and draw
-	glBindVertexArray(vao);
-	glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-
-	glUseProgram(0);
-
-	// draw children
-	Drawable::draw();
-	 */
 }
 
 void Mesh::set_local_position(vec3 _local_position) {

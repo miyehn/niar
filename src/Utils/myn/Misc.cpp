@@ -4,6 +4,8 @@
 
 namespace myn
 {
+using namespace glm;
+
 	std::string lower(const std::string& s) {
 		std::string res = "";
 		std::locale loc;
@@ -30,5 +32,23 @@ namespace myn
 		file.close();
 		return buffer;
 	}
+
+	quat quat_from_dir(vec3 dir) {
+		if (dot(dir, vec3(0, 0, -1)) > 1.0f - EPSILON) {
+			return quat();
+		}
+		float angle = acos(dot(dir, vec3(0, 0, -1)));
+		vec3 axis = normalize(cross(vec3(0, 0, -1), dir));
+
+		float c = cos(angle / 2);
+		float s = sin(angle / 2);
+
+		return quat(c, s*axis.x, s*axis.y, s*axis.z);
+	}
+
+	std::string s3(vec3 v) {
+		return "(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", "  + std::to_string(v.z) + ")";
+	}
+
 
 } // namespace myn

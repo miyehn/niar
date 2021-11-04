@@ -1,17 +1,17 @@
 #pragma once
-#include "Utils/lib.h"
+#include <glm/glm.hpp>
 
 namespace sample {
 
 float rand01();
 
-vec2 unit_square_uniform();
+glm::vec2 unit_square_uniform();
 
-vec2 unit_disc_uniform();
+glm::vec2 unit_disc_uniform();
 
-vec3 hemisphere_uniform();
+glm::vec3 hemisphere_uniform();
 
-vec3 hemisphere_cos_weighed();
+glm::vec3 hemisphere_cos_weighed();
 
 };
 
@@ -29,14 +29,14 @@ struct BSDF {
 	bool is_emissive;
 
 	// Le
-	vec3 get_emission() const { return Le; }
-	void set_emission(const vec3& _Le) {
+	glm::vec3 get_emission() const { return Le; }
+	void set_emission(const glm::vec3& _Le) {
 		Le = _Le;
 		is_emissive = compute_is_emissive();
 	}
 
 	// albedo
-	vec3 albedo;
+	glm::vec3 albedo;
 
 	virtual ~BSDF(){
 	}
@@ -46,36 +46,36 @@ struct BSDF {
 	 * wo: light outgoing dir (input)
 	 * n: normal of the hit surface (input)
 	 */
-	virtual vec3 f(const vec3& wi, const vec3& wo, bool debug = false) const = 0;
-	virtual vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug = false) const = 0;
+	virtual glm::vec3 f(const glm::vec3& wi, const glm::vec3& wo, bool debug = false) const = 0;
+	virtual glm::vec3 sample_f(float& pdf, glm::vec3& wi, glm::vec3 wo, bool debug = false) const = 0;
 
 protected:
 	// emission
-	vec3 Le;
+	glm::vec3 Le;
 	bool compute_is_emissive() const;
 
 };
 
 struct Diffuse : public BSDF {
-	Diffuse(vec3 _albedo = vec3(1)) {
+	Diffuse(glm::vec3 _albedo = glm::vec3(1)) {
 		type = BSDF::Diffuse;
 		is_delta = false;
 		albedo = _albedo;
-		set_emission(vec3(0));
+		set_emission(glm::vec3(0));
 	}
-	vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
-	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
+	glm::vec3 f(const glm::vec3& wi, const glm::vec3& wo, bool debug) const override;
+	glm::vec3 sample_f(float& pdf, glm::vec3& wi, glm::vec3 wo, bool debug) const override;
 };
 
 struct Mirror : public BSDF {
 	Mirror() {
 		type = BSDF::Mirror;
 		is_delta = true;
-		albedo = vec3(1);
-		set_emission(vec3(0));
+		albedo = glm::vec3(1);
+		set_emission(glm::vec3(0));
 	}
-	vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
-	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
+	glm::vec3 f(const glm::vec3& wi, const glm::vec3& wo, bool debug) const override;
+	glm::vec3 sample_f(float& pdf, glm::vec3& wi, glm::vec3 wo, bool debug) const override;
 };
 
 struct Glass : public BSDF {
@@ -83,9 +83,9 @@ struct Glass : public BSDF {
 	Glass(float _IOR = 1.52f) : IOR(_IOR) {
 		type = BSDF::Glass;
 		is_delta = true;
-		albedo = vec3(1);
-		set_emission(vec3(0));
+		albedo = glm::vec3(1);
+		set_emission(glm::vec3(0));
 	}
-	vec3 f(const vec3& wi, const vec3& wo, bool debug) const;
-	vec3 sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const;
+	glm::vec3 f(const glm::vec3& wi, const glm::vec3& wo, bool debug) const override;
+	glm::vec3 sample_f(float& pdf, glm::vec3& wi, glm::vec3 wo, bool debug) const override;
 };

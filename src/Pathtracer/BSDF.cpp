@@ -1,9 +1,13 @@
 #include "BSDF.hpp"
+#include "Utils/myn/Misc.h"
+#include "Utils/myn/Log.h"
 
 #define SQ(x) (x * x)
 #define EMISSIVE_THRESHOLD SQ(0.4f)
 
 #define USE_COS_WEIGHED 1
+
+using namespace glm;
 
 float sample::rand01() {
 	return float(rand()) / float(RAND_MAX);

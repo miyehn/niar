@@ -1,48 +1,39 @@
 #pragma once
-#include "Engine/Drawable.hpp"
-#include "Utils/Utils.hpp"
-// #include "Render/Vulkan/Vulkan.hpp"
+#include "Engine/SceneObject.hpp"
+#include "Scene/AABB.hpp"
 #include "Render/Vulkan/Buffer.h"
 #include "Render/Vertex.h"
 
-#define NUM_MATERIAL_SETS 3
-
 struct BSDF;
 struct aiMesh;
-struct GlTexture;
-struct GlMaterial;
 class Material;
 
-struct Mesh : Drawable {
+struct Mesh : SceneObject {
 
 	static std::vector<Mesh*> LoadMeshes(const std::string& source, bool initialize_graphics = true);
 
-	Mesh(
+	explicit Mesh(
 		aiMesh* mesh,
-		Drawable* _parent = nullptr,
+		SceneObject* _parent = nullptr,
 		std::string _name = "[unnamed mesh]");
-	Mesh();
 	void initialize_gpu();
-	virtual ~Mesh();
+	~Mesh() override;
 
-	virtual bool handle_event(SDL_Event event) override;
-	virtual void update(float elapsed) override;
-	virtual void draw() override;
+	bool handle_event(SDL_Event event) override;
+	void update(float elapsed) override;
 
 	void draw(VkCommandBuffer cmdbuf);
 
-	void set_local_position(vec3 _local_position) override;
-	void set_rotation(quat _rotation) override;
-	void set_scale(vec3 _scale) override;
+	void set_local_position(glm::vec3 _local_position) override;
+	void set_rotation(glm::quat _rotation) override;
+	void set_scale(glm::vec3 _scale) override;
 
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> faces;
-	uint get_num_triangles() { return faces.size() / 3; }
+	uint32_t get_num_triangles() const { return faces.size() / 3; }
 
 	AABB aabb;
 	BSDF* bsdf = nullptr;
-
-	GlMaterial* materials[NUM_MATERIAL_SETS];
 
 	// Vulkan
 	Material* material = nullptr;
@@ -57,9 +48,6 @@ private:
 	bool is_thin_mesh;
 	bool locked = false;
 	void generate_aabb();
-
-	//---- opengl stuff ----
-	uint vbo, ebo, vao = 0;
 
 	//---- vulkan stuff ----
 

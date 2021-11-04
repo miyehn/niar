@@ -1,7 +1,9 @@
 #include "Scene.hpp"
 #include "Camera.hpp"
 #include "Light.hpp"
-#include "Asset/Mesh.h"
+#include "Render/Mesh.h"
+
+#include "Utils/myn/Log.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -10,10 +12,12 @@
 #include <unordered_map>
 #include <queue>
 
+using namespace glm;
+
 struct SceneNodeIntermediate
 {
 	// converter
-	SceneNodeIntermediate(aiNode* node) :
+	explicit SceneNodeIntermediate(aiNode* node) :
 	transformation(node->mTransformation),
 	name(node->mName.C_Str()) {}
 
@@ -144,7 +148,7 @@ void Scene::load(const std::string& path, bool preserve_existing_objects)
 
 	// camera, light, or mesh
 
-	std::unordered_map<SceneNodeIntermediate*, Drawable*> nodeToDrawable;
+	std::unordered_map<SceneNodeIntermediate*, SceneObject*> nodeToDrawable;
 	std::queue<SceneNodeIntermediate*> nodesQueue;
 	nodesQueue.push(sceneTree);
 	while (!nodesQueue.empty())
@@ -152,7 +156,7 @@ void Scene::load(const std::string& path, bool preserve_existing_objects)
 		auto node = nodesQueue.front();
 		nodesQueue.pop();
 
-		Drawable* drawable = nullptr;
+		SceneObject* drawable = nullptr;
 		if (node->camera)
 		{
 			aiCamera* camera = node->camera;

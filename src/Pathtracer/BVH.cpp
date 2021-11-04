@@ -1,4 +1,5 @@
 #include "BVH.hpp"
+#include <algorithm>
 
 #define BVH_THRESHOLD 16
 #define PER_AXIS_GRANULARITY 8

@@ -1,9 +1,6 @@
 #include "Scene.hpp"
-#include "Engine/Program.hpp"
 #include "Engine/Input.hpp"
-#include "Asset/Mesh.h"
-#include "Asset/GlMaterial.h"
-#include "Scene/Camera.hpp"
+#include "Render/Mesh.h"
 
 #include "Engine/DebugUI.h"
 
@@ -60,7 +57,7 @@ void Scene::draw() {
 
 }
 
-Scene::Scene(const std::string &_name) : Drawable(nullptr, _name)
+Scene::Scene(const std::string &_name) : SceneObject(nullptr, _name)
 {
 
 }

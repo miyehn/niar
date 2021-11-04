@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Utils/lib.h"
 #include "Utils/myn/Log.h"
 #include <vulkan/vulkan.h>
 #include <fstream>
@@ -17,6 +16,8 @@ https://vkguide.dev/
 https://github.com/sopyer/Vulkan/blob/562e653fbbd1f7a83ec050676b744dd082b2ebed/main.c
 https://gist.github.com/YukiSnowy/dc31f47448ac61dd6aedee18b5d53858
 */
+
+struct SDL_Window;
 
 struct VmaAllocatedImage
 {

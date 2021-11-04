@@ -1,26 +1,26 @@
 #pragma once
 
-#include "Engine/Drawable.hpp"
-#include "Utils/Utils.hpp"
+#include "Engine/SceneObject.hpp"
+#include "AABB.hpp"
 
 struct Light;
 struct DirectionalLight;
 struct PointLight;
 struct Mesh;
-struct GlMaterial;
 
 /* a scene is a tree of drawables */
-struct Scene : public Drawable {
+class Scene : public SceneObject {
+public:
 
 	static Scene* Active;
 
-	Scene(const std::string &_name = "[unnamed scene]");
-	virtual ~Scene();
+	explicit Scene(const std::string &_name = "[unnamed scene]");
+	~Scene() override;
 
 	void load(const std::string& path, bool preserve_existing_objects = true);
 
 	//-------- where the configurations are being set before the scene is drawn --------
-	virtual void draw();
+	void draw() override;
 
 	AABB aabb;
 	std::vector<Mesh*> get_meshes();
@@ -29,9 +29,9 @@ struct Scene : public Drawable {
 
 private:
 
-	virtual void set_local_position(vec3 _local_position) {}
-	virtual void set_rotation(quat _rotation) {}
-	virtual void set_scale(vec3 _scale) {}
+	void set_local_position(glm::vec3 _local_position) override {}
+	void set_rotation(glm::quat _rotation) override {}
+	void set_scale(glm::vec3 _scale) override {}
 	
 };
 

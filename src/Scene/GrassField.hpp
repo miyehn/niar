@@ -1,41 +1,33 @@
 #pragma once
 
-#include "Engine/Drawable.hpp"
-
-struct MatGrass;
+#include "Engine/SceneObject.hpp"
 
 struct Blade{
-	Blade(vec3 root);
-	vec4 root_w; // v0, width
-	vec4 above_h; // v1, height
-	vec4 ctrl_s; // v2, stiffness
-	vec4 up_o; // a unit vector up, orientation
+	Blade(glm::vec3 root);
+	glm::vec4 root_w; // v0, width
+	glm::vec4 above_h; // v1, height
+	glm::vec4 ctrl_s; // v2, stiffness
+	glm::vec4 up_o; // a unit vector up, orientation
 };
 static_assert(sizeof(Blade) == 16 * sizeof(float), "Blade should be packed");
 
-struct GrassField : public Drawable {
+struct GrassField : public SceneObject {
 	
-	GrassField(
-			uint num_blades, 
-			Drawable* _parent = nullptr, 
+	explicit GrassField(
+			uint32_t num_blades,
+			SceneObject* _parent = nullptr,
 			std::string _name = "grass");
-	virtual ~GrassField();
 
 	// inherited
-	virtual void update(float elapsed);
-	virtual bool handle_event(SDL_Event event);
-	virtual void draw();
+	void update(float elapsed) override;
+	bool handle_event(SDL_Event event) override;
+	void draw() override;
 
-	virtual void set_local_position(vec3 _local_position);
-	virtual void set_rotation(quat _rotation);
-	virtual void set_scale(vec3 _scale);
+	void set_local_position(glm::vec3 _local_position) override;
+	void set_rotation(glm::quat _rotation) override;
+	void set_scale(glm::vec3 _scale) override;
 
 	// properties and methods
 	std::vector<Blade> blades;
-
-	MatGrass* material;
-
-	uint vbo;
-	uint vao;
 };
 

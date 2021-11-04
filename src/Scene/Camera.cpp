@@ -1,5 +1,5 @@
 #include "Camera.hpp"
-#include "Engine/Program.hpp"
+#include "Utils/myn/Log.h"
 #include <assimp/scene.h>
 
 using namespace glm;
@@ -16,7 +16,7 @@ void Camera::set_scale(vec3 _scale) {
 	scale_value = vec3(1);
 }
 
-Camera::Camera(size_t w, size_t h, bool _ortho) :
+Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 		orthographic(_ortho), width(w), height(h) {
 
 	local_position_value = vec3(0);
@@ -43,7 +43,7 @@ Camera::Camera(size_t w, size_t h, bool _ortho) :
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
 void Camera::update_control(float elapsed) {
 
-	if (!locked && !Program::Instance->receiving_text) {
+	if (!locked) {
 		const Uint8* state = SDL_GetKeyboardState(nullptr);
 
 		vec3 forward = this->forward();
@@ -102,9 +102,6 @@ void Camera::update_control(float elapsed) {
 		// HACK
 		// rotation_value = quatLookAt(normalize(-world_position()), vec3(0, 1, 0));
 	}
-}
-
-Camera::~Camera() {
 }
 
 Frustum Camera::frustum() {

@@ -1,7 +1,7 @@
 #include "DeferredRenderer.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
-#include "Render/Materials/Texture.h"
-#include "Asset/Mesh.h"
+#include "Render/Texture.h"
+#include "Render/Mesh.h"
 #include "Render/Materials/Material.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Scene/Light.hpp"
@@ -295,8 +295,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		viewInfoUbo.writeData(&ViewInfo);
 	}
 
-	std::vector<Drawable*> drawables;
-	drawable->foreach_descendent_bfs([&drawables](Drawable* child) {
+	std::vector<SceneObject*> drawables;
+	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
 		drawables.push_back(child);
 	});
 

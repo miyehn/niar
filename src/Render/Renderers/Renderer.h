@@ -10,7 +10,7 @@ protected:
 	virtual ~Renderer() = default;
 public:
 
-	Drawable* drawable = nullptr;
+	SceneObject* drawable = nullptr;
 	Camera* camera = nullptr;
 
 	virtual void render(VkCommandBuffer cmdbuf) = 0;
