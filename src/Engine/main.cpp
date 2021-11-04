@@ -125,6 +125,7 @@ void Program::run_vulkan()
 	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/metallic.png", {1, 8, 0});
 	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/roughness.png", {1, 8, 0});
 
+    // TODO: make name a parameter (and use that for instance lookup)
 	new MatDeferredBasepass(
 		std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png",
 		std::string(ROOT_DIR"/") + "media/water_tower/normal.png",

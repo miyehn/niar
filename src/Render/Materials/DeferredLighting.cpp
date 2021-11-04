@@ -1,6 +1,9 @@
 #include "DeferredLighting.h"
 #include "Texture.h"
 
+VkPipeline MatDeferredLighting::pipeline = VK_NULL_HANDLE;
+VkPipelineLayout MatDeferredLighting::pipelineLayout = VK_NULL_HANDLE;
+
 MatDeferredLighting::MatDeferredLighting()
 {
 	name = "deferred lighting";
@@ -29,20 +32,23 @@ MatDeferredLighting::MatDeferredLighting()
 		dynamicSet.pointToUniformBuffer(pointLightsBuffer, 0);
 		dynamicSet.pointToUniformBuffer(directionalLightsBuffer, 1);
 
-		// build the pipeline
-		PipelineBuilder pipelineBuilder{};
-		pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
-		pipelineBuilder.fragPath = "spirv/deferred_lighting.frag.spv";
-		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.pipelineState.useVertexInput = false;
-		pipelineBuilder.pipelineState.useDepthStencil = false;
-		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
-		pipelineBuilder.compatibleSubpass = 1;
+        if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
+        {
+            // build the pipeline
+            PipelineBuilder pipelineBuilder{};
+            pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
+            pipelineBuilder.fragPath = "spirv/deferred_lighting.frag.spv";
+            pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+            pipelineBuilder.pipelineState.useVertexInput = false;
+            pipelineBuilder.pipelineState.useDepthStencil = false;
+            pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
+            pipelineBuilder.compatibleSubpass = 1;
 
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+            pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+            pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
-		pipelineBuilder.build(pipeline, pipelineLayout);
+            pipelineBuilder.build(pipeline, pipelineLayout);
+        }
 	}
 }
 
@@ -65,6 +71,6 @@ MatDeferredLighting::~MatDeferredLighting()
 {
 	pointLightsBuffer.release();
 	directionalLightsBuffer.release();
-	vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
+	// vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
+	// vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }

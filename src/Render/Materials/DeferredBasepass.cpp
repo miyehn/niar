@@ -1,10 +1,11 @@
 #include "DeferredBasepass.h"
 #include "Engine/Drawable.hpp"
-#include "Scene/Camera.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
-#include "Render/Renderers/Renderer.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Texture.h"
+
+VkPipelineLayout MatDeferredBasepass::pipelineLayout = VK_NULL_HANDLE;
+VkPipeline MatDeferredBasepass::pipeline = VK_NULL_HANDLE;
 
 MatDeferredBasepass::MatDeferredBasepass(
 	const std::string &albedo_path,
@@ -51,23 +52,26 @@ MatDeferredBasepass::MatDeferredBasepass(
 		dynamicSet.pointToImageView(roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(ao->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-		// now build the pipeline
-		PipelineBuilder pipelineBuilder{};
-		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-		pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
-		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
+        if (pipeline == VK_NULL_HANDLE || pipelineLayout == VK_NULL_HANDLE)
+        {
+            // now build the pipeline
+            PipelineBuilder pipelineBuilder{};
+            pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
+            pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
+            pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+            pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
 
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+            pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+            pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
-		// since it has 4 color outputs:
-		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
-		const VkPipelineColorBlendAttachmentState blendInfoArray[4] = {blendInfo, blendInfo, blendInfo, blendInfo};
-		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
-		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
+            // since it has 4 color outputs:
+            auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
+            const VkPipelineColorBlendAttachmentState blendInfoArray[4] = {blendInfo, blendInfo, blendInfo, blendInfo};
+            pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
+            pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
 
-		pipelineBuilder.build(pipeline, pipelineLayout);
+            pipelineBuilder.build(pipeline, pipelineLayout);
+        }
 	}
 }
 
@@ -95,6 +99,6 @@ void MatDeferredBasepass::setParameters(Drawable *drawable)
 MatDeferredBasepass::~MatDeferredBasepass()
 {
 	uniformBuffer.release();
-	vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
+	// vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
+	// vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }

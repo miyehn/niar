@@ -20,10 +20,10 @@ public:
 
 private:
 
-	struct
-	{
+	struct {
 		alignas(16) glm::mat4 ModelMatrix;
 	} uniforms;
+
 	VmaBuffer uniformBuffer;
 
 	Texture2D* albedo;
@@ -32,8 +32,10 @@ private:
 	Texture2D* roughness;
 	Texture2D* ao;
 
-	VkPipeline pipeline;
-	VkPipelineLayout pipelineLayout;
+	static VkPipeline pipeline;
+	static VkPipelineLayout pipelineLayout;
 
 	DescriptorSet dynamicSet;
+
+    friend class Material;
 };

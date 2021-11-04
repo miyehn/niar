@@ -1,6 +1,7 @@
 #include "Material.h"
 #include "Engine/Drawable.hpp"
-#include "Render/Renderers/Renderer.h"
+#include "DeferredBasepass.h"
+#include "DeferredLighting.h"
 
 std::unordered_map<std::string, Material*> Material::pool;
 
@@ -28,4 +29,14 @@ void Material::cleanup()
 	{
 		delete it.second;
 	}
+
+    if (MatDeferredBasepass::pipelineLayout != VK_NULL_HANDLE)
+        vkDestroyPipelineLayout(Vulkan::Instance->device, MatDeferredBasepass::pipelineLayout, nullptr);
+    if (MatDeferredBasepass::pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(Vulkan::Instance->device, MatDeferredBasepass::pipeline, nullptr);
+
+    if (MatDeferredLighting::pipelineLayout != VK_NULL_HANDLE)
+        vkDestroyPipelineLayout(Vulkan::Instance->device, MatDeferredLighting::pipelineLayout, nullptr);
+    if (MatDeferredLighting::pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(Vulkan::Instance->device, MatDeferredLighting::pipeline, nullptr);
 }

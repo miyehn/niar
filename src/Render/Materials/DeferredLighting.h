@@ -40,6 +40,8 @@ private:
 
 	DescriptorSet dynamicSet;
 
-	VkPipeline pipeline;
-	VkPipelineLayout pipelineLayout;
+	static VkPipeline pipeline;
+	static VkPipelineLayout pipelineLayout;
+
+    friend class Material;
 };
