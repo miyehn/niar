@@ -1,6 +1,7 @@
 #include "Primitive.hpp"
 #include "Render/Mesh.h"
 #include "BSDF.hpp"
+#include <unordered_map>
 
 #define USE_EMBEDDED_NORMAL 0
 #define USE_INTERPOLATED_NORMAL 0 // slower, ofc

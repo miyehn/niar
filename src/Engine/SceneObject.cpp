@@ -118,7 +118,9 @@ vec3 SceneObject::world_position() const {
 	return vec3(position.x, position.y, position.z) / position.w;
 }
 
-void SceneObject::foreach_descendent_bfs(const std::function<void(SceneObject*)>& fn)
+void SceneObject::foreach_descendent_bfs(
+	const std::function<void(SceneObject*)>& fn,
+	const std::function<bool(SceneObject*)>& filter_condition)
 {
 	std::queue<SceneObject*> Q;
 	Q.push(this);
@@ -126,10 +128,13 @@ void SceneObject::foreach_descendent_bfs(const std::function<void(SceneObject*)>
 	{
 		auto node = Q.front();
 		Q.pop();
-		fn(node);
-		for (auto child : node->children)
+		if (filter_condition(node))
 		{
-			Q.push(child);
+			fn(node);
+			for (auto child : node->children)
+			{
+				Q.push(child);
+			}
 		}
 	}
 }

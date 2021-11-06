@@ -28,7 +28,7 @@ set(SRC
 	src/Engine/SceneObject.cpp
 	src/Render/Mesh.cpp
     src/Scene/GrassField.cpp
-	src/Engine/Input.cpp
+		src/Engine/Config.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
 	src/Render/Materials/Material.cpp

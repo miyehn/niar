@@ -4,7 +4,7 @@
 #include "Scene/Scene.hpp"
 #include "BSDF.hpp"
 #include "PathtracerLight.hpp"
-#include "Engine/Input.hpp"
+#include "Engine/Config.hpp"
 #include "Render/Texture.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include <stack>

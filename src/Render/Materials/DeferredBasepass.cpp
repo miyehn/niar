@@ -8,26 +8,19 @@ VkPipelineLayout MatDeferredBasepass::pipelineLayout = VK_NULL_HANDLE;
 VkPipeline MatDeferredBasepass::pipeline = VK_NULL_HANDLE;
 
 MatDeferredBasepass::MatDeferredBasepass(
-	const std::string &albedo_path,
-	const std::string &normal_path,
-	const std::string &metallic_path,
-	const std::string &roughness_path,
+	const std::string &name,
+	const std::string &albedo_tex,
+	const std::string &normal_tex,
+	const std::string &metallic_tex,
+	const std::string &roughness_tex,
 	const std::string &ao_path
 ){
-	name = "geometry";
+	this->name = name;
 	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(uniforms),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU);
 	Material::add(this);
-
-	{// static params
-		albedo = dynamic_cast<Texture2D*>(Texture::get(albedo_path));
-		normal = dynamic_cast<Texture2D*>(Texture::get(normal_path));
-		metallic = dynamic_cast<Texture2D*>(Texture::get(metallic_path));
-		roughness = dynamic_cast<Texture2D*>(Texture::get(roughness_path));
-		ao = dynamic_cast<Texture2D*>(Texture::get(ao_path.length() == 0 ? "_white" : ao_path));
-	}
 
 	auto vk = Vulkan::Instance;
 
@@ -45,6 +38,11 @@ MatDeferredBasepass::MatDeferredBasepass(
 		dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 		// assign actual values to them
+		auto albedo = dynamic_cast<Texture2D*>(Texture::get(albedo_tex));
+		auto normal = dynamic_cast<Texture2D*>(Texture::get(normal_tex));
+		auto metallic = dynamic_cast<Texture2D*>(Texture::get(metallic_tex));
+		auto roughness = dynamic_cast<Texture2D*>(Texture::get(roughness_tex));
+		auto ao = dynamic_cast<Texture2D*>(Texture::get(ao_path.length() == 0 ? "_white" : ao_path));
 		dynamicSet.pointToUniformBuffer(uniformBuffer, 0);
 		dynamicSet.pointToImageView(albedo->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(normal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -99,6 +97,10 @@ void MatDeferredBasepass::setParameters(SceneObject *drawable)
 MatDeferredBasepass::~MatDeferredBasepass()
 {
 	uniformBuffer.release();
-	// vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	// vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
+}
+
+void MatDeferredBasepass::cleanup()
+{
+	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
+	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }

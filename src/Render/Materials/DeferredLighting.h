@@ -4,13 +4,16 @@
 
 #define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
 
+class DeferredRenderer;
+
 class MatDeferredLighting : public Material
 {
 public:
 
-	explicit MatDeferredLighting();
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
 	~MatDeferredLighting() override;
+
+	static void cleanup();
 
 	struct PointLightInfo {
 		alignas(16) glm::vec3 position;
@@ -35,6 +38,8 @@ public:
 
 private:
 
+	explicit MatDeferredLighting(DeferredRenderer* renderer);
+
 	VmaBuffer pointLightsBuffer;
 	VmaBuffer directionalLightsBuffer;
 
@@ -43,5 +48,5 @@ private:
 	static VkPipeline pipeline;
 	static VkPipelineLayout pipelineLayout;
 
-    friend class Material;
+	friend class DeferredRenderer;
 };

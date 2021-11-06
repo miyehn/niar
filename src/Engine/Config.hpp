@@ -10,9 +10,9 @@ void initialize_all_config();
 struct ProgramConfig
 {
 	int UseCornellBoxScene = 0;
-	std::string SceneSource = "";
-	std::string AssetsConfigSource = "";
-	std::string PathtracerConfigSource = "";
+	std::string SceneSource;
+	std::string AssetsConfigSource;
+	std::string PathtracerConfigSource;
 	struct
 	{
 		int ISPC = 0;

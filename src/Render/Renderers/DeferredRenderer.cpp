@@ -298,7 +298,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
 		drawables.push_back(child);
-	});
+	}, [](SceneObject *obj){ return obj->enabled; });
 
 	VkClearValue clearColor = {0, 0, 0, 1.0f};
 	VkClearValue clearDepth;
@@ -319,16 +319,17 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
 		// deferred base pass: draw the meshes with materials
 		Material* lastMaterial = nullptr;
-		for (auto drawable : drawables) // (assume they're sorted by material)
+		for (auto drawable : drawables) // (assume they're sorted by material pipeline)
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
-				if (m->material != lastMaterial)
+				auto mat = m->get_material();
+				if (mat != lastMaterial)
 				{
-					m->material->usePipeline(cmdbuf, {
+					mat->usePipeline(cmdbuf, {
 						{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
 					});
-					lastMaterial = m->material;
+					lastMaterial = mat;
 				}
 				m->draw(cmdbuf);
 			}
@@ -340,7 +341,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Lighting pass")
 		MatDeferredLighting* mat_lighting =
-			dynamic_cast<MatDeferredLighting*>(Material::find("deferred lighting"));
+			dynamic_cast<MatDeferredLighting*>(Material::find("DeferredLighting"));
 
 		int point_light_ctr = 0;
 		int directional_light_ctr = 0;
@@ -394,6 +395,7 @@ DeferredRenderer *DeferredRenderer::get()
 	if (deferredRenderer == nullptr)
 	{
 		deferredRenderer = new DeferredRenderer();
+		new MatDeferredLighting(deferredRenderer);
 	}
 	return deferredRenderer;
 }

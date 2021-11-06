@@ -1,6 +1,7 @@
-#include "Input.hpp"
-#include "Scene/AABB.hpp"
+#include "Config.hpp"
 #include "Render/Mesh.h"
+#include "Render/Texture.h"
+#include "Render/Materials/DeferredBasepass.h"
 #include "Utils/myn/Log.h"
 #include "libconfig/libconfig.h++"
 
@@ -57,47 +58,40 @@ void initialize_asset_config()
 	Config config_src;
 	create_config_src(Cfg.AssetsConfigSource, config_src);
 
-	try
-	{
 		//---------------- ASSETS -------------------
 
+	try
+	{
 		// textures
 		LOG("---- loading textures (lazy) ----");
 		const Setting& textures = config_src.getRoot()["Textures"];
 		for (int i=0; i<textures.getLength(); i++) {
 			std::string name = textures[i].lookup("Name");
 			std::string path = textures[i].lookup("Path");
+			int num_channels = textures[i].lookup("Channels");
+			int bit_depth = textures[i].lookup("BitDepth");
 			int SRGB = textures[i].lookup("SRGB");
-			// GlTexture::set_resource_info(name, ROOT_DIR"/" + path, SRGB);
-			LOG("set texture path for '%s', SRGB: %d", name.c_str(), SRGB);
+			new Texture2D(name, std::string(ROOT_DIR"/") + path, {num_channels, bit_depth, SRGB});
+			LOG("'%s': %d channels, %d bpc, SRGB %d", name.c_str(), num_channels, bit_depth, SRGB);
 		}
 
 		// materials
 		LOG("---- loading materials ----");
 		const Setting& materials = config_src.getRoot()["Materials"];
 		for (int i=0; i<materials.getLength(); i++) {
-			std::string shader = materials[i].lookup("Shader");
+			std::string pipeline = materials[i].lookup("Pipeline");
 			std::string name = materials[i].lookup("Name");
 			const Setting& m = materials[i];
 			bool created = true;
-			if (shader == "geometry") {
-				std::string albedo = m.exists("Albedo") ? m.lookup("Albedo") : "white";
-				std::string normal = m.exists("Normal") ? m.lookup("Normal") : "default_normal";
-				std::string metallic = m.exists("Metallic") ? m.lookup("Metallic") : "black";
-				std::string roughness = m.exists("Roughness") ? m.lookup("Roughness") : "white";
-				std::string ao = m.exists("AO") ? m.lookup("AO") : "white";
-				/*
-				MatDeferredGeometry* mat = new MatDeferredGeometry();
-				mat->albedo_map = GlTexture::get(albedo);
-				mat->normal_map = GlTexture::get(normal);
-				mat->metallic_map = GlTexture::get(metallic);
-				mat->roughness_map = GlTexture::get(roughness);
-				mat->ao_map = GlTexture::get(ao);
-				GlMaterial::add_to_pool(name, mat);
-				 */
-
+			if (pipeline == "DeferredBasepass") {
+				std::string albedo = m.exists("Albedo") ? m.lookup("Albedo") : "_white";
+				std::string normal = m.exists("Normal") ? m.lookup("Normal") : "_defaultNormal";
+				std::string metallic = m.exists("Metallic") ? m.lookup("Metallic") : "_black";
+				std::string roughness = m.exists("Roughness") ? m.lookup("Roughness") : "_white";
+				std::string ao = m.exists("AO") ? m.lookup("AO") : "_white";
+				new MatDeferredBasepass(name, albedo, normal, metallic, roughness, ao);
 			} else {
-				WARN("cannot load materials with shader '%s' yet. skipping..", shader.c_str());
+				WARN("cannot load materials with pipeline '%s' yet. skipping..", pipeline.c_str());
 				created = false;
 			}
 			if (created) LOG("%s", name.c_str());
@@ -108,9 +102,9 @@ void initialize_asset_config()
 		const Setting& assignments = config_src.getRoot()["MaterialAssignments"];
 		for (int i=0; i<assignments.getLength(); i++) {
 			std::string mesh = assignments[i].lookup("Mesh");
-			std::string mat = assignments[i].lookup("GlMaterial");
-			Mesh::set_material_name_for(mesh, mat);
-			LOG("%s : %s", mesh.c_str(), mat.c_str());
+			std::string mat_name = assignments[i].lookup("Material");
+			Mesh::set_material_name(mesh, mat_name);
+			LOG("%s : %s", mesh.c_str(), mat_name.c_str());
 		}
 
 	} catch (const SettingNotFoundException &nfex) {

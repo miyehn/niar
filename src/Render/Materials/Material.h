@@ -19,8 +19,7 @@ struct DescriptorSetBindingSlot
 class Material
 {
 public:
-	Material() = default;
-	std::string name = "[anonymous material]";
+	std::string name;
 
 	virtual void setParameters(SceneObject* drawable) {};
 	virtual void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) = 0;

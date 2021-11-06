@@ -3,6 +3,7 @@
 #include "Scene/AABB.hpp"
 #include "Render/Vulkan/Buffer.h"
 #include "Render/Vertex.h"
+#include <unordered_map>
 
 struct BSDF;
 struct aiMesh;
@@ -19,7 +20,6 @@ struct Mesh : SceneObject {
 	void initialize_gpu();
 	~Mesh() override;
 
-	bool handle_event(SDL_Event event) override;
 	void update(float elapsed) override;
 
 	void draw(VkCommandBuffer cmdbuf);
@@ -35,17 +35,14 @@ struct Mesh : SceneObject {
 	AABB aabb;
 	BSDF* bsdf = nullptr;
 
-	// Vulkan
-	Material* material = nullptr;
+	Material* get_material();
 
-	static void set_material_name_for(const std::string& mesh_name, const std::string& mat_name);
+	static void set_material_name(const std::string& mesh_name, const std::string& mat_name);
 
 private:
 
-	static std::string get_material_name_for(const std::string& mesh_name);
 	static std::unordered_map<std::string, std::string> material_assignment;
 
-	bool is_thin_mesh;
 	bool locked = false;
 	void generate_aabb();
 

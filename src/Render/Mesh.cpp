@@ -1,7 +1,7 @@
 #include "Mesh.h"
 #include "Scene/Camera.hpp"
 #include "Pathtracer/BSDF.hpp"
-#include "Engine/Input.hpp"
+#include "Engine/Config.hpp"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -19,16 +19,8 @@ using namespace glm;
 
 std::unordered_map<std::string, std::string> Mesh::material_assignment;
 
-void Mesh::set_material_name_for(const std::string& mesh_name, const std::string& mat_name) {
+void Mesh::set_material_name(const std::string& mesh_name, const std::string& mat_name) {
 	material_assignment[mesh_name] = mat_name;
-}
-
-std::string Mesh::get_material_name_for(const std::string& mesh_name) {
-	auto pair = material_assignment.find(mesh_name);
-	if (pair == material_assignment.end()) {
-		return "";
-	}
-	return pair->second;
 }
 
 Mesh::Mesh(aiMesh* mesh, SceneObject* _parent, std::string _name) : SceneObject(_parent, _name) {
@@ -41,11 +33,6 @@ Mesh::Mesh(aiMesh* mesh, SceneObject* _parent, std::string _name) : SceneObject(
 	// name
 	const char* inName = mesh->mName.C_Str();
 	if (_name == "[unnamed mesh]") name = inName;
-
-	// thin mesh (from name)
-	if (std::string(inName).substr(0, 5) == "thin_") {
-		is_thin_mesh = true;
-	} else is_thin_mesh = false;
 
 	// iterate through vertices
 	for (int i=0; i<mesh->mNumVertices; i++) {
@@ -140,10 +127,6 @@ Mesh::~Mesh() {
 	indexBuffer.release();
 }
 
-bool Mesh::handle_event(SDL_Event event) {
-	return SceneObject::handle_event(event);
-}
-
 void Mesh::update(float elapsed) {
 	SceneObject::update(elapsed);
 	locked = true;
@@ -151,7 +134,7 @@ void Mesh::update(float elapsed) {
 
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	material->setParameters(this);
+	get_material()->setParameters(this);
 
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
@@ -211,4 +194,15 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_g
 	// importer seems to automatically handle memory release for scene
 	return meshes;
 
+}
+
+Material *Mesh::get_material()
+{
+	auto pair = material_assignment.find(name);
+	if (pair == material_assignment.end()) {
+		WARN("trying to get material for mesh '%s' but it doesn't have one", name.c_str())
+		return nullptr;
+	}
+	auto mat_name =  pair->second;
+	return Material::find(mat_name);
 }

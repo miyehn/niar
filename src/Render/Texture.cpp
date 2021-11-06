@@ -19,7 +19,7 @@ Texture *Texture::get(const std::string &path)
 
 	WARN("retrieving texture '%s' before it is added to the pool. Trying to load from file with default settings (SRGB)..",
 		 path.c_str())
-	auto new_texture = new Texture2D(path);
+	auto new_texture = new Texture2D(path, path);
 	Texture::pool[path] = new_texture;
 	return new_texture;
 }
@@ -87,7 +87,7 @@ void createTexture2DFromPixelData(
 
 #include "TextureFormatMappings.inl"
 
-Texture2D::Texture2D(const std::string &path, ImageFormat textureFormat)
+Texture2D::Texture2D(const std::string &name, const std::string &path, ImageFormat textureFormat)
 {
 #ifdef DEBUG
 	auto it = Texture::pool.find(path);
@@ -108,7 +108,7 @@ Texture2D::Texture2D(const std::string &path, ImageFormat textureFormat)
 		ERR("Trying to load image '%s' with wrong channelDepth", path.c_str())
 	}
 
-	LOG("load texture w %d h %d channels %d", iwidth, iheight, native_channels)
+	//LOG("load texture '%s' %dx%dx%d", path.c_str(), iwidth, iheight, native_channels)
 	EXPECT(pixels != nullptr, true)
 
 	imageFormat = getFormatFromMap(textureFormat);
@@ -122,7 +122,7 @@ Texture2D::Texture2D(const std::string &path, ImageFormat textureFormat)
 
 	stbi_image_free(pixels);
 
-	Texture::pool[path] = this;
+	Texture::pool[name] = this;
 }
 
 void Texture2D::createDefaultTextures()
@@ -136,7 +136,7 @@ void Texture2D::createDefaultTextures()
 	}
 
 	auto* whiteTexture = new Texture2D();
-	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	whiteTexture->num_slices = 1;
 	whiteTexture->width = 1;
 	whiteTexture->height = 1;
@@ -149,7 +149,33 @@ void Texture2D::createDefaultTextures()
 		whiteTexture->imageView);
 	Texture::pool["_white"] = whiteTexture;
 
-	// TODO: more
+	auto* blackTexture = new Texture2D();
+	blackTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	blackTexture->num_slices = 1;
+	blackTexture->width = 1;
+	blackTexture->height = 1;
+	uint8_t blackPixel[] = {0, 0, 0, 0};
+	createTexture2DFromPixelData(
+		blackPixel, 1, 1,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		4,
+		blackTexture->resource,
+		blackTexture->imageView);
+	Texture::pool["_black"] = blackTexture;
+
+	auto* defaultNormal = new Texture2D();
+	defaultNormal->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	defaultNormal->num_slices = 1;
+	defaultNormal->width = 1;
+	defaultNormal->height = 1;
+	uint8_t defaultNormalPixel[] = {127, 127, 255, 0};
+	createTexture2DFromPixelData(
+		defaultNormalPixel, 1, 1,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		4,
+		defaultNormal->resource,
+		defaultNormal->imageView);
+	Texture::pool["_defaultNormal"] = defaultNormal;
 }
 
 Texture2D::~Texture2D()

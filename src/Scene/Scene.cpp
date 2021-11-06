@@ -1,5 +1,5 @@
 #include "Scene.hpp"
-#include "Engine/Input.hpp"
+#include "Engine/Config.hpp"
 #include "Render/Mesh.h"
 
 #include "Engine/DebugUI.h"

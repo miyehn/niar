@@ -6,7 +6,7 @@ class Texture2D;
 
 class DeferredRenderer : public Renderer
 {
-protected:
+private:
 	DeferredRenderer();
 	~DeferredRenderer() override;
 

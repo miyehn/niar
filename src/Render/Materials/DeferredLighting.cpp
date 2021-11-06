@@ -4,9 +4,9 @@
 VkPipeline MatDeferredLighting::pipeline = VK_NULL_HANDLE;
 VkPipelineLayout MatDeferredLighting::pipelineLayout = VK_NULL_HANDLE;
 
-MatDeferredLighting::MatDeferredLighting()
+MatDeferredLighting::MatDeferredLighting(DeferredRenderer* renderer)
 {
-	name = "deferred lighting";
+	name = "DeferredLighting";
 	pointLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(pointLights),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -41,7 +41,7 @@ MatDeferredLighting::MatDeferredLighting()
             pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
             pipelineBuilder.pipelineState.useVertexInput = false;
             pipelineBuilder.pipelineState.useDepthStencil = false;
-            pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
+            pipelineBuilder.compatibleRenderPass = renderer->getRenderPass();
             pipelineBuilder.compatibleSubpass = 1;
 
             pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
@@ -71,6 +71,9 @@ MatDeferredLighting::~MatDeferredLighting()
 {
 	pointLightsBuffer.release();
 	directionalLightsBuffer.release();
-	// vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	// vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
+}
+
+void MatDeferredLighting::cleanup() {
+	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
+	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }

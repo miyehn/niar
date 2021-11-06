@@ -2,7 +2,7 @@
 #include "Scene/Scene.hpp"
 #include "Scene/Camera.hpp"
 #include "Pathtracer/Pathtracer.hpp"
-#include "Input.hpp"
+#include "Config.hpp"
 #include "Render/Materials/DeferredBasepass.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Mesh.h"
@@ -79,6 +79,7 @@ static void init()
 		&window);
 
 	LOG("loading resources (vulkan)...");
+	Texture2D::createDefaultTextures();
 	initialize_asset_config();
 	initialize_pathtracer_config();
 
@@ -99,41 +100,11 @@ static void init()
 		Scene::Active->load(Cfg.SceneSource, false);
 	}
 
-	Texture2D::createDefaultTextures();
-
-	DeferredRenderer* deferredRenderer = DeferredRenderer::get();
-
-	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png", {4, 8, 1});
-	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/normal.png", {4, 8, 0});
-	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/metallic.png", {1, 8, 0});
-	new Texture2D(std::string(ROOT_DIR"/") + "media/water_tower/roughness.png", {1, 8, 0});
-
-	// TODO: make name a parameter (and use that for instance lookup)
-	new MatDeferredBasepass(
-		std::string(ROOT_DIR"/") + "media/water_tower/Base_color.png",
-		std::string(ROOT_DIR"/") + "media/water_tower/normal.png",
-		std::string(ROOT_DIR"/") + "media/water_tower/metallic.png",
-		std::string(ROOT_DIR"/") + "media/water_tower/roughness.png",
-		"");
-	new MatDeferredLighting();
-
-	Scene::Active->foreach_descendent_bfs([](SceneObject* child){
-		if (Mesh* m = dynamic_cast<Mesh*>(child))
-		{
-			m->material = Material::find("geometry");
-		}
-	});
-
 	ui::usePurpleStyle();
 
 	ui::button("capture frame", RenderDoc::captureNextFrame);
-
-	ui::elem([](){
-		ImGui::Separator();
-	});
-
+	ui::elem([](){ ImGui::Separator(); });
 	ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay);
-
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
 	static bool show_global_transform = false;
@@ -145,6 +116,7 @@ static void init()
 			{
 				if (ImGui::TreeNode(node->name.c_str()))
 				{
+					ImGui::Checkbox("enabled", &node->enabled);
 					node->draw_transform_ui(show_global_transform);
 					for (auto child : node->children) make_tree(child);
 					ImGui::TreePop();
@@ -162,7 +134,7 @@ static void process_text_input()
 	strncpy(buf, input.text.c_str(), 127);
 	char* token = strtok(buf, " ");
 	while (token) {
-		tokens.push_back(std::string(token));
+		tokens.emplace_back(token);
 		token = strtok(nullptr, " ");
 	}
 

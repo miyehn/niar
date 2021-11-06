@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <functional>
+#include <vector>
 #include <SDL_events.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -25,7 +26,9 @@ public:
 	// hierarchy operations
 	SceneObject* parent;
 	std::vector<SceneObject*> children = std::vector<SceneObject*>();
-	void foreach_descendent_bfs(const std::function<void(SceneObject*)>& fn);
+	void foreach_descendent_bfs(
+		const std::function<void(SceneObject*)>& fn,
+		const std::function<bool(SceneObject*)>& filter_condition = [](SceneObject* obj) {return true;});
 	virtual bool add_child(SceneObject* child);
 
 	// other operations

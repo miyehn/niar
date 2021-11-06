@@ -36,6 +36,7 @@ public:
 	~Texture2D() override;
 
 	explicit Texture2D(
+		const std::string &name,
 		const std::string &path,
 		ImageFormat textureFormat={4,8,1});
 

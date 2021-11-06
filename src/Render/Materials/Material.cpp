@@ -1,5 +1,4 @@
 #include "Material.h"
-#include "Engine/SceneObject.hpp"
 #include "DeferredBasepass.h"
 #include "DeferredLighting.h"
 
@@ -10,7 +9,7 @@ void Material::add(Material* material)
 	auto mat_iter = Material::pool.find(material->name);
 	if (mat_iter != Material::pool.end())
 	{
-		WARN("Adding material of duplicate names. Overriding..")
+		WARN("Adding material of duplicate name '%s'. Overriding..", material->name.c_str())
 		delete mat_iter->second;
 	}
 	Material::pool[material->name] = material;
@@ -20,6 +19,7 @@ Material *Material::find(const std::string &name)
 {
 	auto mat_iter = pool.find(name);
 	if (mat_iter != pool.end()) return mat_iter->second;
+	WARN("Can't find material named '%s'", name.c_str())
 	return nullptr;
 }
 
@@ -30,13 +30,6 @@ void Material::cleanup()
 		delete it.second;
 	}
 
-    if (MatDeferredBasepass::pipelineLayout != VK_NULL_HANDLE)
-        vkDestroyPipelineLayout(Vulkan::Instance->device, MatDeferredBasepass::pipelineLayout, nullptr);
-    if (MatDeferredBasepass::pipeline != VK_NULL_HANDLE)
-        vkDestroyPipeline(Vulkan::Instance->device, MatDeferredBasepass::pipeline, nullptr);
-
-    if (MatDeferredLighting::pipelineLayout != VK_NULL_HANDLE)
-        vkDestroyPipelineLayout(Vulkan::Instance->device, MatDeferredLighting::pipelineLayout, nullptr);
-    if (MatDeferredLighting::pipeline != VK_NULL_HANDLE)
-        vkDestroyPipeline(Vulkan::Instance->device, MatDeferredLighting::pipeline, nullptr);
+	MatDeferredBasepass::cleanup();
+	MatDeferredLighting::cleanup();
 }
