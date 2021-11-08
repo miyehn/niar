@@ -97,7 +97,10 @@ static void init()
 	else
 	{
 		Scene::Active = new Scene("Water Tower");
-		Scene::Active->load(Cfg.SceneSource, false);
+		Scene::Active->load_assimp(Cfg.SceneSource, false);
+		Scene* gltf = new Scene("gltf");
+		gltf->load_tinygltf(std::string(ROOT_DIR"/") + "media/ff_demo/export/stage.gltf", false);
+		delete gltf;
 	}
 
 	ui::usePurpleStyle();

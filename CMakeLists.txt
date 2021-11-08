@@ -28,7 +28,7 @@ set(SRC
 	src/Engine/SceneObject.cpp
 	src/Render/Mesh.cpp
     src/Scene/GrassField.cpp
-		src/Engine/Config.cpp
+	src/Engine/Config.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
 	src/Render/Materials/Material.cpp
@@ -57,7 +57,8 @@ set(SRC
 	src/Render/Vulkan/DescriptorSet.cpp
 	src/Utils/myn/Color.cpp
 	src/Render/Texture.cpp
-	src/Render/StbImageImpl.cpp
+    src/Utils/StbImageImpl.cpp
+	src/Utils/TinyGLTFImpl.cpp
 	src/Render/Vulkan/SamplerCache.cpp
 	src/Render/Vulkan/ShaderModule.cpp
 	src/Render/Vulkan/VulkanUtils.cpp

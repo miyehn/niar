@@ -2,12 +2,15 @@
 #include "Camera.hpp"
 #include "Light.hpp"
 #include "Render/Mesh.h"
+#include "Engine/Config.hpp"
 
 #include "Utils/myn/Log.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+
+#include <tinygltf/tiny_gltf.h>
 
 #include <unordered_map>
 #include <queue>
@@ -117,13 +120,13 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 	}
 }
 
-void Scene::load(const std::string& path, bool preserve_existing_objects)
+void Scene::load_assimp(const std::string& path, bool preserve_existing_objects)
 {
 	if (!preserve_existing_objects) {
 		for (int i=0; i<children.size(); i++) delete children[i];
 		children.clear();
 	}
-	LOG("-------- loading scene --------");
+	LOG("-------- loading scene (assimp) --------");
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(
 		path,
@@ -217,4 +220,26 @@ void Scene::load(const std::string& path, bool preserve_existing_objects)
 	add_child(nodeToDrawable[sceneTree]);
 
 	delete sceneTree;
+}
+
+void Scene::load_tinygltf(const std::string &path, bool preserve_existing_objects)
+{
+	if (!preserve_existing_objects) {
+		for (int i=0; i<children.size(); i++) delete children[i];
+		children.clear();
+	}
+	LOG("-------- loading scene (tinygltf) --------");
+
+	using namespace tinygltf;
+
+	Model model;
+	TinyGLTF loader;
+	std::string err;
+	std::string warn;
+
+	//bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path);
+	bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path);
+	if (!warn.empty()) WARN("[TinyGLTF] %s", warn.c_str())
+	if (!err.empty()) ERR("[TinyGLTF] %s", err.c_str())
+	if (!ret) ERR("[TinyGLTF] Failed to parse glTF")
 }
