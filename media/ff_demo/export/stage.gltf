@@ -3,23 +3,62 @@
         "generator" : "Khronos glTF Blender I/O v1.6.16",
         "version" : "2.0"
     },
+    "extensionsUsed" : [
+        "KHR_lights_punctual"
+    ],
+    "extensionsRequired" : [
+        "KHR_lights_punctual"
+    ],
+    "extensions" : {
+        "KHR_lights_punctual" : {
+            "lights" : [
+                {
+                    "color" : [
+                        1,
+                        0.9409390687942505,
+                        0.7073366641998291
+                    ],
+                    "intensity" : 250,
+                    "type" : "point",
+                    "name" : "Light"
+                }
+            ]
+        }
+    },
     "scene" : 0,
     "scenes" : [
         {
             "name" : "Scene",
             "nodes" : [
-                0,
                 1,
-                2,
                 3,
                 4,
                 5,
-                9
+                6,
+                7,
+                11
             ]
         }
     ],
     "nodes" : [
         {
+            "extensions" : {
+                "KHR_lights_punctual" : {
+                    "light" : 0
+                }
+            },
+            "name" : "Light_Orientation",
+            "rotation" : [
+                -0.7071067690849304,
+                0,
+                0,
+                0.7071067690849304
+            ]
+        },
+        {
+            "children" : [
+                0
+            ],
             "name" : "Light",
             "rotation" : [
                 0.16907575726509094,
@@ -34,6 +73,19 @@
             ]
         },
         {
+            "camera" : 0,
+            "name" : "Camera_Orientation",
+            "rotation" : [
+                -0.7071067690849304,
+                0,
+                0,
+                0.7071067690849304
+            ]
+        },
+        {
+            "children" : [
+                2
+            ],
             "name" : "Camera",
             "rotation" : [
                 0.483536034822464,
@@ -118,9 +170,9 @@
         },
         {
             "children" : [
-                6,
-                7,
-                8
+                8,
+                9,
+                10
             ],
             "mesh" : 6,
             "name" : "lamp_outer",
@@ -136,13 +188,25 @@
             ]
         }
     ],
+    "cameras" : [
+        {
+            "name" : "Camera",
+            "perspective" : {
+                "aspectRatio" : 1.7777777777777777,
+                "yfov" : 0.39959652046304894,
+                "zfar" : 100,
+                "znear" : 0.10000000149011612
+            },
+            "type" : "perspective"
+        }
+    ],
     "materials" : [
         {
             "doubleSided" : true,
             "name" : "wall",
             "normalTexture" : {
                 "index" : 0,
-                "scale" : 0.5000000596046448
+                "scale" : 0.5
             },
             "pbrMetallicRoughness" : {
                 "baseColorFactor" : [
@@ -345,37 +409,37 @@
         {
             "mimeType" : "image/png",
             "name" : "normal_1k_3x16",
-            "uri" : "textures/normal_1k_3x16.png"
+            "uri" : "normal_1k_3x16.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "albedo_1k_3x8",
-            "uri" : "textures/albedo_1k_3x8.png"
+            "uri" : "albedo_1k_3x8.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "albedo_1k_3x16",
-            "uri" : "textures/albedo_1k_3x16.png"
+            "uri" : "albedo_1k_3x16.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "roughness_1k_1x16.tif",
-            "uri" : "textures/roughness_1k_1x16_tif.png"
+            "uri" : "roughness_1k_1x16_tif.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "normal_512_3x16",
-            "uri" : "textures/normal_512_3x16.png"
+            "uri" : "normal_512_3x16.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "albedo_512_3x8",
-            "uri" : "textures/albedo_512_3x8.png"
+            "uri" : "albedo_512_3x8.png"
         },
         {
             "mimeType" : "image/png",
             "name" : "metallic_512_1x8-roughness_512_1x8",
-            "uri" : "textures/metallic_512_1x8-roughness_512_1x8.png"
+            "uri" : "metallic_512_1x8-roughness_512_1x8.png"
         }
     ],
     "accessors" : [

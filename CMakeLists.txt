@@ -69,7 +69,8 @@ set(SRC
 	src/Engine/DebugUI.cpp
 	src/Engine/DebugUI.h
 	src/Utils/myn/RenderDoc.cpp
-	src/Scene/SceneLoad.cpp)
+    src/Scene/SceneLoad_Assimp.cpp
+	src/Scene/SceneLoad_glTF.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})

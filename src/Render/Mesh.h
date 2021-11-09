@@ -13,10 +13,15 @@ struct Mesh : SceneObject {
 
 	static std::vector<Mesh*> LoadMeshes(const std::string& source, bool initialize_graphics = true);
 
+	// load from assimp data
 	explicit Mesh(
 		aiMesh* mesh,
 		SceneObject* _parent = nullptr,
 		std::string _name = "[unnamed mesh]");
+
+	// load from glTF data
+	// explicit Mesh(...)
+
 	void initialize_gpu();
 	~Mesh() override;
 

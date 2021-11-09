@@ -99,7 +99,7 @@ static void init()
 		Scene::Active = new Scene("Water Tower");
 		Scene::Active->load_assimp(Cfg.SceneSource, false);
 		Scene* gltf = new Scene("gltf");
-		gltf->load_tinygltf(std::string(ROOT_DIR"/") + "media/ff_demo/export/stage.gltf", false);
+		gltf->load_tinygltf(std::string(ROOT_DIR"/") + "media/ff_demo/stage.glb", false);
 		delete gltf;
 	}
 
