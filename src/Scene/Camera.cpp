@@ -1,6 +1,7 @@
 #include "Camera.hpp"
 #include "Utils/myn/Log.h"
 #include <assimp/scene.h>
+#include <tinygltf/tiny_gltf.h>
 
 using namespace glm;
 
@@ -20,6 +21,7 @@ Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 		orthographic(_ortho), width(w), height(h) {
 
 	local_position_value = vec3(0);
+	rotation_value = glm::quat(1, 0, 0, 0);
 
 	// TODO: make these properties
 	move_speed = 150.0f;
@@ -197,4 +199,30 @@ Camera::Camera(aiCamera* inCamera)
 	local_position_value = toVec3(inCamera->mPosition);
 
 	rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
+}
+
+Camera::Camera(const tinygltf::Camera *in_camera) : Camera(0, 0, false)
+{
+	name = in_camera->name;
+	move_speed = 16;
+	rotate_speed = 0.002f;
+	if (in_camera->type != "perspective")
+	{
+		WARN("Unsupported camera (%s : %s)", in_camera->name.c_str(), in_camera->type.c_str())
+		return;
+	}
+
+	const tinygltf::PerspectiveCamera& persp = in_camera->perspective;
+	fov = persp.yfov; // in radians
+	cutoffNear = persp.znear;
+	cutoffFar = persp.zfar;
+
+	width = 0; // ortho only
+	height = 0; // ortho only
+	aspect_ratio = persp.aspectRatio;
+
+	prev_mouse_x = 0;
+	prev_mouse_y = 0;
+	locked = false;
+	orthographic = false;
 }

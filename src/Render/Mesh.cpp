@@ -1,18 +1,18 @@
 #include "Mesh.h"
-#include "Scene/Camera.hpp"
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/Config.hpp"
-
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
 
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 
 #include "Render/Materials/Material.h"
 
-#define VERTEX_INDEX_TYPE uint16_t
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <tinygltf/tiny_gltf.h>
+#include <map>
+
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
 using namespace glm;
@@ -205,4 +205,82 @@ Material *Mesh::get_material()
 	}
 	auto mat_name =  pair->second;
 	return Material::find(mat_name);
+}
+
+std::vector<Mesh *> Mesh::load_gltf(
+	const tinygltf::Mesh* in_mesh,
+	const tinygltf::Model* in_model)
+{
+	std::vector<Mesh*> output;
+	LOG("loading %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
+	for (auto &prim : in_mesh->primitives)
+	{
+		if (prim.mode != TINYGLTF_MODE_TRIANGLES)
+		{
+			WARN("%s contains unsupported mesh mode %d. skipping..", in_mesh->name.c_str(), prim.mode)
+			continue;
+		}
+		output.emplace_back(new Mesh(&prim, in_model));
+	}
+	return output;
+}
+
+// internal
+Mesh::Mesh(
+	const tinygltf::Primitive *in_prim,
+	const tinygltf::Model *in_model)
+{
+	auto get_data = [&](
+		int accessor_idx,
+		const uint8_t** out_data,
+		uint32_t* out_size,
+		uint32_t* num_components=nullptr,
+		uint32_t* component_type=nullptr)
+	{
+		auto accessor = in_model->accessors[accessor_idx];
+		auto buffer_view = in_model->bufferViews[accessor.bufferView];
+		*out_data = &in_model->buffers[buffer_view.buffer].data[buffer_view.byteOffset + accessor.byteOffset];
+		*out_size = accessor.count;
+		if (num_components) *num_components = accessor.type;
+		if (component_type) *component_type = accessor.componentType;
+	};
+
+	// vertices
+	const vec3* positions;
+	const vec3* normals;
+	const vec3* tangents;
+	const vec2* uvs;
+	uint32_t positions_cnt, normals_cnt, tangents_cnt, uvs_cnt;
+	// TODO: can check for data types for safety (now assuming correct #components; all floats)
+	get_data(in_prim->attributes.at("POSITION"), reinterpret_cast<const uint8_t**>(&positions), &positions_cnt);
+	get_data(in_prim->attributes.at("NORMAL"), reinterpret_cast<const uint8_t**>(&normals), &normals_cnt);
+	get_data(in_prim->attributes.at("TANGENT"), reinterpret_cast<const uint8_t**>(&tangents), &tangents_cnt);
+	get_data(in_prim->attributes.at("TEXCOORD_0"), reinterpret_cast<const uint8_t**>(&uvs), &uvs_cnt);
+
+	EXPECT_M(positions_cnt == normals_cnt && normals_cnt == tangents_cnt && tangents_cnt == uvs_cnt, true,
+			 "Mesh prims should have the same number of each attribute!");
+
+	for (auto i = 0; i < positions_cnt; i++)
+	{
+		Vertex v;
+		v.position = positions[i];
+		v.normal = normals[i];
+		v.tangent = tangents[i];
+		v.uv = uvs[i];
+		vertices.push_back(v);
+	}
+
+	// faces
+	const uint8_t* indices_data;
+	uint32_t indices_cnt, num_components, component_type;
+	get_data(in_prim->indices, &indices_data, &indices_cnt, &num_components, &component_type);
+	EXPECT_M(component_type, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, "Indices are not 16-bit unsigned ints!")
+	EXPECT_M(indices_cnt % 3, 0, "Num indices is not a multiply of 3!")
+
+	faces.resize(indices_cnt);
+	memcpy(faces.data(), indices_data, indices_cnt * sizeof(VERTEX_INDEX_TYPE));
+
+	generate_aabb();
+
+	// TODO: assign material
 }

@@ -113,9 +113,9 @@ SceneNodeIntermediate* loadSceneTree(const std::vector<tinygltf::Node> &in_nodes
 	return root;
 }
 
-void collapseSceneTree(SceneNodeIntermediate* root)
+SceneNodeIntermediate* collapseSceneTree(SceneNodeIntermediate* root)
 {
-	if (root == nullptr) return;
+	if (root == nullptr) return root;
 	for (auto child : root->children) collapseSceneTree(child);
 	if (root->children.size() == 1 &&
 		root->camera_idx == -1 &&
@@ -126,6 +126,7 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 		root = *oldRoot->children.begin();
 		root->transformation = oldRoot->transformation * root->transformation;
 		root->parent = oldRoot->parent;
+		root->name = oldRoot->name;
 		if (oldRoot->parent)
 		{
 			auto& children = oldRoot->parent->children;
@@ -136,6 +137,7 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 		oldRoot->children.clear();
 		delete oldRoot;
 	}
+	return root; // might not be the original root!
 }
 }// namespace
 
@@ -147,10 +149,8 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 	}
 	LOG("-------- loading scene (tinygltf) --------");
 
-	using namespace tinygltf;
-
-	Model model;
-	TinyGLTF loader;
+	tinygltf::Model model;
+	tinygltf::TinyGLTF loader;
 	loader.SetPreserveImageChannels(true); // instead of widening to 4 channels
 	std::string err;
 	std::string warn;
@@ -173,7 +173,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 			nodes_map[model.lights[i].name]->light_idx = i;
 		}
 	}
-	collapseSceneTree(tree);
+	tree = collapseSceneTree(tree);
 
 	// actually construct the scene
 
@@ -185,28 +185,51 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 		auto node = nodesQueue.front();
 		nodesQueue.pop();
 
-		SceneObject *drawable = nullptr;
+		SceneObject *object = nullptr;
 
 		if (node->camera_idx != -1)
 		{
-			//...
-			drawable = new SceneObject(nullptr, node->name);
+			object = new Camera(&model.cameras[node->camera_idx]);
 		}
 		else if (node->light_idx != -1)
 		{
-			//...
-			drawable = new SceneObject(nullptr, node->name);
+			tinygltf::Light *in_light = &model.lights[node->light_idx];
+			if (in_light->type == "point")
+			{
+				object = new PointLight(in_light);
+			}
+			else if (in_light->type == "directional")
+			{
+				object = new DirectionalLight(in_light);
+			}
+			else
+			{
+				WARN("Unsupported light (%s : %s)", in_light->name.c_str(), in_light->type.c_str())
+				object = new SceneObject(nullptr, node->name);
+			}
 		}
 		else if (node->mesh_idx != -1)
 		{
-			//...
-			drawable = new SceneObject(nullptr, node->name);
+			auto in_mesh = &model.meshes[node->mesh_idx];
+			std::vector<Mesh*> meshes = Mesh::load_gltf(in_mesh, &model);
+			if (in_mesh->primitives.size() > 1)
+			{
+				object = new SceneObject(nullptr, in_mesh->name);
+				for (auto m : meshes)
+				{
+					object->add_child(m);
+				}
+			}
+			else
+			{
+				object = meshes[0];
+			}
 		}
 		else
 		{
-			drawable = new SceneObject(nullptr, "[transform] " + node->name);
+			object = new SceneObject(nullptr, "[transform] " + node->name);
 		}
-		nodeToDrawable[node] = drawable;
+		nodeToDrawable[node] = object;
 
 		glm::vec3 position;
 		glm::quat rotation;
@@ -215,13 +238,13 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 		glm::vec4 perspective;
 		glm::decompose(node->transformation, scale, rotation, position, skew, perspective);
 
-		drawable->set_local_position(drawable->local_position() + position);
-		drawable->set_rotation(rotation * drawable->rotation());
-		drawable->set_scale(drawable->scale() * scale);
+		object->set_local_position(object->local_position() + position);
+		object->set_rotation(rotation * object->rotation());
+		object->set_scale(object->scale() * scale);
 
 		if (node->parent)
 		{
-			nodeToDrawable[node->parent]->add_child(drawable);
+			nodeToDrawable[node->parent]->add_child(object);
 		}
 
 		for (auto child : node->children)

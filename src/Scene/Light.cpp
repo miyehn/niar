@@ -1,8 +1,9 @@
 #include "Light.hpp"
 #include "Engine/Config.hpp"
 
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <tinygltf/tiny_gltf.h>
 
 using namespace glm;
 
@@ -28,6 +29,14 @@ DirectionalLight::DirectionalLight(aiLight *light)
 	auto col = light->mColorDiffuse;
 	color = vec3(col.r, col.g, col.b);
 	intensity = 1;
+}
+
+DirectionalLight::DirectionalLight(const tinygltf::Light *in_light)
+{
+	name = in_light->name;
+	auto c = in_light->color;
+	color = vec3(c[0], c[1], c[2]);
+	intensity = in_light->intensity;
 }
 
 //-------- point light --------
@@ -61,5 +70,13 @@ PointLight::PointLight(aiLight *light)
 	local_position_value = vec3(pos.x, pos.y, pos.z);
 
 	scale_value = vec3(1);
+}
+
+PointLight::PointLight(const tinygltf::Light *in_light)
+{
+	name = in_light->name;
+	auto c = in_light->color;
+	color = vec3(c[0], c[1], c[2]);
+	intensity = in_light->intensity;
 }
 

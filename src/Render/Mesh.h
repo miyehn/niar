@@ -9,6 +9,15 @@ struct BSDF;
 struct aiMesh;
 class Material;
 
+namespace tinygltf
+{
+	struct Mesh;
+	struct Primitive;
+	struct Model;
+}
+
+#define VERTEX_INDEX_TYPE uint16_t
+
 struct Mesh : SceneObject {
 
 	static std::vector<Mesh*> LoadMeshes(const std::string& source, bool initialize_graphics = true);
@@ -20,7 +29,9 @@ struct Mesh : SceneObject {
 		std::string _name = "[unnamed mesh]");
 
 	// load from glTF data
-	// explicit Mesh(...)
+	static std::vector<Mesh*> load_gltf(
+		const tinygltf::Mesh* in_mesh,
+		const tinygltf::Model* in_model);
 
 	void initialize_gpu();
 	~Mesh() override;
@@ -34,7 +45,7 @@ struct Mesh : SceneObject {
 	void set_scale(glm::vec3 _scale) override;
 
 	std::vector<Vertex> vertices;
-	std::vector<uint16_t> faces;
+	std::vector<VERTEX_INDEX_TYPE> faces;
 	uint32_t get_num_triangles() const { return faces.size() / 3; }
 
 	AABB aabb;
@@ -47,6 +58,10 @@ struct Mesh : SceneObject {
 private:
 
 	static std::unordered_map<std::string, std::string> material_assignment;
+
+	explicit Mesh(
+		const tinygltf::Primitive* in_mesh,
+		const tinygltf::Model* in_model);
 
 	bool locked = false;
 	void generate_aabb();
