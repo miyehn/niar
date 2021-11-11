@@ -209,27 +209,34 @@ Material *Mesh::get_material()
 
 std::vector<Mesh *> Mesh::load_gltf(
 	const tinygltf::Mesh* in_mesh,
-	const tinygltf::Model* in_model)
+	const tinygltf::Model* in_model,
+	const std::vector<std::string>& texture_names)
 {
 	std::vector<Mesh*> output;
-	LOG("loading %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
-	for (auto &prim : in_mesh->primitives)
+	LOG("loading mesh obj %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
+	for (int i = 0; i < in_mesh->primitives.size(); i++)
 	{
+		auto& prim = in_mesh->primitives[i];
 		if (prim.mode != TINYGLTF_MODE_TRIANGLES)
 		{
 			WARN("%s contains unsupported mesh mode %d. skipping..", in_mesh->name.c_str(), prim.mode)
 			continue;
 		}
-		output.emplace_back(new Mesh(&prim, in_model));
+		auto in_name = in_mesh->name + "[" + std::to_string(i) + "]";
+		auto m = new Mesh(in_name, &prim, in_model, texture_names);
+		output.emplace_back(m);
 	}
 	return output;
 }
 
 // internal
 Mesh::Mesh(
+	const std::string& in_name,
 	const tinygltf::Primitive *in_prim,
-	const tinygltf::Model *in_model)
+	const tinygltf::Model *in_model,
+	const std::vector<std::string>& material_names)
 {
+	name = in_name;
 	auto get_data = [&](
 		int accessor_idx,
 		const uint8_t** out_data,
@@ -282,5 +289,5 @@ Mesh::Mesh(
 
 	generate_aabb();
 
-	// TODO: assign material
+	set_material_name(name, material_names[in_prim->material]);
 }

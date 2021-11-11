@@ -120,6 +120,9 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 	uint32_t pixelSize = textureFormat.numChannels * (textureFormat.channelDepth / 8);
 	createTexture2DFromPixelData(pixels, width, height, imageFormat, pixelSize,resource,imageView);
 
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")
+
 	stbi_image_free(pixels);
 
 	Texture::pool[name] = this;
@@ -148,6 +151,7 @@ void Texture2D::createDefaultTextures()
 		whiteTexture->resource,
 		whiteTexture->imageView);
 	Texture::pool["_white"] = whiteTexture;
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, whiteTexture->resource.image, "_white")
 
 	auto* blackTexture = new Texture2D();
 	blackTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -162,6 +166,7 @@ void Texture2D::createDefaultTextures()
 		blackTexture->resource,
 		blackTexture->imageView);
 	Texture::pool["_black"] = blackTexture;
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, blackTexture->resource.image, "_black")
 
 	auto* defaultNormal = new Texture2D();
 	defaultNormal->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -176,6 +181,22 @@ void Texture2D::createDefaultTextures()
 		defaultNormal->resource,
 		defaultNormal->imageView);
 	Texture::pool["_defaultNormal"] = defaultNormal;
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
+
+	auto* defaultMetallicRoughness = new Texture2D();
+	defaultMetallicRoughness->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	defaultMetallicRoughness->num_slices = 1;
+	defaultMetallicRoughness->width = 1;
+	defaultMetallicRoughness->height = 1;
+	uint8_t defaultMetallicRoughnessPixel[] = {255, 0, 255, 255};
+	createTexture2DFromPixelData(
+		defaultMetallicRoughnessPixel, 1, 1,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		4,
+		defaultMetallicRoughness->resource,
+		defaultMetallicRoughness->imageView);
+	Texture::pool["_defaultGltfMetallicRoughness"] = defaultMetallicRoughness;
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultMetallicRoughness->resource.image, "_defaultGltfMetallicRoughness")
 }
 
 Texture2D::~Texture2D()
@@ -196,4 +217,25 @@ Texture2D::Texture2D(ImageCreator &imageCreator)
 		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, imageCreator.debugName)
 		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, imageCreator.debugName + "_defaultView")
 	}
+}
+
+Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uint32_t height, ImageFormat format)
+{
+	LOG("loading texture '%s'..", name.c_str())
+
+	imageFormat = getFormatFromMap(format);
+	this->width = width;
+	this->height = height;
+	this->num_slices = 1;
+
+	createTexture2DFromPixelData(
+		data, width, height,
+		imageFormat,
+		(format.numChannels * format.channelDepth / 8),
+		resource,
+		imageView);
+	Texture::pool[name] = this;
+
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")
 }

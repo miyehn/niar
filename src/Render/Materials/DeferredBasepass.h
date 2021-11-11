@@ -16,7 +16,7 @@ public:
 		const std::string &ao_path = ""
 	);
 	void setParameters(SceneObject* drawable) override;
-	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets={}) override;
+	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
 	~MatDeferredBasepass() override;
 
 	static void cleanup();

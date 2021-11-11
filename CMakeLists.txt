@@ -70,7 +70,7 @@ set(SRC
 	src/Engine/DebugUI.h
 	src/Utils/myn/RenderDoc.cpp
     src/Scene/SceneLoad_Assimp.cpp
-	src/Scene/SceneLoad_glTF.cpp)
+	src/Scene/SceneLoad_glTF.cpp src/Render/Materials/DeferredBasepassGlTF.cpp src/Render/Materials/DeferredBasepassGlTF.h)
 
 if(APPLE)
 	add_executable(niar ${SRC})

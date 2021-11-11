@@ -1,5 +1,6 @@
 #include "Material.h"
 #include "DeferredBasepass.h"
+#include "DeferredBasepassGlTF.h"
 #include "DeferredLighting.h"
 
 std::unordered_map<std::string, Material*> Material::pool;
@@ -31,5 +32,6 @@ void Material::cleanup()
 	}
 
 	MatDeferredBasepass::cleanup();
+	MatDeferredBasepassGlTF::cleanup();
 	MatDeferredLighting::cleanup();
 }

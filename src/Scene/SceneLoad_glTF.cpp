@@ -2,9 +2,9 @@
 #include "Camera.hpp"
 #include "Light.hpp"
 #include "Render/Mesh.h"
+#include "Render/Texture.h"
+#include "Render/Materials/DeferredBasepassGlTF.h"
 #include "Engine/Config.hpp"
-
-#include "Utils/myn/Log.h"
 
 #include <glm/gtx/matrix_decompose.hpp>
 #include <tinygltf/tiny_gltf.h>
@@ -151,7 +151,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
-	loader.SetPreserveImageChannels(true); // instead of widening to 4 channels
+	loader.SetPreserveImageChannels(false);
 	std::string err;
 	std::string warn;
 
@@ -164,8 +164,62 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 
 	//====================
 
+	// image (texture), material
+
+	struct ImageInfo
+	{
+		ImageFormat format;
+		Texture2D* texture;
+	};
+	std::vector<ImageInfo> image_infos(model.images.size());
+
+	// fill in format for now but defer actual creation till after mesh loading
+	for (int i = 0; i < model.images.size(); i++)
+	{
+		auto& img = model.images[i];
+		image_infos[i].format = { img.component, img.bits, 0 };
+	}
+	// mark albedo textures as sRGB
+	for (int i = 0; i < model.materials.size(); i++)
+	{
+		auto& mat = model.materials[i];
+		int albedo_tex_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
+		if (albedo_tex_idx >= 0)
+		{
+			int albedo_img_idx = model.textures[albedo_tex_idx].source;
+			image_infos[albedo_img_idx].format.SRGB = 1;
+		}
+	}
+	// actually create the textures
+	for (int i = 0; i < model.images.size(); i++)
+	{
+		auto& img = model.images[i];
+		image_infos[i].texture = new Texture2D(
+			img.name,
+			img.image.data(),
+			img.width, img.height,
+			image_infos[i].format);
+	}
+
+	// materials
+	std::vector<std::string> texture_names(model.textures.size());
+	for (int i = 0; i < model.textures.size(); i++) {
+		texture_names[i] = model.images[model.textures[i].source].name;
+	}
+
+	std::vector<std::string> material_names(model.materials.size());
+	for (int i = 0; i < model.materials.size(); i++) {
+		auto& mat = model.materials[i];
+		new MatDeferredBasepassGlTF(mat, texture_names);
+		material_names[i] = mat.name;
+	}
+
+	//====================
+
+
 	// camera, mesh
 	auto tree = loadSceneTree(model.nodes);
+
 	{// light
 		std::unordered_map<std::string, SceneNodeIntermediate*> nodes_map;
 		tree->foreach([&nodes_map](SceneNodeIntermediate* node) { nodes_map[node->name] = node; });
@@ -211,17 +265,19 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 		else if (node->mesh_idx != -1)
 		{
 			auto in_mesh = &model.meshes[node->mesh_idx];
-			std::vector<Mesh*> meshes = Mesh::load_gltf(in_mesh, &model);
+			std::vector<Mesh*> meshes = Mesh::load_gltf(in_mesh, &model, material_names);
 			if (in_mesh->primitives.size() > 1)
 			{
 				object = new SceneObject(nullptr, in_mesh->name);
 				for (auto m : meshes)
 				{
+					m->initialize_gpu();
 					object->add_child(m);
 				}
 			}
 			else
 			{
+				meshes[0]->initialize_gpu();
 				object = meshes[0];
 			}
 		}
@@ -257,5 +313,4 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 
 	delete tree;
 
-	// image, texture, sampler, material
 }

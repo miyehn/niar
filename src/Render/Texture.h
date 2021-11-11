@@ -35,11 +35,22 @@ public:
 
 	~Texture2D() override;
 
+	// load from file
 	explicit Texture2D(
 		const std::string &name,
 		const std::string &path,
 		ImageFormat textureFormat={4,8,1});
 
+	// create with code but provide pixel data (ie. gltf)
+	explicit Texture2D(
+		const std::string &name,
+		uint8_t* data,
+		uint32_t width,
+		uint32_t height,
+		ImageFormat format
+		);
+
+	// allocate programmatically; NOT POOLED
 	explicit Texture2D(ImageCreator &imageCreator);
 
 	static void createDefaultTextures();

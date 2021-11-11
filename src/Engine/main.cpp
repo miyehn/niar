@@ -96,11 +96,17 @@ static void init()
 	 */
 	else
 	{
-		Scene::Active = new Scene("Water Tower");
-		Scene::Active->load_assimp(Cfg.SceneSource, false);
+		//Scene::Active = new Scene("Water Tower");
+		//Scene::Active->load_assimp(Cfg.SceneSource, false);
 		Scene* gltf = new Scene("gltf");
 		gltf->load_tinygltf(std::string(ROOT_DIR"/") + "media/ff_demo/stage.glb", false);
-		delete gltf;
+		Scene::Active = gltf;
+		//delete gltf;
+
+		gltf->foreach_descendent_bfs([](SceneObject* obj) {
+			auto cam = dynamic_cast<Camera*>(obj);
+			if (cam) Camera::Active = cam;
+		});
 	}
 
 	ui::usePurpleStyle();

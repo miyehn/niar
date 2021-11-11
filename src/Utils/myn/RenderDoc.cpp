@@ -16,7 +16,7 @@ bool RenderDoc::shouldCaptureFrame = false;
 bool RenderDoc::load(const std::string &appName)
 {
 #ifdef WINOS
-	if (HMODULE mod = LoadLibrary("C:\\Program Files\\RenderDoc\\renderdoc.dll"))
+	if (HMODULE mod = LoadLibrary("D:\\Program Files\\RenderDoc\\renderdoc.dll"))
 	{
 		pRENDERDOC_GetAPI RENDERDOC_GetAPI =
 			(pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");

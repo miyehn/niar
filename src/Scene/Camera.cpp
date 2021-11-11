@@ -204,6 +204,7 @@ Camera::Camera(aiCamera* inCamera)
 Camera::Camera(const tinygltf::Camera *in_camera) : Camera(0, 0, false)
 {
 	name = in_camera->name;
+	LOG("loading camera '%s'..", name.c_str())
 	move_speed = 16;
 	rotate_speed = 0.002f;
 	if (in_camera->type != "perspective")

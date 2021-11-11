@@ -31,7 +31,8 @@ struct Mesh : SceneObject {
 	// load from glTF data
 	static std::vector<Mesh*> load_gltf(
 		const tinygltf::Mesh* in_mesh,
-		const tinygltf::Model* in_model);
+		const tinygltf::Model* in_model,
+		const std::vector<std::string>& texture_names);
 
 	void initialize_gpu();
 	~Mesh() override;
@@ -60,8 +61,10 @@ private:
 	static std::unordered_map<std::string, std::string> material_assignment;
 
 	explicit Mesh(
+		const std::string& name,
 		const tinygltf::Primitive* in_mesh,
-		const tinygltf::Model* in_model);
+		const tinygltf::Model* in_model,
+		const std::vector<std::string>& material_names);
 
 	bool locked = false;
 	void generate_aabb();
