@@ -25,12 +25,12 @@ struct SceneNodeIntermediate
 		name = in_node.name;
 		if (!in_node.rotation.empty())
 		{
-			glm::quat rot(in_node.rotation[0], in_node.rotation[1], in_node.rotation[2], in_node.rotation[3]);
-			transformation = glm::mat4(rot);
+			glm::quat rot(in_node.rotation[3], in_node.rotation[0], in_node.rotation[1], in_node.rotation[2]);
+			transformation = glm::mat4_cast(rot);
 		}
 		if (!in_node.scale.empty())
 		{
-			glm::mat4 scl{};
+			auto scl = glm::mat4(1.0f);
 			scl[0][0] = in_node.scale[0];
 			scl[1][1] = in_node.scale[1];
 			scl[2][2] = in_node.scale[2];
@@ -39,7 +39,7 @@ struct SceneNodeIntermediate
 		}
 		if (!in_node.translation.empty())
 		{
-			glm::mat4 tran{};
+			auto tran = glm::mat4(1.0f);
 			tran[3] = {in_node.translation[0], in_node.translation[1], in_node.translation[2], 1};
 			transformation = tran * transformation;
 		}

@@ -9,26 +9,30 @@
 VkPipelineLayout MatDeferredBasepassGlTF::pipelineLayout = VK_NULL_HANDLE;
 VkPipeline MatDeferredBasepassGlTF::pipeline = VK_NULL_HANDLE;
 
-void MatDeferredBasepassGlTF::setParameters(SceneObject *drawable)
+void MatDeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
+	// per-material-instance params (static)
+	materialParamsBuffer.writeData(&materialParams);
+
+	// per-object params (dynamic)
 	uniforms = {
 		.ModelMatrix = drawable->object_to_world(),
 	};
+	uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
+
+	uint32_t offset = uniformBuffer.strideSize * instanceCounter;
+	dynamicSet.bind(cmdbuf, DSET_DYNAMIC, pipelineLayout, 0, 1, &offset);
+
+	instanceCounter++;
 }
 
 void MatDeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
 {
-	uniformBuffer.writeData(&uniforms);
-	materialParamsBuffer.writeData(&materialParams);
-
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
 		dsetSlot.descriptorSet.bind(cmdbuf, dsetSlot.bindingSlot, pipelineLayout);
 	}
-
-	dynamicSet.bind(cmdbuf, DSET_DYNAMIC, pipelineLayout);
-
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
 MatDeferredBasepassGlTF::~MatDeferredBasepassGlTF()
@@ -52,7 +56,8 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(uniforms),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							  VMA_MEMORY_USAGE_CPU_TO_GPU);
+							  VMA_MEMORY_USAGE_CPU_TO_GPU,
+							  1, 4);
 	materialParamsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(materialParams),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -66,7 +71,7 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 		// set layouts and allocation
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
 		DescriptorSetLayout dynamicSetLayout{};
-		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_VERTEX_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_VERTEX_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
 		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -82,7 +87,7 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 		auto normal = dynamic_cast<Texture2D*>(Texture::get(normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal"));
 
 		int mr_idx = in_material.pbrMetallicRoughness.metallicRoughnessTexture.index;
-		auto metallic_roughness = dynamic_cast<Texture2D*>(Texture::get(mr_idx >= 0 ? texture_names[mr_idx] : "_defaultGltfMetallicRoughness"));
+		auto metallic_roughness = dynamic_cast<Texture2D*>(Texture::get(mr_idx >= 0 ? texture_names[mr_idx] : "_white"));
 
 		int ao_idx = in_material.occlusionTexture.index;
 		auto ao = dynamic_cast<Texture2D*>(Texture::get(ao_idx >= 0 ? texture_names[ao_idx] : "_white"));
@@ -94,8 +99,8 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 		materialParams.MetallicRoughnessAONormalStrengths.b = (float)in_material.occlusionTexture.strength;
 		materialParams.MetallicRoughnessAONormalStrengths.a = (float)in_material.normalTexture.scale;
 
-		dynamicSet.pointToUniformBuffer(uniformBuffer, 0);
-		dynamicSet.pointToUniformBuffer(materialParamsBuffer, 1);
+		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
+		dynamicSet.pointToBuffer(materialParamsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSet.pointToImageView(albedo->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(normal->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(metallic_roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -122,4 +127,9 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 			pipelineBuilder.build(pipeline, pipelineLayout);
 		}
 	}
+}
+
+void MatDeferredBasepassGlTF::resetInstanceCounter()
+{
+	instanceCounter = 0;
 }

@@ -43,7 +43,7 @@ MatDeferredBasepass::MatDeferredBasepass(
 		auto metallic = dynamic_cast<Texture2D*>(Texture::get(metallic_tex));
 		auto roughness = dynamic_cast<Texture2D*>(Texture::get(roughness_tex));
 		auto ao = dynamic_cast<Texture2D*>(Texture::get(ao_path.length() == 0 ? "_white" : ao_path));
-		dynamicSet.pointToUniformBuffer(uniformBuffer, 0);
+		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSet.pointToImageView(albedo->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(normal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(metallic->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -87,7 +87,7 @@ void MatDeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descri
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-void MatDeferredBasepass::setParameters(SceneObject *drawable)
+void MatDeferredBasepass::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	uniforms = {
 		.ModelMatrix = drawable->object_to_world(),

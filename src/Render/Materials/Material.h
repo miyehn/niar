@@ -21,17 +21,21 @@ class Material
 public:
 	std::string name;
 
-	virtual void setParameters(SceneObject* drawable) {};
+	virtual void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) {};
 	virtual void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets = {}) = 0;
 
 	virtual ~Material() = default;
 
 	static Material* find(const std::string& name);
+	static void resetInstanceCounters();
 	static void cleanup();
 
 protected:
 
 	static void add(Material* material);
+
+	// materials with dynamic uniform buffers should implement this
+	virtual void resetInstanceCounter() {}
 
 private:
 

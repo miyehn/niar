@@ -14,9 +14,11 @@ public:
 		const tinygltf::Material& in_material,
 		const std::vector<std::string>& texture_names
 	);
-	void setParameters(SceneObject* drawable) override;
+	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
 	~MatDeferredBasepassGlTF() override;
+
+	void resetInstanceCounter() override;
 
 	static void cleanup();
 
@@ -40,4 +42,5 @@ private:
 	static VkPipelineLayout pipelineLayout;
 
 	DescriptorSet dynamicSet;
+	uint32_t instanceCounter;
 };

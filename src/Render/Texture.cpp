@@ -182,21 +182,6 @@ void Texture2D::createDefaultTextures()
 		defaultNormal->imageView);
 	Texture::pool["_defaultNormal"] = defaultNormal;
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
-
-	auto* defaultMetallicRoughness = new Texture2D();
-	defaultMetallicRoughness->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	defaultMetallicRoughness->num_slices = 1;
-	defaultMetallicRoughness->width = 1;
-	defaultMetallicRoughness->height = 1;
-	uint8_t defaultMetallicRoughnessPixel[] = {255, 0, 255, 255};
-	createTexture2DFromPixelData(
-		defaultMetallicRoughnessPixel, 1, 1,
-		VK_FORMAT_R8G8B8A8_UNORM,
-		4,
-		defaultMetallicRoughness->resource,
-		defaultMetallicRoughness->imageView);
-	Texture::pool["_defaultGltfMetallicRoughness"] = defaultMetallicRoughness;
-	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultMetallicRoughness->resource.image, "_defaultGltfMetallicRoughness")
 }
 
 Texture2D::~Texture2D()

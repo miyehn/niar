@@ -1,13 +1,13 @@
 #include "Buffer.h"
 #include "Utils/myn/Log.h"
 
-VmaBuffer::VmaBuffer(VmaAllocator *allocator, VkDeviceSize size, VkBufferUsageFlags bufferUsage,
-					 VmaMemoryUsage memoryUsage, uint32_t numInstances)
-					 : allocator(allocator), numInstances(numInstances), size(size)
+VmaBuffer::VmaBuffer(VmaAllocator *allocator, VkDeviceSize strideSize, VkBufferUsageFlags bufferUsage,
+					 VmaMemoryUsage memoryUsage, uint32_t numInstances, uint32_t numStrides)
+					 : allocator(allocator), numInstances(numInstances), strideSize(strideSize), numStrides(numStrides)
 {
 	VkBufferCreateInfo bufferCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = size,
+		.size = strideSize * numStrides,
 		.usage = bufferUsage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
@@ -49,12 +49,12 @@ VmaAllocation VmaBuffer::getAllocationInstance(uint32_t index) const
 	return allocations[index];
 }
 
-void VmaBuffer::writeData(void *inData, size_t writeSize, size_t bufferIndex)
+void VmaBuffer::writeData(void *inData, size_t writeSize, size_t bufferIndex, uint32_t strideIndex)
 {
 	EXPECT(allocator == nullptr, false)
-	if (writeSize == 0) writeSize = (size_t)size;
+	if (writeSize == 0) writeSize = (size_t)strideSize;
 	void* mappedMemory;
 	vmaMapMemory(*allocator, getAllocationInstance(bufferIndex), &mappedMemory);
-	memcpy(mappedMemory, inData, writeSize);
+	memcpy((uint8_t*)mappedMemory + strideIndex * strideSize, inData, writeSize);
 	vmaUnmapMemory(*allocator, getAllocationInstance(bufferIndex));
 }

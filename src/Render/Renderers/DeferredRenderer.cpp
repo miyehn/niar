@@ -262,7 +262,7 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 
-		frameGlobalDescriptorSet.pointToUniformBuffer(viewInfoUbo, 0);
+		frameGlobalDescriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
@@ -318,20 +318,24 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
 		// deferred base pass: draw the meshes with materials
-		Material* lastMaterial = nullptr;
-		for (auto drawable : drawables) // (assume they're sorted by material pipeline)
+		Material* last_material = nullptr;
+		uint32_t instance_ctr = 0;
+		for (auto drawable : drawables) // TODO: material sorting, etc.
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
 				auto mat = m->get_material();
-				if (mat != lastMaterial)
+				if (mat != last_material)
 				{
-					mat->usePipeline(cmdbuf, {
+					m->get_material()->usePipeline(cmdbuf, {
 						{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
 					});
-					lastMaterial = mat;
+					last_material = mat;
+					instance_ctr = 0;
 				}
+
 				m->draw(cmdbuf);
+				instance_ctr++;
 			}
 		}
 

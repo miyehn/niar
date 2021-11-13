@@ -26,12 +26,17 @@ void main()
     vec2 uv = vf_uv;
 
     Position = vf_position.xyz;
+
     vec3 sampled_normal = texture(NormalMap, uv).rgb * 2 - 1.0;
     sampled_normal.rg = -sampled_normal.rg;
+    sampled_normal.rg *= materialParams.MetallicRoughnessAONormalStrengths.a;
     Normal = TANGENT_TO_WORLD_ROT * normalize(sampled_normal);
-    Color = texture(AlbedoMap, uv).rgb;
+
+    Color = texture(AlbedoMap, uv).rgb * materialParams.BaseColorFactor.rgb;
 
     vec2 metallic_roughness = texture(MetallicRoughnessMap, uv).rg;
-    float ao = texture(AOMap, uv).r;
-    MRA = vec3(metallic_roughness.r, metallic_roughness.g, ao);
+    float metallic = metallic_roughness.r * materialParams.MetallicRoughnessAONormalStrengths.r;
+    float roughness = metallic_roughness.g * materialParams.MetallicRoughnessAONormalStrengths.g;
+    float ao = texture(AOMap, uv).r * materialParams.MetallicRoughnessAONormalStrengths.b;
+    MRA = vec3(metallic, roughness, ao);
 }

@@ -23,15 +23,21 @@ class DescriptorSet
 public:
 	DescriptorSet() = default;
 
-	DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances = 1);
+	explicit DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances = 1);
 
 	VkDescriptorSet getInstance(uint32_t index = 0) const { return descriptorSets[index]; }
 
-	void pointToUniformBuffer(VmaBuffer &uniformBuffer, uint32_t binding);
+	void pointToBuffer(VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType);
 
 	void pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType);
 
-	void bind(VkCommandBuffer cmdbuf, uint32_t setIndex, VkPipelineLayout pipelineLayout, uint32_t instanceId = 0);
+	void bind(
+		VkCommandBuffer cmdbuf,
+		uint32_t setIndex,
+		VkPipelineLayout pipelineLayout,
+		uint32_t instanceId = 0,
+		uint32_t numDynamicOffsets = 0,
+		const uint32_t* pDynamicOffsets = nullptr);
 
 	DescriptorSetLayout getLayout() { return layout; }
 

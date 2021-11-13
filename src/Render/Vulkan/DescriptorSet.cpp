@@ -45,6 +45,7 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 		// TODO: make more reliable
 		std::vector<VkDescriptorPoolSize> poolSizes = {
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 20 },
 			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 }
 		};
 		VkDescriptorPoolCreateInfo poolInfo = {
@@ -67,18 +68,18 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 	EXPECT(vkAllocateDescriptorSets(Vulkan::Instance->device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
 }
 
-void DescriptorSet::pointToUniformBuffer(VmaBuffer &uniformBuffer, uint32_t binding)
+void DescriptorSet::pointToBuffer(VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType)
 {
 	uint32_t numInstances = descriptorSets.size();
 	EXPECT(numInstances != 0, true)
-	EXPECT(uniformBuffer.getNumInstances(), numInstances)
+	EXPECT(buffer.numInstances, numInstances)
 
 	for (auto i = 0; i < numInstances; i++)
 	{
 		VkDescriptorBufferInfo bufferInfo = {
-			.buffer = uniformBuffer.getBufferInstance(i),
+			.buffer = buffer.getBufferInstance(i),
 			.offset = 0,
-			.range = VK_WHOLE_SIZE,
+			.range = buffer.strideSize
 		};
 		// "Structure specifying the parameters of a descriptor set write operation"
 		VkWriteDescriptorSet descriptorWrite = {
@@ -87,7 +88,7 @@ void DescriptorSet::pointToUniformBuffer(VmaBuffer &uniformBuffer, uint32_t bind
 			.dstBinding = binding,
 			.dstArrayElement = 0,
 			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorType = descriptorType,
 			// actual write data (one of three)
 			.pImageInfo = nullptr,
 			.pBufferInfo = &bufferInfo, // where in which buffer
@@ -137,7 +138,13 @@ void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding, Vk
 	}
 }
 
-void DescriptorSet::bind(VkCommandBuffer cmdbuf, uint32_t setIndex, VkPipelineLayout pipelineLayout, uint32_t instanceId)
+void DescriptorSet::bind(
+	VkCommandBuffer cmdbuf,
+	uint32_t setIndex,
+	VkPipelineLayout pipelineLayout,
+	uint32_t instanceId,
+	uint32_t numDynamicOffsets,
+	const uint32_t* pDynamicOffsets)
 {
 	vkCmdBindDescriptorSets(
 		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -145,8 +152,8 @@ void DescriptorSet::bind(VkCommandBuffer cmdbuf, uint32_t setIndex, VkPipelineLa
 		setIndex, // firstSet : uint32_t
 		1, // descriptorSetCount : uint32_t
 		&descriptorSets[instanceId],
-		0,
-		nullptr); // for dynamic descriptors (not reached yet)
+		numDynamicOffsets,
+		pDynamicOffsets);
 }
 
 //================ descriptor set layout cache =================

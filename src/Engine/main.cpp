@@ -80,7 +80,7 @@ static void init()
 
 	LOG("loading resources (vulkan)...");
 	Texture2D::createDefaultTextures();
-	initialize_asset_config();
+	// initialize_asset_config();
 	initialize_pathtracer_config();
 
 	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
@@ -96,14 +96,16 @@ static void init()
 	 */
 	else
 	{
-		//Scene::Active = new Scene("Water Tower");
-		//Scene::Active->load_assimp(Cfg.SceneSource, false);
+#if 0
+		Scene::Active = new Scene("test scene");
+		Scene::Active->load_assimp(Cfg.SceneSource, false);
+#else
 		Scene* gltf = new Scene("gltf");
 		gltf->load_tinygltf(std::string(ROOT_DIR"/") + "media/ff_demo/stage.glb", false);
 		Scene::Active = gltf;
-		//delete gltf;
+#endif
 
-		gltf->foreach_descendent_bfs([](SceneObject* obj) {
+		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
 			auto cam = dynamic_cast<Camera*>(obj);
 			if (cam) Camera::Active = cam;
 		});
@@ -127,6 +129,13 @@ static void init()
 				{
 					ImGui::Checkbox("enabled", &node->enabled);
 					node->draw_transform_ui(show_global_transform);
+					if (auto cam = dynamic_cast<Camera*>(node)) {
+						if (ImGui::Button("look at origin"))
+						{
+							glm::quat rot = glm::quatLookAt(-glm::normalize(cam->local_position()), glm::vec3(0, 1, 0));
+							cam->set_rotation(rot);
+						}
+					}
 					for (auto child : node->children) make_tree(child);
 					ImGui::TreePop();
 				}
@@ -255,6 +264,7 @@ static void draw()
 	}
 	else
 	{
+		Material::resetInstanceCounters();
 		auto renderer = DeferredRenderer::get();
 		renderer->camera = Camera::Active;
 		renderer->drawable = Scene::Active;

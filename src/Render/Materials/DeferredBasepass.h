@@ -15,7 +15,7 @@ public:
 		const std::string &roughness_tex,
 		const std::string &ao_path = ""
 	);
-	void setParameters(SceneObject* drawable) override;
+	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
 	~MatDeferredBasepass() override;
 

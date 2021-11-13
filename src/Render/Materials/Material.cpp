@@ -35,3 +35,11 @@ void Material::cleanup()
 	MatDeferredBasepassGlTF::cleanup();
 	MatDeferredLighting::cleanup();
 }
+
+void Material::resetInstanceCounters()
+{
+	for (auto it : pool)
+	{
+		it.second->resetInstanceCounter();
+	}
+}

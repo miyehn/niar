@@ -29,8 +29,8 @@ MatDeferredLighting::MatDeferredLighting(DeferredRenderer* renderer)
 		dynamicSet = DescriptorSet(dynamicSetLayout);
 
 		// assign values
-		dynamicSet.pointToUniformBuffer(pointLightsBuffer, 0);
-		dynamicSet.pointToUniformBuffer(directionalLightsBuffer, 1);
+		dynamicSet.pointToBuffer(pointLightsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSet.pointToBuffer(directionalLightsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
         if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
         {

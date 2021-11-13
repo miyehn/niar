@@ -134,7 +134,7 @@ void Mesh::update(float elapsed) {
 
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	get_material()->setParameters(this);
+	get_material()->setParameters(cmdbuf, this);
 
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
