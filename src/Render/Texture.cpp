@@ -37,6 +37,7 @@ void createTexture2DFromPixelData(
 	uint32_t height,
 	VkFormat imageFormat,
 	uint32_t pixelSize,
+	bool generateMips,
 	VmaAllocatedImage &outResource,
 	VkImageView &outImageView)
 {
@@ -46,17 +47,21 @@ void createTexture2DFromPixelData(
 		.depth = 1
 	};
 
+	uint32_t numMips = generateMips ? static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1 : 1;
+
 	VkImageCreateInfo imgInfo = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = VK_IMAGE_TYPE_2D,
 		.format = imageFormat,
 		.extent = imageExtent,
-		.mipLevels = 1,
+		.mipLevels = numMips,
 		.arrayLayers = 1,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.tiling = VK_IMAGE_TILING_OPTIMAL,
 		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
 	};
+
+	if (generateMips) imgInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
 	VmaAllocationCreateInfo imgAllocInfo = {
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
@@ -64,7 +69,11 @@ void createTexture2DFromPixelData(
 
 	vmaCreateImage(Vulkan::Instance->memoryAllocator, &imgInfo, &imgAllocInfo, &outResource.image, &outResource.allocation, nullptr);
 
-	vk::uploadPixelsToImage(pixels, 0, 0, width, height, pixelSize, outResource);
+	vk::uploadPixelsToImage(pixels, 0, 0, width, height, pixelSize, outResource); // to mip 0
+	if (generateMips)
+	{
+		vk::generateMips(outResource, width, height);
+	}
 
 	// create image view
 	VkImageViewCreateInfo viewInfo = {
@@ -77,7 +86,7 @@ void createTexture2DFromPixelData(
 		.subresourceRange = {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.baseMipLevel = 0,
-			.levelCount = 1,
+			.levelCount = numMips,
 			.baseArrayLayer = 0,
 			.layerCount = 1
 		}
@@ -118,7 +127,7 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 	num_slices = 1;
 
 	uint32_t pixelSize = textureFormat.numChannels * (textureFormat.channelDepth / 8);
-	createTexture2DFromPixelData(pixels, width, height, imageFormat, pixelSize,resource,imageView);
+	createTexture2DFromPixelData(pixels, width, height, imageFormat, pixelSize, true, resource, imageView);
 
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")
@@ -148,6 +157,7 @@ void Texture2D::createDefaultTextures()
 		whitePixel, 1, 1,
 		VK_FORMAT_R8G8B8A8_UNORM,
 		4,
+		false,
 		whiteTexture->resource,
 		whiteTexture->imageView);
 	Texture::pool["_white"] = whiteTexture;
@@ -163,6 +173,7 @@ void Texture2D::createDefaultTextures()
 		blackPixel, 1, 1,
 		VK_FORMAT_R8G8B8A8_UNORM,
 		4,
+		false,
 		blackTexture->resource,
 		blackTexture->imageView);
 	Texture::pool["_black"] = blackTexture;
@@ -178,6 +189,7 @@ void Texture2D::createDefaultTextures()
 		defaultNormalPixel, 1, 1,
 		VK_FORMAT_R8G8B8A8_UNORM,
 		4,
+		false,
 		defaultNormal->resource,
 		defaultNormal->imageView);
 	Texture::pool["_defaultNormal"] = defaultNormal;
@@ -217,6 +229,7 @@ Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uin
 		data, width, height,
 		imageFormat,
 		(format.numChannels * format.channelDepth / 8),
+		true,
 		resource,
 		imageView);
 	Texture::pool[name] = this;

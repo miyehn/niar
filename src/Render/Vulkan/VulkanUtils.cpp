@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <glm/common.hpp>
 #include "VulkanUtils.h"
 #include "Vulkan.hpp"
 
@@ -197,6 +198,94 @@ void vk::uploadPixelsToImage(
 		});
 
 	stagingBuffer.release();
+}
+
+// took from ImGui
+static inline bool isPowerOfTwo(uint32_t v) {
+	return v != 0 && (v & (v - 1)) == 0;
+}
+
+void vk::generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height)
+{
+	if (!isPowerOfTwo(width) || !isPowerOfTwo(height))
+	{
+		WARN("Trying to generate an image that doesn't have power of 2 dimensions %ux%u. skipping..", width, height)
+		return;
+	}
+
+	uint32_t numMips = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+	Vulkan::Instance->immediateSubmit(
+		[&](VkCommandBuffer cmdbuf)
+		{
+			for (uint32_t i = 1; i < numMips; i++)
+			{
+				// prepare source
+				vk::insertImageBarrier(
+					cmdbuf, image.image,
+					{VK_IMAGE_ASPECT_COLOR_BIT, i - 1, 1, 0, 1},
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					i == 1 ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+				// prepare dest
+				vk::insertImageBarrier(
+					cmdbuf, image.image,
+					{VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1},
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+					);
+				VkOffset3D offsetMin = {0, 0, 0};
+				VkOffset3D srcOffsetMax = {
+					static_cast<int>(std::max(1u, width >> (i-1))),
+					static_cast<int>(std::max(1u, height >> (i-1))),
+					1
+				};
+				VkOffset3D dstOffsetMax = {
+					static_cast<int>(std::max(1u, width >> i)),
+					static_cast<int>(std::max(1u, height >> i)),
+					1
+				};
+				VkImageBlit blitRegion = {
+					.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i - 1, 0, 1},
+					.srcOffsets = { offsetMin, srcOffsetMax },
+					.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, i, 0, 1},
+					.dstOffsets = { offsetMin, dstOffsetMax }
+				};
+				vkCmdBlitImage(cmdbuf,
+							   image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+							   image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+							   1, &blitRegion,
+							   VK_FILTER_LINEAR);
+
+			}
+			// get the levels back to shader readonly optimal
+			vk::insertImageBarrier(
+				cmdbuf, image.image,
+				{VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips-1, 0, 1},
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_TRANSFER_READ_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			vk::insertImageBarrier(
+				cmdbuf, image.image,
+				{VK_IMAGE_ASPECT_COLOR_BIT, numMips-1, 1, 0, 1},
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_TRANSFER_READ_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+		});
 }
 
 ScopedDrawEvent::ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color) : cmdbuf(cmdbuf)

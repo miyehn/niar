@@ -36,6 +36,8 @@ namespace vk
 		uint32_t pixelSize,
 		VmaAllocatedImage outResource);
 
+	void generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height);
+
 	void blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax);
 
 	void draw_fullscreen_triangle(VkCommandBuffer cmdbuf);

@@ -80,6 +80,8 @@ void main() {
 
 	// other light-independent properties
 	vec3 viewDir = viewInfo.ViewDir;
+	// TODO: use this
+	vec3 dirToCam = normalize(viewInfo.CameraPosition - position);
 	float NdotV = max(dot(normal, -viewDir), 0);
 
 	FragColor = vec4(0, 0, 0, 1);
