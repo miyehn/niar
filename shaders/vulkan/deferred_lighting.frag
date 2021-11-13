@@ -25,6 +25,8 @@ layout (set = 3, binding = 1) uniform DirectionalLightsInfo {
 	DirectionalLight[MaxLights] Data;
 } DirectionalLights;
 
+layout(location = 0) in vec2 vf_uv;
+
 layout(location = 0) out vec4 FragColor;
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
@@ -90,11 +92,11 @@ void main() {
 	for (int i = 0; i < viewInfo.NumPointLights; i++)
 	{
 		// some useful properties
-		vec3 lightDir = position - PointLights.Data[i].position;
-		float atten = 1.0 / dot(lightDir, lightDir);
-		lightDir = normalize(lightDir);
-		vec3 halfVec = -normalize(viewDir + lightDir); // TODO: just use normal here??
-		float NdotL = max(dot(normal, -lightDir), 0);
+		vec3 dirToLight = PointLights.Data[i].position - position;
+		float atten = 1.0 / dot(dirToLight, dirToLight);
+		dirToLight = normalize(dirToLight);
+		vec3 halfVec = normalize(dirToCam + dirToLight); // TODO: just use normal here??
+		float NdotL = max(dot(normal, dirToLight), 0);
 		vec3 radiance = PointLights.Data[i].color * atten;
 
 		//---- specular ----
@@ -132,7 +134,7 @@ void main() {
 	for (int i = 0; i < viewInfo.NumDirectionalLights; i++)
 	{
 		vec3 lightDir = DirectionalLights.Data[i].direction;
-		vec3 halfVec = -normalize(viewInfo.ViewDir + lightDir);
+		vec3 halfVec = normalize(dirToCam - lightDir);
 		float NdotL = max(dot(normal, -lightDir), 0);
 		vec3 radiance = DirectionalLights.Data[i].color;
 

@@ -8,6 +8,10 @@ layout (set = 0, binding = 0) uniform _ViewInfoUBO
 
     vec3 ViewDir;
     int NumDirectionalLights;
+
+    // other global stuff
+    float Exposure;
+    int ToneMappingOption;
 }
 _ViewInfo;
 
@@ -21,6 +25,9 @@ struct ViewInfo
 
     int NumPointLights;
     int NumDirectionalLights;
+
+    float Exposure;
+    int ToneMappingOption;
 };
 
 ViewInfo GetViewInfo()
@@ -32,5 +39,7 @@ ViewInfo GetViewInfo()
     info.NumPointLights = _ViewInfo.NumPointLights;
     info.ViewDir = _ViewInfo.ViewDir;
     info.NumDirectionalLights = _ViewInfo.NumDirectionalLights;
+    info.Exposure = _ViewInfo.Exposure;
+    info.ToneMappingOption = _ViewInfo.ToneMappingOption;
     return info;
 }

@@ -26,7 +26,7 @@
 #define LOCATION printf("%s: %d", __FILENAME__, __LINE__)
 
 // break (if using sdl)
-#ifdef DEBUG
+#ifdef WINOS
 #include <SDL2/SDL_assert.h>
 #define DEBUG_BREAK __debugbreak();
 #else

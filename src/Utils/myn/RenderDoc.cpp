@@ -16,6 +16,7 @@ bool RenderDoc::shouldCaptureFrame = false;
 bool RenderDoc::load(const std::string &appName)
 {
 #ifdef WINOS
+	//if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
 	if (HMODULE mod = LoadLibrary("D:\\Program Files\\RenderDoc\\renderdoc.dll"))
 	{
 		pRENDERDOC_GetAPI RENDERDOC_GetAPI =
@@ -32,8 +33,6 @@ bool RenderDoc::load(const std::string &appName)
 		api->SetCaptureKeys(nullptr, 0);
 
 		LOG("loaded renderdoc. captures will be saved at renderdoc/")
-
-		hideOverlay();
 
 		return true;
 	}

@@ -7,7 +7,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
-//#define MYN_VK_VERBOSE
+// #define MYN_VK_VERBOSE
 
 Vulkan::Vulkan(SDL_Window* window) {
 
@@ -497,6 +497,7 @@ void Vulkan::pickPhysicalDevice() {
 	}
 
 	vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+	minUniformBufferOffsetAlignment = physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
 	VKLOG("Picked physical device \"%s\" which has minimum buffer alignment of %llu bytes",
 		physicalDeviceProperties.deviceName, physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 }

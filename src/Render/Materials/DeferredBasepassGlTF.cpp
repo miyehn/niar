@@ -53,8 +53,10 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 {
 	this->name = in_material.name;
 	LOG("loading material '%s'..", name.c_str())
+	VkDeviceSize alignment = Vulkan::Instance->minUniformBufferOffsetAlignment;
+	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
 	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
-							  sizeof(uniforms),
+							  numBlocks * alignment,
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
 							  1, 4);

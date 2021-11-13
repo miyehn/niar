@@ -1,4 +1,7 @@
 #pragma once
+
+#include <Render/Materials/PostProcessing.h>
+
 #include "Renderer.h"
 #include "Render/Vulkan/DescriptorSet.h"
 
@@ -43,6 +46,9 @@ public:
 		glm::vec3 ViewDir;
 		int NumDirectionalLights;
 
+		float Exposure;
+		int ToneMappingOption;
+
 	} ViewInfo;
 
 	void render(VkCommandBuffer cmdbuf) override;
@@ -51,4 +57,3 @@ public:
 	static DeferredRenderer* get();
 	static void cleanup();
 };
-

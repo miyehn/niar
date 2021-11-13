@@ -79,6 +79,8 @@ struct Vulkan {
 	VkFormat swapChainDepthFormat;
 	VkExtent2D swapChainExtent;
 
+	VkDeviceSize minUniformBufferOffsetAlignment;
+
 	VmaAllocator memoryAllocator;
 
 private:
@@ -140,7 +142,7 @@ private:
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
 		// NOTE: things that this layer reports seems different from the ones on windows?
-	#ifdef _WIN32
+	#ifdef WINOS
 		"VK_LAYER_KHRONOS_validation"
 	#else
 		"MoltenVK"

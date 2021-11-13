@@ -13,6 +13,7 @@ struct ProgramConfig
 	std::string SceneSource;
 	std::string AssetsConfigSource;
 	std::string PathtracerConfigSource;
+	int RenderDoc;
 	struct
 	{
 		int ISPC = 0;

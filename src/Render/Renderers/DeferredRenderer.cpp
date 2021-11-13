@@ -383,7 +383,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "Present to screen")
+		SCOPED_DRAW_EVENT(cmdbuf, "Post Processing")
+		// MatPostProcessing* mat_postprocessing = dynamic_cast<MatPostProcessing*>(Material::find("Post Processing"));
+		// TODO
+
 		vk::blitToScreen(
 			cmdbuf,
 			sceneColor->resource.image,
@@ -400,6 +403,7 @@ DeferredRenderer *DeferredRenderer::get()
 	{
 		deferredRenderer = new DeferredRenderer();
 		new MatDeferredLighting(deferredRenderer);
+		// new MatPostProcessing(deferredRenderer->sceneColor, deferredRenderer->sceneDepth);
 	}
 	return deferredRenderer;
 }

@@ -100,8 +100,8 @@ static void init()
 		Scene::Active = new Scene("test scene");
 		Scene::Active->load_assimp(Cfg.SceneSource, false);
 #else
-		Scene* gltf = new Scene("gltf");
-		gltf->load_tinygltf(std::string(ROOT_DIR"/") + "media/ff_demo/stage.glb", false);
+		Scene* gltf = new Scene("Test stage");
+		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
 #endif
 
@@ -339,7 +339,7 @@ int main(int argc, const char * argv[])
 
 	//------------- else: load and run the scene --------------
 
-	RenderDoc::load("niar");
+	if (Cfg.RenderDoc) RenderDoc::load("niar");
 
 	init();
 
