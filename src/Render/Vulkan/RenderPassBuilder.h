@@ -10,6 +10,7 @@ struct RenderPassBuilder
 	VkAttachmentDescription depthAttachment;
 	std::vector<VkSubpassDescription> subpasses;
 	std::vector<VkSubpassDependency> dependencies;
+	bool useDepthAttachment;
 
 	VkRenderPass build(VkDevice &device);
 	VkRenderPass buildDisplayPass(VkDevice &device, VkFormat colorFormat, VkFormat depthFormat);

@@ -23,7 +23,6 @@ Vulkan::Vulkan(SDL_Window* window) {
     createLogicalDevice();
 	createMemoryAllocator();
     createSwapChain();
-	createDepthImageAndView();
     createImageViews();
 	createCommandPools();
 	createSynchronizationObjects();
@@ -41,7 +40,6 @@ Vulkan::~Vulkan() {
 		ImGui_ImplVulkan_Shutdown();
 	}
 
-	vmaDestroyImage(memoryAllocator, depthImage.image, depthImage.allocation);
 	vmaDestroyAllocator(memoryAllocator);
 
 	for (int i=0; i<MAX_FRAME_IN_FLIGHT; i++) {
@@ -53,7 +51,6 @@ Vulkan::~Vulkan() {
 
 	vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyCommandPool(device, shortLivedCommandsPool, nullptr);
-	vkDestroyImageView(device, depthImageView, nullptr);
     for (auto framebuffer : swapChainFramebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
@@ -641,6 +638,7 @@ void Vulkan::createSwapChain() {
 	swapChainExtent = extent;
 }
 
+/*
 void Vulkan::createDepthImageAndView()
 {
 	//-------- depth image (shared across swapchain?)
@@ -680,6 +678,7 @@ void Vulkan::createDepthImageAndView()
 
 	EXPECT(vkCreateImageView(device, &dimgViewInfo, nullptr, &depthImageView), VK_SUCCESS);
 }
+ */
 
 void Vulkan::createImageViews()
 {
@@ -745,13 +744,12 @@ void Vulkan::createSwapChainRenderPass()
 void Vulkan::createFramebuffers() {
 	swapChainFramebuffers.resize(swapChainImageViews.size());
 	for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-		VkImageView attachments[] = { swapChainImageViews[i], depthImageView };
 
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = swapChainRenderPass, // the render pass it needs to be compatible with
-			.attachmentCount = 2,
-			.pAttachments = attachments, // a pointer to an array of VkImageView handles, each of which will be used as the corresponding attachment in a render pass instance.
+			.attachmentCount = 1,
+			.pAttachments = &swapChainImageViews[i], // a pointer to an array of VkImageView handles, each of which will be used as the corresponding attachment in a render pass instance.
 			.width = swapChainExtent.width,
 			.height = swapChainExtent.height,
 			.layers = 1

@@ -41,7 +41,7 @@ MatDeferredLighting::MatDeferredLighting(DeferredRenderer* renderer)
             pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
             pipelineBuilder.pipelineState.useVertexInput = false;
             pipelineBuilder.pipelineState.useDepthStencil = false;
-            pipelineBuilder.compatibleRenderPass = renderer->getRenderPass();
+            pipelineBuilder.compatibleRenderPass = renderer->renderPass;
             pipelineBuilder.compatibleSubpass = 1;
 
             pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);

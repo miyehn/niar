@@ -8,7 +8,7 @@ VkRenderPass RenderPassBuilder::build(VkDevice &device)
 	{
 		attachments.push_back(colorAttachment);
 	}
-	attachments.push_back(depthAttachment);
+	if (useDepthAttachment) attachments.push_back(depthAttachment);
 	VkRenderPassCreateInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.attachmentCount = static_cast<uint32_t>(attachments.size()),
@@ -29,31 +29,18 @@ VkRenderPass RenderPassBuilder::buildDisplayPass(VkDevice &device, VkFormat colo
 	// renderpass -> subpass -> attachmentReferences -> attachment
 	// a render pass holds ref to an array of color attachments.
 	// A subpass then use an array of attachmentRef to selectively get the attachments and use them
-	for (auto i = 0; i < 1; i++)
-	{
-		colorAttachments.push_back(
-			{
-				.format = colorFormat,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // layout when attachment is loaded
-				.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-			});
-	}
-	depthAttachment = {
-		.format = depthFormat,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	};
+	colorAttachments.push_back(
+		{
+			.format = colorFormat,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // layout when attachment is loaded
+			.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+		});
 
 	VkAttachmentReference colorAttachmentRef = {
 		// matches layout(location=X)
@@ -62,17 +49,13 @@ VkRenderPass RenderPassBuilder::buildDisplayPass(VkDevice &device, VkFormat colo
 		// so, initialLayout -> this -> finalLayout ?
 		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	};
-	VkAttachmentReference depthAttachmentRef = {
-		.attachment = 1,
-		.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	};
 
 	subpasses.push_back(
 		{
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 			.colorAttachmentCount = 1,
 			.pColorAttachments = &colorAttachmentRef, // an array, index matches layout (location=X) out vec4 outColor
-			.pDepthStencilAttachment = &depthAttachmentRef
+			.pDepthStencilAttachment = nullptr
 		});
 	dependencies.push_back(
 		{
@@ -87,5 +70,6 @@ VkRenderPass RenderPassBuilder::buildDisplayPass(VkDevice &device, VkFormat colo
 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		});
 
+	useDepthAttachment = false;
 	return build(device);
 }

@@ -13,8 +13,9 @@ private:
 	DeferredRenderer();
 	~DeferredRenderer() override;
 
-	VkRenderPass renderPass;
 	VkFramebuffer framebuffer;
+	VkFramebuffer postProcessFramebuffer;
+
 	VmaBuffer viewInfoUbo;
 
 	VkExtent2D renderExtent;
@@ -31,9 +32,14 @@ private:
 
 	Texture2D* sceneDepth;
 
+	Texture2D* postProcessed;
+
 public:
 
 	DescriptorSet frameGlobalDescriptorSet;
+
+	VkRenderPass renderPass;
+	VkRenderPass postProcessPass;
 
 	struct
 	{
@@ -52,7 +58,6 @@ public:
 	} ViewInfo;
 
 	void render(VkCommandBuffer cmdbuf) override;
-	VkRenderPass getRenderPass() override { return renderPass; }
 
 	static DeferredRenderer* get();
 	static void cleanup();

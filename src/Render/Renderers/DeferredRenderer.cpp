@@ -49,16 +49,23 @@ DeferredRenderer::DeferredRenderer()
 		ImageCreator sceneColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"sceneColor");
 
 		ImageCreator sceneDepthCreator(
 			VK_FORMAT_D32_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_IMAGE_ASPECT_DEPTH_BIT,
 			"sceneDepth");
+
+		ImageCreator postProcessedCreator(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			{renderExtent.width, renderExtent.height, 1},
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"postProcessed");
 
 		GPosition = new Texture2D(GPositionCreator);
 		GNormal = new Texture2D(GNormalCreator);
@@ -66,9 +73,10 @@ DeferredRenderer::DeferredRenderer()
 		GMetallicRoughnessAO = new Texture2D(GMetallicRoughnessAOCreator);
 		sceneColor = new Texture2D(sceneColorCreator);
 		sceneDepth = new Texture2D(sceneDepthCreator);
+		postProcessed = new Texture2D(postProcessedCreator);
 	}
 
-	{// renderpass
+	{// main renderpass
 		RenderPassBuilder passBuilder;
 
 		// GPosition
@@ -129,9 +137,10 @@ DeferredRenderer::DeferredRenderer()
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			});
 		// sceneDepth
+		passBuilder.useDepthAttachment = true;
 		passBuilder.depthAttachment = {
 			.format = VK_FORMAT_D32_SFLOAT,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
@@ -140,7 +149,7 @@ DeferredRenderer::DeferredRenderer()
 			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		};
 
 		// base pass
@@ -221,6 +230,43 @@ DeferredRenderer::DeferredRenderer()
 		renderPass = passBuilder.build(Vulkan::Instance->device);
 	}
 
+	{// post procesing pass
+		RenderPassBuilder passBuilder;
+		passBuilder.colorAttachments.push_back(
+			{
+				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+			});
+		passBuilder.useDepthAttachment = false;
+		VkAttachmentReference colorAttachmentRef = {
+			0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+		passBuilder.subpasses.push_back(
+			{
+				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+				.colorAttachmentCount = 1,
+				.pColorAttachments = &colorAttachmentRef, // an array, index matches layout (location=X) out vec4 outColor
+				.pDepthStencilAttachment = nullptr
+			});
+		// TODO: relax
+		passBuilder.dependencies.push_back(
+			{
+				.srcSubpass = VK_SUBPASS_EXTERNAL,
+				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+			});
+		postProcessPass = passBuilder.build(Vulkan::Instance->device);
+	}
+
 	{// framebuffer
 		VkImageView attachments[] = {
 			GPosition->imageView,
@@ -246,6 +292,23 @@ DeferredRenderer::DeferredRenderer()
 			&framebuffer), VK_SUCCESS)
 	}
 
+	{// also framebuffer for postprocessing
+		VkFramebufferCreateInfo frameBufferInfo = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = postProcessPass,
+			.attachmentCount = 1,
+			.pAttachments = &postProcessed->imageView,
+			.width = renderExtent.width,
+			.height = renderExtent.height,
+			.layers = 1
+		};
+		EXPECT(vkCreateFramebuffer(
+			Vulkan::Instance->device,
+			&frameBufferInfo,
+			nullptr,
+			&postProcessFramebuffer), VK_SUCCESS)
+	}
+
 	{// frame-global descriptor set
 
 		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
@@ -268,6 +331,10 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GMetallicRoughnessAO->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 	}
+
+	// misc
+	ViewInfo.Exposure = 0.0f;
+	ViewInfo.ToneMappingOption = 1;
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -275,10 +342,12 @@ DeferredRenderer::~DeferredRenderer()
 	auto vk = Vulkan::Instance;
 	vkDestroyRenderPass(vk->device, renderPass, nullptr);
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
+	vkDestroyRenderPass(vk->device, postProcessPass, nullptr);
+	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
 	viewInfoUbo.release();
 
 	std::vector<Texture2D*> images = {
-		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth
+		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
 }
@@ -286,12 +355,13 @@ DeferredRenderer::~DeferredRenderer()
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
 	{// update frame-global uniforms
-		memset(&ViewInfo, 0, sizeof(ViewInfo)); // clear
-		ViewInfo.CameraPosition = camera->world_position();
+		ViewInfo.ViewMatrix = camera->world_to_object();
 		ViewInfo.ProjectionMatrix = camera->camera_to_clip();
 		ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+
+		ViewInfo.CameraPosition = camera->world_position();
 		ViewInfo.ViewDir = camera->forward();
-		ViewInfo.ViewMatrix = camera->world_to_object();
+
 		viewInfoUbo.writeData(&ViewInfo);
 	}
 
@@ -383,13 +453,26 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "Post Processing")
-		// MatPostProcessing* mat_postprocessing = dynamic_cast<MatPostProcessing*>(Material::find("Post Processing"));
-		// TODO
+		SCOPED_DRAW_EVENT(cmdbuf, "Post Processing & Present")
+		VkRenderPassBeginInfo passInfo = {
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			.renderPass = postProcessPass,
+			.framebuffer = postProcessFramebuffer, // TODO
+			.renderArea = renderArea,
+			.clearValueCount = 0,
+			.pClearValues = nullptr
+		};
+		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+		MatPostProcessing* mat_postprocessing = dynamic_cast<MatPostProcessing*>(Material::find("Post Processing"));
+		mat_postprocessing->usePipeline(cmdbuf, {
+			{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
+		});
+		vk::draw_fullscreen_triangle(cmdbuf);
+		vkCmdEndRenderPass(cmdbuf);
 
 		vk::blitToScreen(
 			cmdbuf,
-			sceneColor->resource.image,
+			postProcessed->resource.image,
 			{0, 0, 0},
 			{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
 	}
@@ -403,7 +486,7 @@ DeferredRenderer *DeferredRenderer::get()
 	{
 		deferredRenderer = new DeferredRenderer();
 		new MatDeferredLighting(deferredRenderer);
-		// new MatPostProcessing(deferredRenderer->sceneColor, deferredRenderer->sceneDepth);
+		new MatPostProcessing(deferredRenderer->sceneColor, deferredRenderer->sceneDepth);
 	}
 	return deferredRenderer;
 }

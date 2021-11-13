@@ -57,7 +57,7 @@ MatDeferredBasepass::MatDeferredBasepass(
             pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
             pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
             pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-            pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->getRenderPass();
+            pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
 
             pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
             pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);

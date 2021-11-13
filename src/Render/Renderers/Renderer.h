@@ -14,5 +14,4 @@ public:
 	Camera* camera = nullptr;
 
 	virtual void render(VkCommandBuffer cmdbuf) = 0;
-	virtual VkRenderPass getRenderPass() = 0;
 };

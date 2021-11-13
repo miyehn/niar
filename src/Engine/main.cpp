@@ -112,14 +112,26 @@ static void init()
 	}
 
 	ui::usePurpleStyle();
-
-	ui::button("capture frame", RenderDoc::captureNextFrame);
-	ui::elem([](){ ImGui::Separator(); });
-	ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay);
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
+	// rendering related
+	ui::button("capture frame", RenderDoc::captureNextFrame, "Rendering");
+	ui::elem([](){ ImGui::SameLine(); }, "Rendering");
+	ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay, "Rendering");
+	ui::elem([](){ ImGui::Separator(); }, "Rendering");
+
+	DeferredRenderer* renderer = DeferredRenderer::get();
+	ui::sliderFloat("", &renderer->ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
+	ui::elem([renderer](){
+		ImGui::Combo(
+			"tone mapping",
+			&renderer->ViewInfo.ToneMappingOption,
+			"Off\0Reinhard2\0ACES\0\0");
+	}, "Rendering");
+
+	// scene hierarchy
 	static bool show_global_transform = false;
-	ui::checkBox("show global transform", &show_global_transform, Scene::Active->name + " (scene)");
+	ui::checkBox("show global transform", &show_global_transform, Scene::Active->name + " (scene hierarchy)");
 	ui::elem(
 		[&]()
 		{
@@ -141,7 +153,7 @@ static void init()
 				}
 			};
 			for (auto child : Scene::Active->children) make_tree(child);
-		}, Scene::Active->name + " (scene)");
+		}, Scene::Active->name + " (scene hierarchy)");
 }
 
 static void process_text_input()

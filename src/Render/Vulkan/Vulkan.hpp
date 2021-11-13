@@ -122,9 +122,6 @@ private:
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	std::vector<VkImageView> swapChainImageViews;
 
-	VmaAllocatedImage depthImage;
-	VkImageView depthImageView;
-
 	VkRenderPass swapChainRenderPass;
 
 	VkCommandPool commandPool;
@@ -180,8 +177,6 @@ private:
 	// createSwapchain helper
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void createSwapChain();
-
-	void createDepthImageAndView();
 
 	void createImageViews();
 

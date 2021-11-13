@@ -18,7 +18,7 @@ void MatPostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descript
 
 MatPostProcessing::MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth)
 {
-	name = "PostProcessing";
+	name = "Post Processing";
 	Material::add(this);
 
 	// set layouts and allocation
@@ -42,7 +42,7 @@ MatPostProcessing::MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDept
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.pipelineState.useVertexInput = false;
 		pipelineBuilder.pipelineState.useDepthStencil = false;
-		pipelineBuilder.compatibleRenderPass = vk->getSwapChainRenderPass();
+		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->postProcessPass;
 
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);

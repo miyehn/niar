@@ -11,5 +11,5 @@ layout (location = 0) out vec2 vf_uv;
 void main()
 {
   gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
-  vf_uv = positions[gl_VertexIndex];
+  vf_uv = (positions[gl_VertexIndex] + 1) * 0.5f;
 }

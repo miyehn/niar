@@ -34,6 +34,7 @@ void Material::cleanup()
 	MatDeferredBasepass::cleanup();
 	MatDeferredBasepassGlTF::cleanup();
 	MatDeferredLighting::cleanup();
+	MatPostProcessing::cleanup();
 }
 
 void Material::resetInstanceCounters()
