@@ -35,7 +35,7 @@ struct DirectionalLight : public Light {
 
 	explicit DirectionalLight(aiLight* light);
 
-	explicit DirectionalLight(const tinygltf::Light* in_light);
+	explicit DirectionalLight(const std::string& node_name, const tinygltf::Light* in_light);
 
 	void set_direction(glm::vec3 dir) { set_rotation(myn::quat_from_dir(normalize(dir))); }
 
@@ -52,6 +52,6 @@ struct PointLight: public Light {
 
 	explicit PointLight(aiLight* light);
 
-	explicit PointLight(const tinygltf::Light* in_light);
+	explicit PointLight(const std::string& node_name, const tinygltf::Light* in_light);
 
 };

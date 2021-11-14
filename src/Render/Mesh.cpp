@@ -208,6 +208,7 @@ Material *Mesh::get_material()
 }
 
 std::vector<Mesh *> Mesh::load_gltf(
+	const std::string& node_name,
 	const tinygltf::Mesh* in_mesh,
 	const tinygltf::Model* in_model,
 	const std::vector<std::string>& texture_names)
@@ -222,7 +223,7 @@ std::vector<Mesh *> Mesh::load_gltf(
 			WARN("%s contains unsupported mesh mode %d. skipping..", in_mesh->name.c_str(), prim.mode)
 			continue;
 		}
-		auto in_name = in_mesh->name + "[" + std::to_string(i) + "]";
+		auto in_name = node_name + " | " + in_mesh->name + "[" + std::to_string(i) + "]";
 		auto m = new Mesh(in_name, &prim, in_model, texture_names);
 		output.emplace_back(m);
 	}

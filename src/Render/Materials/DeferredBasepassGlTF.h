@@ -16,6 +16,7 @@ public:
 	);
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
+	VkPipeline getPipeline() override { return pipeline; }
 	~MatDeferredBasepassGlTF() override;
 
 	void resetInstanceCounter() override;

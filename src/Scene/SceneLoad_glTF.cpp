@@ -113,31 +113,44 @@ SceneNodeIntermediate* loadSceneTree(const std::vector<tinygltf::Node> &in_nodes
 	return root;
 }
 
-SceneNodeIntermediate* collapseSceneTree(SceneNodeIntermediate* root)
+void collapseSceneTree(SceneNodeIntermediate* root)
 {
-	if (root == nullptr) return root;
 	for (auto child : root->children) collapseSceneTree(child);
-	if (root->children.size() == 1 &&
-		root->camera_idx == -1 &&
+
+	if (root->parent!=nullptr &&
+		root->mesh_idx == -1 &&
 		root->light_idx == -1 &&
-		root->mesh_idx == -1)
+		root->camera_idx == -1)
 	{
-		auto oldRoot = root;
-		root = *oldRoot->children.begin();
-		root->transformation = oldRoot->transformation * root->transformation;
-		root->parent = oldRoot->parent;
-		root->name = oldRoot->name;
-		if (oldRoot->parent)
+		if (root->children.empty())
 		{
-			auto& children = oldRoot->parent->children;
-			auto iter = std::find(children.begin(), children.end(), oldRoot);
-			children.erase(iter);
-			children.push_back(root);
+			// transformation can't be passed to children -> try passing to parent instead
+			if (root->parent->children.size() == 1)
+			{
+				root->parent->transformation = root->parent->transformation * root->transformation;
+			}
+			else
+			{
+				// can't be passed to parent either -> don't collapse this node
+				WARN("scene contains dangling child node '%s'", root->name.c_str())
+				return;
+			}
 		}
-		oldRoot->children.clear();
-		delete oldRoot;
+		else
+		{
+			// pass to children
+			for (auto c : root->children)
+			{
+				c->transformation = root->transformation * c->transformation;
+				c->detach_from_hierarchy();
+				c->attach_to(root->parent);
+			}
+		}
+
+		root->detach_from_hierarchy();
+		root->children.clear();
+		delete root;
 	}
-	return root; // might not be the original root!
 }
 }// namespace
 
@@ -227,9 +240,9 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 			nodes_map[model.lights[i].name]->light_idx = i;
 		}
 	}
-	tree = collapseSceneTree(tree);
+	collapseSceneTree(tree);
 
-	// actually construct the scene
+	// actually construct the scene tree
 
 	std::unordered_map<SceneNodeIntermediate*, SceneObject*> nodeToDrawable;
 	std::queue<SceneNodeIntermediate*> nodesQueue;
@@ -243,18 +256,18 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 
 		if (node->camera_idx != -1)
 		{
-			object = new Camera(&model.cameras[node->camera_idx]);
+			object = new Camera(node->name, &model.cameras[node->camera_idx]);
 		}
 		else if (node->light_idx != -1)
 		{
 			tinygltf::Light *in_light = &model.lights[node->light_idx];
 			if (in_light->type == "point")
 			{
-				object = new PointLight(in_light);
+				object = new PointLight(node->name, in_light);
 			}
 			else if (in_light->type == "directional")
 			{
-				object = new DirectionalLight(in_light);
+				object = new DirectionalLight(node->name, in_light);
 			}
 			else
 			{
@@ -265,7 +278,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 		else if (node->mesh_idx != -1)
 		{
 			auto in_mesh = &model.meshes[node->mesh_idx];
-			std::vector<Mesh*> meshes = Mesh::load_gltf(in_mesh, &model, material_names);
+			std::vector<Mesh*> meshes = Mesh::load_gltf(node->name, in_mesh, &model, material_names);
 			if (in_mesh->primitives.size() > 1)
 			{
 				object = new SceneObject(nullptr, in_mesh->name);

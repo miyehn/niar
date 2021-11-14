@@ -389,19 +389,27 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
+		VkPipeline last_pipeline = VK_NULL_HANDLE;
 		uint32_t instance_ctr = 0;
 		for (auto drawable : drawables) // TODO: material sorting, etc.
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
 				auto mat = m->get_material();
-				if (mat != last_material)
+				VkPipeline pipeline = mat->getPipeline();
+				// pipeline changed: re-bind
+				if (pipeline != last_pipeline)
 				{
 					m->get_material()->usePipeline(cmdbuf, {
 						{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
 					});
-					last_material = mat;
+					last_pipeline = pipeline;
+				}
+				// material changed: reset instance counter
+				if (mat != last_material)
+				{
 					instance_ctr = 0;
+					last_material = mat;
 				}
 
 				m->draw(cmdbuf);

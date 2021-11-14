@@ -30,6 +30,7 @@ struct Mesh : SceneObject {
 
 	// load from glTF data
 	static std::vector<Mesh*> load_gltf(
+		const std::string& node_name,
 		const tinygltf::Mesh* in_mesh,
 		const tinygltf::Model* in_model,
 		const std::vector<std::string>& texture_names);

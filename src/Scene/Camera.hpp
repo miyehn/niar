@@ -16,7 +16,7 @@ struct Camera : SceneObject {
 
 	explicit Camera(uint32_t w = 0, uint32_t h = 0, bool _ortho = false);
 	explicit Camera(aiCamera* inCamera);
-	explicit Camera(const tinygltf::Camera*);
+	explicit Camera(const std::string& node_name, const tinygltf::Camera*);
 
 	void update_control(float time_elapsed);
 

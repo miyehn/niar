@@ -11,6 +11,7 @@ class MatDeferredLighting : public Material
 public:
 
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
+	VkPipeline getPipeline() override { return pipeline; }
 	~MatDeferredLighting() override;
 
 	static void cleanup();

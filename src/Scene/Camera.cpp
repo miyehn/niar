@@ -201,9 +201,9 @@ Camera::Camera(aiCamera* inCamera)
 	rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
 }
 
-Camera::Camera(const tinygltf::Camera *in_camera) : Camera(0, 0, false)
+Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) : Camera(0, 0, false)
 {
-	name = in_camera->name;
+	name = node_name + " | " + in_camera->name;
 	LOG("loading camera '%s'..", name.c_str())
 	move_speed = 5;
 	rotate_speed = 0.002f;

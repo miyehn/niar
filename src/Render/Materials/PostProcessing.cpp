@@ -28,6 +28,7 @@ MatPostProcessing::MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDept
 	dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	dynamicSet = DescriptorSet(dynamicSetLayout);
 
+	Vulkan::Instance->waitDeviceIdle();
 	// assign values
 	dynamicSet.pointToImageView(sceneColor->imageView, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	dynamicSet.pointToImageView(sceneDepth->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);

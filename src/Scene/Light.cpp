@@ -31,9 +31,9 @@ DirectionalLight::DirectionalLight(aiLight *light)
 	intensity = 1;
 }
 
-DirectionalLight::DirectionalLight(const tinygltf::Light *in_light)
+DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf::Light *in_light)
 {
-	name = in_light->name;
+	name = node_name + " | " + in_light->name;
 	auto c = in_light->color;
 	color = vec3(c[0], c[1], c[2]);
 	intensity = in_light->intensity;
@@ -72,9 +72,9 @@ PointLight::PointLight(aiLight *light)
 	scale_value = vec3(1);
 }
 
-PointLight::PointLight(const tinygltf::Light *in_light)
+PointLight::PointLight(const std::string& node_name, const tinygltf::Light *in_light)
 {
-	name = in_light->name;
+	name = node_name + " | " + in_light->name;
 	auto c = in_light->color;
 	color = vec3(c[0], c[1], c[2]);
 	intensity = in_light->intensity;

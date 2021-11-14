@@ -104,7 +104,7 @@ void main() {
 		// Fresnel
 		vec3 F0 = vec3(0.04); // base reflectivity for non-metals
 		F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
-		vec3 F = fresnelSchlick( max(dot(halfVec, -viewDir), 0), F0 ); // TODO: use normal or H here?
+		vec3 F = fresnelSchlick( max(dot(halfVec, -viewDir), 0), F0 );
 
 		// Distribution
 		float D = distributionFn(normal, halfVec, roughness);
