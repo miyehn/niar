@@ -14,6 +14,18 @@ layout(location = 0) out vec4 FragColor;
  * http://seenaburns.com/dynamic-range/
  */
 
+// from: https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr_khr.frag
+vec3 SRGBtoLINEAR(vec3 srgbIn)
+{
+    #ifdef SRGB_FAST_APPROXIMATION
+    vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+    #else //SRGB_FAST_APPROXIMATION
+    vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
+    vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
+    #endif //SRGB_FAST_APPROXIMATION
+    return linOut;
+}
+
 // this one has "foot"
 float Tonemap_ACES(float x) {
     // Narkowicz 2015, "ACES Filmic Tone Mapping Curve"
@@ -55,6 +67,8 @@ void main()
 
     // linear color
     vec3 linear = texture(SceneColor, vf_uv).rgb;
+
+    FragColor.rgb = linear;
 
     // exposure adjustment: https://stackoverflow.com/questions/12166117/what-is-the-math-behind-exposure-adjustment-on-photoshop
     FragColor.rgb = linear * pow(2, viewInfo.Exposure);

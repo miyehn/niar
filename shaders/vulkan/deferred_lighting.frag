@@ -29,9 +29,9 @@ layout(location = 0) in vec2 vf_uv;
 
 layout(location = 0) out vec4 FragColor;
 
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
+vec3 fresnelSchlick(float VdotH, vec3 F0)
 {
-	return F0 + (1.0 - F0) * pow(1 - cosTheta, 5.0);
+	return F0 + (1.0 - F0) * pow(1 - VdotH, 5.0);
 }
 
 // gives the specular highlight
@@ -81,10 +81,8 @@ void main() {
 	ViewInfo viewInfo = GetViewInfo();
 
 	// other light-independent properties
-	vec3 viewDir = viewInfo.ViewDir;
-	// TODO: use this
 	vec3 dirToCam = normalize(viewInfo.CameraPosition - position);
-	float NdotV = max(dot(normal, -viewDir), 0);
+	float NdotV = max(0, dot(normal, dirToCam));
 
 	FragColor = vec4(0, 0, 0, 1);
 
@@ -104,7 +102,7 @@ void main() {
 		// Fresnel
 		vec3 F0 = vec3(0.04); // base reflectivity for non-metals
 		F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
-		vec3 F = fresnelSchlick( max(dot(halfVec, -viewDir), 0), F0 );
+		vec3 F = fresnelSchlick( max(dot(halfVec, dirToCam), 0), F0 );
 
 		// Distribution
 		float D = distributionFn(normal, halfVec, roughness);
@@ -112,7 +110,7 @@ void main() {
 		// Geometry
 		float G = geometrySmith(NdotL, NdotV, roughness);
 
-		// specular
+		// specular (cook tolerance)
 		vec3 num = F * D * G;
 		float denom = 4.0 * NdotV * NdotL;
 		vec3 specular = num / max(denom, 0.001);
@@ -141,7 +139,7 @@ void main() {
 		// Fresnel
 		vec3 F0 = vec3(0.04); // base reflectivity for non-metals
 		F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
-		vec3 F = fresnelSchlick( max(dot(halfVec, -viewDir), 0), F0 ); // TODO: use normal or H here?
+		vec3 F = fresnelSchlick( max(dot(halfVec, dirToCam), 0), F0 ); // TODO: use normal or H here?
 
 		// Distribution
 		float D = distributionFn(normal, halfVec, roughness);

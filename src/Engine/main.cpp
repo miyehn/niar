@@ -115,10 +115,13 @@ static void init()
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
 	// rendering related
-	ui::button("capture frame", RenderDoc::captureNextFrame, "Rendering");
-	ui::elem([](){ ImGui::SameLine(); }, "Rendering");
-	ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay, "Rendering");
-	ui::elem([](){ ImGui::Separator(); }, "Rendering");
+	if (Cfg.RenderDoc)
+	{
+		ui::button("capture frame", RenderDoc::captureNextFrame, "Rendering");
+		ui::elem([](){ ImGui::SameLine(); }, "Rendering");
+		ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay, "Rendering");
+		ui::elem([](){ ImGui::Separator(); }, "Rendering");
+	}
 
 	DeferredRenderer* renderer = DeferredRenderer::get();
 	ui::sliderFloat("", &renderer->ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
