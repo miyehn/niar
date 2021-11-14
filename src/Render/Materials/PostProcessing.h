@@ -17,7 +17,7 @@ private:
 
 	// TODO: currently its construction is tied to the deferred renderer creation
 	// but it doesn't have to.
-	explicit PostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth);
+	explicit PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth);
 
 	DescriptorSet dynamicSet;
 

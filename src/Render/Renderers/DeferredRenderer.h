@@ -5,6 +5,8 @@
 
 class Texture2D;
 class DebugPoints;
+class DeferredLighting;
+class PostProcessing;
 
 class DeferredRenderer : public Renderer
 {
@@ -33,7 +35,13 @@ private:
 
 	Texture2D* postProcessed;
 
+	// specific to this renderer
+
 	DebugPoints* debugPoints;
+
+	DeferredLighting* deferredLighting;
+
+	PostProcessing* postProcessing;
 
 public:
 

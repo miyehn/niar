@@ -375,6 +375,9 @@ DeferredRenderer::DeferredRenderer()
 	ViewInfo.Exposure = 0.0f;
 	ViewInfo.ToneMappingOption = 1;
 
+	deferredLighting = new DeferredLighting(this);
+	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
+
 	std::vector<PointData> points;
 	points.emplace_back(glm::vec3(0, 1, 0));
 	points.emplace_back(glm::vec3(1, 1, 0));
@@ -397,6 +400,7 @@ DeferredRenderer::~DeferredRenderer()
 	};
 	for (auto image : images) delete image;
 
+	delete deferredLighting;
 	delete debugPoints;
 }
 
@@ -470,8 +474,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Lighting pass")
-		DeferredLighting* mat_lighting =
-			dynamic_cast<DeferredLighting*>(Material::find("DeferredLighting"));
 
 		int point_light_ctr = 0;
 		int directional_light_ctr = 0;
@@ -480,15 +482,15 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			if (auto L = dynamic_cast<PointLight*>(drawable))
 			{
 				if (point_light_ctr >= MAX_LIGHTS_PER_PASS) break;
-				mat_lighting->pointLights.Data[point_light_ctr].position = L->world_position();
-				mat_lighting->pointLights.Data[point_light_ctr].color = L->get_emission();
+				deferredLighting->pointLights.Data[point_light_ctr].position = L->world_position();
+				deferredLighting->pointLights.Data[point_light_ctr].color = L->get_emission();
 				point_light_ctr++;
 			}
 			else if (auto L = dynamic_cast<DirectionalLight*>(drawable))
 			{
 				if (directional_light_ctr >= MAX_LIGHTS_PER_PASS) break;
-				mat_lighting->directionalLights.Data[directional_light_ctr].direction = L->get_direction();
-				mat_lighting->directionalLights.Data[directional_light_ctr].color = L->get_emission();
+				deferredLighting->directionalLights.Data[directional_light_ctr].direction = L->get_direction();
+				deferredLighting->directionalLights.Data[directional_light_ctr].color = L->get_emission();
 				directional_light_ctr++;
 			}
 		}
@@ -498,9 +500,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		ViewInfo.NumDirectionalLights = directional_light_ctr;
 		viewInfoUbo.writeData(&ViewInfo);
 
-		mat_lighting->numPointLights = point_light_ctr;
-		mat_lighting->numDirectionalLights = directional_light_ctr;
-		mat_lighting->usePipeline(cmdbuf, {
+		deferredLighting->numPointLights = point_light_ctr;
+		deferredLighting->numDirectionalLights = directional_light_ctr;
+		deferredLighting->usePipeline(cmdbuf, {
 			{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
 		});
 		vk::draw_fullscreen_triangle(cmdbuf);
@@ -521,8 +523,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
-			PostProcessing* mat_postprocessing = dynamic_cast<PostProcessing*>(Material::find("Post Processing"));
-			mat_postprocessing->usePipeline(cmdbuf, {
+			postProcessing->usePipeline(cmdbuf, {
 				{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
 			});
 			vk::draw_fullscreen_triangle(cmdbuf);
@@ -551,14 +552,16 @@ DeferredRenderer *DeferredRenderer::get()
 	if (deferredRenderer == nullptr)
 	{
 		deferredRenderer = new DeferredRenderer();
-		new DeferredLighting(deferredRenderer);
-		new PostProcessing(deferredRenderer->sceneColor, deferredRenderer->sceneDepth);
 	}
 	return deferredRenderer;
 }
 
 void DeferredRenderer::cleanup()
 {
-	if (deferredRenderer) delete deferredRenderer;
+	if (deferredRenderer) {
+		delete deferredRenderer;
+	}
 	DebugPoints::cleanup();
+	DeferredLighting::cleanup();
+	PostProcessing::cleanup();
 }

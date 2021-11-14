@@ -16,13 +16,12 @@ void PostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorS
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-PostProcessing::PostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth)
+PostProcessing::PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth)
 {
 	name = "Post Processing";
-	Material::add(this);
 
 	// set layouts and allocation
-	DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+	DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 	DescriptorSetLayout dynamicSetLayout{};
 	dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -42,7 +41,7 @@ PostProcessing::PostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth)
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.pipelineState.useVertexInput = false;
 		pipelineBuilder.pipelineState.useDepthStencil = false;
-		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->postProcessPass;
+		pipelineBuilder.compatibleRenderPass = renderer->postProcessPass;
 
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);

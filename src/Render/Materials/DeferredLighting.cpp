@@ -6,7 +6,7 @@ VkPipelineLayout DeferredLighting::pipelineLayout = VK_NULL_HANDLE;
 
 DeferredLighting::DeferredLighting(DeferredRenderer* renderer)
 {
-	name = "DeferredLighting";
+	name = "Deferred Lighting";
 	pointLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(pointLights),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -15,14 +15,12 @@ DeferredLighting::DeferredLighting(DeferredRenderer* renderer)
 								  sizeof(directionalLights),
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU);
-	Material::add(this);
-
 	auto vk = Vulkan::Instance;
 
 	{// create the layouts and build the pipeline
 
 		// set layouts and allocation
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 		DescriptorSetLayout dynamicSetLayout{};
 		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
