@@ -2,6 +2,7 @@
 #include "DeferredBasepass.h"
 #include "DeferredBasepassGlTF.h"
 #include "DeferredLighting.h"
+#include "PostProcessing.h"
 
 std::unordered_map<std::string, Material*> Material::pool;
 
@@ -31,10 +32,10 @@ void Material::cleanup()
 		delete it.second;
 	}
 
-	MatDeferredBasepass::cleanup();
-	MatDeferredBasepassGlTF::cleanup();
-	MatDeferredLighting::cleanup();
-	MatPostProcessing::cleanup();
+	DeferredBasepass::cleanup();
+	DeferredBasepassGlTF::cleanup();
+	DeferredLighting::cleanup();
+	PostProcessing::cleanup();
 }
 
 void Material::resetInstanceCounters()

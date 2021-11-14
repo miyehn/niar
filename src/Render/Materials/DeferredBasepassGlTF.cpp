@@ -6,10 +6,10 @@
 
 #include <tinygltf/tiny_gltf.h>
 
-VkPipelineLayout MatDeferredBasepassGlTF::pipelineLayout = VK_NULL_HANDLE;
-VkPipeline MatDeferredBasepassGlTF::pipeline = VK_NULL_HANDLE;
+VkPipelineLayout DeferredBasepassGlTF::pipelineLayout = VK_NULL_HANDLE;
+VkPipeline DeferredBasepassGlTF::pipeline = VK_NULL_HANDLE;
 
-void MatDeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
+void DeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	// per-material-instance params (static)
 	materialParamsBuffer.writeData(&materialParams);
@@ -26,7 +26,7 @@ void MatDeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject 
 	instanceCounter++;
 }
 
-void MatDeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
 {
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	for (auto &dsetSlot : sharedDescriptorSets)
@@ -35,19 +35,19 @@ void MatDeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf, std::vector<De
 	}
 }
 
-MatDeferredBasepassGlTF::~MatDeferredBasepassGlTF()
+DeferredBasepassGlTF::~DeferredBasepassGlTF()
 {
 	uniformBuffer.release();
 	materialParamsBuffer.release();
 }
 
-void MatDeferredBasepassGlTF::cleanup()
+void DeferredBasepassGlTF::cleanup()
 {
 	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }
 
-MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
+DeferredBasepassGlTF::DeferredBasepassGlTF(
 	const tinygltf::Material& in_material,
 	const std::vector<std::string>& texture_names)
 {
@@ -131,7 +131,7 @@ MatDeferredBasepassGlTF::MatDeferredBasepassGlTF(
 	}
 }
 
-void MatDeferredBasepassGlTF::resetInstanceCounter()
+void DeferredBasepassGlTF::resetInstanceCounter()
 {
 	instanceCounter = 0;
 }

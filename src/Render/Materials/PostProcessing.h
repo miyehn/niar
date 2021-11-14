@@ -5,7 +5,7 @@
 class DeferredRenderer;
 class Texture2D;
 
-class MatPostProcessing : public Material
+class PostProcessing : public Material
 {
 public:
 
@@ -17,7 +17,7 @@ private:
 
 	// TODO: currently its construction is tied to the deferred renderer creation
 	// but it doesn't have to.
-	explicit MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth);
+	explicit PostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth);
 
 	DescriptorSet dynamicSet;
 

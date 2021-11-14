@@ -1,11 +1,10 @@
 #pragma once
 
-#include <Render/Materials/PostProcessing.h>
-
 #include "Renderer.h"
 #include "Render/Vulkan/DescriptorSet.h"
 
 class Texture2D;
+class DebugPoints;
 
 class DeferredRenderer : public Renderer
 {
@@ -33,6 +32,8 @@ private:
 	Texture2D* sceneDepth;
 
 	Texture2D* postProcessed;
+
+	DebugPoints* debugPoints;
 
 public:
 

@@ -6,18 +6,18 @@ class Texture2D;
 namespace tinygltf { struct Material; }
 
 // currently not handling emission because blender gltf 2.0 export seems broken..
-class MatDeferredBasepassGlTF : public Material
+class DeferredBasepassGlTF : public Material
 {
 public:
 
-	MatDeferredBasepassGlTF(
+	DeferredBasepassGlTF(
 		const tinygltf::Material& in_material,
 		const std::vector<std::string>& texture_names
 	);
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
 	VkPipeline getPipeline() override { return pipeline; }
-	~MatDeferredBasepassGlTF() override;
+	~DeferredBasepassGlTF() override;
 
 	void resetInstanceCounter() override;
 

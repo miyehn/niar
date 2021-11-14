@@ -20,10 +20,6 @@ bool GrassField::handle_event(SDL_Event event) {
 	return SceneObject::handle_event(event);
 }
 
-void GrassField::draw() {
-
-}
-
 void GrassField::set_local_position(vec3 _local_position) {
 	local_position_value = _local_position;
 	/*

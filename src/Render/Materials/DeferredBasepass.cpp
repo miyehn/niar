@@ -4,10 +4,10 @@
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Texture.h"
 
-VkPipelineLayout MatDeferredBasepass::pipelineLayout = VK_NULL_HANDLE;
-VkPipeline MatDeferredBasepass::pipeline = VK_NULL_HANDLE;
+VkPipelineLayout DeferredBasepass::pipelineLayout = VK_NULL_HANDLE;
+VkPipeline DeferredBasepass::pipeline = VK_NULL_HANDLE;
 
-MatDeferredBasepass::MatDeferredBasepass(
+DeferredBasepass::DeferredBasepass(
 	const std::string &name,
 	const std::string &albedo_tex,
 	const std::string &normal_tex,
@@ -73,7 +73,7 @@ MatDeferredBasepass::MatDeferredBasepass(
 	}
 }
 
-void MatDeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
 {
 	uniformBuffer.writeData(&uniforms);
 
@@ -87,19 +87,19 @@ void MatDeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descri
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-void MatDeferredBasepass::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
+void DeferredBasepass::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	uniforms = {
 		.ModelMatrix = drawable->object_to_world(),
 	};
 }
 
-MatDeferredBasepass::~MatDeferredBasepass()
+DeferredBasepass::~DeferredBasepass()
 {
 	uniformBuffer.release();
 }
 
-void MatDeferredBasepass::cleanup()
+void DeferredBasepass::cleanup()
 {
 	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);

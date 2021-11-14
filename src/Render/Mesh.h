@@ -40,7 +40,7 @@ struct Mesh : SceneObject {
 
 	void update(float elapsed) override;
 
-	void draw(VkCommandBuffer cmdbuf);
+	void draw(VkCommandBuffer cmdbuf) override;
 
 	void set_local_position(glm::vec3 _local_position) override;
 	void set_rotation(glm::quat _rotation) override;

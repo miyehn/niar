@@ -448,9 +448,9 @@ inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice in_device) {
 	VkPhysicalDeviceProperties properties;
 	vkGetPhysicalDeviceProperties(in_device, &properties);
 
-	#if 0
+	#if 1
 	VkPhysicalDeviceFeatures features;
-	vkGetPhysicalDeviceFeatures(device, &features);
+	vkGetPhysicalDeviceFeatures(in_device, &features);
 	#endif
 
 	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(in_device);
@@ -467,6 +467,8 @@ inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice in_device) {
 		&& queueFamilyIndices.isComplete()
 		&& extensionsSupported
 		&& swapChainAdequate
+		&& features.fillModeNonSolid
+		&& features.largePoints
 	) {
 		return true;
 	}
@@ -519,7 +521,10 @@ void Vulkan::createLogicalDevice() {
 	}
 
 	// features
-	VkPhysicalDeviceFeatures deviceFeatures{};
+	VkPhysicalDeviceFeatures deviceFeatures {
+		.fillModeNonSolid = 1,
+		.largePoints = 1,
+	};
 
 	// logical device create info
 	VkDeviceCreateInfo createInfo = {

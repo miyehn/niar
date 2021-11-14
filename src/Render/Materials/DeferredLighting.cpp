@@ -1,10 +1,10 @@
 #include "DeferredLighting.h"
 #include "Render/Texture.h"
 
-VkPipeline MatDeferredLighting::pipeline = VK_NULL_HANDLE;
-VkPipelineLayout MatDeferredLighting::pipelineLayout = VK_NULL_HANDLE;
+VkPipeline DeferredLighting::pipeline = VK_NULL_HANDLE;
+VkPipelineLayout DeferredLighting::pipelineLayout = VK_NULL_HANDLE;
 
-MatDeferredLighting::MatDeferredLighting(DeferredRenderer* renderer)
+DeferredLighting::DeferredLighting(DeferredRenderer* renderer)
 {
 	name = "DeferredLighting";
 	pointLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
@@ -52,7 +52,7 @@ MatDeferredLighting::MatDeferredLighting(DeferredRenderer* renderer)
 	}
 }
 
-void MatDeferredLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DeferredLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
 {
 	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
 	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
@@ -67,13 +67,13 @@ void MatDeferredLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descri
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-MatDeferredLighting::~MatDeferredLighting()
+DeferredLighting::~DeferredLighting()
 {
 	pointLightsBuffer.release();
 	directionalLightsBuffer.release();
 }
 
-void MatDeferredLighting::cleanup() {
+void DeferredLighting::cleanup() {
 	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
 }

@@ -25,38 +25,6 @@ void Scene::generate_aabb() {
 	}
 }
 
-// TODO: make this support parenting hierarchy
-void Scene::draw_content(bool shadow_pass) {
-	for (int i=0; i<children.size(); i++) {
-#if 0 // front face culling
-		if (!shadow_pass) {
-			children[i]->draw();
-			continue;
-		}
-		//---- shadow pass ----
-		// for each child of type Mesh and is closed mesh
-		if (Mesh* mesh = dynamic_cast<Mesh*>(children[i])) {
-			if (!mesh->is_thin_mesh) {
-				glEnable(GL_CULL_FACE);
-				glCullFace(GL_FRONT);
-				mesh->draw();
-				glCullFace(cull_mode);
-				if (!cull_face) glDisable(GL_CULL_FACE);
-				continue;
-			}
-		}
-		// non-mesh or not-closed mesh
-		children[i]->draw();
-#else
-		children[i]->draw();
-#endif
-	}
-}
-
-void Scene::draw() {
-
-}
-
 Scene::Scene(const std::string &_name) : SceneObject(nullptr, _name)
 {
 

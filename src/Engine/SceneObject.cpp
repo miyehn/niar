@@ -39,9 +39,9 @@ void SceneObject::update(float elapsed) {
 		if (children[i]->enabled) children[i]->update(elapsed);
 }
 
-void SceneObject::draw() {
+void SceneObject::draw(VkCommandBuffer cmdbuf) {
 	for (uint i=0; i<children.size(); i++) 
-		if (children[i]->enabled) children[i]->draw();
+		if (children[i]->enabled) children[i]->draw(cmdbuf);
 }
 
 bool SceneObject::add_child(SceneObject* child) {

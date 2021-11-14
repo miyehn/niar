@@ -21,7 +21,6 @@ struct GrassField : public SceneObject {
 	// inherited
 	void update(float elapsed) override;
 	bool handle_event(SDL_Event event) override;
-	void draw() override;
 
 	void set_local_position(glm::vec3 _local_position) override;
 	void set_rotation(glm::quat _rotation) override;

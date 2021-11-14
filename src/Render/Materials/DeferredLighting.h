@@ -6,13 +6,12 @@
 
 class DeferredRenderer;
 
-class MatDeferredLighting : public Material
+class DeferredLighting : public Material
 {
 public:
 
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
-	VkPipeline getPipeline() override { return pipeline; }
-	~MatDeferredLighting() override;
+	~DeferredLighting() override;
 
 	static void cleanup();
 
@@ -39,7 +38,7 @@ public:
 
 private:
 
-	explicit MatDeferredLighting(DeferredRenderer* renderer);
+	explicit DeferredLighting(DeferredRenderer* renderer);
 
 	VmaBuffer pointLightsBuffer;
 	VmaBuffer directionalLightsBuffer;

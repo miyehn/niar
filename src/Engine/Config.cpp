@@ -89,7 +89,7 @@ void initialize_asset_config()
 				std::string metallic = m.exists("Metallic") ? m.lookup("Metallic") : "_black";
 				std::string roughness = m.exists("Roughness") ? m.lookup("Roughness") : "_white";
 				std::string ao = m.exists("AO") ? m.lookup("AO") : "_white";
-				new MatDeferredBasepass(name, albedo, normal, metallic, roughness, ao);
+				new DeferredBasepass(name, albedo, normal, metallic, roughness, ao);
 			} else {
 				WARN("cannot load materials with pipeline '%s' yet. skipping..", pipeline.c_str());
 				created = false;

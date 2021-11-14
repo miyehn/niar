@@ -3,11 +3,11 @@
 
 class Texture2D;
 
-class MatDeferredBasepass : public Material
+class DeferredBasepass : public Material
 {
 public:
 
-	MatDeferredBasepass(
+	DeferredBasepass(
 		const std::string &name,
 		const std::string &albedo_tex,
 		const std::string &normal_tex,
@@ -18,7 +18,7 @@ public:
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
 	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
 	VkPipeline getPipeline() override { return pipeline; }
-	~MatDeferredBasepass() override;
+	~DeferredBasepass() override;
 
 	static void cleanup();
 

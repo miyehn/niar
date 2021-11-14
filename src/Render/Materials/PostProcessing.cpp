@@ -1,10 +1,10 @@
 #include "PostProcessing.h"
 #include "Render/Texture.h"
 
-VkPipeline MatPostProcessing::pipeline = VK_NULL_HANDLE;
-VkPipelineLayout MatPostProcessing::pipelineLayout = VK_NULL_HANDLE;
+VkPipeline PostProcessing::pipeline = VK_NULL_HANDLE;
+VkPipelineLayout PostProcessing::pipelineLayout = VK_NULL_HANDLE;
 
-void MatPostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void PostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
 {
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
@@ -16,7 +16,7 @@ void MatPostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descript
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-MatPostProcessing::MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth)
+PostProcessing::PostProcessing(Texture2D* sceneColor, Texture2D* sceneDepth)
 {
 	name = "Post Processing";
 	Material::add(this);
@@ -28,7 +28,6 @@ MatPostProcessing::MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDept
 	dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	dynamicSet = DescriptorSet(dynamicSetLayout);
 
-	Vulkan::Instance->waitDeviceIdle();
 	// assign values
 	dynamicSet.pointToImageView(sceneColor->imageView, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	dynamicSet.pointToImageView(sceneDepth->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -52,7 +51,7 @@ MatPostProcessing::MatPostProcessing(Texture2D* sceneColor, Texture2D* sceneDept
 	}
 }
 
-void MatPostProcessing::cleanup()
+void PostProcessing::cleanup()
 {
 	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
 	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);

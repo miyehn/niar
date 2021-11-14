@@ -5,6 +5,7 @@
 #include <SDL_events.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <vulkan/vulkan.h>
 
 class Scene;
 
@@ -21,7 +22,7 @@ public:
 	virtual void update(float elapsed);
 
 	// draw function
-	virtual void draw();
+	virtual void draw(VkCommandBuffer cmdbuf);
 
 	// hierarchy operations
 	SceneObject* parent;

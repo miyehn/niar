@@ -21,12 +21,10 @@ public:
 	void load_tinygltf(const std::string& path, bool preserve_existing_objects = true);
 
 	//-------- where the configurations are being set before the scene is drawn --------
-	void draw() override;
 
 	AABB aabb;
 	std::vector<Mesh*> get_meshes();
 	void generate_aabb();
-	void draw_content(bool shadow_pass = false);
 
 private:
 

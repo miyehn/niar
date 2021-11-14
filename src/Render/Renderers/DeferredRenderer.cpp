@@ -4,6 +4,8 @@
 #include "Render/Mesh.h"
 #include "Render/Materials/Material.h"
 #include "Render/Materials/DeferredLighting.h"
+#include "Render/Materials/PostProcessing.h"
+#include "Render/Materials/DebugPoints.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 
@@ -243,9 +245,26 @@ DeferredRenderer::DeferredRenderer()
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 			});
-		passBuilder.useDepthAttachment = false;
+
+		passBuilder.useDepthAttachment = true;
+		passBuilder.depthAttachment = {
+			.format = VK_FORMAT_D32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
 		VkAttachmentReference colorAttachmentRef = {
 			0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+		VkAttachmentReference depthAttachmentReference = {
+			1,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		};
+		// post processing
 		passBuilder.subpasses.push_back(
 			{
 				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -253,11 +272,30 @@ DeferredRenderer::DeferredRenderer()
 				.pColorAttachments = &colorAttachmentRef, // an array, index matches layout (location=X) out vec4 outColor
 				.pDepthStencilAttachment = nullptr
 			});
-		// TODO: relax
+		// debug stuff
+		passBuilder.subpasses.push_back(
+			{
+				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+				.colorAttachmentCount = 1,
+				.pColorAttachments = &colorAttachmentRef, // an array, index matches layout (location=X) out vec4 outColor
+				.pDepthStencilAttachment = &depthAttachmentReference
+			});
+
+		// TODO: relax constraints here
 		passBuilder.dependencies.push_back(
 			{
 				.srcSubpass = VK_SUBPASS_EXTERNAL,
 				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+			});
+		passBuilder.dependencies.push_back(
+			{
+				.srcSubpass = 0,
+				.dstSubpass = 1,
 				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
@@ -293,11 +331,12 @@ DeferredRenderer::DeferredRenderer()
 	}
 
 	{// also framebuffer for postprocessing
+		VkImageView attachments[2] = { postProcessed->imageView, sceneDepth->imageView };
 		VkFramebufferCreateInfo frameBufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = postProcessPass,
-			.attachmentCount = 1,
-			.pAttachments = &postProcessed->imageView,
+			.attachmentCount = 2,
+			.pAttachments = attachments,
 			.width = renderExtent.width,
 			.height = renderExtent.height,
 			.layers = 1
@@ -335,6 +374,13 @@ DeferredRenderer::DeferredRenderer()
 	// misc
 	ViewInfo.Exposure = 0.0f;
 	ViewInfo.ToneMappingOption = 1;
+
+	std::vector<PointData> points;
+	points.emplace_back(glm::vec3(0, 1, 0));
+	points.emplace_back(glm::vec3(1, 1, 0));
+	points.emplace_back(glm::vec3(2, 1, 0));
+	points.emplace_back(glm::vec3(3, 1, 0));
+	debugPoints = new DebugPoints(this, points);
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -350,6 +396,8 @@ DeferredRenderer::~DeferredRenderer()
 		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
+
+	delete debugPoints;
 }
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
@@ -422,8 +470,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Lighting pass")
-		MatDeferredLighting* mat_lighting =
-			dynamic_cast<MatDeferredLighting*>(Material::find("DeferredLighting"));
+		DeferredLighting* mat_lighting =
+			dynamic_cast<DeferredLighting*>(Material::find("DeferredLighting"));
 
 		int point_light_ctr = 0;
 		int directional_light_ctr = 0;
@@ -471,12 +519,22 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			.pClearValues = nullptr
 		};
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
-		MatPostProcessing* mat_postprocessing = dynamic_cast<MatPostProcessing*>(Material::find("Post Processing"));
-		mat_postprocessing->usePipeline(cmdbuf, {
-			{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
-		});
-		vk::draw_fullscreen_triangle(cmdbuf);
-		vkCmdEndRenderPass(cmdbuf);
+		{
+			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
+			PostProcessing* mat_postprocessing = dynamic_cast<PostProcessing*>(Material::find("Post Processing"));
+			mat_postprocessing->usePipeline(cmdbuf, {
+				{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
+			});
+			vk::draw_fullscreen_triangle(cmdbuf);
+			vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
+		}
+		{
+			SCOPED_DRAW_EVENT(cmdbuf, "Debug draw")
+			debugPoints->bindAndDraw(cmdbuf, {
+				{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
+			});
+			vkCmdEndRenderPass(cmdbuf);
+		}
 
 		vk::blitToScreen(
 			cmdbuf,
@@ -493,8 +551,8 @@ DeferredRenderer *DeferredRenderer::get()
 	if (deferredRenderer == nullptr)
 	{
 		deferredRenderer = new DeferredRenderer();
-		new MatDeferredLighting(deferredRenderer);
-		new MatPostProcessing(deferredRenderer->sceneColor, deferredRenderer->sceneDepth);
+		new DeferredLighting(deferredRenderer);
+		new PostProcessing(deferredRenderer->sceneColor, deferredRenderer->sceneDepth);
 	}
 	return deferredRenderer;
 }
@@ -502,4 +560,5 @@ DeferredRenderer *DeferredRenderer::get()
 void DeferredRenderer::cleanup()
 {
 	if (deferredRenderer) delete deferredRenderer;
+	DebugPoints::cleanup();
 }

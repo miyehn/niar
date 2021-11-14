@@ -223,7 +223,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 	std::vector<std::string> material_names(model.materials.size());
 	for (int i = 0; i < model.materials.size(); i++) {
 		auto& mat = model.materials[i];
-		new MatDeferredBasepassGlTF(mat, texture_names);
+		new DeferredBasepassGlTF(mat, texture_names);
 		material_names[i] = mat.name;
 	}
 
