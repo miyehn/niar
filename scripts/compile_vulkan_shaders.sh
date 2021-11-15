@@ -27,7 +27,7 @@ num_shaders=0
 
 for shader in $1/*
 do
-  if [[ $shader == *".vert" ]] || [[ $shader == *".frag" ]]; then
+  if [[ $shader == *".vert" ]] || [[ $shader == *".frag" ]] || [[ $shader == *".comp" ]]; then
     bn="$(basename $shader)"
     if ! glslc $shader -o $2"/"$bn".spv"; then
       error=1

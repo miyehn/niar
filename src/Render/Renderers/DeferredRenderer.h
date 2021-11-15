@@ -37,13 +37,13 @@ private:
 
 	// specific to this renderer
 
-	DebugPoints* debugPoints;
-
 	DeferredLighting* deferredLighting;
 
 	PostProcessing* postProcessing;
 
 public:
+
+	DebugPoints* debugPoints;
 
 	DescriptorSet frameGlobalDescriptorSet;
 

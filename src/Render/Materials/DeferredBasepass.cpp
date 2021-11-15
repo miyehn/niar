@@ -53,7 +53,7 @@ DeferredBasepass::DeferredBasepass(
         if (pipeline == VK_NULL_HANDLE || pipelineLayout == VK_NULL_HANDLE)
         {
             // now build the pipeline
-            PipelineBuilder pipelineBuilder{};
+            GraphicsPipelineBuilder pipelineBuilder{};
             pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
             pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
             pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
@@ -79,10 +79,10 @@ void DeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descripto
 
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
-		dsetSlot.descriptorSet.bind(cmdbuf, dsetSlot.bindingSlot, pipelineLayout);
+		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
 	}
 
-	dynamicSet.bind(cmdbuf, DSET_DYNAMIC, pipelineLayout);
+	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }

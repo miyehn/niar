@@ -8,10 +8,10 @@ void PostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorS
 {
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
-		dsetSlot.descriptorSet.bind(cmdbuf, dsetSlot.bindingSlot, pipelineLayout);
+		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
 	}
 
-	dynamicSet.bind(cmdbuf, DSET_DYNAMIC, pipelineLayout);
+	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
@@ -35,7 +35,7 @@ PostProcessing::PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor
 	{
 		auto vk = Vulkan::Instance;
 		// build the pipeline
-		PipelineBuilder pipelineBuilder{};
+		GraphicsPipelineBuilder pipelineBuilder{};
 		pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
 		pipelineBuilder.fragPath = "spirv/post_processing.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);

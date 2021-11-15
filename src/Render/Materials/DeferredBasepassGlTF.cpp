@@ -21,7 +21,7 @@ void DeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *dr
 	uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
 
 	uint32_t offset = uniformBuffer.strideSize * instanceCounter;
-	dynamicSet.bind(cmdbuf, DSET_DYNAMIC, pipelineLayout, 0, 1, &offset);
+	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout, 0, 1, &offset);
 
 	instanceCounter++;
 }
@@ -31,7 +31,7 @@ void DeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf, std::vector<Descr
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
-		dsetSlot.descriptorSet.bind(cmdbuf, dsetSlot.bindingSlot, pipelineLayout);
+		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
 	}
 }
 
@@ -111,7 +111,7 @@ DeferredBasepassGlTF::DeferredBasepassGlTF(
 		if (pipeline == VK_NULL_HANDLE || pipelineLayout == VK_NULL_HANDLE)
 		{
 			// now build the pipeline
-			PipelineBuilder pipelineBuilder{};
+			GraphicsPipelineBuilder pipelineBuilder{};
 			pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
 			pipelineBuilder.fragPath = "spirv/geometry_gltf.frag.spv";
 			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);

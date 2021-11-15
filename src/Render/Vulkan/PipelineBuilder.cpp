@@ -200,13 +200,7 @@ void PipelineState::setExtent(uint32_t width, uint32_t height)
 	scissor.extent = targetExtent;
 }
 
-PipelineBuilder::PipelineBuilder()
-{
-	vertPath = "spirv/triangle.vert.spv";
-	fragPath = "spirv/triangle.frag.spv";
-}
-
-void PipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout)
+void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout)
 {
 	// shader stages
 
@@ -258,8 +252,48 @@ void PipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipeli
 	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
 }
 
-void PipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
+void GraphicsPipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
 {
 	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
 	descriptorSetLayouts[setIndex] = setLayout;
+}
+
+void ComputePipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
+{
+	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
+	descriptorSetLayouts[setIndex] = setLayout;
+}
+
+void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout)
+{
+	// shader stage
+	auto shaderModule = ShaderModule::get(shaderPath);
+	VkPipelineShaderStageCreateInfo shaderStageInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
+		.module = shaderModule->module,
+		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+	};
+	// layout
+	std::vector<VkDescriptorSetLayout> setLayouts;
+	for (auto layout : descriptorSetLayouts)
+	{
+		setLayouts.push_back(layout.getLayout());
+	}
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+		.pSetLayouts = setLayouts.data(),
+		.pushConstantRangeCount = 0,
+		.pPushConstantRanges = nullptr
+	};
+	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &outPipelineLayout), VK_SUCCESS)
+	// pipeline
+	VkComputePipelineCreateInfo pipelineInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.stage = shaderStageInfo,
+		.layout = outPipelineLayout
+	};
+	EXPECT(vkCreateComputePipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
 }

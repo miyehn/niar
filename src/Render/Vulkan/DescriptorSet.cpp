@@ -140,6 +140,7 @@ void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding, Vk
 
 void DescriptorSet::bind(
 	VkCommandBuffer cmdbuf,
+	VkPipelineBindPoint pipelineBindPoint,
 	uint32_t setIndex,
 	VkPipelineLayout pipelineLayout,
 	uint32_t instanceId,
@@ -147,7 +148,7 @@ void DescriptorSet::bind(
 	const uint32_t* pDynamicOffsets)
 {
 	vkCmdBindDescriptorSets(
-		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		cmdbuf, pipelineBindPoint,
 		pipelineLayout,
 		setIndex, // firstSet : uint32_t
 		1, // descriptorSetCount : uint32_t

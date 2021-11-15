@@ -1,4 +1,5 @@
 #include "DebugPoints.h"
+#include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Vulkan/VulkanUtils.h"
 
 VkPipeline DebugPoints::pipeline = VK_NULL_HANDLE;
@@ -20,7 +21,7 @@ DebugPoints::DebugPoints(DeferredRenderer* renderer, const std::vector<PointData
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 		stagingBuffer.writeData((void*)initialPoints.data());
 
-		auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		pointsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
 
 		vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
@@ -31,7 +32,7 @@ DebugPoints::DebugPoints(DeferredRenderer* renderer, const std::vector<PointData
 	{
 		// build the pipeline
 		auto vk = Vulkan::Instance;
-		PipelineBuilder pipelineBuilder{};
+		GraphicsPipelineBuilder pipelineBuilder{};
 		pipelineBuilder.vertPath = "spirv/debug_point.vert.spv";
 		pipelineBuilder.fragPath = "spirv/debug_point.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
@@ -56,7 +57,7 @@ void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf, std::vector<DescriptorSetB
 {
 	for (auto &dsetSlot : sharedDescriptorSets)
 	{
-		dsetSlot.descriptorSet.bind(cmdbuf, dsetSlot.bindingSlot, pipelineLayout);
+		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
 	}
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };

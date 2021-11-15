@@ -1,6 +1,5 @@
 #pragma once
 #include "Material.h"
-#include "Render/Renderers/DeferredRenderer.h"
 
 class DeferredRenderer;
 
@@ -8,6 +7,7 @@ struct PointData
 {
 	explicit PointData(const glm::vec3& in_position) : position(in_position) {};
 	glm::vec3 position;
+	float _pad = 0.0f;
 
 	// about how to cut the binding-th array into strides
 	static void getBindingDescription(VkVertexInputBindingDescription& bindingDescription)

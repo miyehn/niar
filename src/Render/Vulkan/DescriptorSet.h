@@ -33,6 +33,7 @@ public:
 
 	void bind(
 		VkCommandBuffer cmdbuf,
+		VkPipelineBindPoint pipelineBindPoint,
 		uint32_t setIndex,
 		VkPipelineLayout pipelineLayout,
 		uint32_t instanceId = 0,

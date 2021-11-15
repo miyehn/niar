@@ -209,6 +209,8 @@ void Vulkan::immediateSubmit(std::function<void(VkCommandBuffer)> &&fn)
 		.pCommandBuffers = &commandBuffer
 	};
 	EXPECT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, immediateSubmitFence), VK_SUCCESS)
+
+	// TODO: don't flush everything here just keep going
 	vkWaitForFences(device, 1, &immediateSubmitFence, true, SDL_MAX_UINT64);
 	vkResetFences(device, 1, &immediateSubmitFence);
 	//EXPECT(vkQueueWaitIdle(graphicsQueue), VK_SUCCESS) // alternatively use a fence, if want to submit a bunch of commands and wait for them all

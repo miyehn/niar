@@ -1,0 +1,22 @@
+#version 450
+// #include "scene_common.glsl"
+
+struct PointData
+{
+    vec3 position;
+    float _pad;
+};
+
+layout(set = 3, binding = 0) buffer BufferData
+{
+    PointData[] points;
+} data;
+
+layout(local_size_x = 2, local_size_y = 1, local_size_z = 1) in;
+void main()
+{
+    vec3 currentPos = data.points[gl_GlobalInvocationID.x].position;
+    vec3 nextPos = currentPos + vec3(0, 1, 0) * 0.0001f;
+    if (nextPos.y > 3) nextPos.y = 0;
+    data.points[gl_GlobalInvocationID.x].position = nextPos;
+}

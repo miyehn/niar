@@ -52,11 +52,9 @@ struct PipelineState
 	VkPipelineDynamicStateCreateInfo dynamicStateInfo;
 };
 
-struct PipelineBuilder
+struct GraphicsPipelineBuilder
 {
-	PipelineBuilder();
-
-	// void add_binding(uint32_t setIndex, uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
+	GraphicsPipelineBuilder() = default;
 
 	void useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
 
@@ -74,3 +72,16 @@ private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
 };
 
+struct ComputePipelineBuilder
+{
+	ComputePipelineBuilder() = default;
+
+	void useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
+
+	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout);
+
+	std::string shaderPath;
+
+private:
+	std::vector<DescriptorSetLayout> descriptorSetLayouts;
+};

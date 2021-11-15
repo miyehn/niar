@@ -7,6 +7,7 @@
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
+#include "Render/Materials/DebugPoints.h"
 
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/ShaderModule.h"
@@ -69,6 +70,78 @@ static void draw();
 static void cleanup();
 
 //////////////////////////////////////////////////////////////////
+
+class Sine {
+public:
+	static Sine* get()
+	{
+		static Sine* instance = nullptr;
+		if (!instance)
+		{
+			instance = new Sine();
+		}
+		return instance;
+	}
+
+	void dispatch()
+	{
+		Vulkan::Instance->immediateSubmit(
+			[this](VkCommandBuffer cmdbuf)
+			{
+				vk::insertBufferBarrier(
+					cmdbuf,
+					DeferredRenderer::get()->debugPoints->pointsBuffer.getBufferInstance(),
+					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+					VK_ACCESS_SHADER_WRITE_BIT);
+				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+				DeferredRenderer::get()->frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipelineLayout);
+				dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_DYNAMIC, pipelineLayout);
+
+				vkCmdDispatch(cmdbuf, 2, 1, 1);
+
+				vk::insertBufferBarrier(
+					cmdbuf,
+					DeferredRenderer::get()->debugPoints->pointsBuffer.getBufferInstance(),
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+					VK_ACCESS_SHADER_WRITE_BIT,
+					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT);
+			});
+	}
+
+	~Sine()
+	{
+		vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
+		vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
+	}
+
+private:
+	Sine()
+	{
+		// build the pipeline
+		auto vk = Vulkan::Instance;
+		ComputePipelineBuilder pipelineBuilder{};
+		pipelineBuilder.shaderPath = "spirv/sine.comp.spv";
+
+		// input info
+
+		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+
+		DescriptorSetLayout dynamicSetLayout{};
+		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		dynamicSet = DescriptorSet(dynamicSetLayout);
+		dynamicSet.pointToBuffer(DeferredRenderer::get()->debugPoints->pointsBuffer, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+
+		pipelineBuilder.build(pipeline, pipelineLayout);
+	}
+	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	DescriptorSet dynamicSet;
+};
 
 static void init()
 {
@@ -157,6 +230,7 @@ static void init()
 			};
 			for (auto child : Scene::Active->children) make_tree(child);
 		}, Scene::Active->name + " (scene hierarchy)");
+
 }
 
 static void process_text_input()
@@ -258,6 +332,7 @@ static void update(float elapsed)
 	if (Scene::Active && Scene::Active->enabled) {
 		Scene::Active->update(elapsed);
 	}
+
 }
 
 static void draw()
@@ -279,6 +354,8 @@ static void draw()
 	}
 	else
 	{
+		Sine::get()->dispatch();
+
 		Material::resetInstanceCounters();
 		auto renderer = DeferredRenderer::get();
 		renderer->camera = Camera::Active;
@@ -301,6 +378,7 @@ static void draw()
 static void cleanup()
 {
 	Vulkan::Instance->waitDeviceIdle();
+	delete Sine::get();
 	DeferredRenderer::cleanup();
 	ShaderModule::cleanup();
 	Texture::cleanup();

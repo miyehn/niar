@@ -27,6 +27,15 @@ namespace vk
 		VkImageLayout oldLayout,
 		VkImageLayout newLayout);
 
+	void insertBufferBarrier(
+		VkCommandBuffer cmdbuf,
+		VkBuffer buffer,
+		VkPipelineStageFlags srcStageMask,
+		VkPipelineStageFlags dstStageMask,
+		VkAccessFlags srcAccessMask,
+		VkAccessFlags dstAccessMask
+		);
+
 	void uploadPixelsToImage(
 		uint8_t *pixels,
 		int32_t offsetX,

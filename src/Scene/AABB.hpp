@@ -1,7 +1,7 @@
 #pragma once
 #include "Utils/myn/Misc.h"
 
-struct Scene;
+class Scene;
 
 struct AABB {
 

@@ -80,6 +80,37 @@ void vk::insertImageBarrier(VkCommandBuffer cmdbuf,
 		&imageBarrier);
 }
 
+void vk::insertBufferBarrier(
+	VkCommandBuffer cmdbuf,
+	VkBuffer buffer,
+	VkPipelineStageFlags srcStageMask,
+	VkPipelineStageFlags dstStageMask,
+	VkAccessFlags srcAccessMask,
+	VkAccessFlags dstAccessMask
+) {
+	VkBufferMemoryBarrier bufferBarrier = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+		.srcAccessMask = srcAccessMask,
+		.dstAccessMask = dstAccessMask,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.buffer = buffer,
+		.offset = 0,
+		.size = VK_WHOLE_SIZE
+	};
+	vkCmdPipelineBarrier(
+		cmdbuf,
+		srcStageMask,
+		dstStageMask,
+		0,
+		0,
+		nullptr,
+		1,
+		&bufferBarrier,
+		0,
+		nullptr);
+}
+
 void vk::blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax)
 {
 	VkImage swapChainImage = Vulkan::Instance->getCurrentSwapChainImage();
