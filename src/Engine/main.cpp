@@ -7,7 +7,7 @@
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
-#include "Render/Materials/DebugPoints.h"
+#include "Render/DebugPoints.h"
 
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/ShaderModule.h"
@@ -88,6 +88,7 @@ public:
 		Vulkan::Instance->immediateSubmit(
 			[this](VkCommandBuffer cmdbuf)
 			{
+				SCOPED_DRAW_EVENT(cmdbuf, "Dispatch Sine")
 				vk::insertBufferBarrier(
 					cmdbuf,
 					DeferredRenderer::get()->debugPoints->pointsBuffer.getBufferInstance(),

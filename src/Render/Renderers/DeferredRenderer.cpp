@@ -5,7 +5,7 @@
 #include "Render/Materials/Material.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Materials/PostProcessing.h"
-#include "Render/Materials/DebugPoints.h"
+#include "Render/DebugPoints.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 
@@ -174,57 +174,37 @@ DeferredRenderer::DeferredRenderer()
 			});
 
 		// point lighting pass
-		std::vector<VkAttachmentReference> pointLightingInputAttachmentRefs = {
+		std::vector<VkAttachmentReference> lightingInputAttachmentRefs = {
 			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 			{GMETALLICROUGHNESSAO_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
 		};
-		std::vector<VkAttachmentReference> pointLightingColorAttachmentRefs = {
+		std::vector<VkAttachmentReference> lightingColorAttachmentRefs = {
 			{SCENECOLOR_ATTACHMENT,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
 		passBuilder.subpasses.push_back(
 			{
 				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 				// input attachments
-				.inputAttachmentCount = static_cast<uint32_t>(pointLightingInputAttachmentRefs.size()),
-				.pInputAttachments = pointLightingInputAttachmentRefs.data(),
+				.inputAttachmentCount = static_cast<uint32_t>(lightingInputAttachmentRefs.size()),
+				.pInputAttachments = lightingInputAttachmentRefs.data(),
 				// output attachments
-				.colorAttachmentCount = static_cast<uint32_t>(pointLightingColorAttachmentRefs.size()),
-				.pColorAttachments = pointLightingColorAttachmentRefs.data(),
+				.colorAttachmentCount = static_cast<uint32_t>(lightingColorAttachmentRefs.size()),
+				.pColorAttachments = lightingColorAttachmentRefs.data(),
 				.pDepthStencilAttachment = nullptr
 			});
 
 		// dependencies
-		// TODO: relax the synchronization constraints
+		// TODO: any dependency w external needed?
 		passBuilder.dependencies.push_back(
-			{
-				.srcSubpass = VK_SUBPASS_EXTERNAL,
-				.dstSubpass = 0,
-				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
-			});
-		passBuilder.dependencies.push_back(
-			{
+			{// basepass vs. lighting
 				.srcSubpass = 0,
 				.dstSubpass = 1,
-				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
-			});
-		passBuilder.dependencies.push_back(
-			{
-				.srcSubpass = 1,
-				.dstSubpass = VK_SUBPASS_EXTERNAL,
-				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
 				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 			});
 
@@ -281,25 +261,15 @@ DeferredRenderer::DeferredRenderer()
 				.pDepthStencilAttachment = &depthAttachmentReference
 			});
 
-		// TODO: relax constraints here
-		passBuilder.dependencies.push_back(
-			{
-				.srcSubpass = VK_SUBPASS_EXTERNAL,
-				.dstSubpass = 0,
-				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
-			});
+		// TODO: constraints correct?
 		passBuilder.dependencies.push_back(
 			{
 				.srcSubpass = 0,
 				.dstSubpass = 1,
-				.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 			});
 		postProcessPass = passBuilder.build(Vulkan::Instance->device);
@@ -354,7 +324,6 @@ DeferredRenderer::DeferredRenderer()
 								  sizeof(ViewInfo),
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU);
-
 
 		DescriptorSetLayout frameGlobalSetLayout{};
 		frameGlobalSetLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -415,6 +384,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		ViewInfo.ViewDir = camera->forward();
 
 		viewInfoUbo.writeData(&ViewInfo);
+
+		// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
+		frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, DeferredLighting::pipelineLayout);
 	}
 
 	std::vector<SceneObject*> drawables;
@@ -436,7 +408,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		.pClearValues = clearValues
 	};
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
-
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
 		// deferred base pass: draw the meshes with materials
@@ -452,9 +423,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 				// pipeline changed: re-bind
 				if (pipeline != last_pipeline)
 				{
-					m->get_material()->usePipeline(cmdbuf, {
-						{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
-					});
+					m->get_material()->usePipeline(cmdbuf);
 					last_pipeline = pipeline;
 				}
 				// material changed: reset instance counter
@@ -502,9 +471,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		deferredLighting->numPointLights = point_light_ctr;
 		deferredLighting->numDirectionalLights = directional_light_ctr;
-		deferredLighting->usePipeline(cmdbuf, {
-			{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
-		});
+		deferredLighting->usePipeline(cmdbuf);
 		vk::draw_fullscreen_triangle(cmdbuf);
 
 		vkCmdEndRenderPass(cmdbuf);
@@ -523,17 +490,13 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
-			postProcessing->usePipeline(cmdbuf, {
-				{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
-			});
+			postProcessing->usePipeline(cmdbuf);
 			vk::draw_fullscreen_triangle(cmdbuf);
 			vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		}
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Debug draw")
-			debugPoints->bindAndDraw(cmdbuf, {
-				{frameGlobalDescriptorSet, DSET_FRAMEGLOBAL}
-			});
+			debugPoints->bindAndDraw(cmdbuf);
 			vkCmdEndRenderPass(cmdbuf);
 		}
 

@@ -73,14 +73,9 @@ DeferredBasepass::DeferredBasepass(
 	}
 }
 
-void DeferredBasepass::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DeferredBasepass::usePipeline(VkCommandBuffer cmdbuf)
 {
 	uniformBuffer.writeData(&uniforms);
-
-	for (auto &dsetSlot : sharedDescriptorSets)
-	{
-		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
-	}
 
 	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout);
 

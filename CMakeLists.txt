@@ -73,7 +73,7 @@ set(SRC
 	src/Scene/SceneLoad_glTF.cpp
 	src/Render/Materials/DeferredBasepassGlTF.cpp
 	src/Render/Materials/PostProcessing.cpp
-	src/Render/Materials/DebugPoints.cpp )
+    src/Render/DebugPoints.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})

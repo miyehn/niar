@@ -1,5 +1,5 @@
 #pragma once
-#include "Material.h"
+#include "Render/Materials/Material.h"
 
 class DeferredRenderer;
 
@@ -41,7 +41,7 @@ public:
 	explicit DebugPoints(DeferredRenderer* renderer, const std::vector<PointData>& initialPoints);
 	~DebugPoints();
 
-	void bindAndDraw(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets);
+	void bindAndDraw(VkCommandBuffer cmdbuf);
 
 	static void cleanup();
 

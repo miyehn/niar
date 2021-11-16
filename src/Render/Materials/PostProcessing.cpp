@@ -4,13 +4,8 @@
 VkPipeline PostProcessing::pipeline = VK_NULL_HANDLE;
 VkPipelineLayout PostProcessing::pipelineLayout = VK_NULL_HANDLE;
 
-void PostProcessing::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void PostProcessing::usePipeline(VkCommandBuffer cmdbuf)
 {
-	for (auto &dsetSlot : sharedDescriptorSets)
-	{
-		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
-	}
-
 	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);

@@ -9,7 +9,7 @@ class PostProcessing : public Material
 {
 public:
 
-	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
+	void usePipeline(VkCommandBuffer cmdbuf) override;
 
 	static void cleanup();
 

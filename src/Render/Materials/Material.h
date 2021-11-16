@@ -22,7 +22,7 @@ public:
 	std::string name;
 
 	virtual void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) {};
-	virtual void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets = {}) = 0;
+	virtual void usePipeline(VkCommandBuffer cmdbuf) = 0;
 	virtual VkPipeline getPipeline() { return VK_NULL_HANDLE; }
 
 	virtual ~Material() = default;

@@ -53,12 +53,8 @@ DebugPoints::DebugPoints(DeferredRenderer* renderer, const std::vector<PointData
 	}
 }
 
-void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf)
 {
-	for (auto &dsetSlot : sharedDescriptorSets)
-	{
-		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
-	}
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = pointsBuffer.getBufferInstance();

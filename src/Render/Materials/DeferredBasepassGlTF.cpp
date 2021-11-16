@@ -26,13 +26,9 @@ void DeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *dr
 	instanceCounter++;
 }
 
-void DeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf)
 {
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	for (auto &dsetSlot : sharedDescriptorSets)
-	{
-		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
-	}
 }
 
 DeferredBasepassGlTF::~DeferredBasepassGlTF()

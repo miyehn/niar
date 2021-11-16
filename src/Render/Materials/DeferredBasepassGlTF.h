@@ -15,7 +15,7 @@ public:
 		const std::vector<std::string>& texture_names
 	);
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
-	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
+	void usePipeline(VkCommandBuffer cmdbuf) override;
 	VkPipeline getPipeline() override { return pipeline; }
 	~DeferredBasepassGlTF() override;
 

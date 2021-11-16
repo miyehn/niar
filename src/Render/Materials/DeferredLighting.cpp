@@ -50,15 +50,10 @@ DeferredLighting::DeferredLighting(DeferredRenderer* renderer)
 	}
 }
 
-void DeferredLighting::usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets)
+void DeferredLighting::usePipeline(VkCommandBuffer cmdbuf)
 {
 	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
 	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
-
-	for (auto &dsetSlot : sharedDescriptorSets)
-	{
-		dsetSlot.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, dsetSlot.bindingSlot, pipelineLayout);
-	}
 
 	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout);
 

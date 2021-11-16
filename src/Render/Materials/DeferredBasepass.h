@@ -16,7 +16,7 @@ public:
 		const std::string &ao_path = ""
 	);
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
-	void usePipeline(VkCommandBuffer cmdbuf, std::vector<DescriptorSetBindingSlot> sharedDescriptorSets) override;
+	void usePipeline(VkCommandBuffer cmdbuf) override;
 	VkPipeline getPipeline() override { return pipeline; }
 	~DeferredBasepass() override;
 
