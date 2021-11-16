@@ -1,7 +1,8 @@
 #include "Utils/myn/Log.h"
 #include "RenderPassBuilder.h"
+#include "Vulkan.hpp"
 
-VkRenderPass RenderPassBuilder::build(VkDevice &device)
+VkRenderPass RenderPassBuilder::build(Vulkan* vulkan)
 {
 	std::vector<VkAttachmentDescription> attachments;
 	for (auto colorAttachment : colorAttachments)
@@ -19,11 +20,14 @@ VkRenderPass RenderPassBuilder::build(VkDevice &device)
 		.pDependencies = dependencies.data()
 	};
 	VkRenderPass renderPass;
-	EXPECT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass), VK_SUCCESS)
+	EXPECT(vkCreateRenderPass(vulkan->device, &renderPassInfo, nullptr, &renderPass), VK_SUCCESS)
+	vulkan->destructionQueue.emplace_back([renderPass](){
+		vkDestroyRenderPass(Vulkan::Instance->device, renderPass, nullptr);
+	});
 	return renderPass;
 }
 
-VkRenderPass RenderPassBuilder::buildDisplayPass(VkDevice &device, VkFormat colorFormat, VkFormat depthFormat)
+VkRenderPass RenderPassBuilder::buildDisplayPass(Vulkan* vulkan, VkFormat colorFormat)
 {
 	// a render pass: load the attachment, r/w operations (by subpasses), then release it?
 	// renderpass -> subpass -> attachmentReferences -> attachment
@@ -71,5 +75,5 @@ VkRenderPass RenderPassBuilder::buildDisplayPass(VkDevice &device, VkFormat colo
 		});
 
 	useDepthAttachment = false;
-	return build(device);
+	return build(vulkan);
 }

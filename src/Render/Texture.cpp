@@ -2,18 +2,40 @@
 #include <stb_image/stb_image.h>
 #include "Render/Vulkan/VulkanUtils.h"
 
-std::unordered_map<std::string, Texture *> Texture::pool;
+// std::unordered_map<std::string, Texture *> Texture::pool;
+
+std::unordered_map<std::string, Texture *>& texturePool()
+{
+	static std::unordered_map<std::string, Texture *> pool;
+	static bool firstEntrance = true;
+	if (firstEntrance)
+	{
+		Vulkan::Instance->destructionQueue.emplace_back([](){
+			for (auto &tex : pool)
+			{
+				delete tex.second;
+			}
+		});
+		firstEntrance = false;
+	}
+	return pool;
+}
 
 Texture *Texture::get(const std::string &path)
 {
-	auto it = Texture::pool.find(path);
-	if (it != Texture::pool.end()) return (*it).second;
+	auto it = texturePool().find(path);
+	if (it != texturePool().end()) return (*it).second;
 
 	WARN("retrieving texture '%s' before it is added to the pool. Trying to load from file with default settings (SRGB)..",
 		 path.c_str())
 	auto new_texture = new Texture2D(path, path);
-	Texture::pool[path] = new_texture;
+	texturePool()[path] = new_texture;
 	return new_texture;
+}
+
+Texture::~Texture()
+{
+	vmaDestroyImage(Vulkan::Instance->memoryAllocator, resource.image, resource.allocation);
 }
 
 //--------
@@ -79,11 +101,6 @@ void createTexture2DFromPixelData(
 		}
 	};
 	EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &outImageView), VK_SUCCESS)
-
-	Vulkan::Instance->destructionQueue.emplace_back([outResource, outImageView](){
-		vmaDestroyImage(Vulkan::Instance->memoryAllocator, outResource.image, outResource.allocation);
-		vkDestroyImageView(Vulkan::Instance->device, outImageView, nullptr);
-	});
 }
 
 #include "TextureFormatMappings.inl"
@@ -91,8 +108,8 @@ void createTexture2DFromPixelData(
 Texture2D::Texture2D(const std::string &name, const std::string &path, ImageFormat textureFormat)
 {
 #ifdef DEBUG
-	auto it = Texture::pool.find(path);
-	if (it != Texture::pool.end()) WARN("trying to load texture '%s' that's already in the pool. Overriding..", path.c_str())
+	auto it = texturePool().find(path);
+	if (it != texturePool().end()) WARN("trying to load texture '%s' that's already in the pool. Overriding..", path.c_str())
 	EXPECT(textureFormat.channelDepth % 8, 0)
 #endif
 
@@ -126,7 +143,7 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 
 	stbi_image_free(pixels);
 
-	Texture::pool[name] = this;
+	texturePool()[name] = this;
 }
 
 void Texture2D::createDefaultTextures()
@@ -152,7 +169,7 @@ void Texture2D::createDefaultTextures()
 		false,
 		whiteTexture->resource,
 		whiteTexture->imageView);
-	Texture::pool["_white"] = whiteTexture;
+	texturePool()["_white"] = whiteTexture;
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, whiteTexture->resource.image, "_white")
 
 	auto* blackTexture = new Texture2D();
@@ -168,7 +185,7 @@ void Texture2D::createDefaultTextures()
 		false,
 		blackTexture->resource,
 		blackTexture->imageView);
-	Texture::pool["_black"] = blackTexture;
+	texturePool()["_black"] = blackTexture;
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, blackTexture->resource.image, "_black")
 
 	auto* defaultNormal = new Texture2D();
@@ -184,7 +201,7 @@ void Texture2D::createDefaultTextures()
 		false,
 		defaultNormal->resource,
 		defaultNormal->imageView);
-	Texture::pool["_defaultNormal"] = defaultNormal;
+	texturePool()["_defaultNormal"] = defaultNormal;
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
 }
 
@@ -219,8 +236,13 @@ Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uin
 		true,
 		resource,
 		imageView);
-	Texture::pool[name] = this;
+	texturePool()[name] = this;
 
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")
+}
+
+Texture2D::~Texture2D()
+{
+	vkDestroyImageView(Vulkan::Instance->device, imageView, nullptr);
 }

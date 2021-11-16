@@ -209,7 +209,7 @@ DeferredRenderer::DeferredRenderer()
 			});
 
 		// build the renderpass
-		renderPass = passBuilder.build(Vulkan::Instance->device);
+		renderPass = passBuilder.build(Vulkan::Instance);
 	}
 
 	{// post procesing pass
@@ -272,7 +272,7 @@ DeferredRenderer::DeferredRenderer()
 				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 			});
-		postProcessPass = passBuilder.build(Vulkan::Instance->device);
+		postProcessPass = passBuilder.build(Vulkan::Instance);
 	}
 
 	{// framebuffer
@@ -346,48 +346,42 @@ DeferredRenderer::DeferredRenderer()
 
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
-
-	std::vector<PointData> points;
-	points.emplace_back(glm::vec3(0, 1, 0));
-	points.emplace_back(glm::vec3(1, 1, 0));
-	points.emplace_back(glm::vec3(2, 1, 0));
-	points.emplace_back(glm::vec3(3, 1, 0));
-	debugPoints = new DebugPoints(this, points);
 }
 
 DeferredRenderer::~DeferredRenderer()
 {
 	auto vk = Vulkan::Instance;
-	vkDestroyRenderPass(vk->device, renderPass, nullptr);
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
-	vkDestroyRenderPass(vk->device, postProcessPass, nullptr);
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
 	viewInfoUbo.release();
+
+	delete deferredLighting;
+	delete postProcessing;
 
 	std::vector<Texture2D*> images = {
 		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
 
-	delete deferredLighting;
 	delete debugPoints;
+}
+
+void DeferredRenderer::updateFrameFlobalDescriptorSet()
+{
+	ViewInfo.ViewMatrix = camera->world_to_object();
+	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
+	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+
+	ViewInfo.CameraPosition = camera->world_position();
+	ViewInfo.ViewDir = camera->forward();
+
+	viewInfoUbo.writeData(&ViewInfo);
 }
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	{// update frame-global uniforms
-		ViewInfo.ViewMatrix = camera->world_to_object();
-		ViewInfo.ProjectionMatrix = camera->camera_to_clip();
-		ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
-
-		ViewInfo.CameraPosition = camera->world_position();
-		ViewInfo.ViewDir = camera->forward();
-
-		viewInfoUbo.writeData(&ViewInfo);
-
-		// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
-		frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, DeferredLighting::pipelineLayout);
-	}
+	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
+	frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, DeferredLighting::pipelineLayout);
 
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
@@ -496,7 +490,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		}
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Debug draw")
-			debugPoints->bindAndDraw(cmdbuf);
+			if (debugPoints) debugPoints->bindAndDraw(cmdbuf);
 			vkCmdEndRenderPass(cmdbuf);
 		}
 

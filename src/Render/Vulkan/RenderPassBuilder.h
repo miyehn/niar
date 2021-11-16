@@ -2,6 +2,8 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 
+class Vulkan;
+
 struct RenderPassBuilder
 {
 	RenderPassBuilder() = default;
@@ -12,6 +14,6 @@ struct RenderPassBuilder
 	std::vector<VkSubpassDependency> dependencies;
 	bool useDepthAttachment;
 
-	VkRenderPass build(VkDevice &device);
-	VkRenderPass buildDisplayPass(VkDevice &device, VkFormat colorFormat, VkFormat depthFormat);
+	VkRenderPass build(Vulkan* vulkan);
+	VkRenderPass buildDisplayPass(Vulkan* vulkan, VkFormat colorFormat);
 };

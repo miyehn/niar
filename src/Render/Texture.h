@@ -10,18 +10,21 @@ struct ImageFormat {
 	int SRGB;
 };
 
+/*
+ * CAUTION: textures are either pooled or managed by other objects.
+ * pooled textures are cleaned up at the end
+ * but other ones (like render targets) need to be cleaned up manually
+ */
 class Texture
 {
 public:
 	static Texture* get(const std::string &path);
+	virtual ~Texture();
 
 	VmaAllocatedImage resource;
 
 protected:
 	Texture() = default;
-	virtual ~Texture() = default;
-
-	static std::unordered_map<std::string, Texture*> pool;
 };
 
 class Texture2D : public Texture
@@ -49,7 +52,7 @@ public:
 	// allocate programmatically; NOT POOLED
 	explicit Texture2D(ImageCreator &imageCreator);
 
-	~Texture2D() override = default;
+	~Texture2D() override;
 
 	static void createDefaultTextures();
 

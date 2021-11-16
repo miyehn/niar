@@ -10,7 +10,6 @@
 #include "Render/DebugPoints.h"
 
 #include "Render/Vulkan/SamplerCache.h"
-#include "Render/Vulkan/ShaderModule.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Engine/DebugUI.h"
 
@@ -20,6 +19,8 @@
 #include <imgui.h>
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>
+
+#include "Render/ComputeShaders/Rise.inl"
 
 using namespace myn;
 
@@ -70,73 +71,6 @@ static void draw();
 static void cleanup();
 
 //////////////////////////////////////////////////////////////////
-
-class Sine {
-public:
-	static Sine* get()
-	{
-		static Sine* instance = nullptr;
-		if (!instance)
-		{
-			instance = new Sine();
-		}
-		return instance;
-	}
-
-	void dispatch()
-	{
-		Vulkan::Instance->immediateSubmit(
-			[this](VkCommandBuffer cmdbuf)
-			{
-				SCOPED_DRAW_EVENT(cmdbuf, "Dispatch Sine")
-				vk::insertBufferBarrier(
-					cmdbuf,
-					DeferredRenderer::get()->debugPoints->pointsBuffer.getBufferInstance(),
-					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-					VK_ACCESS_SHADER_WRITE_BIT);
-				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-				DeferredRenderer::get()->frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipelineLayout);
-				dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_DYNAMIC, pipelineLayout);
-
-				vkCmdDispatch(cmdbuf, 2, 1, 1);
-
-				vk::insertBufferBarrier(
-					cmdbuf,
-					DeferredRenderer::get()->debugPoints->pointsBuffer.getBufferInstance(),
-					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-					VK_ACCESS_SHADER_WRITE_BIT,
-					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT);
-			});
-	}
-
-private:
-	Sine()
-	{
-		// build the pipeline
-		auto vk = Vulkan::Instance;
-		ComputePipelineBuilder pipelineBuilder{};
-		pipelineBuilder.shaderPath = "spirv/sine.comp.spv";
-
-		// input info
-
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-
-		DescriptorSetLayout dynamicSetLayout{};
-		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		dynamicSet = DescriptorSet(dynamicSetLayout);
-		dynamicSet.pointToBuffer(DeferredRenderer::get()->debugPoints->pointsBuffer, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-
-		pipelineBuilder.build(pipeline, pipelineLayout);
-	}
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	DescriptorSet dynamicSet;
-};
 
 static void init()
 {
@@ -192,6 +126,13 @@ static void init()
 	}
 
 	DeferredRenderer* renderer = DeferredRenderer::get();
+	std::vector<PointData> points;
+	points.emplace_back(glm::vec3(0, 1, 0));
+	points.emplace_back(glm::vec3(1, 1, 0));
+	points.emplace_back(glm::vec3(2, 1, 0));
+	points.emplace_back(glm::vec3(3, 1, 0));
+	renderer->debugPoints = new DebugPoints(renderer, points);
+
 	ui::sliderFloat("", &renderer->ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
 	ui::elem([renderer](){
 		ImGui::Combo(
@@ -349,12 +290,17 @@ static void draw()
 	}
 	else
 	{
-		Sine::get()->dispatch();
-
 		Material::resetInstanceCounters();
+
 		auto renderer = DeferredRenderer::get();
 		renderer->camera = Camera::Active;
 		renderer->drawable = Scene::Active;
+		renderer->updateFrameFlobalDescriptorSet();
+
+		Rise::dispatch(
+			renderer->debugPoints->pointsBuffer,
+			renderer->frameGlobalDescriptorSet);
+
 		renderer->render(cmdbuf);
 	}
 

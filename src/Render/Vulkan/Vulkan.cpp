@@ -62,7 +62,6 @@ Vulkan::~Vulkan() {
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
     }
-	vkDestroyRenderPass(device, swapChainRenderPass, nullptr);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyDevice(device, nullptr);
@@ -749,7 +748,7 @@ inline VkShaderModule Vulkan::createShaderModule(const std::vector<char>& code) 
 void Vulkan::createSwapChainRenderPass()
 {
 	RenderPassBuilder displayPassBuilder;
-	swapChainRenderPass = displayPassBuilder.buildDisplayPass(device, swapChainImageFormat, swapChainDepthFormat);
+	swapChainRenderPass = displayPassBuilder.buildDisplayPass(this, swapChainImageFormat);
 }
 
 void Vulkan::createFramebuffers() {

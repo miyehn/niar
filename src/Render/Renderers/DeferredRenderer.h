@@ -43,7 +43,7 @@ private:
 
 public:
 
-	DebugPoints* debugPoints;
+	DebugPoints* debugPoints = nullptr;
 
 	DescriptorSet frameGlobalDescriptorSet;
 
@@ -66,6 +66,7 @@ public:
 
 	} ViewInfo;
 
+	void updateFrameFlobalDescriptorSet();
 	void render(VkCommandBuffer cmdbuf) override;
 
 	static DeferredRenderer* get();
