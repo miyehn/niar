@@ -32,11 +32,6 @@ VkDescriptorSetLayout DescriptorSetLayout::getLayout()
 
 VkDescriptorPool DescriptorSet::descriptorPool = VK_NULL_HANDLE;
 
-void DescriptorSet::releasePool()
-{
-	if (descriptorPool != VK_NULL_HANDLE) vkDestroyDescriptorPool(Vulkan::Instance->device, descriptorPool, nullptr);
-}
-
 DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances) : layout(layout)
 {
 	// create the pool first if it isn't created yet
@@ -55,6 +50,9 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 			.pPoolSizes = poolSizes.data()
 		};
 		EXPECT(vkCreateDescriptorPool(Vulkan::Instance->device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
+		Vulkan::Instance->destructionQueue.emplace_back([](){
+			vkDestroyDescriptorPool(Vulkan::Instance->device, descriptorPool, nullptr);
+		});
 	}
 
 	std::vector<VkDescriptorSetLayout> layouts(numInstances, layout.getLayout());
@@ -216,13 +214,8 @@ VkDescriptorSetLayout DescriptorSetLayoutCache::get(VkDescriptorSetLayoutCreateI
 	VkDescriptorSetLayout layout;
 	EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &createInfo, nullptr, &layout), VK_SUCCESS)
 	pool[createInfo] = layout;
+	Vulkan::Instance->destructionQueue.emplace_back([layout](){
+		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, layout, nullptr);
+	});
 	return layout;
-}
-
-void DescriptorSetLayoutCache::cleanup()
-{
-	for (auto & it : DescriptorSetLayoutCache::pool)
-	{
-		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, it.second, nullptr);
-	}
 }

@@ -21,8 +21,6 @@ public:
 
 	void resetInstanceCounter() override;
 
-	static void cleanup();
-
 private:
 
 	struct {

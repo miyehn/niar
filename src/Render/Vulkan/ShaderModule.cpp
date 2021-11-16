@@ -15,11 +15,6 @@ ShaderModule::ShaderModule(const std::string &path)
 	EXPECT(vkCreateShaderModule(Vulkan::Instance->device, &createInfo, nullptr, &module), VK_SUCCESS)
 }
 
-ShaderModule::~ShaderModule()
-{
-	vkDestroyShaderModule(Vulkan::Instance->device, module, nullptr);
-}
-
 ShaderModule *ShaderModule::get(const std::string &path)
 {
 	auto it = ShaderModule::pool.find(path);
@@ -27,13 +22,9 @@ ShaderModule *ShaderModule::get(const std::string &path)
 
 	auto new_module = new ShaderModule(path);
 	ShaderModule::pool[path] = new_module;
-	return new_module;
-}
+	Vulkan::Instance->destructionQueue.emplace_back([new_module](){
+		vkDestroyShaderModule(Vulkan::Instance->device, new_module->module, nullptr);
+	});
 
-void ShaderModule::cleanup()
-{
-	for (auto & it : ShaderModule::pool)
-	{
-		delete it.second;
-	}
+	return new_module;
 }

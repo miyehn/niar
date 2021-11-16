@@ -43,13 +43,8 @@ VkSampler SamplerCache::get(VkSamplerCreateInfo &createInfo)
 	VkSampler sampler;
 	EXPECT(vkCreateSampler(Vulkan::Instance->device, &createInfo, nullptr, &sampler), VK_SUCCESS)
 	pool[createInfo] = sampler;
+	Vulkan::Instance->destructionQueue.emplace_back([sampler](){
+		vkDestroySampler(Vulkan::Instance->device, sampler, nullptr);
+	});
 	return sampler;
-}
-
-void SamplerCache::cleanup()
-{
-	for (auto & it : SamplerCache::pool)
-	{
-		vkDestroySampler(Vulkan::Instance->device, it.second, nullptr);
-	}
 }

@@ -13,8 +13,6 @@ public:
 	void usePipeline(VkCommandBuffer cmdbuf) override;
 	~DeferredLighting() override;
 
-	static void cleanup();
-
 	struct PointLightInfo {
 		alignas(16) glm::vec3 position;
 		alignas(16) glm::vec3 color;

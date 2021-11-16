@@ -83,6 +83,8 @@ struct Vulkan {
 
 	VmaAllocator memoryAllocator;
 
+	std::vector<std::function<void()>> destructionQueue;
+
 private:
 
 	uint32_t currentImageIndex;

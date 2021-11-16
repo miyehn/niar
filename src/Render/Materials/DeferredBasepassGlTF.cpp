@@ -37,12 +37,6 @@ DeferredBasepassGlTF::~DeferredBasepassGlTF()
 	materialParamsBuffer.release();
 }
 
-void DeferredBasepassGlTF::cleanup()
-{
-	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-}
-
 DeferredBasepassGlTF::DeferredBasepassGlTF(
 	const tinygltf::Material& in_material,
 	const std::vector<std::string>& texture_names)

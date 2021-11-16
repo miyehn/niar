@@ -93,9 +93,3 @@ DeferredBasepass::~DeferredBasepass()
 {
 	uniformBuffer.release();
 }
-
-void DeferredBasepass::cleanup()
-{
-	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-}

@@ -20,8 +20,6 @@ public:
 	VkPipeline getPipeline() override { return pipeline; }
 	~DeferredBasepass() override;
 
-	static void cleanup();
-
 private:
 
 	struct {

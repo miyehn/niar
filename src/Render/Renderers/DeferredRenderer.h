@@ -69,5 +69,4 @@ public:
 	void render(VkCommandBuffer cmdbuf) override;
 
 	static DeferredRenderer* get();
-	static void cleanup();
 };

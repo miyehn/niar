@@ -11,8 +11,6 @@ public:
 
 	void usePipeline(VkCommandBuffer cmdbuf) override;
 
-	static void cleanup();
-
 private:
 
 	// TODO: currently its construction is tied to the deferred renderer creation

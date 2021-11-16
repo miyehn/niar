@@ -47,4 +47,9 @@ void ImageCreator::create(VmaAllocatedImage &image, VkImageView &imageView)
 		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, image.image, debugName)
 		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, debugName + "_defaultView")
 	}
+
+	Vulkan::Instance->destructionQueue.emplace_back([image, imageView](){
+		vmaDestroyImage(Vulkan::Instance->memoryAllocator, image.image, image.allocation);
+		vkDestroyImageView(Vulkan::Instance->device, imageView, nullptr);
+	});
 }

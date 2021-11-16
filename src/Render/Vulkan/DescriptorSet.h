@@ -42,8 +42,6 @@ public:
 
 	DescriptorSetLayout getLayout() { return layout; }
 
-	static void releasePool();
-
 private:
 
 	DescriptorSetLayout layout;
@@ -60,5 +58,4 @@ protected:
 
 public:
 	static VkDescriptorSetLayout get(VkDescriptorSetLayoutCreateInfo& createInfo);
-	static void cleanup();
 };

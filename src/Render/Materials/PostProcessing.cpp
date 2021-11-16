@@ -44,10 +44,3 @@ PostProcessing::PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor
 		pipelineBuilder.build(pipeline, pipelineLayout);
 	}
 }
-
-void PostProcessing::cleanup()
-{
-	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-}
-

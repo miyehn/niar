@@ -43,8 +43,6 @@ public:
 
 	void bindAndDraw(VkCommandBuffer cmdbuf);
 
-	static void cleanup();
-
 	VmaBuffer pointsBuffer; // a vertex buffer
 
 	uint32_t numPoints;

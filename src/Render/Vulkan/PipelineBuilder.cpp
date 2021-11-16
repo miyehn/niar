@@ -250,6 +250,11 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 	pipelineInfo.subpass = compatibleSubpass;
 
 	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
+
+	Vulkan::Instance->destructionQueue.emplace_back([outPipeline, outPipelineLayout](){
+		vkDestroyPipeline(Vulkan::Instance->device, outPipeline, nullptr);
+		vkDestroyPipelineLayout(Vulkan::Instance->device, outPipelineLayout, nullptr);
+	});
 }
 
 void GraphicsPipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
@@ -296,4 +301,9 @@ void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &ou
 		.layout = outPipelineLayout
 	};
 	EXPECT(vkCreateComputePipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
+
+	Vulkan::Instance->destructionQueue.emplace_back([outPipeline, outPipelineLayout](){
+		vkDestroyPipeline(Vulkan::Instance->device, outPipeline, nullptr);
+		vkDestroyPipelineLayout(Vulkan::Instance->device, outPipelineLayout, nullptr);
+	});
 }

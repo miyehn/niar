@@ -4,14 +4,6 @@
 
 std::unordered_map<std::string, Texture *> Texture::pool;
 
-void Texture::cleanup()
-{
-	for (auto & it : Texture::pool)
-	{
-		delete it.second;
-	}
-}
-
 Texture *Texture::get(const std::string &path)
 {
 	auto it = Texture::pool.find(path);
@@ -22,11 +14,6 @@ Texture *Texture::get(const std::string &path)
 	auto new_texture = new Texture2D(path, path);
 	Texture::pool[path] = new_texture;
 	return new_texture;
-}
-
-Texture::~Texture()
-{
-	vmaDestroyImage(Vulkan::Instance->memoryAllocator, resource.image, resource.allocation);
 }
 
 //--------
@@ -92,6 +79,11 @@ void createTexture2DFromPixelData(
 		}
 	};
 	EXPECT(vkCreateImageView(Vulkan::Instance->device, &viewInfo, nullptr, &outImageView), VK_SUCCESS)
+
+	Vulkan::Instance->destructionQueue.emplace_back([outResource, outImageView](){
+		vmaDestroyImage(Vulkan::Instance->memoryAllocator, outResource.image, outResource.allocation);
+		vkDestroyImageView(Vulkan::Instance->device, outImageView, nullptr);
+	});
 }
 
 #include "TextureFormatMappings.inl"
@@ -194,11 +186,6 @@ void Texture2D::createDefaultTextures()
 		defaultNormal->imageView);
 	Texture::pool["_defaultNormal"] = defaultNormal;
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
-}
-
-Texture2D::~Texture2D()
-{
-	vkDestroyImageView(Vulkan::Instance->device, imageView, nullptr);
 }
 
 Texture2D::Texture2D(ImageCreator &imageCreator)

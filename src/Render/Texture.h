@@ -15,13 +15,11 @@ class Texture
 public:
 	static Texture* get(const std::string &path);
 
-	static void cleanup();
-
 	VmaAllocatedImage resource;
 
 protected:
 	Texture() = default;
-	virtual ~Texture();
+	virtual ~Texture() = default;
 
 	static std::unordered_map<std::string, Texture*> pool;
 };
@@ -32,8 +30,6 @@ public:
 
 	VkImageView imageView;
 	VkFormat imageFormat;
-
-	~Texture2D() override;
 
 	// load from file
 	explicit Texture2D(
@@ -52,6 +48,8 @@ public:
 
 	// allocate programmatically; NOT POOLED
 	explicit Texture2D(ImageCreator &imageCreator);
+
+	~Texture2D() override = default;
 
 	static void createDefaultTextures();
 

@@ -1,7 +1,6 @@
 #include "Material.h"
-#include "DeferredBasepass.h"
-#include "DeferredBasepassGlTF.h"
 #include "Utils/myn/Log.h"
+#include "Render/Vulkan/Vulkan.hpp"
 
 std::unordered_map<std::string, Material*> Material::pool;
 
@@ -14,6 +13,7 @@ void Material::add(Material* material)
 		delete mat_iter->second;
 	}
 	Material::pool[material->name] = material;
+	Vulkan::Instance->destructionQueue.emplace_back([material](){ delete material; });
 }
 
 Material *Material::find(const std::string &name)
@@ -22,17 +22,6 @@ Material *Material::find(const std::string &name)
 	if (mat_iter != pool.end()) return mat_iter->second;
 	WARN("Can't find material named '%s'", name.c_str())
 	return nullptr;
-}
-
-void Material::cleanup()
-{
-	for (auto it : pool)
-	{
-		delete it.second;
-	}
-
-	DeferredBasepass::cleanup();
-	DeferredBasepassGlTF::cleanup();
 }
 
 void Material::resetInstanceCounters()

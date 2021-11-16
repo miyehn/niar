@@ -35,6 +35,11 @@ Vulkan::Vulkan(SDL_Window* window) {
 
 Vulkan::~Vulkan() {
 
+	for (int i = destructionQueue.size()-1; i >= 0; i--)
+	{
+		destructionQueue[i]();
+	}
+
 	if (imguiPool != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool(device, imguiPool, nullptr);
 		ImGui_ImplVulkan_Shutdown();

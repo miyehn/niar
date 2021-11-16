@@ -508,23 +508,13 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 }
 
-DeferredRenderer* deferredRenderer = nullptr;
-
 DeferredRenderer *DeferredRenderer::get()
 {
+	static DeferredRenderer* deferredRenderer = nullptr;
 	if (deferredRenderer == nullptr)
 	{
 		deferredRenderer = new DeferredRenderer();
+		Vulkan::Instance->destructionQueue.emplace_back([](){ delete deferredRenderer; });
 	}
 	return deferredRenderer;
-}
-
-void DeferredRenderer::cleanup()
-{
-	if (deferredRenderer) {
-		delete deferredRenderer;
-	}
-	DebugPoints::cleanup();
-	DeferredLighting::cleanup();
-	PostProcessing::cleanup();
 }

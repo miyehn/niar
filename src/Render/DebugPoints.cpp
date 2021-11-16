@@ -5,12 +5,6 @@
 VkPipeline DebugPoints::pipeline = VK_NULL_HANDLE;
 VkPipelineLayout DebugPoints::pipelineLayout = VK_NULL_HANDLE;
 
-void DebugPoints::cleanup()
-{
-	if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-	if (pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-}
-
 DebugPoints::DebugPoints(DeferredRenderer* renderer, const std::vector<PointData>& initialPoints) : numPoints(initialPoints.size())
 {
 	{// initialize buffer

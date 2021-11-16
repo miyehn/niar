@@ -29,7 +29,6 @@ public:
 
 	static Material* find(const std::string& name);
 	static void resetInstanceCounters();
-	static void cleanup();
 
 protected:
 

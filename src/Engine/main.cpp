@@ -112,12 +112,6 @@ public:
 			});
 	}
 
-	~Sine()
-	{
-		vkDestroyPipeline(Vulkan::Instance->device, pipeline, nullptr);
-		vkDestroyPipelineLayout(Vulkan::Instance->device, pipelineLayout, nullptr);
-	}
-
 private:
 	Sine()
 	{
@@ -379,15 +373,6 @@ static void draw()
 static void cleanup()
 {
 	Vulkan::Instance->waitDeviceIdle();
-	delete Sine::get();
-	DeferredRenderer::cleanup();
-	ShaderModule::cleanup();
-	Texture::cleanup();
-	SamplerCache::cleanup();
-	Material::cleanup();
-
-	DescriptorSet::releasePool();
-	DescriptorSetLayoutCache::cleanup();
 
 	delete Scene::Active;
 	delete Pathtracer::Instance;
