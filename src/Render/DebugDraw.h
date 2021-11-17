@@ -5,9 +5,10 @@ class DeferredRenderer;
 
 struct PointData
 {
-	explicit PointData(const glm::vec3& in_position) : position(in_position) {};
+	explicit PointData(const glm::vec3& in_position, const glm::u8vec4 in_color)
+		: position(in_position), color(in_color) {};
 	glm::vec3 position;
-	float _pad = 0.0f;
+	glm::u8vec4 color;
 
 	// about how to cut the binding-th array into strides
 	static void getBindingDescription(VkVertexInputBindingDescription& bindingDescription)
@@ -29,6 +30,12 @@ struct PointData
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
 			.offset = (uint32_t)offsetof(PointData, position)
 		});
+		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
+			.location = 1,
+			.binding = 0,
+			.format = VK_FORMAT_R8G8B8A8_UNORM,
+			.offset = (uint32_t)offsetof(PointData, color)
+		});
 	}
 };
 
@@ -38,18 +45,49 @@ class DebugPoints
 {
 public:
 
-	explicit DebugPoints(DeferredRenderer* renderer, const std::vector<PointData>& initialPoints);
+	explicit DebugPoints(DeferredRenderer* renderer);
 	~DebugPoints();
+
+	void addPoint(const glm::vec3& position, glm::u8vec4 color);
+
+	void updateBuffer();
 
 	void bindAndDraw(VkCommandBuffer cmdbuf);
 
-	VmaBuffer pointsBuffer; // a vertex buffer
+	VmaBuffer pointsBuffer; // a vertex buffer potentially modified by compute shaders
 
-	uint32_t numPoints;
+	uint32_t numPoints() { return points.size(); }
 
 private:
 
 	static VkPipeline pipeline;
 	static VkPipelineLayout pipelineLayout;
+
+	std::vector<PointData> points;
 };
 
+class DebugLines
+{
+public:
+
+	explicit DebugLines(DeferredRenderer* renderer);
+	~DebugLines();
+
+	void addSegment(const PointData& endPoint1, const PointData& endPoint2);
+
+	void addBox(const glm::vec3& minPos, const glm::vec3& maxPos, glm::u8vec4 color);
+
+	void updateBuffer();
+
+	void bindAndDraw(VkCommandBuffer cmdbuf);
+
+	VmaBuffer pointsBuffer; // a vertex buffer potentially modified by compute shaders
+
+	uint32_t numSegments() { return points.size() / 2; }
+
+private:
+	static VkPipeline pipeline;
+	static VkPipelineLayout pipelineLayout;
+
+	std::vector<PointData> points;
+};

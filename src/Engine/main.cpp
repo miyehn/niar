@@ -7,7 +7,7 @@
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
-#include "Render/DebugPoints.h"
+#include "Render/DebugDraw.h"
 
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
@@ -20,7 +20,7 @@
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>
 
-#include "Render/ComputeShaders/Rise.inl"
+#include "Render/ComputeShaders/ComputeShaders.h"
 
 using namespace myn;
 
@@ -126,12 +126,23 @@ static void init()
 	}
 
 	DeferredRenderer* renderer = DeferredRenderer::get();
-	std::vector<PointData> points;
-	points.emplace_back(glm::vec3(0, 1, 0));
-	points.emplace_back(glm::vec3(1, 1, 0));
-	points.emplace_back(glm::vec3(2, 1, 0));
-	points.emplace_back(glm::vec3(3, 1, 0));
-	renderer->debugPoints = new DebugPoints(renderer, points);
+	renderer->debugPoints = new DebugPoints(renderer);
+	renderer->debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
+	renderer->debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
+	renderer->debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
+	renderer->debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
+	renderer->debugPoints->updateBuffer();
+
+	std::vector<PointData> lines;
+	renderer->debugLines = new DebugLines(renderer);
+	renderer->debugLines->addSegment(
+		PointData(glm::vec3(0, 2, 0), glm::u8vec4(255, 0, 0, 255)),
+		PointData(glm::vec3(1, 2, 0), glm::u8vec4(0, 255, 0, 255)));
+	renderer->debugLines->addSegment(
+		PointData(glm::vec3(2, 2, 0), glm::u8vec4(255, 0, 0, 255)),
+		PointData(glm::vec3(3, 2, 0), glm::u8vec4(0, 255, 0, 255)));
+	renderer->debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(0, 255, 0, 255));
+	renderer->debugLines->updateBuffer();
 
 	ui::sliderFloat("", &renderer->ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
 	ui::elem([renderer](){
@@ -298,7 +309,7 @@ static void draw()
 		renderer->updateFrameFlobalDescriptorSet();
 
 		Rise::dispatch(
-			renderer->debugPoints->pointsBuffer,
+			renderer->debugLines->pointsBuffer,
 			renderer->frameGlobalDescriptorSet);
 
 		renderer->render(cmdbuf);

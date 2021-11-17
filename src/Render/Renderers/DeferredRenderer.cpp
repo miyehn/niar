@@ -5,7 +5,7 @@
 #include "Render/Materials/Material.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Materials/PostProcessing.h"
-#include "Render/DebugPoints.h"
+#include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 
@@ -364,6 +364,7 @@ DeferredRenderer::~DeferredRenderer()
 	for (auto image : images) delete image;
 
 	delete debugPoints;
+	delete debugLines;
 }
 
 void DeferredRenderer::updateFrameFlobalDescriptorSet()
@@ -490,6 +491,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		}
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Debug draw")
+			if (debugLines) debugLines->bindAndDraw(cmdbuf);
 			if (debugPoints) debugPoints->bindAndDraw(cmdbuf);
 			vkCmdEndRenderPass(cmdbuf);
 		}

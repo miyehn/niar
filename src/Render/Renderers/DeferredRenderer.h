@@ -5,6 +5,7 @@
 
 class Texture2D;
 class DebugPoints;
+class DebugLines;
 class DeferredLighting;
 class PostProcessing;
 
@@ -44,6 +45,7 @@ private:
 public:
 
 	DebugPoints* debugPoints = nullptr;
+	DebugLines* debugLines = nullptr;
 
 	DescriptorSet frameGlobalDescriptorSet;
 

@@ -7,7 +7,12 @@ bool operator==(const VkSamplerCreateInfo &info1, const VkSamplerCreateInfo &inf
 		   info1.minFilter == info2.minFilter &&
 		   info1.addressModeU == info2.addressModeU &&
 		   info1.addressModeV == info2.addressModeV &&
-		   info1.addressModeW == info2.addressModeW;
+		   info1.addressModeW == info2.addressModeW &&
+
+		   info1.mipmapMode == info2.mipmapMode &&
+		   info1.minLod == info2.minLod &&
+		   info1.maxLod == info2.maxLod &&
+		   info1.mipLodBias == info2.mipLodBias;
 }
 
 namespace std
@@ -21,11 +26,21 @@ namespace std
 			size_t h_addressModeU = hash<int>{}(info.addressModeU);
 			size_t h_addressModeV = hash<int>{}(info.addressModeV);
 			size_t h_addressModeW = hash<int>{}(info.addressModeW);
-			return ((h_magFilter << 0) ^
-					(h_minFilter << 3) ^
-					(h_addressModeU << 6) ^
-					(h_addressModeV << 9) ^
-					(h_addressModeW << 12)
+
+			size_t h_mipmapMode = hash<int>{}(info.mipmapMode);
+			size_t h_minLod = hash<int>{}(info.minLod);
+			size_t h_maxLod = hash<int>{}(info.maxLod);
+			size_t h_mipLodBias = hash<int>{}(info.mipLodBias);
+			return (
+				(h_magFilter << 0) ^
+				(h_minFilter << 3) ^
+				(h_addressModeU << 6) ^
+				(h_addressModeV << 9) ^
+				(h_addressModeW << 12) ^
+				(h_mipmapMode << 15) ^
+				(h_minLod << 18) ^
+				(h_maxLod << 21) ^
+				(h_mipLodBias << 24)
 			);
 		}
 	};

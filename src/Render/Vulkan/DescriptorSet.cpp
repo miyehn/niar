@@ -107,9 +107,13 @@ void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding, Vk
 			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 			.magFilter = VK_FILTER_LINEAR,
 			.minFilter = VK_FILTER_LINEAR,
+			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
 			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			.mipLodBias = 0,
+			.minLod = 0,
+			.maxLod = VK_LOD_CLAMP_NONE,
 		};
 		VkSampler sampler = SamplerCache::get(samplerInfo);
 
