@@ -42,6 +42,8 @@ struct Camera : SceneObject {
 
 	// functions
 
+	void draw_config_ui() override;
+
 	void set_local_position(glm::vec3 _local_position) override;
 	void set_rotation(glm::quat _rotation) override;
 	void set_scale(glm::vec3 _scale) override;

@@ -173,13 +173,7 @@ static void init()
 				{
 					ImGui::Checkbox("enabled", &node->enabled);
 					node->draw_transform_ui(show_global_transform);
-					if (auto cam = dynamic_cast<Camera*>(node)) {
-						if (ImGui::Button("look at origin"))
-						{
-							glm::quat rot = glm::quatLookAt(-glm::normalize(cam->local_position()), glm::vec3(0, 1, 0));
-							cam->set_rotation(rot);
-						}
-					}
+					node->draw_config_ui();
 					for (auto child : node->children) make_tree(child);
 					ImGui::TreePop();
 				}

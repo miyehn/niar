@@ -39,6 +39,7 @@ public:
 	virtual void set_scale(glm::vec3 _scale) { scale_value = _scale; }
 
 	void draw_transform_ui(bool global) const;
+	virtual void draw_config_ui() {};
 
 	// transformation
 	glm::mat4 object_to_parent() const;

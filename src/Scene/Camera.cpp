@@ -1,5 +1,6 @@
 #include "Camera.hpp"
 #include "Utils/myn/Log.h"
+#include <imgui.h>
 #include <assimp/scene.h>
 #include <tinygltf/tiny_gltf.h>
 
@@ -226,4 +227,13 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 	prev_mouse_y = 0;
 	locked = false;
 	orthographic = false;
+}
+
+void Camera::draw_config_ui()
+{
+	if (ImGui::Button("look at origin"))
+	{
+		glm::quat rot = glm::quatLookAt(-glm::normalize(local_position()), glm::vec3(0, 1, 0));
+		set_rotation(rot);
+	}
 }
