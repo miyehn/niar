@@ -116,7 +116,7 @@ static void init()
 	ui::usePurpleStyle();
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
-	// rendering related
+	// renderdoc
 	if (Cfg.RenderDoc)
 	{
 		ui::button("capture frame", RenderDoc::captureNextFrame, "Rendering");
@@ -125,6 +125,7 @@ static void init()
 		ui::elem([](){ ImGui::Separator(); }, "Rendering");
 	}
 
+	// debug draw
 	DeferredRenderer* renderer = DeferredRenderer::get();
 	renderer->debugPoints = new DebugPoints(renderer);
 	renderer->debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
@@ -135,15 +136,23 @@ static void init()
 
 	std::vector<PointData> lines;
 	renderer->debugLines = new DebugLines(renderer);
+	// x axis
 	renderer->debugLines->addSegment(
-		PointData(glm::vec3(0, 2, 0), glm::u8vec4(255, 0, 0, 255)),
-		PointData(glm::vec3(1, 2, 0), glm::u8vec4(0, 255, 0, 255)));
+		PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
+		PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
+	// y axis
 	renderer->debugLines->addSegment(
-		PointData(glm::vec3(2, 2, 0), glm::u8vec4(255, 0, 0, 255)),
-		PointData(glm::vec3(3, 2, 0), glm::u8vec4(0, 255, 0, 255)));
-	renderer->debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(0, 255, 0, 255));
+		PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
+		PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
+	// z axis
+	renderer->debugLines->addSegment(
+		PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
+		PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
+
+	renderer->debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
 	renderer->debugLines->updateBuffer();
 
+	// ui
 	ui::sliderFloat("", &renderer->ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
 	ui::elem([renderer](){
 		ImGui::Combo(
@@ -309,7 +318,7 @@ static void draw()
 		renderer->updateFrameFlobalDescriptorSet();
 
 		Rise::dispatch(
-			renderer->debugLines->pointsBuffer,
+			renderer->debugPoints->pointsBuffer,
 			renderer->frameGlobalDescriptorSet);
 
 		renderer->render(cmdbuf);
