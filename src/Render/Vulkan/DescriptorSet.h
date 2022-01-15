@@ -50,12 +50,3 @@ private:
 
 	static VkDescriptorPool descriptorPool;
 };
-
-class DescriptorSetLayoutCache
-{
-protected:
-	static std::unordered_map<VkDescriptorSetLayoutCreateInfo, VkDescriptorSetLayout> pool;
-
-public:
-	static VkDescriptorSetLayout get(VkDescriptorSetLayoutCreateInfo& createInfo);
-};

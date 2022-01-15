@@ -2,6 +2,95 @@
 #include "Utils/myn/Log.h"
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/VulkanUtils.h"
+
+//================ descriptor set layout cache =================
+
+#define LOG_DESCRIPTORSETLAYOUT_CACHE 0
+
+bool operator==(const VkDescriptorSetLayoutCreateInfo &info1, const VkDescriptorSetLayoutCreateInfo &info2)
+{
+	if (info1.bindingCount != info2.bindingCount) return false;
+	for (auto i = 0; i < info1.bindingCount; i++)
+	{
+		auto& binding1 = info1.pBindings[i];
+		auto& binding2 = info2.pBindings[i];
+
+		if (binding1.binding != binding2.binding) return false;
+		if (binding1.descriptorType != binding2.descriptorType) return false;
+		if (binding1.descriptorCount != binding2.descriptorCount) return false;
+		if (binding1.stageFlags != binding2.stageFlags) return false;
+		// not considering pImmutableSamplers yet
+	}
+	return true;
+}
+
+// when storing into set layout cache, make a deep copy of everything
+class CachedDescriptorSetLayoutInfo
+{
+public:
+	explicit CachedDescriptorSetLayoutInfo(VkDescriptorSetLayoutCreateInfo inInfo) : info(inInfo), layout(VK_NULL_HANDLE)
+	{
+		for (auto i = 0; i < inInfo.bindingCount; i++)
+		{
+			bindings.push_back(inInfo.pBindings[i]);
+		}
+		info.pBindings = bindings.data();
+
+		EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &info, nullptr, &layout), VK_SUCCESS)
+		Vulkan::Instance->destructionQueue.emplace_back([this](){
+			vkDestroyDescriptorSetLayout(Vulkan::Instance->device, layout, nullptr);
+		});
+	}
+	VkDescriptorSetLayoutCreateInfo info;
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	VkDescriptorSetLayout layout;
+};
+
+// the pool is actually not properly cleaned up, but whatever...
+class DescriptorSetLayoutCache
+{
+protected:
+	static std::vector<CachedDescriptorSetLayoutInfo*> pool;
+
+public:
+	static VkDescriptorSetLayout get(VkDescriptorSetLayoutCreateInfo& createInfo);
+};
+
+std::vector<CachedDescriptorSetLayoutInfo*> DescriptorSetLayoutCache::pool;
+
+VkDescriptorSetLayout DescriptorSetLayoutCache::get(VkDescriptorSetLayoutCreateInfo &createInfo)
+{
+#if LOG_DESCRIPTORSETLAYOUT_CACHE
+	LOG("[cache] --------finding--------")
+	for (auto i = 0; i < createInfo.bindingCount; i++)
+	{
+		LOG("[cache]     binding %u type %d cnt %d stage %d", createInfo.pBindings[i].binding, createInfo.pBindings[i].descriptorType, createInfo.pBindings[i].descriptorCount, createInfo.pBindings[i].stageFlags)
+	}
+#endif
+	for (auto& cacheItem : pool)
+	{
+		if (cacheItem->info == createInfo)
+		{
+#if LOG_DESCRIPTORSETLAYOUT_CACHE
+			LOG("[cache] --found!--")
+#endif
+			return cacheItem->layout;
+		}
+	}
+
+	static int setIndex = 0;
+#if LOG_DESCRIPTORSETLAYOUT_CACHE
+	LOG("[cache]   (not found, creating new [%d])", setIndex)
+#endif
+	pool.push_back(new CachedDescriptorSetLayoutInfo(createInfo));
+	NAME_OBJECT(VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, pool.back()->layout,
+				"DescriptorSetLayout[" + std::to_string(setIndex) + "]")
+	setIndex++;
+	return pool.back()->layout;
+}
+
+//================ END descriptor set layout cache =================
 
 void DescriptorSetLayout::addBinding(uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type)
 {
@@ -157,69 +246,4 @@ void DescriptorSet::bind(
 		&descriptorSets[instanceId],
 		numDynamicOffsets,
 		pDynamicOffsets);
-}
-
-//================ descriptor set layout cache =================
-
-bool operator==(const VkDescriptorSetLayoutCreateInfo &info1, const VkDescriptorSetLayoutCreateInfo &info2)
-{
-	if (info1.bindingCount != info2.bindingCount) return false;
-	for (auto i = 0; i < info1.bindingCount; i++)
-	{
-		auto& binding1 = info1.pBindings[i];
-		auto& binding2 = info2.pBindings[i];
-
-		if (binding1.binding != binding2.binding) return false;
-		if (binding1.descriptorType != binding2.descriptorType) return false;
-		if (binding1.descriptorCount != binding2.descriptorCount) return false;
-		if (binding1.stageFlags != binding2.stageFlags) return false;
-		// not considering pImmutableSamplers yet
-	}
-	return true;
-}
-
-namespace std
-{
-	template<> struct hash<VkDescriptorSetLayoutBinding>
-	{
-		std::size_t operator()(const VkDescriptorSetLayoutBinding &binding) const noexcept
-		{
-			size_t hashValue = hash<int>{}(binding.binding << 0)	 ^
-				hash<int>{}(binding.descriptorType << 8) ^
-				hash<int>{}(binding.descriptorCount << 16) ^
-				hash<int>{}(binding.stageFlags << 24);
-			return hashValue;
-		}
-	};
-
-	template<> struct hash<VkDescriptorSetLayoutCreateInfo>
-	{
-		std::size_t operator()(const VkDescriptorSetLayoutCreateInfo &info) const noexcept
-		{
-			size_t hashValue = 0;
-			for (auto i = 0; i < info.bindingCount; i++)
-			{
-				hashValue ^= hash<VkDescriptorSetLayoutBinding>{}(info.pBindings[i]);
-			}
-			return hashValue;
-		}
-	};
-}
-
-std::unordered_map<VkDescriptorSetLayoutCreateInfo, VkDescriptorSetLayout> DescriptorSetLayoutCache::pool;
-
-VkDescriptorSetLayout DescriptorSetLayoutCache::get(VkDescriptorSetLayoutCreateInfo &createInfo)
-{
-	auto it = pool.find(createInfo);
-	if (it != pool.end()) {
-		return (*it).second;
-	}
-
-	VkDescriptorSetLayout layout;
-	EXPECT(vkCreateDescriptorSetLayout(Vulkan::Instance->device, &createInfo, nullptr, &layout), VK_SUCCESS)
-	pool[createInfo] = layout;
-	Vulkan::Instance->destructionQueue.emplace_back([layout](){
-		vkDestroyDescriptorSetLayout(Vulkan::Instance->device, layout, nullptr);
-	});
-	return layout;
 }
