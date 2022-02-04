@@ -92,7 +92,7 @@ struct SceneNodeIntermediate
 SceneNodeIntermediate* loadSceneTree(const std::vector<tinygltf::Node> &in_nodes)
 {
 	auto root = new SceneNodeIntermediate();
-	root->name = "Root Node";
+	root->name = "gltf scene root node";
 	std::vector<SceneNodeIntermediate*> nodes(in_nodes.size());
 	for (int i = 0; i < in_nodes.size(); i++)
 	{

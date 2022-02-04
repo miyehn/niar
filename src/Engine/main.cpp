@@ -1,6 +1,7 @@
 #include "cxxopts/cxxopts.hpp"
 #include "Scene/Scene.hpp"
 #include "Scene/Camera.hpp"
+#include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Config.hpp"
 #include "Render/Materials/DeferredBasepass.h"
@@ -48,15 +49,17 @@ namespace
 
 	myn::TimePoint previous_time;
 
-	struct
+	bool show_imgui_demo = false;
+
+	struct // legacy
 	{
 		bool receiving = false;
 		std::string text = "";
 	} input;
 
-	//--------
+	// other potentially temporary globals
 
-	bool show_imgui_demo = false;
+	Renderer* renderer;
 
 } // fileprivate
 
@@ -105,6 +108,10 @@ static void init()
 		Scene* gltf = new Scene("Test stage");
 		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
+
+		// rtx
+		auto tri = new RtxTriangle();
+		Scene::Active->add_child(tri);
 #endif
 
 		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
@@ -125,41 +132,9 @@ static void init()
 		ui::elem([](){ ImGui::Separator(); }, "Rendering");
 	}
 
-	// debug draw
-	DeferredRenderer* renderer = DeferredRenderer::get();
-	renderer->debugPoints = new DebugPoints(renderer);
-	renderer->debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	renderer->debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	renderer->debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	renderer->debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	renderer->debugPoints->updateBuffer();
-
-	std::vector<PointData> lines;
-	renderer->debugLines = new DebugLines(renderer);
-	// x axis
-	renderer->debugLines->addSegment(
-		PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
-		PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
-	// y axis
-	renderer->debugLines->addSegment(
-		PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
-		PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
-	// z axis
-	renderer->debugLines->addSegment(
-		PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
-		PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
-
-	renderer->debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
-	renderer->debugLines->updateBuffer();
-
-	// ui
-	ui::sliderFloat("", &renderer->ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
-	ui::elem([renderer](){
-		ImGui::Combo(
-			"tone mapping",
-			&renderer->ViewInfo.ToneMappingOption,
-			"Off\0Reinhard2\0ACES\0\0");
-	}, "Rendering");
+	// renderer setup
+	renderer = DeferredRenderer::get();
+	renderer->debugSetup(nullptr);
 
 	// scene hierarchy
 	static bool show_global_transform = false;
@@ -306,15 +281,8 @@ static void draw()
 	{
 		Material::resetInstanceCounters();
 
-		auto renderer = DeferredRenderer::get();
 		renderer->camera = Camera::Active;
 		renderer->drawable = Scene::Active;
-		renderer->updateFrameFlobalDescriptorSet();
-
-		Rise::dispatch(
-			renderer->debugPoints->pointsBuffer,
-			renderer->frameGlobalDescriptorSet);
-
 		renderer->render(cmdbuf);
 	}
 

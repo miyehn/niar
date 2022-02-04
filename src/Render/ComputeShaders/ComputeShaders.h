@@ -2,6 +2,7 @@
 #include "Render/Vulkan/Buffer.h"
 #include "Render/Vulkan/DescriptorSet.h"
 
+// operates on a vertex/compute buffer, slowly lifts up each point
 class Rise
 {
 public:

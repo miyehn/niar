@@ -40,7 +40,7 @@ struct PointData
 };
 
 // behaves like a material because it has its own pipeline, etc., but is actually drawing from a vertex buffer
-// should be a singleton?
+// usage: create an instance, add a bunch of points then call updateBuffer(), then call bindAndDraw() in a render pass
 class DebugPoints
 {
 public:
