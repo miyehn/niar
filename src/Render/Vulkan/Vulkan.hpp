@@ -148,8 +148,8 @@ private:
 	#endif
 	};
 	#endif
-	const std::vector<const char*> deviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	std::vector<const char*> deviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
 
 	void createInstance();
@@ -198,6 +198,12 @@ private:
 
 	void createSynchronizationObjects();
 
+	//======== RTX ========
+
+	void initRayTracing();
+
+	//=====================
+
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -221,13 +227,18 @@ private:
 
 public:
 
-	PFN_vkCmdBeginDebugUtilsLabelEXT  fn_vkCmdBeginDebugUtilsLabelEXT = nullptr;
-	PFN_vkCmdEndDebugUtilsLabelEXT  fn_vkCmdEndDebugUtilsLabelEXT = nullptr;
+#define FN_PTR(FN) PFN_##FN fn_##FN = nullptr;
 
-	PFN_vkCmdInsertDebugUtilsLabelEXT fn_vkCmdInsertDebugUtilsLabelEXT = nullptr;
+	FN_PTR(vkCmdBeginDebugUtilsLabelEXT)
+	FN_PTR(vkCmdEndDebugUtilsLabelEXT)
+
+	FN_PTR(vkCmdInsertDebugUtilsLabelEXT)
 	void cmdInsertDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color color = {1, .9f, .5f, 1});
 
-	PFN_vkSetDebugUtilsObjectNameEXT fn_vkSetDebugUtilsObjectNameEXT = nullptr;
+	FN_PTR(vkSetDebugUtilsObjectNameEXT)
 	void setObjectName(VkObjectType objectType, uint64_t objectHandle, const std::string &objectName);
+
+	FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+	FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
 
 };

@@ -17,8 +17,10 @@ namespace tinygltf
 }
 
 #define VERTEX_INDEX_TYPE uint16_t
+#define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
 struct Mesh : SceneObject {
+public:
 
 	static std::vector<Mesh*> LoadMeshes(const std::string& source, bool initialize_graphics = true);
 

@@ -13,8 +13,6 @@
 #include <tinygltf/tiny_gltf.h>
 #include <map>
 
-#define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
-
 using namespace glm;
 
 std::unordered_map<std::string, std::string> Mesh::material_assignment;

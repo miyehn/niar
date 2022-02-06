@@ -14,6 +14,7 @@ struct ProgramConfig
 	std::string AssetsConfigSource;
 	std::string PathtracerConfigSource;
 	int RenderDoc;
+	int RTX;
 	struct
 	{
 		int ISPC = 0;

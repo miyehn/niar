@@ -6,9 +6,9 @@
 #include "Config.hpp"
 #include "Render/Materials/DeferredBasepass.h"
 #include "Render/Materials/DeferredLighting.h"
+#include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
-#include "Render/DebugDraw.h"
 
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
@@ -133,7 +133,8 @@ static void init()
 	}
 
 	// renderer setup
-	renderer = DeferredRenderer::get();
+	//renderer = DeferredRenderer::get();
+	renderer = RayTracingRenderer::get();
 	renderer->debugSetup(nullptr);
 
 	// scene hierarchy

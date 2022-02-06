@@ -1,6 +1,7 @@
 #include "Vulkan.hpp"
 #include "PipelineBuilder.h"
 #include "RenderPassBuilder.h"
+#include "Engine/Config.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>
@@ -19,6 +20,14 @@ Vulkan::Vulkan(SDL_Window* window) {
     setupDebugMessenger();
     #endif
     createSurface();
+
+	if (Cfg.RTX)
+	{
+		deviceExtensions.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+		deviceExtensions.emplace_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+		deviceExtensions.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+	}
+
     pickPhysicalDevice();
     createLogicalDevice();
 	createMemoryAllocator();
@@ -29,6 +38,8 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createSwapChainRenderPass();
 	createFramebuffers();
 	createCommandBuffers();
+
+	if (Cfg.RTX) initRayTracing();
 
 	initImGui();
 }
@@ -181,6 +192,10 @@ void Vulkan::createMemoryAllocator()
 		.device = device,
 		.instance = instance
 	};
+	if (Cfg.RTX)
+	{
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+	}
 	EXPECT(vmaCreateAllocator(&allocatorInfo, &memoryAllocator), VK_SUCCESS);
 }
 
@@ -541,6 +556,21 @@ void Vulkan::createLogicalDevice() {
 		.pEnabledFeatures = &deviceFeatures,
 	};
 
+	if (Cfg.RTX)
+	{
+		VkPhysicalDeviceVulkan12Features features12 = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+			.pNext = nullptr,
+			.bufferDeviceAddress = VK_TRUE
+		};
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+			.pNext = &features12,
+			.rayTracingPipeline = VK_TRUE
+		};
+		createInfo.pNext = &rtFeatures;
+	}
+
 	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS)
 
 	// get queue handles
@@ -822,6 +852,18 @@ void Vulkan::createSynchronizationObjects() {
 	EXPECT(vkCreateFence(device, &fenceInfo, nullptr, &immediateSubmitFence), VK_SUCCESS)
 }
 
+void Vulkan::initRayTracing()
+{
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR
+	};
+	VkPhysicalDeviceProperties2 prop2{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+		.pNext = &rtProperties
+	};
+	vkGetPhysicalDeviceProperties2(physicalDevice, &prop2);
+}
+
 VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan::debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -874,14 +916,20 @@ void Vulkan::DestroyDebugUtilsMessengerEXT(
 
 void Vulkan::findProxyFunctionPointers()
 {
-	fn_vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT");
-	EXPECT(fn_vkCmdBeginDebugUtilsLabelEXT == nullptr, false)
-	fn_vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
-	EXPECT(fn_vkCmdEndDebugUtilsLabelEXT == nullptr, false)
-	fn_vkCmdInsertDebugUtilsLabelEXT = (PFN_vkCmdInsertDebugUtilsLabelEXT) vkGetInstanceProcAddr(instance, "vkCmdInsertDebugUtilsLabelEXT");
-	EXPECT(fn_vkCmdInsertDebugUtilsLabelEXT == nullptr, false)
-	fn_vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
-	EXPECT(fn_vkSetDebugUtilsObjectNameEXT == nullptr, false)
+#define FIND_FN_PTR(FN) \
+	fn_##FN = (PFN_##FN) vkGetInstanceProcAddr(instance, #FN); \
+	EXPECT(fn_##FN != nullptr, true)
+
+	FIND_FN_PTR(vkCmdBeginDebugUtilsLabelEXT)
+	FIND_FN_PTR(vkCmdEndDebugUtilsLabelEXT)
+	FIND_FN_PTR(vkCmdInsertDebugUtilsLabelEXT)
+	FIND_FN_PTR(vkSetDebugUtilsObjectNameEXT)
+
+	if (Cfg.RTX)
+	{
+		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+		FIND_FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
+	}
 }
 
 void Vulkan::cmdInsertDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color color)
