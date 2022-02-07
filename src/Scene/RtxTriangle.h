@@ -17,5 +17,10 @@ public:
 
 	void create_vertex_buffer();
 	void create_index_buffer();
+
+	VmaBuffer blasBuffer;
+	VmaBuffer tlasBuffer;
+	VkAccelerationStructureKHR blas;
+	VkAccelerationStructureKHR tlas;
 };
 

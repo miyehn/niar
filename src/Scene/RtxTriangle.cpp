@@ -25,7 +25,10 @@ void RtxTriangle::create_vertex_buffer()
 	stagingBuffer.writeData((void *) vertices);
 
 	// now create the actual vertex buffer
-	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 	vertexBuffer = VmaBuffer(
 		&Vulkan::Instance->memoryAllocator,
 		bufferSize,
@@ -51,7 +54,10 @@ void RtxTriangle::create_index_buffer()
 	stagingBuffer.writeData((void*)indices);
 
 	// create the actual index buffer
-	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 	indexBuffer = VmaBuffer(
 		&Vulkan::Instance->memoryAllocator,
 		bufferSize,
@@ -68,7 +74,12 @@ void RtxTriangle::draw(VkCommandBuffer cmdbuf)
 	SceneObject::draw(cmdbuf);
 }
 
-void buildBlas(VkAccelerationStructureGeometryKHR geom, VkAccelerationStructureBuildRangeInfoKHR range, VkBuildAccelerationStructureFlagsKHR flags)
+void buildBlas(
+	VkAccelerationStructureGeometryKHR geom,
+	VkAccelerationStructureBuildRangeInfoKHR range,
+	VkBuildAccelerationStructureFlagsKHR flags,
+	VkAccelerationStructureKHR* outBlas,
+	VmaBuffer* blasBuffer)
 {
 	VkDeviceSize structureSize{0};
 	VkDeviceSize scratchSize{0};
@@ -87,6 +98,90 @@ void buildBlas(VkAccelerationStructureGeometryKHR geom, VkAccelerationStructureB
 
 	Vulkan::Instance->fn_vkGetAccelerationStructureBuildSizesKHR(
 		Vulkan::Instance->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxPrimitivesCount, &sizeInfo);
+
+	VmaBuffer scratchBuffer = VmaBuffer(
+		&Vulkan::Instance->memoryAllocator,
+		sizeInfo.buildScratchSize,
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY);
+	//VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, )
+	const VkBufferDeviceAddressInfo scratchBufferAddressInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.buffer = scratchBuffer.getBufferInstance()
+	};
+	VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &scratchBufferAddressInfo);
+
+	// for compaction
+	VkQueryPool queryPool{VK_NULL_HANDLE};
+	VkQueryPoolCreateInfo qpCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+		.queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+		.queryCount = 1
+	};
+	vkCreateQueryPool(Vulkan::Instance->device, &qpCreateInfo, nullptr, &queryPool);
+	vkResetQueryPool(Vulkan::Instance->device, queryPool, 0, 1);
+	uint32_t queryCnt{0};
+
+	//======== actual alloc of buffer and accel structure ========
+
+	// pt 1 : alloc AS buffer and create it
+	*blasBuffer = VmaBuffer(
+		&Vulkan::Instance->memoryAllocator,
+		sizeInfo.accelerationStructureSize,
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+		VMA_MEMORY_USAGE_GPU_ONLY);
+	VkAccelerationStructureCreateInfoKHR asCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+		.buffer = blasBuffer->getBufferInstance(),
+		.size = sizeInfo.accelerationStructureSize,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
+	};
+	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &asCreateInfo, nullptr, outBlas);
+
+	// pt 2 : build (using scratch memory)
+	buildInfo.dstAccelerationStructure = *outBlas;
+	buildInfo.scratchData.deviceAddress = scratchAddress;
+	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
+	{
+		auto rangePtr = &range;
+		Vulkan::Instance->fn_vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &buildInfo, &rangePtr);
+
+		VkMemoryBarrier barrier = {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+			.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR
+		};
+		vkCmdPipelineBarrier(
+			cmdbuf,
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			0,
+			1,
+			&barrier,
+			0,
+			nullptr,
+			0,
+			nullptr
+			);
+		Vulkan::Instance->fn_vkCmdWriteAccelerationStructuresPropertiesKHR(
+			cmdbuf,
+			1,
+			outBlas,
+			VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+			queryPool,
+			queryCnt);
+		queryCnt++;
+	});
+
+	Vulkan::Instance->waitDeviceIdle();
+
+	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
+	{
+
+	});
+
+	vkDestroyQueryPool(Vulkan::Instance->device, queryPool, nullptr);
+	scratchBuffer.release();
 }
 
 RtxTriangle::RtxTriangle()
@@ -143,12 +238,14 @@ RtxTriangle::RtxTriangle()
 
 	buildBlas(asGeom, offset,
 			  VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR |
-			  VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-			  );
+			  VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+			  &blas, &blasBuffer);
 }
 
 RtxTriangle::~RtxTriangle()
 {
+	Vulkan::Instance->fn_vkDestroyAccelerationStructureKHR(Vulkan::Instance->device, blas, nullptr);
+	blasBuffer.release();
 	vertexBuffer.release();
 	indexBuffer.release();
 }

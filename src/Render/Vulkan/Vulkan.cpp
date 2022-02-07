@@ -561,14 +561,20 @@ void Vulkan::createLogicalDevice() {
 		VkPhysicalDeviceVulkan12Features features12 = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 			.pNext = nullptr,
-			.bufferDeviceAddress = VK_TRUE
+			.hostQueryReset = VK_TRUE,
+			.bufferDeviceAddress = VK_TRUE,
 		};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
 			.pNext = &features12,
-			.rayTracingPipeline = VK_TRUE
+			.rayTracingPipeline = VK_TRUE,
 		};
-		createInfo.pNext = &rtFeatures;
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+			.pNext = &rtFeatures,
+			.accelerationStructure = VK_TRUE,
+		};
+		createInfo.pNext = &asFeatures;
 	}
 
 	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS)
@@ -928,7 +934,10 @@ void Vulkan::findProxyFunctionPointers()
 	if (Cfg.RTX)
 	{
 		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+		FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 		FIND_FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
+		FIND_FN_PTR(vkCreateAccelerationStructureKHR)
+		FIND_FN_PTR(vkDestroyAccelerationStructureKHR)
 	}
 }
 

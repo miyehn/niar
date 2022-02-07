@@ -239,6 +239,9 @@ public:
 	void setObjectName(VkObjectType objectType, uint64_t objectHandle, const std::string &objectName);
 
 	FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+	FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 	FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
+	FN_PTR(vkCreateAccelerationStructureKHR)
+	FN_PTR(vkDestroyAccelerationStructureKHR)
 
 };
