@@ -933,11 +933,13 @@ void Vulkan::findProxyFunctionPointers()
 
 	if (Cfg.RTX)
 	{
-		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
-		FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 		FIND_FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
 		FIND_FN_PTR(vkCreateAccelerationStructureKHR)
 		FIND_FN_PTR(vkDestroyAccelerationStructureKHR)
+		FIND_FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
+		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+		FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
+		FIND_FN_PTR(vkCmdCopyAccelerationStructureKHR)
 	}
 }
 

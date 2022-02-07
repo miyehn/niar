@@ -238,10 +238,12 @@ public:
 	FN_PTR(vkSetDebugUtilsObjectNameEXT)
 	void setObjectName(VkObjectType objectType, uint64_t objectHandle, const std::string &objectName);
 
-	FN_PTR(vkCmdBuildAccelerationStructuresKHR)
-	FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 	FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
 	FN_PTR(vkCreateAccelerationStructureKHR)
 	FN_PTR(vkDestroyAccelerationStructureKHR)
+	FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
+	FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+	FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
+	FN_PTR(vkCmdCopyAccelerationStructureKHR)
 
 };

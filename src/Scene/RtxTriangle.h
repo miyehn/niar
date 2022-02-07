@@ -19,8 +19,9 @@ public:
 	void create_index_buffer();
 
 	VmaBuffer blasBuffer;
-	VmaBuffer tlasBuffer;
 	VkAccelerationStructureKHR blas;
+
+	VmaBuffer tlasBuffer;
 	VkAccelerationStructureKHR tlas;
 };
 
