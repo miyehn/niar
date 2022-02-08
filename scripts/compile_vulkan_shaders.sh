@@ -27,9 +27,10 @@ num_shaders=0
 
 for shader in $1/*
 do
-  if [[ $shader == *".vert" ]] || [[ $shader == *".frag" ]] || [[ $shader == *".comp" ]]; then
+  if [[ $shader == *".vert" ]] || [[ $shader == *".frag" ]] || [[ $shader == *".comp" ]] || [[ $shader == *".rgen" ]] || [[ $shader == *".rchit" ]] || [[ $shader == *".rahit" ]] || [[ $shader == *".rmiss" ]]; then
     bn="$(basename $shader)"
-    if ! glslc $shader -o $2"/"$bn".spv"; then
+    echo $bn
+    if ! glslc $shader --target-env=vulkan1.2 -o $2"/"$bn".spv"; then
       error=1
     else
       num_shaders=$((num_shaders+1))
@@ -41,3 +42,6 @@ if [ $error -ne 1 ]
 then
 	echo $num_shaders" shaders successfully compiled."
 fi
+
+# a hack to keep the window open on windows
+/bin/bash
