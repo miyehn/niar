@@ -229,6 +229,63 @@ void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding, Vk
 	}
 }
 
+void DescriptorSet::pointToRWImageView(VkImageView imageView, uint32_t binding)
+{
+	uint32_t numInstances = descriptorSets.size();
+	EXPECT(numInstances != 0, true)
+
+	for (auto i = 0; i < numInstances; i++)
+	{
+		VkDescriptorImageInfo imageInfo = {
+			.sampler = {},
+			.imageView = imageView,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+		};
+		VkWriteDescriptorSet descriptorWrite = {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = descriptorSets[i],
+			.dstBinding = binding,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			// actual write data (one of three)
+			.pImageInfo = &imageInfo,
+			.pBufferInfo = nullptr,
+			.pTexelBufferView = nullptr,
+		};
+		vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
+	}
+}
+
+void DescriptorSet::pointToAccelerationStructure(VkAccelerationStructureKHR accelerationStructure, uint32_t binding)
+{
+	uint32_t numInstances = descriptorSets.size();
+	EXPECT(numInstances != 0, true)
+
+	for (auto i = 0; i < numInstances; i++)
+	{
+		VkWriteDescriptorSetAccelerationStructureKHR asWrite = {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+			.accelerationStructureCount = 1,
+			.pAccelerationStructures = &accelerationStructure
+		};
+		VkWriteDescriptorSet descriptorWrite = {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = &asWrite,
+			.dstSet = descriptorSets[i],
+			.dstBinding = binding,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			// actual write data (one of three)
+			.pImageInfo = nullptr,
+			.pBufferInfo = nullptr,
+			.pTexelBufferView = nullptr,
+		};
+		vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
+	}
+}
+
 void DescriptorSet::bind(
 	VkCommandBuffer cmdbuf,
 	VkPipelineBindPoint pipelineBindPoint,

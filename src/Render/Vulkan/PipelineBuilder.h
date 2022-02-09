@@ -85,3 +85,19 @@ struct ComputePipelineBuilder
 private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
 };
+
+struct RayTracingPipelineBuilder
+{
+	RayTracingPipelineBuilder() = default;
+
+	void useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
+
+	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout);
+
+	std::string rgenPath;
+	std::string rchitPath;
+	std::string rmissPath;
+
+private:
+	std::vector<DescriptorSetLayout> descriptorSetLayouts;
+};

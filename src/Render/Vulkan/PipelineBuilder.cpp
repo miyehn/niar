@@ -307,3 +307,119 @@ void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &ou
 		vkDestroyPipelineLayout(Vulkan::Instance->device, outPipelineLayout, nullptr);
 	});
 }
+
+void RayTracingPipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)
+{
+	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
+	descriptorSetLayouts[setIndex] = setLayout;
+}
+
+void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout)
+{
+	// shader stages
+
+	auto rgenModule = ShaderModule::get(rgenPath);
+	auto rchitModule = ShaderModule::get(rchitPath);
+	auto rmissModule = ShaderModule::get(rmissPath);
+
+	VkPipelineShaderStageCreateInfo rgenShaderStageInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+		.module = rgenModule->module,
+		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+	};
+
+	VkPipelineShaderStageCreateInfo rchitShaderStageInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.module = rchitModule->module,
+		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+	};
+
+	VkPipelineShaderStageCreateInfo rmissShaderStageInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
+		.module = rmissModule->module,
+		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+	};
+	const int rgenIdx = 0;
+	const int rchitIdx = 1;
+	const int rmissIdx = 2;
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages(3);
+	shaderStages[rgenIdx] = rgenShaderStageInfo;
+	shaderStages[rchitIdx] = rchitShaderStageInfo;
+	shaderStages[rmissIdx] = rmissShaderStageInfo;
+
+	// shader groups
+
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> groupInfos;
+
+	// raygen
+	VkRayTracingShaderGroupCreateInfoKHR raygenGroup = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.generalShader = rgenIdx,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+	groupInfos.push_back(raygenGroup);
+
+	// rmiss
+	VkRayTracingShaderGroupCreateInfoKHR rmissGroup = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.generalShader = rmissIdx,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+	groupInfos.push_back(rmissGroup);
+
+	// chit
+	VkRayTracingShaderGroupCreateInfoKHR hitGroup = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR, // can have an ahit, a rhit, and an intersection
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = rchitIdx,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+	groupInfos.push_back(hitGroup);
+
+	// layout
+	std::vector<VkDescriptorSetLayout> setLayouts;
+	for (auto layout : descriptorSetLayouts)
+	{
+		setLayouts.push_back(layout.getLayout());
+	}
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+		.pSetLayouts = setLayouts.data(),
+		.pushConstantRangeCount = 0,
+		.pPushConstantRanges = nullptr
+	};
+	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &outPipelineLayout), VK_SUCCESS)
+
+	// pipeline
+	VkRayTracingPipelineCreateInfoKHR pipelineInfo = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		.stageCount = static_cast<uint32_t>(shaderStages.size()),
+		.pStages = shaderStages.data(),
+		.groupCount = static_cast<uint32_t>(groupInfos.size()),
+		.pGroups = groupInfos.data(),
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = outPipelineLayout
+	};
+	EXPECT(Vulkan::Instance->fn_vkCreateRayTracingPipelinesKHR(Vulkan::Instance->device, {}, {}, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
+
+	// add to cleanup queue
+	Vulkan::Instance->destructionQueue.emplace_back([outPipeline, outPipelineLayout](){
+		vkDestroyPipeline(Vulkan::Instance->device, outPipeline, nullptr);
+		vkDestroyPipelineLayout(Vulkan::Instance->device, outPipelineLayout, nullptr);
+	});
+}

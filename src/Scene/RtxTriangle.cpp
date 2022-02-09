@@ -5,7 +5,10 @@
 #include "RtxTriangle.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
+#include "Render/Vulkan/PipelineBuilder.h"
 #include "Render/Mesh.h"
+#include "Render/Texture.h"
+#include "Utils/myn/Misc.h"
 
 void RtxTriangle::create_vertex_buffer()
 {
@@ -408,6 +411,68 @@ RtxTriangle::RtxTriangle()
 		.accelerationStructureReference = blasAddress,
 	};
 	buildTlas(rayInst, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, &tlas, &tlasBuffer);
+
+	// output image
+	auto renderExtent = Vulkan::Instance->swapChainExtent;
+	ImageCreator imageCreator(
+		VK_FORMAT_R8G8B8A8_UNORM,
+		{renderExtent.width, renderExtent.height, 1},
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		"outImage(rtx)");
+	outImage = new Texture2D(imageCreator);
+
+	// descriptor set
+	DescriptorSetLayout setLayout{};
+	setLayout.addBinding(0, VK_SHADER_STAGE_RAYGEN_BIT_KHR, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
+	setLayout.addBinding(1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	descriptorSet = DescriptorSet(setLayout);// commit bindings
+	descriptorSet.pointToAccelerationStructure(tlas, 0);
+	descriptorSet.pointToRWImageView(outImage->imageView, 1);
+
+	// pipeline
+	RayTracingPipelineBuilder builder{};
+	builder.rgenPath = "spirv/ray_gen.rgen.spv";
+	builder.rchitPath = "spirv/ray_chit.rchit.spv";
+	builder.rmissPath = "spirv/ray_miss.rmiss.spv";
+	builder.useDescriptorSetLayout(0, descriptorSet.getLayout());
+	builder.build(pipeline, pipelineLayout);
+
+	// sbt (TODO: move into pipeline builder?)
+	create_sbt();
+}
+
+void RtxTriangle::create_sbt()
+{
+	// in SBT, shader be stored like: [raygen][hit, hit, ...][miss, miss, ...]
+
+	// number of shaders in each group (groups be: raygen, hit, miss[, callable])
+	const uint32_t raygenCount = 1; // rgen always 1
+	uint32_t hitCount = 1;
+	uint32_t missCount = 1;
+
+	const uint32_t baseAlignment = Vulkan::Instance->shaderGroupBaseAlignment;
+	const uint32_t handleSize = Vulkan::Instance->shaderGroupHandleSize;
+	const uint32_t handleAlignment = Vulkan::Instance->shaderGroupHandleAlignment;
+
+	uint32_t totalHandlesCount = raygenCount + hitCount + missCount;
+	uint32_t handleSizeAligned = myn::aligned_size(handleAlignment, handleSize);
+
+	VkStridedDeviceAddressRegionKHR raygenRegion = {
+		// for raygen, stride must equal to size
+		.stride = myn::aligned_size(baseAlignment, handleSizeAligned),
+		.size = myn::aligned_size(baseAlignment, handleSizeAligned)
+	};
+	VkStridedDeviceAddressRegionKHR hitRegion = {
+		.stride = handleSizeAligned,
+		.size = myn::aligned_size(baseAlignment, handleSizeAligned * hitCount)
+	};
+	VkStridedDeviceAddressRegionKHR missRegion = {
+		.stride = handleSizeAligned,
+		.size = myn::aligned_size(baseAlignment, handleSizeAligned * missCount)
+	};
+
+	// TODO: continue at 8.1: "We then fetch the handles to the shader groups of the pipeline."
 }
 
 RtxTriangle::~RtxTriangle()
@@ -418,4 +483,5 @@ RtxTriangle::~RtxTriangle()
 	tlasBuffer.release();
 	vertexBuffer.release();
 	indexBuffer.release();
+	delete outImage;
 }

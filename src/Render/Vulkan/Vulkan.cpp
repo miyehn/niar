@@ -868,6 +868,9 @@ void Vulkan::initRayTracing()
 		.pNext = &rtProperties
 	};
 	vkGetPhysicalDeviceProperties2(physicalDevice, &prop2);
+	shaderGroupBaseAlignment = rtProperties.shaderGroupBaseAlignment;
+	shaderGroupHandleAlignment = rtProperties.shaderGroupHandleAlignment;
+	shaderGroupHandleSize = rtProperties.shaderGroupHandleSize;
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan::debugCallback(
@@ -937,6 +940,7 @@ void Vulkan::findProxyFunctionPointers()
 		FIND_FN_PTR(vkCreateAccelerationStructureKHR)
 		FIND_FN_PTR(vkDestroyAccelerationStructureKHR)
 		FIND_FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
+		FIND_FN_PTR(vkCreateRayTracingPipelinesKHR)
 		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
 		FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 		FIND_FN_PTR(vkCmdCopyAccelerationStructureKHR)

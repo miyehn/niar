@@ -80,6 +80,9 @@ struct Vulkan {
 	VkExtent2D swapChainExtent;
 
 	VkDeviceSize minUniformBufferOffsetAlignment;
+	uint32_t shaderGroupHandleSize = 0;
+	uint32_t shaderGroupBaseAlignment = 0;
+	uint32_t shaderGroupHandleAlignment = 0;
 
 	VmaAllocator memoryAllocator;
 
@@ -242,6 +245,7 @@ public:
 	FN_PTR(vkCreateAccelerationStructureKHR)
 	FN_PTR(vkDestroyAccelerationStructureKHR)
 	FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
+	FN_PTR(vkCreateRayTracingPipelinesKHR)
 	FN_PTR(vkCmdBuildAccelerationStructuresKHR)
 	FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 	FN_PTR(vkCmdCopyAccelerationStructureKHR)

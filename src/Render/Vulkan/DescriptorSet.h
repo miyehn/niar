@@ -31,6 +31,10 @@ public:
 
 	void pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType);
 
+	void pointToRWImageView(VkImageView imageView, uint32_t binding);
+
+	void pointToAccelerationStructure(VkAccelerationStructureKHR accelerationStructure, uint32_t binding);
+
 	void bind(
 		VkCommandBuffer cmdbuf,
 		VkPipelineBindPoint pipelineBindPoint,

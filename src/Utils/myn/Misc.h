@@ -18,6 +18,9 @@ namespace myn
 
 	std::vector<char> read_file(const std::string& filename);
 
+	template <typename T>
+	T aligned_size(T alignment, T in_size) { return (in_size + (alignment - 1)) & ~(alignment - 1); }
+
 	// TODO: make more robust
 	glm::quat quat_from_dir(glm::vec3 dir);
 
