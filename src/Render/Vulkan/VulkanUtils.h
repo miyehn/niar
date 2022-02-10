@@ -49,7 +49,7 @@ namespace vk
 
 	void blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax);
 
-	void draw_fullscreen_triangle(VkCommandBuffer cmdbuf);
+	void drawFullscreenTriangle(VkCommandBuffer cmdbuf);
 }
 
 class ScopedDrawEvent

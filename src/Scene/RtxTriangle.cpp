@@ -6,8 +6,10 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Render/Vulkan/PipelineBuilder.h"
+#include "Render/Vulkan/Buffer.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
+#include "Render/Vulkan/ShaderBindingTable.h"
 #include "Utils/myn/Misc.h"
 
 void RtxTriangle::create_vertex_buffer()
@@ -70,11 +72,6 @@ void RtxTriangle::create_index_buffer()
 	// move stuff from staging buffer and destroy staging buffer
 	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
 	stagingBuffer.release();
-}
-
-void RtxTriangle::draw(VkCommandBuffer cmdbuf)
-{
-	SceneObject::draw(cmdbuf);
 }
 
 void buildBlas(
@@ -229,7 +226,8 @@ void buildTlas(
 		&Vulkan::Instance->memoryAllocator,
 		sizeof(VkAccelerationStructureInstanceKHR),
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_CPU_TO_GPU);
+	instancesBuffer.writeData(&inst, sizeof(VkAccelerationStructureInstanceKHR));
 	const VkBufferDeviceAddressInfo instancesBufferAddressInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
 		.buffer = instancesBuffer.getBufferInstance()
@@ -421,6 +419,18 @@ RtxTriangle::RtxTriangle()
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"outImage(rtx)");
 	outImage = new Texture2D(imageCreator);
+	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, outImage->resource.image, "rtx output image")
+	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
+	{
+		vk::insertImageBarrier(cmdbuf, outImage->resource.image,
+							   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+							   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+							   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+							   VK_ACCESS_SHADER_WRITE_BIT,
+							   VK_ACCESS_SHADER_WRITE_BIT,
+							   VK_IMAGE_LAYOUT_UNDEFINED,
+							   VK_IMAGE_LAYOUT_GENERAL);
+	});
 
 	// descriptor set
 	DescriptorSetLayout setLayout{};
@@ -439,40 +449,7 @@ RtxTriangle::RtxTriangle()
 	builder.build(pipeline, pipelineLayout);
 
 	// sbt (TODO: move into pipeline builder?)
-	create_sbt();
-}
-
-void RtxTriangle::create_sbt()
-{
-	// in SBT, shader be stored like: [raygen][hit, hit, ...][miss, miss, ...]
-
-	// number of shaders in each group (groups be: raygen, hit, miss[, callable])
-	const uint32_t raygenCount = 1; // rgen always 1
-	uint32_t hitCount = 1;
-	uint32_t missCount = 1;
-
-	const uint32_t baseAlignment = Vulkan::Instance->shaderGroupBaseAlignment;
-	const uint32_t handleSize = Vulkan::Instance->shaderGroupHandleSize;
-	const uint32_t handleAlignment = Vulkan::Instance->shaderGroupHandleAlignment;
-
-	uint32_t totalHandlesCount = raygenCount + hitCount + missCount;
-	uint32_t handleSizeAligned = myn::aligned_size(handleAlignment, handleSize);
-
-	VkStridedDeviceAddressRegionKHR raygenRegion = {
-		// for raygen, stride must equal to size
-		.stride = myn::aligned_size(baseAlignment, handleSizeAligned),
-		.size = myn::aligned_size(baseAlignment, handleSizeAligned)
-	};
-	VkStridedDeviceAddressRegionKHR hitRegion = {
-		.stride = handleSizeAligned,
-		.size = myn::aligned_size(baseAlignment, handleSizeAligned * hitCount)
-	};
-	VkStridedDeviceAddressRegionKHR missRegion = {
-		.stride = handleSizeAligned,
-		.size = myn::aligned_size(baseAlignment, handleSizeAligned * missCount)
-	};
-
-	// TODO: continue at 8.1: "We then fetch the handles to the shader groups of the pipeline."
+	sbt = new ShaderBindingTable(pipeline, 1, 1);
 }
 
 RtxTriangle::~RtxTriangle()
@@ -484,4 +461,38 @@ RtxTriangle::~RtxTriangle()
 	vertexBuffer.release();
 	indexBuffer.release();
 	delete outImage;
+	delete sbt;
+}
+
+void RtxTriangle::update(float elapsed)
+{
+	SceneObject::update(elapsed);
+
+	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "trace rays")
+
+		auto extent = Vulkan::Instance->swapChainExtent;
+
+		vk::insertImageBarrier(cmdbuf, outImage->resource.image,
+							   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+							   VK_PIPELINE_STAGE_TRANSFER_BIT,
+							   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+							   VK_ACCESS_TRANSFER_READ_BIT,
+							   VK_ACCESS_SHADER_WRITE_BIT,
+							   VK_IMAGE_LAYOUT_UNDEFINED,
+							   VK_IMAGE_LAYOUT_GENERAL);
+
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline);
+		descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 0, pipelineLayout);
+		Vulkan::Instance->fn_vkCmdTraceRaysKHR(
+			cmdbuf,
+			&sbt->raygenRegion,
+			&sbt->missRegion,
+			&sbt->hitRegion,
+			&sbt->callableRegion,
+			extent.width,
+			extent.height,
+			/*depth*/1);
+	});
 }

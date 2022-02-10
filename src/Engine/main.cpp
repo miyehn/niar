@@ -112,6 +112,9 @@ static void init()
 		// rtx
 		auto tri = new RtxTriangle();
 		Scene::Active->add_child(tri);
+
+		// set output image
+		RayTracingRenderer::get()->outImage = tri->outImage;
 #endif
 
 		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {

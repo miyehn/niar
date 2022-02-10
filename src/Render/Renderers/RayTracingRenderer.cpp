@@ -100,6 +100,7 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 
 	//====
 
+	/*
 	VkClearValue clearColor = {0.2f, 0.3f, 0.4f, 1.0f};
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
 	VkRenderPassBeginInfo passInfo = {
@@ -116,9 +117,22 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 		for (auto& tri : triangles) tri->draw(cmdbuf);
 	}
 	vkCmdEndRenderPass(cmdbuf);
+	 */
+
+	if (outImage == nullptr) return;
+
+	vk::insertImageBarrier(cmdbuf, outImage->resource.image,
+						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+						   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+						   VK_PIPELINE_STAGE_TRANSFER_BIT,
+						   VK_ACCESS_SHADER_WRITE_BIT,
+						   VK_ACCESS_TRANSFER_READ_BIT,
+						   VK_IMAGE_LAYOUT_GENERAL,
+						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
 	vk::blitToScreen(
 		cmdbuf,
-		sceneColor->resource.image,
+		outImage->resource.image,
 		{0, 0, 0},
 		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
 }

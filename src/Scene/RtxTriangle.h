@@ -5,13 +5,14 @@
 #include "Render/Vulkan/DescriptorSet.h"
 
 class Texture2D;
+class ShaderBindingTable;
 
 class RtxTriangle : public SceneObject
 {
 public:
 	RtxTriangle();
-	~RtxTriangle();
-	void draw(VkCommandBuffer cmdbuf) override;
+	~RtxTriangle() override;
+	void update(float elapsed) override;
 
 	//---- vulkan stuff ----
 
@@ -20,8 +21,6 @@ public:
 
 	void create_vertex_buffer();
 	void create_index_buffer();
-
-	void create_sbt();
 
 	VmaBuffer blasBuffer;
 	VkAccelerationStructureKHR blas;
@@ -32,6 +31,8 @@ public:
 	DescriptorSet descriptorSet;
 
 	Texture2D* outImage;
+
+	ShaderBindingTable* sbt;
 
 	// singletons (TODO: clean up later)
 	VkPipeline pipeline;

@@ -18,6 +18,8 @@ public:
 
 	static RayTracingRenderer* get();
 
+	Texture2D* outImage = nullptr;
+
 private:
 	VkExtent2D renderExtent;
 	Texture2D* sceneColor;

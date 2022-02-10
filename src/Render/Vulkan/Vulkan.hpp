@@ -246,8 +246,10 @@ public:
 	FN_PTR(vkDestroyAccelerationStructureKHR)
 	FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
 	FN_PTR(vkCreateRayTracingPipelinesKHR)
+	FN_PTR(vkGetRayTracingShaderGroupHandlesKHR)
 	FN_PTR(vkCmdBuildAccelerationStructuresKHR)
 	FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 	FN_PTR(vkCmdCopyAccelerationStructureKHR)
+	FN_PTR(vkCmdTraceRaysKHR)
 
 };

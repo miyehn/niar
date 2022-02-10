@@ -471,7 +471,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		deferredLighting->numPointLights = point_light_ctr;
 		deferredLighting->numDirectionalLights = directional_light_ctr;
 		deferredLighting->usePipeline(cmdbuf);
-		vk::draw_fullscreen_triangle(cmdbuf);
+		vk::drawFullscreenTriangle(cmdbuf);
 
 		vkCmdEndRenderPass(cmdbuf);
 	}
@@ -490,7 +490,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
 			postProcessing->usePipeline(cmdbuf);
-			vk::draw_fullscreen_triangle(cmdbuf);
+			vk::drawFullscreenTriangle(cmdbuf);
 			vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		}
 		{

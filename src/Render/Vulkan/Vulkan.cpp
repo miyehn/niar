@@ -941,9 +941,11 @@ void Vulkan::findProxyFunctionPointers()
 		FIND_FN_PTR(vkDestroyAccelerationStructureKHR)
 		FIND_FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
 		FIND_FN_PTR(vkCreateRayTracingPipelinesKHR)
+		FIND_FN_PTR(vkGetRayTracingShaderGroupHandlesKHR)
 		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
 		FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
 		FIND_FN_PTR(vkCmdCopyAccelerationStructureKHR)
+		FIND_FN_PTR(vkCmdTraceRaysKHR)
 	}
 }
 

@@ -156,7 +156,7 @@ void vk::blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffse
 						   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
-void vk::draw_fullscreen_triangle(VkCommandBuffer cmdbuf)
+void vk::drawFullscreenTriangle(VkCommandBuffer cmdbuf)
 {
 	vkCmdDraw(cmdbuf, 3, 1, 0, 0);
 }

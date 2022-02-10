@@ -368,17 +368,6 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 	};
 	groupInfos.push_back(raygenGroup);
 
-	// rmiss
-	VkRayTracingShaderGroupCreateInfoKHR rmissGroup = {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.generalShader = rmissIdx,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-	groupInfos.push_back(rmissGroup);
-
 	// chit
 	VkRayTracingShaderGroupCreateInfoKHR hitGroup = {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -389,6 +378,17 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 	groupInfos.push_back(hitGroup);
+
+	// rmiss
+	VkRayTracingShaderGroupCreateInfoKHR rmissGroup = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.generalShader = rmissIdx,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+	groupInfos.push_back(rmissGroup);
 
 	// layout
 	std::vector<VkDescriptorSetLayout> setLayouts;
