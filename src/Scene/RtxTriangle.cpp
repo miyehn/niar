@@ -442,14 +442,18 @@ RtxTriangle::RtxTriangle()
 
 	// pipeline
 	RayTracingPipelineBuilder builder{};
-	builder.rgenPath = "spirv/ray_gen.rgen.spv";
-	builder.rchitPath = "spirv/ray_chit.rchit.spv";
-	builder.rmissPath = "spirv/ray_miss.rmiss.spv";
+	builder.rgenPath = "spirv/ray_gen.rgen.spv"; // rgen
+	builder.rchitPaths.emplace_back("spirv/ray_chit.rchit.spv");
+	builder.rchitPaths.emplace_back("spirv/ray_chit2.rchit.spv");
+	builder.rmissPaths.emplace_back("spirv/ray_miss.rmiss.spv"); // rmiss
+	builder.rmissPaths.emplace_back("spirv/ray_miss2.rmiss.spv"); // rmiss
+	builder.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{0, -1}); // rhit
+	builder.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{1, -1}); // rhit
 	builder.useDescriptorSetLayout(0, descriptorSet.getLayout());
 	builder.build(pipeline, pipelineLayout);
 
 	// sbt (TODO: move into pipeline builder?)
-	sbt = new ShaderBindingTable(pipeline, 1, 1);
+	sbt = new ShaderBindingTable(pipeline, 2, 2);
 }
 
 RtxTriangle::~RtxTriangle()

@@ -104,7 +104,7 @@ static void init()
 #if 0
 		Scene::Active = new Scene("test scene");
 		Scene::Active->load_assimp(Cfg.SceneSource, false);
-#else
+#elif 0
 		Scene* gltf = new Scene("Test stage");
 		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
@@ -113,8 +113,17 @@ static void init()
 		auto tri = new RtxTriangle();
 		Scene::Active->add_child(tri);
 
-		// set output image
-		RayTracingRenderer::get()->outImage = tri->outImage;
+		// renderer setup
+		auto rtRenderer = RayTracingRenderer::get();
+		rtRenderer->outImage = tri->outImage;
+		rtRenderer->debugSetup(nullptr);
+		renderer = rtRenderer;
+#else
+		Scene* gltf = new Scene("fc yard");
+		gltf->load_tinygltf(Cfg.SceneSource, false);
+		Scene::Active = gltf;
+		renderer = DeferredRenderer::get();
+		renderer->debugSetup(nullptr);
 #endif
 
 		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
@@ -134,11 +143,6 @@ static void init()
 		ui::button("toggle renderdoc overlay", RenderDoc::toggleOverlay, "Rendering");
 		ui::elem([](){ ImGui::Separator(); }, "Rendering");
 	}
-
-	// renderer setup
-	//renderer = DeferredRenderer::get();
-	renderer = RayTracingRenderer::get();
-	renderer->debugSetup(nullptr);
 
 	// scene hierarchy
 	static bool show_global_transform = false;

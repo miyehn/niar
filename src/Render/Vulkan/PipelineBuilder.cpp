@@ -318,77 +318,93 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 {
 	// shader stages
 
-	auto rgenModule = ShaderModule::get(rgenPath);
-	auto rchitModule = ShaderModule::get(rchitPath);
-	auto rmissModule = ShaderModule::get(rmissPath);
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 
-	VkPipelineShaderStageCreateInfo rgenShaderStageInfo = {
+	const uint32_t rgenIndex = 0;
+	shaderStages.push_back({
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-		.module = rgenModule->module,
+		.module = ShaderModule::get(rgenPath)->module,
 		.pName = "main", // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
+	});
 
-	VkPipelineShaderStageCreateInfo rchitShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		.module = rchitModule->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
-		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
+	const uint32_t rchitStartIndex = 1;
+	for (auto& rchitPath : rchitPaths)
+	{
+		shaderStages.push_back({
+		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		   .stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		   .module = ShaderModule::get(rchitPath)->module,
+		   .pName = "main", // entry point function (should be main for glsl shaders)
+		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+		});
+	}
 
-	VkPipelineShaderStageCreateInfo rmissShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-		.module = rmissModule->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
-		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
-	};
-	const int rgenIdx = 0;
-	const int rchitIdx = 1;
-	const int rmissIdx = 2;
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages(3);
-	shaderStages[rgenIdx] = rgenShaderStageInfo;
-	shaderStages[rchitIdx] = rchitShaderStageInfo;
-	shaderStages[rmissIdx] = rmissShaderStageInfo;
+	const uint32_t rahitStartIndex = rchitStartIndex + rchitPaths.size();
+	for (auto& rahitPath : rahitPaths)
+	{
+		shaderStages.push_back({
+		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		   .stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+		   .module = ShaderModule::get(rahitPath)->module,
+		   .pName = "main", // entry point function (should be main for glsl shaders)
+		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+		});
+	}
+
+	const uint32_t rmissStartIndex = rahitStartIndex + rahitPaths.size();
+	for (auto& rmissPath : rmissPaths)
+	{
+		shaderStages.push_back({
+		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		   .stage = VK_SHADER_STAGE_MISS_BIT_KHR,
+		   .module = ShaderModule::get(rmissPath)->module,
+		   .pName = "main", // entry point function (should be main for glsl shaders)
+		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
+		});
+	}
 
 	// shader groups
 
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> groupInfos;
 
-	// raygen
-	VkRayTracingShaderGroupCreateInfoKHR raygenGroup = {
+	// rgen
+	groupInfos.push_back({
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.generalShader = rgenIdx,
+		.generalShader = rgenIndex,
 		.closestHitShader = VK_SHADER_UNUSED_KHR,
 		.anyHitShader = VK_SHADER_UNUSED_KHR,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-	groupInfos.push_back(raygenGroup);
+	});
 
-	// chit
-	VkRayTracingShaderGroupCreateInfoKHR hitGroup = {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR, // can have an ahit, a rhit, and an intersection
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = rchitIdx,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-	groupInfos.push_back(hitGroup);
-
-	// rmiss
-	VkRayTracingShaderGroupCreateInfoKHR rmissGroup = {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.generalShader = rmissIdx,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-	groupInfos.push_back(rmissGroup);
+	// hit groups
+	for (auto & hitGroup : hitGroups)
+	{
+		groupInfos.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = hitGroup.rchitIndex < 0 ?
+				VK_SHADER_UNUSED_KHR : hitGroup.rchitIndex + rchitStartIndex,
+			.anyHitShader = hitGroup.rahitIndex < 0 ?
+				VK_SHADER_UNUSED_KHR : hitGroup.rahitIndex + rahitStartIndex,
+			.intersectionShader = VK_SHADER_UNUSED_KHR, // not implemented yet
+		});
+	}
+	// miss groups
+	for (auto i = 0; i < rmissPaths.size(); i++)
+	{
+		groupInfos.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = rmissStartIndex + i,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
+	}
 
 	// layout
 	std::vector<VkDescriptorSetLayout> setLayouts;

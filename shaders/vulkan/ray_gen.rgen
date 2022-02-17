@@ -14,9 +14,9 @@ void main() {
 
 	const uint rayFlags = gl_RayFlagsNoneEXT;
 	const uint cullMask = 0xFF;
-	const uint sbtRecordOffset = 0;
+	const uint sbtRecordOffset = 1;
 	const uint sbtRecordStride = 0;
-	const uint missIndex = 0;
+	const uint missIndex = 1;
 	const float tmin = 0.0f;
 	const float tmax = 10.0f;
 	const int payloadLocation = 0;
@@ -34,6 +34,5 @@ void main() {
 		tmax,
 		payloadLocation);
 
-	//imageStore(ResultImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.4, 0.3, 0.2, 1.0f));
 	imageStore(ResultImage, ivec2(gl_LaunchIDEXT.xy), vec4(ResultColor, 1.0f));
 }

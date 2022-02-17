@@ -34,8 +34,7 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 
 	// get shader handles
 	uint32_t dataSize = totalHandlesCount * handleSize;
-	std::vector<uint8_t> handles(dataSize);
-	// a group := a shader?
+	std::vector<uint8_t> handles(dataSize); // tightly packed handles
 	EXPECT(Vulkan::Instance->fn_vkGetRayTracingShaderGroupHandlesKHR(Vulkan::Instance->device, pipeline, 0, totalHandlesCount, dataSize, handles.data()), VK_SUCCESS)
 
 	VkDeviceSize sbtSize = raygenRegion.size + hitRegion.size + missRegion.size + callableRegion.size;
@@ -46,7 +45,7 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 		VMA_MEMORY_USAGE_CPU_TO_GPU);
 	NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, shaderBindingTable.getBufferInstance(), "shader binding table")
 
-	std::vector<uint8_t> alignedHandles(sbtSize);
+	std::vector<uint8_t> alignedHandles(sbtSize, 0);
 	const uint32_t raygenStart = 0;
 	const uint32_t hitStart = raygenRegion.size;
 	const uint32_t missStart = hitStart + hitRegion.size;
@@ -56,17 +55,26 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 	// hit
 	for (auto i = 0; i < numHitShaders; i++)
 	{
-		memcpy(&alignedHandles[hitStart + i * handleSizeAligned], &handles[1 + i], handleSize);
+		memcpy(
+			&alignedHandles[hitStart + i * handleSizeAligned],
+			&handles[(1 + i) * handleSize],
+			handleSize);
 	}
 	// miss
 	for (auto i = 0; i < numMissShaders; i++)
 	{
-		memcpy(&alignedHandles[missStart + i * handleSizeAligned], &handles[1 + numHitShaders + i], handleSize);
+		memcpy(
+			&alignedHandles[missStart + i * handleSizeAligned],
+			&handles[(1 + numHitShaders + i) * handleSize],
+			handleSize);
 	}
 	// callable
 	for (auto i = 0; i < numCallableShaders; i++)
 	{
-		memcpy(&alignedHandles[callableStart + i * handleSizeAligned], &handles[1 + numHitShaders + numMissShaders + i], handleSize);
+		memcpy(
+			&alignedHandles[callableStart + i * handleSizeAligned],
+			&handles[(1 + numHitShaders + numMissShaders + i) * handleSize],
+			handleSize);
 	}
 
 	shaderBindingTable.writeData(alignedHandles.data(), alignedHandles.size());

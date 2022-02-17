@@ -86,6 +86,7 @@ private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
 };
 
+// usage (for now): construct, set descriptor set, add shader paths, add groups, build
 struct RayTracingPipelineBuilder
 {
 	RayTracingPipelineBuilder() = default;
@@ -95,8 +96,14 @@ struct RayTracingPipelineBuilder
 	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout);
 
 	std::string rgenPath;
-	std::string rchitPath;
-	std::string rmissPath;
+	std::vector<std::string> rchitPaths;
+	std::vector<std::string> rahitPaths;
+	std::vector<std::string> rmissPaths;
+
+	struct HitGroup {
+		int rchitIndex, rahitIndex;
+	};
+	std::vector<HitGroup> hitGroups;
 
 private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
