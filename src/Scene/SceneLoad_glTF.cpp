@@ -120,7 +120,8 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 	if (root->parent!=nullptr &&
 		root->mesh_idx == -1 &&
 		root->light_idx == -1 &&
-		root->camera_idx == -1)
+		root->camera_idx == -1 &&
+		root->children.size() <= 1)
 	{
 		if (root->children.empty())
 		{

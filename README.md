@@ -2,36 +2,52 @@
 
 A playground to test my patience.
 
-**For offline stuff**, it has 2 multi-threaded CPU path tracer implementations:
-* One is a regular C++ path tracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch, plus depth of field.
-* Another is a SIMD path tracer implemented with [Intel ISPC](https://ispc.github.io/), which has mostly the same features as above but renders ~5x faster. This implementation is part of our CMU 15-418F20 final project. Project members include Michelle Ma and I (Rain Du). See [pathtracer-standalone](https://github.com/miyehn/niar/tree/pathtracer-standalone) branch or our [project site](https://miyehn.me/SIMD-pathtracer/) for more information.
+Roadmap (as of 2/19/2022)
+* keep building the scene in Blender, write more tools, and get used to the content creation pipeline in general
+* batching draw calls
+* figure out foliage? even animate them w compute?
+* area lights
+* RTX shadow
+* volumetrics (real-time and path tracing)
+* global illumination that takes light leakage into account
 
-<img src="img/dof.jpg" width=480></img>
+---
 
 **For real-time rendering**, here's a selected list of its features:
-* deferred rendering path
-* metallic-roughness materials
-* shadow mapping for point and directional lights
-* automatic adjustments of light camera and its frustum based on view frustum and scene AABB
-* percentage closer filtering
-* exposure adjustment and tone mapping
-* bloom
-* gamma correction
+* common Vulkan utilities to save my sanity
+* Dear ImGui and RenderDoc integration
+* loading gLTF scenes and basic scene management
+* rasterization and compute pipelines, and utilities to easily modify/extend them into new variants
+  * For rasterization, it uses PBR deferred pipeline by default
+* RTX pipeline using the `VK_KHR_ray_tracing_pipeline` extension
 
-There're also some **utilities** for testing (see implementation notes for details)
-* load input from disk for initial configuration, specify resource paths, create and assign materials
-* command line configuration of properties
-* viewing textures for debug
-* viewing objects without materials or with simplified materials
+And some now-deleted features back when it still used OpenGL:
+* shadow mapping for point and directional lights with percentage closer filtering
+* automatic adjustments of light camera and its frustum based on view frustum and scene AABB
+
+<img src="img/fchouse-export-test.png" width=640></img>
+(WIP model of our free company house in FF14)
 
 <img src="img/water_tower_10_24.jpg" width=640></img>
 
 <img src="img/water_tower_detail_10_24.jpg" width=640></img>  
 (The above water tower model and its textures are from www.animatedheaven.weebly.com)
 
-Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into master yet (because I mainly develop on macOS and OpenGL compute shaders are not supported)
+**For offline rendering**, it has 2 multi-threaded CPU path tracer implementations:
+* One is a regular C++ path tracer - sort of rebuilt [Scotty3D](https://github.com/cmu462/Scotty3D)'s pathtracer part from scratch, plus depth of field.
+* Another is a SIMD path tracer implemented with [Intel ISPC](https://ispc.github.io/), which has mostly the same features as above but renders ~5x faster. This implementation is part of our CMU 15-418F20 final project. Project members include Michelle Ma and I (Rain Du). See [pathtracer-standalone](https://github.com/miyehn/niar/tree/pathtracer-standalone) branch or our [project site](https://miyehn.me/SIMD-pathtracer/) for more information.
 
-## Known issues and TODOs in the near future
+<img src="img/dof.jpg" width=480></img>
+
+
+There're also some **utilities** for testing (see implementation notes for details)
+* load input from disk for initial configuration
+* command line configuration of properties (CVars)
+* debug draw overlays
+
+Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim) branch which is not integrated into this branch yet
+
+## Known issues about the ISPC path tracer
 
 * ISPC: `gather_rays` doesn't seem buggy but the two calls to it inside `trace_rays` seem to mess up the ray tasks buffers. That function currently falls back to calling `trace_ray`.
 * ISPC path tracer is slightly buggy when multithreaded is enabled and crashes under some very specific settings.
@@ -89,48 +105,3 @@ To configure properties at runtime, use the console as such (type into the windo
 Too add a property in `config.ini`, first define that property in the config file, then in `Input.hpp` add it to the struct called `Cfg`, and assign the property in `Input.cpp`. Then use it anywhere as `Cfg.PropertyName`.
 
 CVars can be defined / used anywhere. For the ones local to a file, define them with global scope inside some `.cpp` file. For the ones that need to be accessed everywhere, define in `Input.hpp` or even as part of the `Cfg` struct.
-
-### Rendering pipeline
-
-See `Scene::draw()`. It depends on the material set used (configure this in `config.ini`). `0` is basic; everything gets rendered in a single pass, no lighting is applied. `1` is basic lambertian without textures, and `2` is whatever material that gets assigned to each mesh. If a mesh has no material assigned to it, it falls back to default lambertian.
-
-#### Deferred pipeline
-
-Geometry pass (MRT) (3 G buffers: world position, normal, base color)  
-↓  
-Shadow maps are rendered for lights that cast shadows.  
-↓  
-Passes that uses shadow maps and the position & normal G buffers to produce shadow masks (basically stencils for light contribution).  
-↓  
-Lighting pass(es) for directional lights, with G buffers and shadow masks as input  
-↓  
-Lighting pass(es) for point lights done similarly, using additive blending  
-↓  
-Exposure adjustment, as well as extracting bright pixels into a separate texture  
-↓  
-Horizontal and vertical gaussian blur passes to the bright pixels texture (bloom)  
-↓  
-Apply bloom result with rendered image, then do tone mapping and gamma correction
-
-### Shader, texture and material resources
-
-Currently all shaders, textures and materials are managed by the classes themselves, either in a private pool (accessable from outside by name using the `get` method), or as static read-only constants.
-
-Shaders and materials are compiled and added to the pool on program start; textures are loadeded on first use.
-
-### Materials and blit
-
-Basically a material := a reference to a shader + a set of properties. There're two types of materials: generic and standard.
-
-A generic material is one that can be used with any shader. It attempts to set all transformation matrices to its shader when used.
-* Usage: create the material by giving its shader's name, define `set_parameters` if its shader requires properties that are not transformation matrices, then `use` just before drawing stuff.
-
-A standard material is one that's associated with a specific shader.
-* Creation: inherit from `GlMaterial` to create a new material class with all properties that should be stored with it. Define its `use` function where it should set all its properties to its shader, including the transformation matrices.
-* Usage: create an instance of this material somewhere else, assign the properties, optionally define `set_parameters`, and `use`.
-* To create a material that uses an existing shader, just edit `config.ini` to specify what shader to use and some properties, and assign it to meshes.
-
-`Blit` is a special type of shader: instances all share the same vertex shader and are used to draw screen-space quads.
-* Creation: create a `CONST_PTR` in `Blit` class, and `IMPLEMENT_BLIT` by specifing which shader to use (see the macro definitions).
-* Usage: `Blit::name()->begin_pass()`, set properties depending on the shader, `Blit::name()->end_pass()`.
-

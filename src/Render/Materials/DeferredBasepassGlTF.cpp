@@ -45,11 +45,13 @@ DeferredBasepassGlTF::DeferredBasepassGlTF(
 	LOG("loading material '%s'..", name.c_str())
 	VkDeviceSize alignment = Vulkan::Instance->minUniformBufferOffsetAlignment;
 	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
+
+	// TODO: dynamically get numStrides (num instances of that material)
 	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  numBlocks * alignment,
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
-							  1, 4);
+							  1, 32);
 	materialParamsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(materialParams),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
