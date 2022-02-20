@@ -241,7 +241,8 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 			nodes_map[model.lights[i].name]->light_idx = i;
 		}
 	}
-	collapseSceneTree(tree);
+
+	if (Cfg.CollapseSceneTree) collapseSceneTree(tree);
 
 	// actually construct the scene tree
 

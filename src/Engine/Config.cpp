@@ -126,8 +126,9 @@ void initialize_global_config()
 		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
 		Cfg.AssetsConfigSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("AssetsConfigSource");
 		Cfg.PathtracerConfigSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("PathtracerConfigSource");
-		Cfg.RenderDoc = config_src.lookup("RenderDoc");
-		Cfg.RTX = config_src.lookup("RTX");
+		Cfg.RenderDoc = config_src.lookup("Debug.RenderDoc");
+		Cfg.RTX = config_src.lookup("Debug.RTX");
+		Cfg.CollapseSceneTree = config_src.lookup("Debug.CollapseSceneTree");
 
 	} catch (const SettingNotFoundException &nfex) {
 		ERR("Some setting(s) not found in config.ini");

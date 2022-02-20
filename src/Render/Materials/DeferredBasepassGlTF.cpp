@@ -51,7 +51,7 @@ DeferredBasepassGlTF::DeferredBasepassGlTF(
 							  numBlocks * alignment,
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
-							  1, 32);
+							  1, 128);
 	materialParamsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
 							  sizeof(materialParams),
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,

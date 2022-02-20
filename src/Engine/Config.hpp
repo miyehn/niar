@@ -15,6 +15,7 @@ struct ProgramConfig
 	std::string PathtracerConfigSource;
 	int RenderDoc;
 	int RTX;
+	int CollapseSceneTree;
 	struct
 	{
 		int ISPC = 0;

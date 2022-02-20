@@ -97,6 +97,7 @@ void Mesh::create_index_buffer()
 	// create the actual index buffer
 	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	indexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+	NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, indexBuffer.getBufferInstance(), "index buffer: " + name)
 
 	// move stuff from staging buffer and destroy staging buffer
 	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
@@ -288,5 +289,6 @@ Mesh::Mesh(
 
 	generate_aabb();
 
-	set_material_name(name, material_names[in_prim->material]);
+	uint32_t mat_index = in_prim->material >= 0 ? in_prim->material : 0;
+	set_material_name(name, material_names[mat_index]);
 }
