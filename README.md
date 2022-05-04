@@ -11,6 +11,8 @@ Roadmap (as of 2/19/2022)
 * volumetrics (real-time and path tracing)
 * global illumination that takes light leakage into account
 
+Lately I'm completely absorbed by [another side project](https://github.com/miyehn/ffxiv-blm-rotation) though.. This renderer is still my precious child I will get back to it like I always did I promise ;_;
+
 ---
 
 **For real-time rendering**, here's a selected list of its features:
@@ -25,7 +27,7 @@ And some now-deleted features back when it still used OpenGL:
 * shadow mapping for point and directional lights with percentage closer filtering
 * automatic adjustments of light camera and its frustum based on view frustum and scene AABB
 
-<img src="img/fchouse-export-test.png" width=640></img>
+<img src="img/fchouse-export-test.png" width=640></img>  
 (WIP model of our free company house in FF14)
 
 <img src="img/water_tower_10_24.jpg" width=640></img>
