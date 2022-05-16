@@ -42,7 +42,7 @@ private:
 
 	PostProcessing* postProcessing;
 
-	void updateFrameFlobalDescriptorSet();
+	void updateFrameGlobalDescriptorSet();
 
 public:
 

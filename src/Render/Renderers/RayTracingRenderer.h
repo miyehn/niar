@@ -9,7 +9,6 @@ class RayTracingRenderer : public Renderer
 {
 private:
 	RayTracingRenderer();
-	~RayTracingRenderer() override;
 
 public:
 	void render(VkCommandBuffer cmdbuf) override;
@@ -21,17 +20,6 @@ public:
 	Texture2D* outImage = nullptr;
 
 private:
-	VkExtent2D renderExtent;
-	Texture2D* sceneColor;
-	VkFramebuffer frameBuffer;
-	VkRenderPass renderPass;
-
-	DescriptorSet descriptorSet;
-	VmaBuffer uniformBuffer;
-
-public:
-	struct {
-		glm::vec4 color;
-	} Uniforms;
+	VkExtent2D renderExtent{};
 };
 

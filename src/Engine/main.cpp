@@ -7,6 +7,7 @@
 #include "Render/Materials/DeferredBasepass.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Renderers/RayTracingRenderer.h"
+#include "Render/Renderers/SimpleRenderer.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
 
@@ -92,8 +93,9 @@ static void init()
 
 	if (Cfg.UseCornellBoxScene)
 	{
-		Scene::Active = Pathtracer::load_cornellbox_scene(true);
 		Camera::Active = new Camera(width, height);
+		Scene::Active = Pathtracer::load_cornellbox_scene(true);
+		renderer = SimpleRenderer::get();
 	}
 
 	/* Load from file or manually setup scene
@@ -104,9 +106,9 @@ static void init()
 #if 0
 		Scene::Active = new Scene("test scene");
 		Scene::Active->load_assimp(Cfg.SceneSource, false);
-#elif 0
+#elif 1
 		Scene* gltf = new Scene("Test stage");
-		gltf->load_tinygltf(Cfg.SceneSource, false);
+		//gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
 
 		// rtx
@@ -208,8 +210,9 @@ static bool process_input()
 		// imgui
 		// pass on control to the rest of the app if event.type is not keyup
 		bool imgui_processed_input = ImGui_ImplSDL2_ProcessEvent(&event);
+		//if (imgui_processed_input) continue;
 		if (imgui_processed_input && event.type != SDL_KEYUP) continue;
-
+#if 0
 		// console input
 		if (event.type==SDL_KEYUP && !input.receiving && event.key.keysym.sym == SDLK_SLASH) {
 			input.text = "";
@@ -233,6 +236,9 @@ static bool process_input()
 		}
 
 		else if (!input.receiving)
+#else
+		else
+#endif
 		{
 			// toggle between rasterizer & pathtracer
 			if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {

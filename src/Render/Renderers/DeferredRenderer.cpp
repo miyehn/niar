@@ -369,7 +369,7 @@ DeferredRenderer::~DeferredRenderer()
 	delete debugLines;
 }
 
-void DeferredRenderer::updateFrameFlobalDescriptorSet()
+void DeferredRenderer::updateFrameGlobalDescriptorSet()
 {
 	ViewInfo.ViewMatrix = camera->world_to_object();
 	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
@@ -383,7 +383,7 @@ void DeferredRenderer::updateFrameFlobalDescriptorSet()
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	updateFrameFlobalDescriptorSet();
+	updateFrameGlobalDescriptorSet();
 
 	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
 	frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, DeferredLighting::pipelineLayout);
