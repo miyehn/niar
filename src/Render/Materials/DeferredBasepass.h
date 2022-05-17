@@ -17,7 +17,7 @@ public:
 	);
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
 	void usePipeline(VkCommandBuffer cmdbuf) override;
-	VkPipeline getPipeline() override { return pipeline; }
+	MaterialPipeline getPipeline() override;
 	~DeferredBasepass() override;
 
 private:
@@ -27,9 +27,6 @@ private:
 	} uniforms;
 
 	VmaBuffer uniformBuffer;
-
-	static VkPipeline pipeline;
-	static VkPipelineLayout pipelineLayout;
 
 	DescriptorSet dynamicSet;
 };

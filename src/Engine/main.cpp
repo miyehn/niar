@@ -106,7 +106,7 @@ static void init()
 #if 0
 		Scene::Active = new Scene("test scene");
 		Scene::Active->load_assimp(Cfg.SceneSource, false);
-#elif 1
+#elif 0
 		Scene* gltf = new Scene("Test stage");
 		//gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
@@ -124,7 +124,7 @@ static void init()
 		Scene* gltf = new Scene("fc yard");
 		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
-		renderer = DeferredRenderer::get();
+		renderer = SimpleRenderer::get();
 		renderer->debugSetup(nullptr);
 #endif
 

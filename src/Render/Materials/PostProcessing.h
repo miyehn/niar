@@ -9,6 +9,7 @@ class PostProcessing : public Material
 {
 public:
 
+	MaterialPipeline getPipeline() override;
 	void usePipeline(VkCommandBuffer cmdbuf) override;
 
 private:
@@ -17,10 +18,8 @@ private:
 	// but it doesn't have to.
 	explicit PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth);
 
+	VkRenderPass postProcessPass;
 	DescriptorSet dynamicSet;
-
-	static VkPipeline pipeline;
-	static VkPipelineLayout pipelineLayout;
 
 	friend class DeferredRenderer;
 };

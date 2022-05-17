@@ -2,6 +2,8 @@
 // Created by raind on 5/16/2022.
 //
 
+#include "Render/Materials/GltfMaterial.h"
+#include "Render/Mesh.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "SimpleRenderer.h"
@@ -146,6 +148,14 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
 	updateViewInfoUbo();
 
+	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
+	descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, Material::findPipelineLayout<SimpleGltfMaterial>());
+
+	std::vector<SceneObject*> drawables;
+	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
+		drawables.push_back(child);
+	}, [](SceneObject *obj){ return obj->enabled; });
+
 	VkClearValue clearColor = {0.2f, 0.3f, 0.4f, 1.0f};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
@@ -161,7 +171,36 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 	};
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
-		// TODO
+		SCOPED_DRAW_EVENT(cmdbuf, "SimpleRenderer draw")
+		// deferred base pass: draw the meshes with materials
+		Material* last_material = nullptr;
+		VkPipeline last_pipeline = VK_NULL_HANDLE;
+		uint32_t instance_ctr = 0;
+		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
+		{
+			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
+			{
+				auto mat = m->get_material();
+				VkPipeline pipeline = mat->getPipeline().pipeline;
+
+				// pipeline changed: re-bind
+				if (pipeline != last_pipeline)
+				{
+					m->get_material()->usePipeline(cmdbuf);
+					last_pipeline = pipeline;
+				}
+
+				// material changed: reset instance counter
+				if (mat != last_material)
+				{
+					instance_ctr = 0;
+					last_material = mat;
+				}
+
+				m->draw(cmdbuf);
+				instance_ctr++;
+			}
+		}
 	}
 	vkCmdEndRenderPass(cmdbuf);
 

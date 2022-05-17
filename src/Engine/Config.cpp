@@ -2,7 +2,6 @@
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
 #include "Render/Materials/DeferredBasepass.h"
-#include "Utils/myn/Log.h"
 #include "libconfig/libconfig.h++"
 
 using namespace libconfig;
@@ -20,7 +19,6 @@ void create_config_src(const std::string &path, Config& out_config_src)
 		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
 		return;
 	}
-
 }
 
 void initialize_pathtracer_config()

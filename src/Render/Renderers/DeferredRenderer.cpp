@@ -386,7 +386,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	updateFrameGlobalDescriptorSet();
 
 	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
-	frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, DeferredLighting::pipelineLayout);
+	frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
 
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
@@ -413,18 +413,20 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		Material* last_material = nullptr;
 		VkPipeline last_pipeline = VK_NULL_HANDLE;
 		uint32_t instance_ctr = 0;
-		for (auto drawable : drawables) // TODO: material sorting, etc.
+		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
 				auto mat = m->get_material();
-				VkPipeline pipeline = mat->getPipeline();
+				VkPipeline pipeline = mat->getPipeline().pipeline;
+
 				// pipeline changed: re-bind
 				if (pipeline != last_pipeline)
 				{
 					m->get_material()->usePipeline(cmdbuf);
 					last_pipeline = pipeline;
 				}
+
 				// material changed: reset instance counter
 				if (mat != last_material)
 				{

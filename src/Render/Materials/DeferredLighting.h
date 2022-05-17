@@ -10,6 +10,7 @@ class DeferredLighting : public Material
 {
 public:
 
+	MaterialPipeline getPipeline() override;
 	void usePipeline(VkCommandBuffer cmdbuf) override;
 	~DeferredLighting() override;
 
@@ -42,9 +43,7 @@ private:
 	VmaBuffer directionalLightsBuffer;
 
 	DescriptorSet dynamicSet;
-
-	static VkPipeline pipeline;
-	static VkPipelineLayout pipelineLayout;
+	VkRenderPass mainRenderPass;
 
 	friend class DeferredRenderer;
 };

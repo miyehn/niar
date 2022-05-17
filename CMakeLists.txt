@@ -71,11 +71,15 @@ set(SRC
 	src/Utils/myn/RenderDoc.cpp
     src/Scene/SceneLoad_Assimp.cpp
 	src/Scene/SceneLoad_glTF.cpp
-	src/Render/Materials/DeferredBasepassGlTF.cpp
+	src/Render/Materials/GltfMaterial.cpp
 	src/Render/Materials/PostProcessing.cpp
     src/Render/DebugDraw.cpp
 	src/Render/ComputeShaders/Rise.cpp
-	src/Render/Renderers/RayTracingRenderer.cpp src/Render/Renderers/RayTracingRenderer.h src/Scene/RtxTriangle.cpp src/Scene/RtxTriangle.h src/Render/Vulkan/ShaderBindingTable.cpp src/Render/Vulkan/ShaderBindingTable.h src/Render/Renderers/SimpleRenderer.cpp src/Render/Renderers/SimpleRenderer.h)
+	src/Render/Renderers/RayTracingRenderer.cpp
+	src/Scene/RtxTriangle.cpp
+	src/Render/Vulkan/ShaderBindingTable.cpp
+	src/Render/Renderers/SimpleRenderer.cpp
+	)
 
 if(APPLE)
 	add_executable(niar ${SRC})

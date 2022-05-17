@@ -3,7 +3,7 @@
 #include "Light.hpp"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
-#include "Render/Materials/DeferredBasepassGlTF.h"
+#include "Render/Materials/GltfMaterial.h"
 #include "Engine/Config.hpp"
 
 #include <glm/gtx/matrix_decompose.hpp>
@@ -224,7 +224,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 	std::vector<std::string> material_names(model.materials.size());
 	for (int i = 0; i < model.materials.size(); i++) {
 		auto& mat = model.materials[i];
-		new DeferredBasepassGlTF(mat, texture_names);
+		new SimpleGltfMaterial(mat, texture_names);
 		material_names[i] = mat.name;
 	}
 

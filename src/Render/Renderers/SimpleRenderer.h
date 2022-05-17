@@ -16,12 +16,14 @@ public:
 
 	static SimpleRenderer* get();
 
+	VkRenderPass renderPass;
+	DescriptorSet descriptorSet;
+
 private:
 	VkExtent2D renderExtent;
 	Texture2D* sceneColor;
 	Texture2D* sceneDepth;
 	VkFramebuffer frameBuffer;
-	VkRenderPass renderPass;
 
 	// uniforms
 	struct
@@ -37,7 +39,6 @@ private:
 
 	} ViewInfo;
 
-	DescriptorSet descriptorSet;
 	VmaBuffer viewInfoUbo;
 
 	void updateViewInfoUbo();

@@ -1,15 +1,13 @@
-#include "DeferredBasepassGlTF.h"
+#include "GltfMaterial.h"
 #include "Engine/SceneObject.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Texture.h"
 
 #include <tinygltf/tiny_gltf.h>
+#include "Render/Renderers/SimpleRenderer.h"
 
-VkPipelineLayout DeferredBasepassGlTF::pipelineLayout = VK_NULL_HANDLE;
-VkPipeline DeferredBasepassGlTF::pipeline = VK_NULL_HANDLE;
-
-void DeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
+void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	// per-material-instance params (static)
 	materialParamsBuffer.writeData(&materialParams);
@@ -21,23 +19,23 @@ void DeferredBasepassGlTF::setParameters(VkCommandBuffer cmdbuf, SceneObject *dr
 	uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
 
 	uint32_t offset = uniformBuffer.strideSize * instanceCounter;
-	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, pipelineLayout, 0, 1, &offset);
+	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout, 0, 1, &offset);
 
 	instanceCounter++;
 }
 
-void DeferredBasepassGlTF::usePipeline(VkCommandBuffer cmdbuf)
+void GltfMaterial::usePipeline(VkCommandBuffer cmdbuf)
 {
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline().pipeline);
 }
 
-DeferredBasepassGlTF::~DeferredBasepassGlTF()
+GltfMaterial::~GltfMaterial()
 {
 	uniformBuffer.release();
 	materialParamsBuffer.release();
 }
 
-DeferredBasepassGlTF::DeferredBasepassGlTF(
+GltfMaterial::GltfMaterial(
 	const tinygltf::Material& in_material,
 	const std::vector<std::string>& texture_names)
 {
@@ -58,12 +56,9 @@ DeferredBasepassGlTF::DeferredBasepassGlTF(
 							  VMA_MEMORY_USAGE_CPU_TO_GPU);
 	Material::add(this);
 
-	auto vk = Vulkan::Instance;
-
 	{// pipeline and layouts
 
 		// set layouts and allocation
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
 		DescriptorSetLayout dynamicSetLayout{};
 		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_VERTEX_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
 		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -99,31 +94,71 @@ DeferredBasepassGlTF::DeferredBasepassGlTF(
 		dynamicSet.pointToImageView(normal->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(metallic_roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(ao->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-		if (pipeline == VK_NULL_HANDLE || pipelineLayout == VK_NULL_HANDLE)
-		{
-			// now build the pipeline
-			GraphicsPipelineBuilder pipelineBuilder{};
-			pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-			pipelineBuilder.fragPath = "spirv/geometry_gltf.frag.spv";
-			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-			pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
-
-			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-
-			// since it has 4 color outputs:
-			auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
-			const VkPipelineColorBlendAttachmentState blendInfoArray[4] = {blendInfo, blendInfo, blendInfo, blendInfo};
-			pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
-			pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
-
-			pipelineBuilder.build(pipeline, pipelineLayout);
-		}
 	}
 }
 
-void DeferredBasepassGlTF::resetInstanceCounter()
+void GltfMaterial::resetInstanceCounter()
 {
 	instanceCounter = 0;
+}
+
+MaterialPipeline PbrGltfMaterial::getPipeline()
+{
+	static MaterialPipeline materialPipeline = {};
+	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
+	{
+		auto vk = Vulkan::Instance;
+
+		// now build the pipeline
+		GraphicsPipelineBuilder pipelineBuilder{};
+		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
+		pipelineBuilder.fragPath = "spirv/geometry_gltf.frag.spv";
+		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
+
+		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+
+		// since it has 4 color outputs:
+		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
+		const VkPipelineColorBlendAttachmentState blendInfoArray[4] = {blendInfo, blendInfo, blendInfo, blendInfo};
+		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
+		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
+
+		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+	}
+
+	return materialPipeline;
+}
+
+MaterialPipeline SimpleGltfMaterial::getPipeline()
+{
+	static MaterialPipeline materialPipeline = {};
+	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
+	{
+		auto vk = Vulkan::Instance;
+
+		// now build the pipeline
+		GraphicsPipelineBuilder pipelineBuilder{};
+		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
+		pipelineBuilder.fragPath = "spirv/simple_gltf.frag.spv";
+		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		pipelineBuilder.compatibleRenderPass = SimpleRenderer::get()->renderPass;
+
+		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->descriptorSet.getLayout();
+		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+
+		// since it has 4 color outputs:
+		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
+		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 1;
+		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = &blendInfo;
+
+		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+	}
+
+	return materialPipeline;
 }

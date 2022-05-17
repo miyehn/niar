@@ -35,23 +35,23 @@ Mesh::Mesh(aiMesh* mesh, SceneObject* _parent, std::string _name) : SceneObject(
 	// iterate through vertices
 	for (int i=0; i<mesh->mNumVertices; i++) {
 		// access p, n, t data
-		aiVector3D position = mesh->mVertices[i];
-		aiVector3D normal = mesh->mNormals[i];
-		aiVector3D uv = mesh->mTextureCoords[0][i];
-		aiVector3D tangent = mesh->mTangents[i];
+		aiVector3D& position = mesh->mVertices[i];
+		aiVector3D& normal = mesh->mNormals[i];
+		aiVector3D& uv = mesh->mTextureCoords[0][i];
+		aiVector3D& tangent = mesh->mTangents[i];
 		// create vertex from pnc
-		Vertex v;
+		vertices.emplace_back();
+		Vertex& v = vertices.back();
 		v.position = vec3(position.x, position.y, position.z);
 		v.normal = vec3(normal.x, normal.y, normal.z);
 		v.tangent = vec3(tangent.x, tangent.y, tangent.z);
 		v.tangent = normalize(v.tangent - dot(v.tangent, v.normal) * v.normal); // gram-schmidt
 		v.uv = vec2(uv.x, uv.y);
-		vertices.push_back(v);
 	}
 
 	// iterate through faces indices and store them
 	for (int j=0; j<mesh->mNumFaces; j++) {
-		aiFace face = mesh->mFaces[j];
+		aiFace& face = mesh->mFaces[j];
 		VERTEX_INDEX_TYPE i1 = face.mIndices[0];
 		VERTEX_INDEX_TYPE i2 = face.mIndices[1];
 		VERTEX_INDEX_TYPE i3 = face.mIndices[2];
