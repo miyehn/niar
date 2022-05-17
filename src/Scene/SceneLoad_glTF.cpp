@@ -224,8 +224,42 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 	std::vector<std::string> material_names(model.materials.size());
 	for (int i = 0; i < model.materials.size(); i++) {
 		auto& mat = model.materials[i];
-		new SimpleGltfMaterial(mat, texture_names);
+		//new PbrGltfMaterial(mat, texture_names);
 		material_names[i] = mat.name;
+
+		// create mat info and add it to the mapping
+
+		int albedo_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
+		auto albedo = albedo_idx >= 0 ? texture_names[albedo_idx] : "_white";
+
+		int normal_idx = mat.normalTexture.index;
+		auto normal = normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal";
+
+		int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+		auto metallic_roughness = mr_idx >= 0 ? texture_names[mr_idx] : "_white";
+
+		int ao_idx = mat.occlusionTexture.index;
+		auto ao = ao_idx >= 0 ? texture_names[ao_idx] : "_white";
+
+		auto bc = mat.pbrMetallicRoughness.baseColorFactor;
+		auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
+		glm::vec4 strengths = {
+			(float)mat.pbrMetallicRoughness.metallicFactor,
+			(float)mat.pbrMetallicRoughness.roughnessFactor,
+			(float)mat.occlusionTexture.strength,
+			(float)mat.normalTexture.scale
+		};
+
+		GltfMaterialInfo info = {
+			.name = mat.name,
+			.albedoTexName = albedo,
+			.normalTexName = normal,
+			.mrTexName = metallic_roughness,
+			.aoTexName = ao,
+			.BaseColorFactor = baseColorFactor,
+			.MetallicRoughnessAONormalStrengths = strengths
+		};
+		GltfMaterial::addInfo(info);
 	}
 
 	//====================

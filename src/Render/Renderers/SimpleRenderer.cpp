@@ -146,10 +146,11 @@ void SimpleRenderer::updateViewInfoUbo()
 
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
+	// TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	updateViewInfoUbo();
 
-	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
-	descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, Material::findPipelineLayout<SimpleGltfMaterial>());
+	// TODO!!!!!!
+	//descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, Material::findPipelineLayout<SimpleGltfMaterial>());
 
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
@@ -172,6 +173,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "SimpleRenderer draw")
+		/*
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
 		VkPipeline last_pipeline = VK_NULL_HANDLE;
@@ -201,6 +203,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 				instance_ctr++;
 			}
 		}
+		 */
 	}
 	vkCmdEndRenderPass(cmdbuf);
 

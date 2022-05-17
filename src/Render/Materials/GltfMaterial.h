@@ -5,6 +5,17 @@ class Texture2D;
 
 namespace tinygltf { struct Material; }
 
+struct GltfMaterialInfo
+{
+	std::string name;
+	std::string albedoTexName;
+	std::string normalTexName;
+	std::string mrTexName;
+	std::string aoTexName;
+	glm::vec4 BaseColorFactor;
+	glm::vec4 MetallicRoughnessAONormalStrengths;
+};
+
 // virtual class; see inherited ones below
 // currently not handling emission because blender gltf 2.0 export seems broken..
 class GltfMaterial : public Material
@@ -16,11 +27,11 @@ public:
 
 	void resetInstanceCounter() override;
 
+	static void addInfo(const GltfMaterialInfo& info);
+	static GltfMaterialInfo* getInfo(const std::string& materialName);
+
 protected:
-	GltfMaterial(
-		const tinygltf::Material& in_material,
-		const std::vector<std::string>& texture_names
-	);
+	explicit GltfMaterial(const GltfMaterialInfo& info);
 	DescriptorSet dynamicSet;
 
 private:
@@ -40,16 +51,13 @@ private:
 	} materialParams;
 	VmaBuffer materialParamsBuffer;
 
-	uint32_t instanceCounter;
+	uint32_t instanceCounter = 0;
 };
 
 class PbrGltfMaterial : public GltfMaterial
 {
 public:
-	PbrGltfMaterial(
-		const tinygltf::Material& in_material,
-		const std::vector<std::string>& texture_names
-	) : GltfMaterial(in_material, texture_names) {}
+	explicit PbrGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
 	MaterialPipeline getPipeline() override;
 };
@@ -57,10 +65,7 @@ public:
 class SimpleGltfMaterial : public GltfMaterial
 {
 public:
-	SimpleGltfMaterial(
-		const tinygltf::Material& in_material,
-		const std::vector<std::string>& texture_names
-	) : GltfMaterial(in_material, texture_names) {}
+	explicit SimpleGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
 	MaterialPipeline getPipeline() override;
 };

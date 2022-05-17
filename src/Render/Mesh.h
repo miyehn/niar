@@ -55,7 +55,7 @@ public:
 	AABB aabb;
 	BSDF* bsdf = nullptr;
 
-	Material* get_material();
+	std::string materialName;
 
 	static void set_material_name(const std::string& mesh_name, const std::string& mat_name);
 

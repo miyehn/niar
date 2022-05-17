@@ -26,12 +26,14 @@ public:
 
 	virtual ~Material() = default;
 
-	static Material* find(const std::string& name);
-	static void resetInstanceCounters();
+	//static Material* find(const std::string& name);
+	//static void resetInstanceCounters();
+
 	virtual MaterialPipeline getPipeline() = 0;
 
-	template<class T>
-	static VkPipelineLayout findPipelineLayout()
+	// only works for registered materials though.
+	/*
+	template<class T> static VkPipelineLayout findPipelineLayout()
 	{
 		static_assert(std::is_base_of<Material, T>::value, "trying to find pipeline layout of something immaterial (?)");
 		for (const auto& it : pool)
@@ -45,15 +47,13 @@ public:
 		}
 		return VK_NULL_HANDLE;
 	}
+	 */
 
 protected:
 
-	static void add(Material* material);
+	//static void add(Material* material);
 
 	// materials with dynamic uniform buffers should implement this
 	virtual void resetInstanceCounter() {}
 
-private:
-
-	static std::unordered_map<std::string, Material*> pool;
 };

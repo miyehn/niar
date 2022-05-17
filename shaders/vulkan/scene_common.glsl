@@ -1,4 +1,4 @@
-layout (set = 0, binding = 0) uniform _ViewInfoUBO
+struct ViewInfo
 {
     mat4 ViewMatrix;
     mat4 ProjectionMatrix;
@@ -12,34 +12,15 @@ layout (set = 0, binding = 0) uniform _ViewInfoUBO
     // other global stuff
     float Exposure;
     int ToneMappingOption;
+};
+
+layout (set = 0, binding = 0) uniform _ViewInfoUBO
+{
+    ViewInfo data;
 }
 _ViewInfo;
 
-struct ViewInfo
-{
-    mat4 ViewMatrix;
-    mat4 ProjectionMatrix;
-
-    vec3 CameraPosition;
-    vec3 ViewDir;
-
-    int NumPointLights;
-    int NumDirectionalLights;
-
-    float Exposure;
-    int ToneMappingOption;
-};
-
 ViewInfo GetViewInfo()
 {
-    ViewInfo info;
-    info.ViewMatrix = _ViewInfo.ViewMatrix;
-    info.ProjectionMatrix = _ViewInfo.ProjectionMatrix;
-    info.CameraPosition = _ViewInfo.CameraPosition;
-    info.NumPointLights = _ViewInfo.NumPointLights;
-    info.ViewDir = _ViewInfo.ViewDir;
-    info.NumDirectionalLights = _ViewInfo.NumDirectionalLights;
-    info.Exposure = _ViewInfo.Exposure;
-    info.ToneMappingOption = _ViewInfo.ToneMappingOption;
-    return info;
+    return _ViewInfo.data;
 }

@@ -133,8 +133,7 @@ void Mesh::update(float elapsed) {
 
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	get_material()->setParameters(cmdbuf, this);
-
+	//get_material()->setParameters(cmdbuf, this);
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
@@ -193,17 +192,6 @@ std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_g
 	// importer seems to automatically handle memory release for scene
 	return meshes;
 
-}
-
-Material *Mesh::get_material()
-{
-	auto pair = material_assignment.find(name);
-	if (pair == material_assignment.end()) {
-		WARN("trying to get material for mesh '%s' but it doesn't have one", name.c_str())
-		return nullptr;
-	}
-	auto mat_name =  pair->second;
-	return Material::find(mat_name);
 }
 
 std::vector<Mesh *> Mesh::load_gltf(
@@ -290,5 +278,6 @@ Mesh::Mesh(
 	generate_aabb();
 
 	uint32_t mat_index = in_prim->material >= 0 ? in_prim->material : 0;
+	materialName = material_names[mat_index];
 	set_material_name(name, material_names[mat_index]);
 }

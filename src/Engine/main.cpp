@@ -124,7 +124,7 @@ static void init()
 		Scene* gltf = new Scene("fc yard");
 		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
-		renderer = SimpleRenderer::get();
+		renderer = DeferredRenderer::get();
 		renderer->debugSetup(nullptr);
 #endif
 
@@ -293,8 +293,6 @@ static void draw()
 	}
 	else
 	{
-		Material::resetInstanceCounters();
-
 		renderer->camera = Camera::Active;
 		renderer->drawable = Scene::Active;
 		renderer->render(cmdbuf);

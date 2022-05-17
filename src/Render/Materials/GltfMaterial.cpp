@@ -35,11 +35,14 @@ GltfMaterial::~GltfMaterial()
 	materialParamsBuffer.release();
 }
 
-GltfMaterial::GltfMaterial(
-	const tinygltf::Material& in_material,
-	const std::vector<std::string>& texture_names)
+namespace
 {
-	this->name = in_material.name;
+std::unordered_map<std::string, GltfMaterialInfo> gltfMaterialInfos;
+}
+
+GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
+{
+	this->name = info.name;
 	LOG("loading material '%s'..", name.c_str())
 	VkDeviceSize alignment = Vulkan::Instance->minUniformBufferOffsetAlignment;
 	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
@@ -51,10 +54,9 @@ GltfMaterial::GltfMaterial(
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
 							  1, 128);
 	materialParamsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
-							  sizeof(materialParams),
-							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							  VMA_MEMORY_USAGE_CPU_TO_GPU);
-	Material::add(this);
+									 sizeof(materialParams),
+									 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+									 VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	{// pipeline and layouts
 
@@ -69,24 +71,13 @@ GltfMaterial::GltfMaterial(
 		dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 		// assign actual values to them
-		int albedo_idx = in_material.pbrMetallicRoughness.baseColorTexture.index;
-		auto albedo = dynamic_cast<Texture2D*>(Texture::get(albedo_idx >= 0 ? texture_names[albedo_idx] : "_white"));
+		auto albedo = dynamic_cast<Texture2D*>(Texture::get(info.albedoTexName));
+		auto normal = dynamic_cast<Texture2D*>(Texture::get(info.normalTexName));
+		auto metallic_roughness = dynamic_cast<Texture2D*>(Texture::get(info.mrTexName));
+		auto ao = dynamic_cast<Texture2D*>(Texture::get(info.aoTexName));
 
-		int normal_idx = in_material.normalTexture.index;
-		auto normal = dynamic_cast<Texture2D*>(Texture::get(normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal"));
-
-		int mr_idx = in_material.pbrMetallicRoughness.metallicRoughnessTexture.index;
-		auto metallic_roughness = dynamic_cast<Texture2D*>(Texture::get(mr_idx >= 0 ? texture_names[mr_idx] : "_white"));
-
-		int ao_idx = in_material.occlusionTexture.index;
-		auto ao = dynamic_cast<Texture2D*>(Texture::get(ao_idx >= 0 ? texture_names[ao_idx] : "_white"));
-
-		auto bc = in_material.pbrMetallicRoughness.baseColorFactor;
-		materialParams.BaseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
-		materialParams.MetallicRoughnessAONormalStrengths.r = (float)in_material.pbrMetallicRoughness.metallicFactor;
-		materialParams.MetallicRoughnessAONormalStrengths.g = (float)in_material.pbrMetallicRoughness.roughnessFactor;
-		materialParams.MetallicRoughnessAONormalStrengths.b = (float)in_material.occlusionTexture.strength;
-		materialParams.MetallicRoughnessAONormalStrengths.a = (float)in_material.normalTexture.scale;
+		materialParams.BaseColorFactor = info.BaseColorFactor;
+		materialParams.MetallicRoughnessAONormalStrengths = info.MetallicRoughnessAONormalStrengths;
 
 		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
 		dynamicSet.pointToBuffer(materialParamsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -95,6 +86,27 @@ GltfMaterial::GltfMaterial(
 		dynamicSet.pointToImageView(metallic_roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(ao->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
+}
+
+void GltfMaterial::addInfo(const GltfMaterialInfo &info)
+{
+	auto iter = gltfMaterialInfos.find(info.name);
+	if (iter != gltfMaterialInfos.end())
+	{
+		WARN("Adding tinygltf material of duplicate name '%s'. Overriding..", info.name.c_str())
+	}
+	gltfMaterialInfos[info.name] = info;
+}
+
+GltfMaterialInfo *GltfMaterial::getInfo(const std::string &materialName)
+{
+	auto iter = gltfMaterialInfos.find(materialName);
+	if (iter == gltfMaterialInfos.end())
+	{
+		WARN("Can't find tinygltf material named '%s'", materialName.c_str())
+		return nullptr;
+	}
+	return &iter->second;
 }
 
 void GltfMaterial::resetInstanceCounter()

@@ -8,6 +8,7 @@ class DebugPoints;
 class DebugLines;
 class DeferredLighting;
 class PostProcessing;
+class Material;
 
 class DeferredRenderer : public Renderer
 {
@@ -43,6 +44,8 @@ private:
 	PostProcessing* postProcessing;
 
 	void updateFrameGlobalDescriptorSet();
+
+	static Material* getOrCreateMeshMaterial(const std::string& materialName);
 
 public:
 

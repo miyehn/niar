@@ -31,8 +31,7 @@ set(SRC
 	src/Engine/Config.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
-	src/Render/Materials/Material.cpp
-    src/Pathtracer/Primitive.cpp
+	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/Pathtracer.cpp
 	src/Pathtracer/BSDF.cpp
 	src/Pathtracer/PathtracerLight.cpp

@@ -95,6 +95,7 @@ void initialize_asset_config()
 			if (created) LOG("%s", name.c_str());
 		}
 
+		/* TODO
 		// material assignments
 		LOG("---- loading material assignments ----");
 		const Setting& assignments = config_src.getRoot()["MaterialAssignments"];
@@ -104,6 +105,7 @@ void initialize_asset_config()
 			Mesh::set_material_name(mesh, mat_name);
 			LOG("%s : %s", mesh.c_str(), mat_name.c_str());
 		}
+		 */
 
 	} catch (const SettingNotFoundException &nfex) {
 		ERR("Some setting(s) not found in config");

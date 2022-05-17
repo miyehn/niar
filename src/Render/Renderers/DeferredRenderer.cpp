@@ -2,7 +2,7 @@
 #include "Render/Vulkan/RenderPassBuilder.h"
 #include "Render/Texture.h"
 #include "Render/Mesh.h"
-#include "Render/Materials/Material.h"
+#include "Render/Materials/GltfMaterial.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Materials/PostProcessing.h"
 #include "Render/DebugDraw.h"
@@ -17,6 +17,11 @@
 #define GMETALLICROUGHNESSAO_ATTACHMENT 3
 #define SCENECOLOR_ATTACHMENT 4
 #define SCENEDEPTH_ATTACHMENT 5
+
+namespace
+{
+static std::unordered_map<std::string, GltfMaterial*> materials;
+}
 
 DeferredRenderer::DeferredRenderer()
 {
@@ -383,6 +388,12 @@ void DeferredRenderer::updateFrameGlobalDescriptorSet()
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
+	// reset material instance counters
+	for (auto it : materials)
+	{
+		it.second->resetInstanceCounter();
+	}
+
 	updateFrameGlobalDescriptorSet();
 
 	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
@@ -417,13 +428,18 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
-				auto mat = m->get_material();
+				/*
+				 * Material class keeps a map from material names to tinygltf::Material
+				 * Each renderer should keep its own map from material name (saved in mesh) to actual materials
+				 * will check if the mapping already exists. If not, create one from the tinygltf material
+				 */
+				auto mat = getOrCreateMeshMaterial(m->materialName);//m->get_material();
 				VkPipeline pipeline = mat->getPipeline().pipeline;
 
 				// pipeline changed: re-bind
 				if (pipeline != last_pipeline)
 				{
-					m->get_material()->usePipeline(cmdbuf);
+					mat->usePipeline(cmdbuf);
 					last_pipeline = pipeline;
 				}
 
@@ -434,6 +450,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 					last_material = mat;
 				}
 
+				mat->setParameters(cmdbuf, m);
 				m->draw(cmdbuf);
 				instance_ctr++;
 			}
@@ -560,4 +577,19 @@ void DeferredRenderer::debugSetup(std::function<void()> fn)
 	}, "Rendering");
 
 	if (fn) fn();
+}
+
+Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)
+{
+	auto iter = materials.find(materialName);
+	if (iter != materials.end()) return iter->second;
+
+	// not found; create a new one
+	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
+	EXPECT(info != nullptr, true)
+	auto newMaterial = new PbrGltfMaterial(*info);
+	materials[newMaterial->name] = newMaterial;
+	Vulkan::Instance->destructionQueue.emplace_back([newMaterial](){ delete newMaterial; });
+
+	return newMaterial;
 }
