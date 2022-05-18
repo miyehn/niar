@@ -40,7 +40,7 @@ SimpleRenderer::SimpleRenderer()
 		RenderPassBuilder passBuilder;
 		passBuilder.colorAttachments.push_back(
 			{
-				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
+				.format = VK_FORMAT_R8G8B8A8_UNORM,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -119,11 +119,6 @@ SimpleRenderer::~SimpleRenderer()
 	viewInfoUbo.release();
 	delete sceneColor;
 	delete sceneDepth;
-}
-
-void SimpleRenderer::debugSetup(std::function<void()> fn)
-{
-	if (fn) fn();
 }
 
 SimpleRenderer *SimpleRenderer::get()

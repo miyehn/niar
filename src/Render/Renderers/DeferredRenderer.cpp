@@ -353,6 +353,45 @@ DeferredRenderer::DeferredRenderer()
 
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
+
+	{// debug draw stuff
+#if 0 // example debug points
+		if (!debugPoints) debugPoints = new DebugPoints(this);
+		debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
+		debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
+		debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
+		debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
+		debugPoints->updateBuffer();
+#endif
+
+		std::vector<PointData> lines;
+		if (!debugLines) debugLines = new DebugLines(this);
+		// x axis
+		debugLines->addSegment(
+			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
+			PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
+		// y axis
+		debugLines->addSegment(
+			PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
+			PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
+		// z axis
+		debugLines->addSegment(
+			PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
+			PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
+
+		debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
+		debugLines->updateBuffer();
+
+		// ui
+		ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "deferred renderer");
+		ui::elem([this](){
+			ImGui::Combo(
+				"tone mapping",
+				&ViewInfo.ToneMappingOption,
+				"Off\0Reinhard2\0ACES\0\0");
+		}, "Deferred renderer");
+
+	}
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -532,47 +571,6 @@ DeferredRenderer *DeferredRenderer::get()
 		Vulkan::Instance->destructionQueue.emplace_back([](){ delete deferredRenderer; });
 	}
 	return deferredRenderer;
-}
-
-void DeferredRenderer::debugSetup(std::function<void()> fn)
-{
-#if 0 // example debug points
-	if (!debugPoints) debugPoints = new DebugPoints(this);
-	debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
-	debugPoints->updateBuffer();
-#endif
-
-	std::vector<PointData> lines;
-	if (!debugLines) debugLines = new DebugLines(this);
-	// x axis
-	debugLines->addSegment(
-		PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
-		PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
-	// y axis
-	debugLines->addSegment(
-		PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
-		PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
-	// z axis
-	debugLines->addSegment(
-		PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
-		PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
-
-	debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
-	debugLines->updateBuffer();
-
-	// ui
-	ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Rendering");
-	ui::elem([this](){
-		ImGui::Combo(
-			"tone mapping",
-			&ViewInfo.ToneMappingOption,
-			"Off\0Reinhard2\0ACES\0\0");
-	}, "Rendering");
-
-	if (fn) fn();
 }
 
 Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)

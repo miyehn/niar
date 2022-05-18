@@ -75,7 +75,5 @@ public:
 
 	void render(VkCommandBuffer cmdbuf) override;
 
-	void debugSetup(std::function<void()> fn) override;
-
 	static DeferredRenderer* get();
 };

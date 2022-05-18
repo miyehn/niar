@@ -51,8 +51,3 @@ RayTracingRenderer *RayTracingRenderer::get()
 	}
 	return renderer;
 }
-
-void RayTracingRenderer::debugSetup(std::function<void()> fn)
-{
-	if (fn) fn();
-}

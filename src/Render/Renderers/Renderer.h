@@ -15,6 +15,4 @@ public:
 	Camera* camera = nullptr;
 
 	virtual void render(VkCommandBuffer cmdbuf) = 0;
-
-	virtual void debugSetup(std::function<void()> fn) = 0;
 };

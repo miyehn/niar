@@ -122,11 +122,9 @@ static void init()
 		rtRenderer->debugSetup(nullptr);
 		renderer = rtRenderer;
 #else
-		Scene* gltf = new Scene("fc yard");
+		Scene* gltf = new Scene("Cfg.SceneSource");
 		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
-		//renderer = SimpleRenderer::get();
-		//renderer->debugSetup(nullptr);
 #endif
 
 		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
