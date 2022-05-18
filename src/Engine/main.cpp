@@ -100,14 +100,10 @@ static void init()
 	}
 
 	/* Load from file or manually setup scene
-	 * Renders with specified shader set: defaults to 0 (full deferred)
 	 */
 	else
 	{
 #if 0
-		Scene::Active = new Scene("test scene");
-		Scene::Active->load_assimp(Cfg.SceneSource, false);
-#elif 0
 		Scene* gltf = new Scene("Test stage");
 		//gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;

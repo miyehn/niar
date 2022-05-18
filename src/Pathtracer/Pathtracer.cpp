@@ -217,7 +217,7 @@ void Pathtracer::initialize() {
 	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
 #endif
 
-	//-------- opengl stuff setup --------
+	//-------- graphics api stuff setup --------
 
 	if (has_window) {
 
