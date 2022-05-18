@@ -4,7 +4,6 @@
 #include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Config.hpp"
-#include "Render/Materials/DeferredLighting.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
 #include "Render/Mesh.h"

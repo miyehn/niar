@@ -3,8 +3,6 @@
 #include "Render/Texture.h"
 #include "Render/Mesh.h"
 #include "Render/Materials/GltfMaterial.h"
-#include "Render/Materials/DeferredLighting.h"
-#include "Render/Materials/PostProcessing.h"
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
@@ -22,6 +20,175 @@ namespace
 {
 static std::unordered_map<std::string, GltfMaterial*> materials;
 }
+
+class PostProcessing : public Material
+{
+public:
+	MaterialPipeline getPipeline() override
+	{
+		static MaterialPipeline materialPipeline = {};
+		if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
+		{
+			auto vk = Vulkan::Instance;
+			// build the pipeline
+			GraphicsPipelineBuilder pipelineBuilder{};
+			pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
+			pipelineBuilder.fragPath = "spirv/post_processing.frag.spv";
+			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+			pipelineBuilder.pipelineState.useVertexInput = false;
+			pipelineBuilder.pipelineState.useDepthStencil = false;
+			pipelineBuilder.compatibleRenderPass = postProcessPass;
+
+			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+
+			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+		}
+
+		return materialPipeline;
+	}
+	void usePipeline(VkCommandBuffer cmdbuf) override
+	{
+		MaterialPipeline materialPipeline = getPipeline();
+		dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, materialPipeline.layout);
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, materialPipeline.pipeline);
+	}
+
+private:
+
+	explicit PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth)
+	{
+		name = "Post Processing";
+		postProcessPass = renderer->postProcessPass;
+
+		// set layouts and allocation
+		DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout dynamicSetLayout{};
+		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet = DescriptorSet(dynamicSetLayout);
+
+		// assign values
+		dynamicSet.pointToImageView(sceneColor->imageView, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(sceneDepth->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	}
+
+	VkRenderPass postProcessPass;
+	DescriptorSet dynamicSet;
+
+	friend class DeferredRenderer;
+};
+
+class DeferredLighting : public Material
+{
+
+#define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
+public:
+
+	MaterialPipeline getPipeline() override
+	{
+		static MaterialPipeline materialPipeline = {};
+		if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
+		{
+			auto vk = Vulkan::Instance;
+			// build the pipeline
+			GraphicsPipelineBuilder pipelineBuilder{};
+			pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
+			pipelineBuilder.fragPath = "spirv/deferred_lighting.frag.spv";
+			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+			pipelineBuilder.pipelineState.useVertexInput = false;
+			pipelineBuilder.pipelineState.useDepthStencil = false;
+			pipelineBuilder.compatibleRenderPass = mainRenderPass;
+			pipelineBuilder.compatibleSubpass = 1;
+
+			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+
+			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+		}
+
+		return materialPipeline;
+	}
+
+	void usePipeline(VkCommandBuffer cmdbuf) override
+	{
+		pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
+		directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
+
+		MaterialPipeline materialPipeline = getPipeline();
+		dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, materialPipeline.layout);
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, materialPipeline.pipeline);
+	}
+	~DeferredLighting() override
+	{
+		pointLightsBuffer.release();
+		directionalLightsBuffer.release();
+	}
+
+	struct PointLightInfo {
+		alignas(16) glm::vec3 position;
+		alignas(16) glm::vec3 color;
+	};
+
+	struct DirectionalLightInfo {
+		alignas(16) glm::vec3 direction;
+		alignas(16) glm::vec3 color;
+	};
+
+	struct {
+		PointLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
+	} pointLights;
+
+	struct {
+		DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
+	} directionalLights;
+
+	// optimization, set by renderer to decide how much data to actually write to uniform buffers
+	uint32_t numPointLights, numDirectionalLights;
+
+private:
+
+	explicit DeferredLighting(DeferredRenderer* renderer)
+	{
+		name = "Deferred Lighting";
+		mainRenderPass = renderer->renderPass;
+		pointLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+									  sizeof(pointLights),
+									  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+									  VMA_MEMORY_USAGE_CPU_TO_GPU);
+		directionalLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+											sizeof(directionalLights),
+											VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+											VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+		{// create the layouts and build the pipeline
+
+			// set layouts and allocation
+			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout dynamicSetLayout{};
+			dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			dynamicSet = DescriptorSet(dynamicSetLayout);
+
+			// assign values
+			dynamicSet.pointToBuffer(pointLightsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			dynamicSet.pointToBuffer(directionalLightsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		}
+	}
+
+	VmaBuffer pointLightsBuffer;
+	VmaBuffer directionalLightsBuffer;
+
+	DescriptorSet dynamicSet;
+	VkRenderPass mainRenderPass;
+
+	friend class DeferredRenderer;
+
+};
 
 DeferredRenderer::DeferredRenderer()
 {

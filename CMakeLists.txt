@@ -63,15 +63,13 @@ set(SRC
 	src/Render/Vulkan/VulkanUtils.cpp
 	src/Render/Renderers/DeferredRenderer.cpp
 	src/Render/Vulkan/ImageCreator.cpp
-    src/Render/Materials/DeferredLighting.cpp
 	src/Engine/DebugUI.cpp
 	src/Engine/DebugUI.h
 	src/Utils/myn/RenderDoc.cpp
 	src/Scene/Scene_LoadGltf.cpp
 	src/Render/Materials/GltfMaterial.cpp
-	src/Render/Materials/PostProcessing.cpp
-    src/Render/DebugDraw.cpp
-	src/Render/ComputeShaders/Rise.cpp
+	src/Render/DebugDraw.cpp
+	src/Render/Materials/Rise.cpp
 	src/Render/Renderers/RayTracingRenderer.cpp
 	src/Scene/RtxTriangle.cpp
 	src/Render/Vulkan/ShaderBindingTable.cpp

@@ -7,12 +7,43 @@ class Texture2D;
 class DebugPoints;
 class DebugLines;
 class DeferredLighting;
-class PostProcessing;
 class Material;
+class PostProcessing;
 
 class DeferredRenderer : public Renderer
 {
+public:
+
+	DebugPoints* debugPoints = nullptr;
+	DebugLines* debugLines = nullptr;
+
+	DescriptorSet frameGlobalDescriptorSet;
+
+	VkRenderPass renderPass;
+	VkRenderPass postProcessPass;
+
+	struct
+	{
+		glm::mat4 ViewMatrix;
+		glm::mat4 ProjectionMatrix;
+
+		glm::vec3 CameraPosition;
+		int NumPointLights;
+
+		glm::vec3 ViewDir;
+		int NumDirectionalLights;
+
+		float Exposure;
+		int ToneMappingOption;
+
+	} ViewInfo;
+
+	void render(VkCommandBuffer cmdbuf) override;
+
+	static DeferredRenderer* get();
+
 private:
+
 	DeferredRenderer();
 	~DeferredRenderer() override;
 
@@ -46,34 +77,4 @@ private:
 	void updateFrameGlobalDescriptorSet();
 
 	static Material* getOrCreateMeshMaterial(const std::string& materialName);
-
-public:
-
-	DebugPoints* debugPoints = nullptr;
-	DebugLines* debugLines = nullptr;
-
-	DescriptorSet frameGlobalDescriptorSet;
-
-	VkRenderPass renderPass;
-	VkRenderPass postProcessPass;
-
-	struct
-	{
-		glm::mat4 ViewMatrix;
-		glm::mat4 ProjectionMatrix;
-
-		glm::vec3 CameraPosition;
-		int NumPointLights;
-
-		glm::vec3 ViewDir;
-		int NumDirectionalLights;
-
-		float Exposure;
-		int ToneMappingOption;
-
-	} ViewInfo;
-
-	void render(VkCommandBuffer cmdbuf) override;
-
-	static DeferredRenderer* get();
 };

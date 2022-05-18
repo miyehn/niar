@@ -32,23 +32,6 @@ public:
 
 	virtual MaterialPipeline getPipeline() = 0;
 
-	/*
-	template<class T> static VkPipelineLayout findPipelineLayout()
-	{
-		static_assert(std::is_base_of<Material, T>::value, "trying to find pipeline layout of something immaterial (?)");
-		for (const auto& it : pool)
-		{
-			T* typedMaterial = dynamic_cast<T*>(it.second);
-			if (typedMaterial != nullptr)
-			{
-				auto material = dynamic_cast<Material*>(typedMaterial);
-				return material->getPipeline().layout;
-			}
-		}
-		return VK_NULL_HANDLE;
-	}
-	 */
-
 protected:
 
 	// materials with dynamic uniform buffers should implement this
