@@ -6,6 +6,7 @@
 #include "PathtracerLight.hpp"
 #include "Engine/Config.hpp"
 #include "Render/Texture.h"
+#include "Render/Materials/GltfMaterial.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include <stack>
 #include <unordered_map>
@@ -69,6 +70,11 @@ struct ISPC_Data
 	float aperture_radius;
 };
 
+namespace
+{
+static std::unordered_map<std::string, BSDF*> BSDFs;
+}
+
 Pathtracer::Pathtracer(
 	uint32_t _width,
 	uint32_t _height,
@@ -106,6 +112,12 @@ Pathtracer::~Pathtracer() {
 	for (auto t : primitives) delete t;
 
 	if (bvh) delete bvh;
+
+	// delete BSDF library
+	for (auto& pair : BSDFs) {
+		delete pair.second;
+	}
+	BSDFs.clear();
 
 	TRACE("deleted pathtracer");
 }
@@ -299,6 +311,23 @@ bool Pathtracer::handle_event(SDL_Event event) {
 	return false;
 }
 
+BSDF *Pathtracer::getOrCreateMeshBSDF(const std::string &materialName)
+{
+	auto iter = BSDFs.find(materialName);
+	if (iter != BSDFs.end()) return iter->second;
+
+	// not found; create a new one
+	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
+	EXPECT(info != nullptr, true)
+
+	auto bsdf = new Diffuse(info->BaseColorFactor);
+	bsdf->set_emission(info->EmissiveFactor);
+	BSDFs[info->name] = bsdf;
+	TRACE("created new BSDF (%f, %f, %f)", bsdf->albedo.r, bsdf->albedo.g, bsdf->albedo.b)
+
+	return bsdf;
+}
+
 // TODO: load scene recursively
 void Pathtracer::load_scene(Scene *scene) {
 
@@ -312,10 +341,14 @@ void Pathtracer::load_scene(Scene *scene) {
 	{
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {
+			/*
 			if (!mesh->bsdf) {
 				WARN("trying to load a mesh without bsdf. skipping...");
 				return;
 			}
+			 */
+			BSDF* bsdf = getOrCreateMeshBSDF(mesh->materialName);
+			mesh->bsdf = bsdf;
 			meshes_count++;
 
 			bool emissive = mesh->bsdf->is_emissive;
@@ -347,11 +380,13 @@ void Pathtracer::load_scene(Scene *scene) {
 
 void Pathtracer::enable() {
 	if (!initialized) initialize();
+	enabled = true;
 	TRACE("pathtracer enabled");
 	Camera::Active->lock();
 }
 
 void Pathtracer::disable() {
+	enabled = false;
 	TRACE("pathtracer disabled");
 	Camera::Active->unlock();
 }

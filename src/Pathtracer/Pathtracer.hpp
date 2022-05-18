@@ -70,6 +70,7 @@ private:
 	std::vector<PathtracerLight*> lights;
 	BVH* bvh;
 	void load_scene(Scene *scene);
+	static BSDF* getOrCreateMeshBSDF(const std::string& materialName);
 	bool use_bvh;
 
 	ISPC_Data* ispc_data;

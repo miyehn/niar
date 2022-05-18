@@ -121,7 +121,7 @@ void Mesh::generate_aabb() {
 }
 
 Mesh::~Mesh() {
-	if (bsdf) delete bsdf;
+	//if (bsdf) delete bsdf;
 	vertexBuffer.release();
 	indexBuffer.release();
 }

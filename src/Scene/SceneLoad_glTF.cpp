@@ -224,7 +224,6 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 	std::vector<std::string> material_names(model.materials.size());
 	for (int i = 0; i < model.materials.size(); i++) {
 		auto& mat = model.materials[i];
-		//new PbrGltfMaterial(mat, texture_names);
 		material_names[i] = mat.name;
 
 		// create mat info and add it to the mapping
@@ -249,6 +248,8 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 			(float)mat.occlusionTexture.strength,
 			(float)mat.normalTexture.scale
 		};
+		auto em = mat.emissiveFactor;
+		glm::vec4 emissiveFactor = glm::vec4(em[0], em[1], em[2], 1);
 
 		GltfMaterialInfo info = {
 			.name = mat.name,
@@ -257,6 +258,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 			.mrTexName = metallic_roughness,
 			.aoTexName = ao,
 			.BaseColorFactor = baseColorFactor,
+			.EmissiveFactor = emissiveFactor,
 			.MetallicRoughnessAONormalStrengths = strengths
 		};
 		GltfMaterial::addInfo(info);
