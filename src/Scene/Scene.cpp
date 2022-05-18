@@ -27,6 +27,5 @@ void Scene::generate_aabb() {
 
 Scene::Scene(const std::string &_name) : SceneObject(nullptr, _name)
 {
-
 }
 

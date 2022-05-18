@@ -3,15 +3,12 @@
 
 void initialize_pathtracer_config();
 void initialize_basic_asset_config();
-void initialize_asset_config();
 void initialize_global_config();
 void initialize_all_config();
 
 struct ProgramConfig
 {
-	int UseCornellBoxScene = 0;
 	std::string SceneSource;
-	std::string AssetsConfigSource;
 	std::string PathtracerConfigSource;
 	int RenderDoc;
 	int RTX;

@@ -4,7 +4,6 @@
 #include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Config.hpp"
-#include "Render/Materials/DeferredBasepass.h"
 #include "Render/Materials/DeferredLighting.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
@@ -87,47 +86,35 @@ static void init()
 
 	LOG("loading resources (vulkan)...");
 	Texture2D::createDefaultTextures();
-	// initialize_asset_config();
 	initialize_pathtracer_config();
 
 	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
 
-	if (Cfg.UseCornellBoxScene)
-	{
-		Camera::Active = new Camera(width, height);
-		Scene::Active = Pathtracer::load_cornellbox_scene(true);
-		renderer = SimpleRenderer::get();
-	}
-
-	/* Load from file or manually setup scene
-	 */
-	else
-	{
 #if 0
-		Scene* gltf = new Scene("Test stage");
-		//gltf->load_tinygltf(Cfg.SceneSource, false);
-		Scene::Active = gltf;
+	Scene* gltf = new Scene("Test stage");
+	//gltf->load_tinygltf(Cfg.SceneSource, false);
+	Scene::Active = gltf;
 
-		// rtx
-		auto tri = new RtxTriangle();
-		Scene::Active->add_child(tri);
+	// rtx
+	auto tri = new RtxTriangle();
+	Scene::Active->add_child(tri);
 
-		// renderer setup
-		auto rtRenderer = RayTracingRenderer::get();
-		rtRenderer->outImage = tri->outImage;
-		rtRenderer->debugSetup(nullptr);
-		renderer = rtRenderer;
+	// renderer setup
+	auto rtRenderer = RayTracingRenderer::get();
+	rtRenderer->outImage = tri->outImage;
+	rtRenderer->debugSetup(nullptr);
+	renderer = rtRenderer;
 #else
-		Scene* gltf = new Scene("Cfg.SceneSource");
-		gltf->load_tinygltf(Cfg.SceneSource, false);
-		Scene::Active = gltf;
+	Scene* gltf = new Scene("Cfg.SceneSource");
+	gltf->load_tinygltf(Cfg.SceneSource, false);
+	Scene::Active = gltf;
 #endif
 
-		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
-			auto cam = dynamic_cast<Camera*>(obj);
-			if (cam) Camera::Active = cam;
-		});
-	}
+	// find a camera and set it active
+	Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
+		auto cam = dynamic_cast<Camera*>(obj);
+		if (cam) Camera::Active = cam;
+	});
 
 	ui::usePurpleStyle();
 	ui::checkBox("show ImGui demo", &show_imgui_demo);

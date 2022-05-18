@@ -122,81 +122,6 @@ Pathtracer::~Pathtracer() {
 	TRACE("deleted pathtracer");
 }
 
-Scene* Pathtracer::load_cornellbox_scene(bool init_graphics) {
-
-	/* Classic cornell box
-	 *
-	 * NOTE: it forces everything to be rendered with basic lighting when pathtracer is disabled
-	 * bc this scene only contains area(mesh) lights, which is only supported by pathtracer.
-	 *
-	 * Also this scene itself doesn't contain the two spheres - they're later added in Pathtracer::initialize()
-	 * Can alternatively disable the two spheres over there and add other custom meshes (see below)
-	 */
-	Camera::Active->set_local_position(vec3(0));
-	Camera::Active->cutoffFar = 1000.0f;
-	Camera::Active->fov = radians(30.0f);
-
-	Scene* scene = new Scene("my scene");
-
-	// cornell box scene
-	std::vector<Mesh*> meshes;
-#if 1
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_box.fbx", init_graphics);
-	for (int i=0; i<meshes.size(); i++) { // 4 is floor
-		Mesh* mesh = meshes[i];
-		mesh->bsdf = new Diffuse(vec3(0.6f));
-		if (i==1) {// right
-			mesh->bsdf->albedo = vec3(0.32f, 0.32f, 0.8f); 
-		} else if (i==2) {// left
-			mesh->bsdf->albedo = vec3(0.8f, 0.32f, 0.32f); 
-		}
-		scene->add_child(static_cast<SceneObject*>(mesh));
-	}
-
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/cornell_light.fbx", init_graphics);
-	Mesh* light = meshes[0];
-	light->bsdf = new Diffuse();
-	light->name = "light";
-	light->bsdf->set_emission(vec3(8.0f));
-	scene->add_child(static_cast<SceneObject*>(light));
-#endif
-
-	// add more items to it
-	Mesh* mesh;
-#if 1
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_1.fbx", init_graphics);
-	mesh = meshes[0];
-	mesh->bsdf = new Mirror();
-	mesh->name = "prism 1";
-	scene->add_child(static_cast<SceneObject*>(mesh));
-
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/prism_2.fbx", init_graphics);
-	mesh = meshes[0];
-	mesh->bsdf = new Diffuse(vec3(0.25f, 0.4f, 0.6f));
-	mesh->name = "prism 2";
-	scene->add_child(static_cast<SceneObject*>(mesh));
-#endif
-
-#if 1
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/poly_sphere.fbx", init_graphics);
-	mesh = meshes[0];
-	mesh->bsdf = new Glass();
-	mesh->name = "sphere1";
-	scene->add_child(static_cast<SceneObject*>(mesh));
-#endif
-
-#if 0
-	meshes = Mesh::LoadMeshes(ROOT_DIR"/media/16planes.fbx", init_graphics);
-	for (int i=0; i<meshes.size(); i++) { // 4 is floor
-		Mesh* mesh = meshes[i];
-		mesh->bsdf = new Diffuse(vec3(0.6f));
-		scene->add_child(static_cast<Drawable*>(mesh));
-	}
-#endif
-
-	return scene;
-}
-
 void Pathtracer::initialize() {
 	TRACE("initializing pathtracer");
 
@@ -311,7 +236,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 	return false;
 }
 
-BSDF *Pathtracer::getOrCreateMeshBSDF(const std::string &materialName)
+BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 {
 	auto iter = BSDFs.find(materialName);
 	if (iter != BSDFs.end()) return iter->second;
@@ -341,13 +266,8 @@ void Pathtracer::load_scene(Scene *scene) {
 	{
 		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
 		if (mesh) {
-			/*
-			if (!mesh->bsdf) {
-				WARN("trying to load a mesh without bsdf. skipping...");
-				return;
-			}
-			 */
-			BSDF* bsdf = getOrCreateMeshBSDF(mesh->materialName);
+
+			BSDF* bsdf = get_or_create_mesh_bsdf(mesh->materialName);
 			mesh->bsdf = bsdf;
 			meshes_count++;
 
@@ -907,13 +827,16 @@ void Pathtracer::draw(VkCommandBuffer cmdbuf)
 
 void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &path)
 {
+	TRACE("TODO: rewrite this")
+	return;
+
 	initialize_pathtracer_config();
 
 	Pathtracer::Instance = new Pathtracer(w, h, "command line pathtracer", false);
 
 	Camera::Active = new Camera(w, h);
 
-	Scene::Active = Pathtracer::load_cornellbox_scene();
+	//Scene::Active = Pathtracer::load_cornellbox_scene();
 
 	Pathtracer::Instance->initialize();
 	TRACE("starting..");

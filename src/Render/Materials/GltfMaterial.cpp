@@ -124,7 +124,7 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 		// now build the pipeline
 		GraphicsPipelineBuilder pipelineBuilder{};
 		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-		pipelineBuilder.fragPath = "spirv/geometry_gltf.frag.spv";
+		pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
 

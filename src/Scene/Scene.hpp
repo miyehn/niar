@@ -17,7 +17,6 @@ public:
 	explicit Scene(const std::string &_name = "[unnamed scene]");
 	~Scene() override;
 
-	void load_assimp(const std::string& path, bool preserve_existing_objects = true);
 	void load_tinygltf(const std::string& path, bool preserve_existing_objects = true);
 
 	//-------- where the configurations are being set before the scene is drawn --------

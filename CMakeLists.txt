@@ -64,12 +64,10 @@ set(SRC
 	src/Render/Renderers/DeferredRenderer.cpp
 	src/Render/Vulkan/ImageCreator.cpp
     src/Render/Materials/DeferredLighting.cpp
-	src/Render/Materials/DeferredBasepass.cpp
 	src/Engine/DebugUI.cpp
 	src/Engine/DebugUI.h
 	src/Utils/myn/RenderDoc.cpp
-    src/Scene/SceneLoad_Assimp.cpp
-	src/Scene/SceneLoad_glTF.cpp
+	src/Scene/Scene_LoadGltf.cpp
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/Materials/PostProcessing.cpp
     src/Render/DebugDraw.cpp
@@ -154,7 +152,7 @@ add_custom_target(ispc
 add_dependencies(niar ispc)
 
 #-------- vulkan shaders --------
-set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders/vulkan)
+set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders)
 set(VULKAN_SHADERS_BIN_DIR ${CMAKE_SOURCE_DIR}/build/spirv)
 add_custom_target(shaders ALL
 	COMMENT "compiling Vulkan shaders"

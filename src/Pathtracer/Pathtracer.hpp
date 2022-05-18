@@ -39,8 +39,6 @@ struct Pathtracer {
 
 	bool is_enabled() const { return enabled; }
 
-	static Scene* load_cornellbox_scene(bool init_graphics = false);
-
 	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
 	void output_file(const std::string& path);
 
@@ -70,7 +68,7 @@ private:
 	std::vector<PathtracerLight*> lights;
 	BVH* bvh;
 	void load_scene(Scene *scene);
-	static BSDF* getOrCreateMeshBSDF(const std::string& materialName);
+	static BSDF* get_or_create_mesh_bsdf(const std::string& materialName);
 	bool use_bvh;
 
 	ISPC_Data* ispc_data;
