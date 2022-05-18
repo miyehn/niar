@@ -42,4 +42,6 @@ private:
 	VmaBuffer viewInfoUbo;
 
 	void updateViewInfoUbo();
+
+	static Material* getOrCreateMeshMaterial(const std::string& materialName);
 };

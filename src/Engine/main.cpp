@@ -60,6 +60,7 @@ namespace
 
 	// other potentially temporary globals
 
+	int rendererIndex = 0;
 	Renderer* renderer;
 
 } // fileprivate
@@ -124,8 +125,8 @@ static void init()
 		Scene* gltf = new Scene("fc yard");
 		gltf->load_tinygltf(Cfg.SceneSource, false);
 		Scene::Active = gltf;
-		renderer = DeferredRenderer::get();
-		renderer->debugSetup(nullptr);
+		//renderer = SimpleRenderer::get();
+		//renderer->debugSetup(nullptr);
 #endif
 
 		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
@@ -146,11 +147,20 @@ static void init()
 		ui::elem([](){ ImGui::Separator(); }, "Rendering");
 	}
 
+	// renderer selector
+	{
+		int* rendererIndexRef = &rendererIndex;
+		ui::elem([rendererIndexRef]()
+		{
+			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0\0");
+		}, "Rendering");
+	}
+
 	// scene hierarchy
-	static bool show_global_transform = false;
-	ui::checkBox("show global transform", &show_global_transform, Scene::Active->name + " (scene hierarchy)");
-	ui::elem(
-		[&]()
+	{
+		static bool show_global_transform = false;
+		ui::checkBox("show global transform", &show_global_transform, Scene::Active->name + " (scene hierarchy)");
+		ui::elem([&]()
 		{
 			std::function<void(SceneObject* node)> make_tree = [&make_tree](SceneObject* node)
 			{
@@ -165,6 +175,7 @@ static void init()
 			};
 			for (auto child : Scene::Active->children) make_tree(child);
 		}, Scene::Active->name + " (scene hierarchy)");
+	}
 
 }
 
@@ -285,6 +296,7 @@ static void draw()
 	ui::drawUI();
 
 	// draw
+
 	auto cmdbuf = Vulkan::Instance->beginFrame();
 
 	if (Pathtracer::Instance && Pathtracer::Instance->is_enabled())
@@ -293,6 +305,13 @@ static void draw()
 	}
 	else
 	{
+		if (rendererIndex == 0) {
+			renderer = SimpleRenderer::get();
+		}
+		else if (rendererIndex == 1) {
+			renderer = DeferredRenderer::get();
+		}
+
 		renderer->camera = Camera::Active;
 		renderer->drawable = Scene::Active;
 		renderer->render(cmdbuf);

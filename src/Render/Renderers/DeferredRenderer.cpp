@@ -396,8 +396,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	updateFrameGlobalDescriptorSet();
 
-	// not the most elegant solution but basically just borrow its layout to queue binding of the frameglobal descriptor set
-	frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
+	frameGlobalDescriptorSet.bind(
+		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
 
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
@@ -422,21 +422,17 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
-		VkPipeline last_pipeline = VK_NULL_HANDLE;
+		//VkPipeline last_pipeline = VK_NULL_HANDLE;
+		MaterialPipeline last_pipeline = {};
 		uint32_t instance_ctr = 0;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
-				/*
-				 * Material class keeps a map from material names to tinygltf::Material
-				 * Each renderer should keep its own map from material name (saved in mesh) to actual materials
-				 * will check if the mapping already exists. If not, create one from the tinygltf material
-				 */
 				auto mat = getOrCreateMeshMaterial(m->materialName);//m->get_material();
-				VkPipeline pipeline = mat->getPipeline().pipeline;
+				auto pipeline = mat->getPipeline();
 
-				// pipeline changed: re-bind
+				// pipeline changed: re-bind; re-set frame globals if necessary
 				if (pipeline != last_pipeline)
 				{
 					mat->usePipeline(cmdbuf);

@@ -9,12 +9,17 @@
 #include "SimpleRenderer.h"
 #include "Render/Texture.h"
 
+namespace
+{
+static std::unordered_map<std::string, GltfMaterial*> materials;
+}
+
 SimpleRenderer::SimpleRenderer()
 {
 	renderExtent = Vulkan::Instance->swapChainExtent;
 	{// images
 		ImageCreator sceneColorCreator(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_FORMAT_R8G8B8A8_UNORM,
 			{renderExtent.width, renderExtent.height, 1},
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
@@ -146,11 +151,14 @@ void SimpleRenderer::updateViewInfoUbo()
 
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
-	// TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	updateViewInfoUbo();
+	// reset material instance counters
+	for (auto it : materials)
+	{
+		it.second->resetInstanceCounter();
+	}
 
-	// TODO!!!!!!
-	//descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, Material::findPipelineLayout<SimpleGltfMaterial>());
+	// prepare frameglobals
+	updateViewInfoUbo();
 
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
@@ -173,22 +181,30 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "SimpleRenderer draw")
-		/*
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
-		VkPipeline last_pipeline = VK_NULL_HANDLE;
+		//VkPipeline last_pipeline = VK_NULL_HANDLE;
+		MaterialPipeline last_pipeline = {};
 		uint32_t instance_ctr = 0;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
 			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
 			{
-				auto mat = m->get_material();
-				VkPipeline pipeline = mat->getPipeline().pipeline;
+				auto mat = getOrCreateMeshMaterial(m->materialName);
+				auto pipeline = mat->getPipeline();
 
-				// pipeline changed: re-bind
+				// pipeline changed: re-bind; re-set frame globals if necessary
 				if (pipeline != last_pipeline)
 				{
-					m->get_material()->usePipeline(cmdbuf);
+					mat->usePipeline(cmdbuf);
+					if (pipeline.layout != last_pipeline.layout)
+					{
+						descriptorSet.bind(
+							cmdbuf,
+							VK_PIPELINE_BIND_POINT_GRAPHICS,
+							DSET_FRAMEGLOBAL,
+							pipeline.layout);
+					}
 					last_pipeline = pipeline;
 				}
 
@@ -199,11 +215,11 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 					last_material = mat;
 				}
 
+				mat->setParameters(cmdbuf, m);
 				m->draw(cmdbuf);
 				instance_ctr++;
 			}
 		}
-		 */
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
@@ -212,4 +228,19 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		sceneColor->resource.image,
 		{0, 0, 0},
 		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
+}
+
+Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialName)
+{
+	auto iter = materials.find(materialName);
+	if (iter != materials.end()) return iter->second;
+
+	// not found; create a new one
+	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
+	EXPECT(info != nullptr, true)
+	auto newMaterial = new SimpleGltfMaterial(*info);
+	materials[newMaterial->name] = newMaterial;
+	Vulkan::Instance->destructionQueue.emplace_back([newMaterial](){ delete newMaterial; });
+
+	return newMaterial;
 }
