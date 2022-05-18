@@ -20,7 +20,8 @@
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>
 
-#include "Render/ComputeShaders/ComputeShaders.h"
+#include "Render/Materials/ComputeShaders.h"
+#include "Render/Renderers/DeferredRenderer.h"
 
 using namespace myn;
 

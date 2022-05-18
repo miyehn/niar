@@ -1,7 +1,6 @@
 #include "Camera.hpp"
 #include "Utils/myn/Log.h"
 #include <imgui.h>
-#include <assimp/scene.h>
 #include <tinygltf/tiny_gltf.h>
 
 using namespace glm;
@@ -171,35 +170,6 @@ mat4 Camera::camera_to_clip()
 						  ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
 						  perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
 	return camera_to_clip;
-}
-
-Camera::Camera(aiCamera* inCamera)
-{
-	move_speed = 16;
-	rotate_speed = 0.002f;
-
-	fov = 2 * inCamera->mHorizontalFOV / inCamera->mAspect;
-	cutoffNear = inCamera->mClipPlaneNear;
-	cutoffFar = inCamera->mClipPlaneFar;
-
-	width = 0; // only matters for orthographic cameras
-	height = 0; // only matters for orthographic cameras
-	aspect_ratio = inCamera->mAspect;
-
-	prev_mouse_x = 0;
-	prev_mouse_y = 0;
-	locked = false;
-	orthographic = false;
-
-	auto toVec3 = [](aiVector3D& inVec) {
-		return vec3(inVec.x, inVec.y, inVec.z);
-	};
-
-	// inherited
-	name = inCamera->mName.C_Str();
-	local_position_value = toVec3(inCamera->mPosition);
-
-	rotation_value = quatLookAt(toVec3(inCamera->mLookAt), toVec3(inCamera->mUp));
 }
 
 Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) : Camera(0, 0, false)

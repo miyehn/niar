@@ -2,6 +2,7 @@
 #include "Renderer.h"
 
 class Texture2D;
+class Material;
 
 class SimpleRenderer : public Renderer
 {

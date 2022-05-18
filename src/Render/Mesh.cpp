@@ -7,9 +7,6 @@
 
 #include "Render/Materials/Material.h"
 
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include <tinygltf/tiny_gltf.h>
 #include <map>
 
@@ -19,48 +16,6 @@ std::unordered_map<std::string, std::string> Mesh::material_assignment;
 
 void Mesh::set_material_name(const std::string& mesh_name, const std::string& mat_name) {
 	material_assignment[mesh_name] = mat_name;
-}
-
-Mesh::Mesh(aiMesh* mesh, SceneObject* _parent, std::string _name) : SceneObject(_parent, _name) {
-
-	if (!mesh->HasPositions() || !mesh->HasFaces() || !mesh->HasNormals()) {
-		ERR("creating a mesh that has some data missing. skipping..");
-		return;
-	}
-
-	// name
-	const char* inName = mesh->mName.C_Str();
-	if (_name == "[unnamed mesh]") name = inName;
-
-	// iterate through vertices
-	for (int i=0; i<mesh->mNumVertices; i++) {
-		// access p, n, t data
-		aiVector3D& position = mesh->mVertices[i];
-		aiVector3D& normal = mesh->mNormals[i];
-		aiVector3D& uv = mesh->mTextureCoords[0][i];
-		aiVector3D& tangent = mesh->mTangents[i];
-		// create vertex from pnc
-		vertices.emplace_back();
-		Vertex& v = vertices.back();
-		v.position = vec3(position.x, position.y, position.z);
-		v.normal = vec3(normal.x, normal.y, normal.z);
-		v.tangent = vec3(tangent.x, tangent.y, tangent.z);
-		v.tangent = normalize(v.tangent - dot(v.tangent, v.normal) * v.normal); // gram-schmidt
-		v.uv = vec2(uv.x, uv.y);
-	}
-
-	// iterate through faces indices and store them
-	for (int j=0; j<mesh->mNumFaces; j++) {
-		aiFace& face = mesh->mFaces[j];
-		VERTEX_INDEX_TYPE i1 = face.mIndices[0];
-		VERTEX_INDEX_TYPE i2 = face.mIndices[1];
-		VERTEX_INDEX_TYPE i3 = face.mIndices[2];
-		faces.push_back(i1);
-		faces.push_back(i2);
-		faces.push_back(i3);
-	}
-
-	generate_aabb();
 }
 
 void Mesh::create_vertex_buffer()
@@ -163,35 +118,6 @@ void Mesh::set_scale(vec3 _scale) {
 		generate_aabb();
 		//get_scene()->generate_aabb();
 	}
-}
-
-std::vector<Mesh*> Mesh::LoadMeshes(const std::string& source, bool initialize_graphics) {
-	// import mesh from source
-	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(source,
-			aiProcess_GenSmoothNormals |
-			aiProcess_CalcTangentSpace |
-			aiProcess_Triangulate |
-			aiProcess_JoinIdenticalVertices |
-			aiProcess_SortByPType);
-	if (!scene) {
-		ERR("%s", importer.GetErrorString());
-	}
-
-	// access and create mesh drawables from imported source
-	std::vector<Mesh*> meshes;
-	for (int i=0; i<scene->mNumMeshes; i++) {
-		aiMesh* mesh = scene->mMeshes[i];
-		Mesh* sceneMesh = new Mesh(mesh);
-		if (initialize_graphics) sceneMesh->initialize_gpu();
-		if (mesh) meshes.push_back(sceneMesh);
-	}
-
-	LOG("loaded %lu meshe(s)", meshes.size());
-
-	// importer seems to automatically handle memory release for scene
-	return meshes;
-
 }
 
 std::vector<Mesh *> Mesh::load_gltf(

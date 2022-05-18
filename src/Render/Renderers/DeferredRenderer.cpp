@@ -550,7 +550,7 @@ DeferredRenderer::DeferredRenderer()
 		debugLines->updateBuffer();
 
 		// ui
-		ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "deferred renderer");
+		ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Deferred renderer");
 		ui::elem([this](){
 			ImGui::Combo(
 				"tone mapping",

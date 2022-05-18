@@ -22,14 +22,6 @@ namespace tinygltf
 struct Mesh : SceneObject {
 public:
 
-	static std::vector<Mesh*> LoadMeshes(const std::string& source, bool initialize_graphics = true);
-
-	// load from assimp data
-	explicit Mesh(
-		aiMesh* mesh,
-		SceneObject* _parent = nullptr,
-		std::string _name = "[unnamed mesh]");
-
 	// load from glTF data
 	static std::vector<Mesh*> load_gltf(
 		const std::string& node_name,

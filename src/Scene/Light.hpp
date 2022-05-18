@@ -5,8 +5,6 @@
 struct Scene;
 struct Camera;
 struct Mesh;
-struct aiLight;
-struct aiNode;
 namespace tinygltf { struct Light; }
 
 struct Light : public SceneObject {
@@ -33,8 +31,6 @@ struct DirectionalLight : public Light {
 			float _intensity = 1.0f, 
 			glm::vec3 dir = glm::vec3(0, 0, -1));
 
-	explicit DirectionalLight(aiLight* light);
-
 	explicit DirectionalLight(const std::string& node_name, const tinygltf::Light* in_light);
 
 	void set_direction(glm::vec3 dir) { set_rotation(myn::quat_from_dir(normalize(dir))); }
@@ -49,8 +45,6 @@ struct PointLight: public Light {
 			glm::vec3 _color = glm::vec3(1),
 			float _intensity = 1.0f, 
 			glm::vec3 _local_pos = glm::vec3(0));
-
-	explicit PointLight(aiLight* light);
 
 	explicit PointLight(const std::string& node_name, const tinygltf::Light* in_light);
 

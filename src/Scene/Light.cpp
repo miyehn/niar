@@ -1,8 +1,6 @@
 #include "Light.hpp"
 #include "Engine/Config.hpp"
 
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
 #include <tinygltf/tiny_gltf.h>
 
 using namespace glm;
@@ -16,19 +14,6 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir)
 	set_direction(dir);
 
 	name = "[unnamed directional light]";
-}
-
-DirectionalLight::DirectionalLight(aiLight *light)
-{
-	name = light->mName.C_Str();
-	auto pos = light->mPosition;
-	local_position_value = vec3(pos.x, pos.y, pos.z);
-	auto dir = light->mDirection;
-	rotation_value = myn::quat_from_dir(vec3(dir.x, dir.y, dir.z));
-	scale_value = vec3(1);
-	auto col = light->mColorDiffuse;
-	color = vec3(col.r, col.g, col.b);
-	intensity = 1;
 }
 
 DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf::Light *in_light)
@@ -57,19 +42,6 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos)
 	local_position_value = _local_pos;
 
 	name = "[unnamed point light]";
-}
-
-PointLight::PointLight(aiLight *light)
-{
-	name = light->mName.C_Str();
-	auto lcol = light->mColorDiffuse;
-	color = vec3(lcol.r, lcol.g, lcol.b);
-	intensity = 1.0f;
-
-	auto pos = light->mPosition;
-	local_position_value = vec3(pos.x, pos.y, pos.z);
-
-	scale_value = vec3(1);
 }
 
 PointLight::PointLight(const std::string& node_name, const tinygltf::Light *in_light)
