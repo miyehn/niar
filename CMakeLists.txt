@@ -82,8 +82,6 @@ if(APPLE)
 		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
 		${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
 		${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
-		${CMAKE_SOURCE_DIR}/lib/libzlibstatic.a
-		${CMAKE_SOURCE_DIR}/lib/libIrrXML.a
 		${CMAKE_SOURCE_DIR}/lib/libconfig++.a
 	)
 endif(APPLE)
