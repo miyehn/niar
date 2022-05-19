@@ -13,8 +13,6 @@ SceneObject::SceneObject(SceneObject* _parent, std::string _name) {
 		parent->children.push_back(this);
 	}
 
-	enabled = true;
-
 	local_position_value = vec3(0, 0, 0);
 	rotation_value = quat(1, 0, 0, 0);
 	scale_value = vec3(1, 1, 1);
@@ -28,7 +26,7 @@ SceneObject::~SceneObject() {
 bool SceneObject::handle_event(SDL_Event event) {
 	bool handled = false;
 	for (uint i=0; i<children.size(); i++) {
-		if (children[i]->enabled)
+		if (children[i]->enabled())
 			handled = handled || children[i]->handle_event(event);
 	}
 	return handled;
@@ -36,12 +34,12 @@ bool SceneObject::handle_event(SDL_Event event) {
 
 void SceneObject::update(float elapsed) {
 	for (uint i=0; i<children.size(); i++) 
-		if (children[i]->enabled) children[i]->update(elapsed);
+		if (children[i]->enabled()) children[i]->update(elapsed);
 }
 
 void SceneObject::draw(VkCommandBuffer cmdbuf) {
 	for (uint i=0; i<children.size(); i++) 
-		if (children[i]->enabled) children[i]->draw(cmdbuf);
+		if (children[i]->enabled()) children[i]->draw(cmdbuf);
 }
 
 bool SceneObject::add_child(SceneObject* child) {
@@ -163,4 +161,10 @@ void SceneObject::draw_transform_ui(bool global) const
 	//ImGui::TextDisabled("[pos] %.3f, %.3f, %.3f", pos.x, pos.y, pos.z);
 	//ImGui::TextDisabled("[rot] %.3f, %.3f, %.3f", degrees(rot.x), degrees(rot.y), degrees(rot.z));
 	//ImGui::TextDisabled("[scl] %.3f, %.3f, %.3f", scl.x, scl.y, scl.z);
+}
+
+void SceneObject::toggle_enabled() {
+	_enabled = !_enabled;
+	if (_enabled) on_enable();
+	else on_disable();
 }

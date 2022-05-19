@@ -55,8 +55,11 @@ public:
 	glm::quat rotation() const { return rotation_value; }
 	glm::vec3 scale() const { return scale_value; }
 
+	bool enabled() const { return _enabled; }
+	void toggle_enabled();
+
 	std::string name;
-	bool enabled = true;
+	bool show_transform = true;
 
 protected:
 
@@ -64,4 +67,9 @@ protected:
 	glm::quat rotation_value;
 	glm::vec3 scale_value;
 
+	virtual void on_enable() {}
+	virtual void on_disable() {}
+
+private:
+	bool _enabled = true;
 };

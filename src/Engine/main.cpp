@@ -59,7 +59,11 @@ namespace
 
 	// other potentially temporary globals
 
-	int rendererIndex = 0;
+	enum e_renderer {
+		simple = 0,
+		deferred = 1
+	} renderer_index = e_renderer::simple;
+
 	Renderer* renderer;
 
 } // fileprivate
@@ -130,10 +134,19 @@ static void init()
 
 	// renderer selector
 	{
-		int* rendererIndexRef = &rendererIndex;
+		auto rendererIndexRef = (int*)&renderer_index;
 		ui::elem([rendererIndexRef]()
 		{
 			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0\0");
+
+			if (renderer_index == e_renderer::simple) {
+				// empty
+			} else if (renderer_index == e_renderer::deferred) {
+				ImGui::Separator();
+				DeferredRenderer::get()->draw_config_ui();
+			} else {
+				ERR("shouldn't get here")
+			}
 		}, "Rendering");
 	}
 
@@ -147,8 +160,10 @@ static void init()
 			{
 				if (ImGui::TreeNode(node->name.c_str()))
 				{
-					ImGui::Checkbox("enabled", &node->enabled);
-					node->draw_transform_ui(show_global_transform);
+					if (ImGui::Button(node->enabled() ? "disable" : "enable")) {
+						node->toggle_enabled();
+					}
+					if (node->show_transform) node->draw_transform_ui(show_global_transform);
 					node->draw_config_ui();
 					for (auto child : node->children) make_tree(child);
 					ImGui::TreePop();
@@ -260,7 +275,7 @@ static void update(float elapsed)
 	if (Pathtracer::Instance && Pathtracer::Instance->is_enabled())
 		Pathtracer::Instance->update(elapsed);
 	// scenes (only the active one updates)
-	if (Scene::Active && Scene::Active->enabled) {
+	if (Scene::Active && Scene::Active->enabled()) {
 		Scene::Active->update(elapsed);
 	}
 
@@ -286,10 +301,10 @@ static void draw()
 	}
 	else
 	{
-		if (rendererIndex == 0) {
+		if (renderer_index == e_renderer::simple) {
 			renderer = SimpleRenderer::get();
 		}
-		else if (rendererIndex == 1) {
+		else if (renderer_index == e_renderer::deferred) {
 			renderer = DeferredRenderer::get();
 		}
 

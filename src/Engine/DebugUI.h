@@ -14,7 +14,7 @@ void text(
 
 void button(
 	const std::string &name,
-	std::function<void()> fn,
+	const std::function<void()>& fn,
 	const std::string &category="Default");
 
 void checkBox(

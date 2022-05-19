@@ -60,10 +60,11 @@ void initialize_global_config()
 	{
 		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
 		Cfg.PathtracerConfigSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("PathtracerConfigSource");
-		Cfg.RenderDoc = config_src.lookup("Debug.RenderDoc");
 #ifdef MACOS
+		Cfg.RenderDoc = 0;
 		Cfg.RTX = 0;
 #else
+		Cfg.RenderDoc = config_src.lookup("Debug.RenderDoc");
 		Cfg.RTX = config_src.lookup("Debug.RTX");
 #endif
 		Cfg.CollapseSceneTree = config_src.lookup("Debug.CollapseSceneTree");

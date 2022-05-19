@@ -28,7 +28,7 @@ void ui::text(
 	});
 }
 
-void ui::button(const std::string &name, std::function<void()> fn, const std::string &category)
+void ui::button(const std::string &name, const std::function<void()>& fn, const std::string &category)
 {
 	if (!UIMap.contains(category))
 		UIMap[category] = std::vector<std::function<void()>>();

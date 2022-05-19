@@ -549,15 +549,6 @@ DeferredRenderer::DeferredRenderer()
 		debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
 		debugLines->updateBuffer();
 
-		// ui
-		ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Deferred renderer");
-		ui::elem([this](){
-			ImGui::Combo(
-				"tone mapping",
-				&ViewInfo.ToneMappingOption,
-				"Off\0Reinhard2\0ACES\0\0");
-		}, "Deferred renderer");
-
 	}
 }
 
@@ -608,7 +599,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
 		drawables.push_back(child);
-	}, [](SceneObject *obj){ return obj->enabled; });
+	}, [](SceneObject *obj){ return obj->enabled(); });
 
 	VkClearValue clearColor = {0, 0, 0, 1.0f};
 	VkClearValue clearDepth;
@@ -753,4 +744,14 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 	Vulkan::Instance->destructionQueue.emplace_back([newMaterial](){ delete newMaterial; });
 
 	return newMaterial;
+}
+
+void DeferredRenderer::draw_config_ui() {
+	//ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Deferred renderer");
+	ImGui::SliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f");
+	ImGui::Combo(
+		"tone mapping",
+		&ViewInfo.ToneMappingOption,
+		"Off\0Reinhard2\0ACES\0\0");
+	//ui::elem([this](){}, "Deferred renderer");
 }

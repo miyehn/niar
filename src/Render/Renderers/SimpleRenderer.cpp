@@ -158,7 +158,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
 		drawables.push_back(child);
-	}, [](SceneObject *obj){ return obj->enabled; });
+	}, [](SceneObject *obj){ return obj->enabled(); });
 
 	VkClearValue clearColor = {0.2f, 0.3f, 0.4f, 1.0f};
 	VkClearValue clearDepth;
