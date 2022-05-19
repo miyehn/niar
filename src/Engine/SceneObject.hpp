@@ -70,6 +70,5 @@ protected:
 	virtual void on_enable() {}
 	virtual void on_disable() {}
 
-private:
 	bool _enabled = true;
 };

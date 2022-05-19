@@ -733,8 +733,9 @@ void Pathtracer::output_file(const std::string& path) {
 	} 
 }
 
-void Pathtracer::update(float elapsed) {
-
+void Pathtracer::draw(VkCommandBuffer cmdbuf)
+{
+	// update
 	if (Cfg.Pathtracer.Multithreaded && !Cfg.Pathtracer.ISPC)
 	{
 		if (!finished) {
@@ -758,7 +759,7 @@ void Pathtracer::update(float elapsed) {
 						threads[i]->status = RaytraceThread::ready_for_next;
 						threads[i]->cv.notify_one();
 					}
-					
+
 				} else if (threads[i]->status == RaytraceThread::uninitialized) {
 					if (!paused) {
 						threads[i]->status = RaytraceThread::ready_for_next;
@@ -777,7 +778,7 @@ void Pathtracer::update(float elapsed) {
 				notified_pause_finish = true;
 			}
 		}
-	
+
 	}
 	else
 	{
@@ -797,10 +798,9 @@ void Pathtracer::update(float elapsed) {
 			}
 		}
 	}
-}
 
-void Pathtracer::draw(VkCommandBuffer cmdbuf)
-{
+	///////////////////// DISPLAY ////////////////////////
+
 	// barrier source into trasfer source
 	vk::insertImageBarrier(cmdbuf, window_surface->resource.image,
 						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},

@@ -1,6 +1,7 @@
 #include "cxxopts/cxxopts.hpp"
 #include "Scene/Scene.hpp"
 #include "Scene/Camera.hpp"
+#include "Scene/PathtracerController.h"
 #include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Config.hpp"
@@ -82,11 +83,7 @@ static void cleanup();
 
 static void init()
 {
-	vk::init_window(
-		"niar",
-		width,
-		height,
-		&window);
+	vk::init_window("niar", width, height, &window);
 
 	LOG("loading resources (vulkan)...");
 	Texture2D::createDefaultTextures();
@@ -111,6 +108,7 @@ static void init()
 #else
 	Scene* gltf = new Scene("Cfg.SceneSource");
 	gltf->load_tinygltf(Cfg.SceneSource, false);
+	gltf->add_child(new PathtracerController());
 	Scene::Active = gltf;
 #endif
 
@@ -153,7 +151,7 @@ static void init()
 	// scene hierarchy
 	{
 		static bool show_global_transform = false;
-		ui::checkBox("show global transform", &show_global_transform, Scene::Active->name + " (scene hierarchy)");
+		ui::checkBox("show global transform", &show_global_transform, "Scene hierarchy (" + Scene::Active->name + ")");
 		ui::elem([&]()
 		{
 			std::function<void(SceneObject* node)> make_tree = [&make_tree](SceneObject* node)
@@ -170,7 +168,7 @@ static void init()
 				}
 			};
 			for (auto child : Scene::Active->children) make_tree(child);
-		}, Scene::Active->name + " (scene hierarchy)");
+		}, "Scene hierarchy (" + Scene::Active->name + ")");
 	}
 
 }
@@ -271,14 +269,10 @@ static void update(float elapsed)
 	{
 		Camera::Active->update_control(elapsed);
 	}
-	// pathtracer
-	if (Pathtracer::Instance && Pathtracer::Instance->is_enabled())
-		Pathtracer::Instance->update(elapsed);
 	// scenes (only the active one updates)
 	if (Scene::Active && Scene::Active->enabled()) {
 		Scene::Active->update(elapsed);
 	}
-
 }
 
 static void draw()
@@ -295,12 +289,9 @@ static void draw()
 
 	auto cmdbuf = Vulkan::Instance->beginFrame();
 
-	if (Pathtracer::Instance && Pathtracer::Instance->is_enabled())
-	{
+	if (Pathtracer::Instance && Pathtracer::Instance->is_enabled()) {
 		Pathtracer::Instance->draw(cmdbuf);
-	}
-	else
-	{
+	} else {
 		if (renderer_index == e_renderer::simple) {
 			renderer = SimpleRenderer::get();
 		}

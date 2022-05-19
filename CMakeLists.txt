@@ -70,7 +70,7 @@ set(SRC
 	src/Render/DebugDraw.cpp
 	src/Render/Materials/Rise.cpp
 	src/Render/Renderers/SimpleRenderer.cpp
-	)
+		src/Scene/PathtracerController.cpp src/Scene/PathtracerController.h)
 
 set(SRC_RTX src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
 

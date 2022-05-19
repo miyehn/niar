@@ -4,10 +4,6 @@
 
 #include "Engine/DebugUI.h"
 
-// OMG MIND BLOWN: https://stackoverflow.com/questions/677620/do-i-need-to-explicitly-call-the-base-virtual-destructor
-Scene::~Scene() {
-}
-
 // TODO: make this support parenting hierarchy
 std::vector<Mesh*> Scene::get_meshes() {
 	std::vector<Mesh*> meshes;

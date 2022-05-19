@@ -15,7 +15,6 @@ public:
 	static Scene* Active;
 
 	explicit Scene(const std::string &_name = "[unnamed scene]");
-	~Scene() override;
 
 	void load_tinygltf(const std::string& path, bool preserve_existing_objects = true);
 

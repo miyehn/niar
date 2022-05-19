@@ -30,7 +30,6 @@ struct Pathtracer {
 	~Pathtracer();
 
 	bool handle_event(SDL_Event event);
-	void update(float elapsed);
 	void draw(VkCommandBuffer cmdbuf);
 
 	void initialize();
