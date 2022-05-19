@@ -4,6 +4,7 @@
 #include "Engine/SceneObject.hpp"
 #include "Scene/AABB.hpp"
 #include "BVH.hpp"
+#include "Render/Renderers/Renderer.h"
 #include <vulkan/vulkan.h>
 
 struct Scene;
@@ -16,25 +17,25 @@ class Texture2D;
 
 struct ISPC_Data;
 
-struct Pathtracer {
-
-	static Pathtracer* Instance;
+class Pathtracer : public Renderer {
+public:
+	static Pathtracer* get(uint32_t w = 0, uint32_t h = 0, bool has_window = true);
 
 	static void pathtrace_to_file(uint32_t w, uint32_t h, const std::string& path);
 	
 	Pathtracer(
 			uint32_t _width,
 			uint32_t _height,
-			std::string _name = "Pathtracer",
 			bool _has_window = true);
-	~Pathtracer();
+	~Pathtracer() override;
 
 	bool handle_event(SDL_Event event);
-	void draw(VkCommandBuffer cmdbuf);
+	void draw_config_ui() override;
+	void render(VkCommandBuffer cmdbuf) override;
 
 	void initialize();
-	void enable();
-	void disable();
+	void on_selected() override;
+	void on_unselected() override;
 
 	bool is_enabled() const { return enabled; }
 
@@ -66,7 +67,7 @@ private:
 	std::vector<Primitive*> primitives;
 	std::vector<PathtracerLight*> lights;
 	BVH* bvh;
-	void load_scene(Scene *scene);
+	void load_scene(SceneObject *scene);
 	static BSDF* get_or_create_mesh_bsdf(const std::string& materialName);
 	bool use_bvh;
 

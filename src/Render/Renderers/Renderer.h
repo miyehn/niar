@@ -14,5 +14,10 @@ public:
 	SceneObject* drawable = nullptr;
 	Camera* camera = nullptr;
 
+	virtual void on_selected() {}
+	virtual void on_unselected() {}
+
+	virtual void draw_config_ui() {}
+
 	virtual void render(VkCommandBuffer cmdbuf) = 0;
 };

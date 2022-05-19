@@ -34,7 +34,6 @@ using namespace myn;
 
 //////////////////////////////////////////////////////////////////
 
-Pathtracer* Pathtracer::Instance;
 Camera* Camera::Active;
 Scene* Scene::Active;
 
@@ -62,10 +61,11 @@ namespace
 
 	enum e_renderer {
 		simple = 0,
-		deferred = 1
+		deferred = 1,
+		pathtracer = 2
 	} renderer_index = e_renderer::simple;
 
-	Renderer* renderer;
+	std::vector<Renderer*> renderers{};
 
 } // fileprivate
 
@@ -88,8 +88,6 @@ static void init()
 	LOG("loading resources (vulkan)...");
 	Texture2D::createDefaultTextures();
 	initialize_pathtracer_config();
-
-	Pathtracer::Instance = new Pathtracer(width, height, "Niar");
 
 #if 0
 	Scene* gltf = new Scene("Test stage");
@@ -132,19 +130,18 @@ static void init()
 
 	// renderer selector
 	{
+		renderers.push_back(SimpleRenderer::get());
+		renderers.push_back(DeferredRenderer::get());
+		renderers.push_back(Pathtracer::get(width, height));
+
 		auto rendererIndexRef = (int*)&renderer_index;
 		ui::elem([rendererIndexRef]()
 		{
-			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0\0");
+			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0\0");
+			ImGui::Separator();
 
-			if (renderer_index == e_renderer::simple) {
-				// empty
-			} else if (renderer_index == e_renderer::deferred) {
-				ImGui::Separator();
-				DeferredRenderer::get()->draw_config_ui();
-			} else {
-				ERR("shouldn't get here")
-			}
+			renderers[renderer_index]->draw_config_ui();
+
 		}, "Rendering");
 	}
 
@@ -173,35 +170,6 @@ static void init()
 
 }
 
-static void process_text_input()
-{
-	// split input string into tokens
-	std::vector<std::string> tokens;
-	char buf[128];
-	strncpy(buf, input.text.c_str(), 127);
-	char* token = strtok(buf, " ");
-	while (token) {
-		tokens.emplace_back(token);
-		token = strtok(nullptr, " ");
-	}
-
-	uint len = tokens.size();
-	if (len==0) {
-		LOGR("(invalid input, ignored..)");
-		return;
-	}
-	if (tokens[0] == "ls" && len==1) {
-		myn::list_cvars();
-	}
-	else if ((tokens[0] == "set" || tokens[0] == "s") && len == 3) {
-		myn::set_cvar(tokens[1], tokens[2]);
-	}
-
-	else {
-		LOGR("(invalid input, ignored..)");
-	}
-}
-
 static bool process_input()
 {
 	SDL_Event event;
@@ -212,47 +180,14 @@ static bool process_input()
 		if (event.type == SDL_QUIT) { quit=true; break; }
 		else if (event.type==SDL_KEYUP &&
 				 event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
+
 		// imgui
 		// pass on control to the rest of the app if event.type is not keyup
 		bool imgui_processed_input = ImGui_ImplSDL2_ProcessEvent(&event);
 		//if (imgui_processed_input) continue;
 		if (imgui_processed_input && event.type != SDL_KEYUP) continue;
-#if 0
-		// console input
-		if (event.type==SDL_KEYUP && !input.receiving && event.key.keysym.sym == SDLK_SLASH) {
-			input.text = "";
-			input.receiving = true;
-			Camera::Active->lock();
-			std::cout << "> " << std::flush;
-		}
-		else if (event.type == SDL_TEXTINPUT && input.receiving) {
-			input.text += event.text.text;
-			std::cout << event.text.text << std::flush;
-		}
-		else if (event.type == SDL_KEYUP && input.receiving && event.key.keysym.sym == SDLK_BACKSPACE) {
-			input.text = input.text.substr(0, input.text.length()-1);
-			std::cout << "\r> " << input.text << std::flush;
-		}
-		else if (event.type == SDL_KEYUP && input.receiving && event.key.keysym.sym == SDLK_RETURN) {
-			input.receiving = false;
-			Camera::Active->unlock();
-			std::cout << std::endl;
-			process_text_input();
-		}
-
-		else if (!input.receiving)
-#else
 		else
-#endif
 		{
-			// toggle between rasterizer & pathtracer
-			if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_TAB) {
-				if (Pathtracer::Instance->is_enabled()) Pathtracer::Instance->disable();
-				else Pathtracer::Instance->enable();
-			}
-			// update singletons
-			if (Pathtracer::Instance->is_enabled())
-				Pathtracer::Instance->handle_event(event);
 			// let all scene(s) handle the input
 			Scene::Active->handle_event(event);
 		}
@@ -285,34 +220,33 @@ static void draw()
 
 	ui::drawUI();
 
-	// draw
+	// renderer selection and configuration
+
+	static Renderer* prev_renderer = nullptr;
+	Renderer* renderer = renderers[renderer_index];
+	renderer->camera = Camera::Active;
+	renderer->drawable = Scene::Active;
+
+	if (renderer != prev_renderer) {
+		if (renderer) renderer->on_selected();
+		if (prev_renderer) prev_renderer->on_unselected();
+		prev_renderer = renderer;
+	}
+
+	// draw with current renderer
 
 	auto cmdbuf = Vulkan::Instance->beginFrame();
-
-	if (Pathtracer::Instance && Pathtracer::Instance->is_enabled()) {
-		Pathtracer::Instance->draw(cmdbuf);
-	} else {
-		if (renderer_index == e_renderer::simple) {
-			renderer = SimpleRenderer::get();
-		}
-		else if (renderer_index == e_renderer::deferred) {
-			renderer = DeferredRenderer::get();
-		}
-
-		renderer->camera = Camera::Active;
-		renderer->drawable = Scene::Active;
-		renderer->render(cmdbuf);
-	}
-
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "ImGui UI")
-		ImGui::Render();
+		renderer->render(cmdbuf);
+		{
+			SCOPED_DRAW_EVENT(cmdbuf, "ImGui UI")
+			ImGui::Render();
 
-		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdbuf);
-		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
+			Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
+			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdbuf);
+			Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
+		}
 	}
-
 	Vulkan::Instance->endFrame();
 }
 
@@ -321,9 +255,8 @@ static void cleanup()
 	Vulkan::Instance->waitDeviceIdle();
 
 	delete Scene::Active;
-	delete Pathtracer::Instance;
-
 	delete Vulkan::Instance;
+
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }

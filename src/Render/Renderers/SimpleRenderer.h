@@ -6,10 +6,6 @@ class Material;
 
 class SimpleRenderer : public Renderer
 {
-private:
-	SimpleRenderer();
-	~SimpleRenderer() override;
-
 public:
 	void render(VkCommandBuffer cmdbuf) override;
 
@@ -19,6 +15,9 @@ public:
 	DescriptorSet descriptorSet;
 
 private:
+	SimpleRenderer();
+	~SimpleRenderer() override;
+
 	VkExtent2D renderExtent;
 	Texture2D* sceneColor;
 	Texture2D* sceneDepth;

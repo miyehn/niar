@@ -1,7 +1,5 @@
 #include "Pathtracer.hpp"
-#include "Scene/Camera.hpp"
 #include "Render/Mesh.h"
-#include "Scene/Scene.hpp"
 #include "BSDF.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/Config.hpp"
@@ -14,6 +12,7 @@
 #include <thread>
 #include <atomic>
 #include <condition_variable>
+#include <imgui.h>
 
 #define NUM_CHANNELS 4
 #define SIZE_PER_CHANNEL 1
@@ -78,7 +77,6 @@ static std::unordered_map<std::string, BSDF*> BSDFs;
 Pathtracer::Pathtracer(
 	uint32_t _width,
 	uint32_t _height,
-	std::string _name,
 	bool _has_window
 	) {
 
@@ -141,7 +139,7 @@ void Pathtracer::initialize() {
 	
 	bvh = nullptr;
 	use_bvh = true;
-	if (Scene::Active) load_scene(Scene::Active);
+	if (drawable) load_scene(drawable);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
 	ispc_data = nullptr;
@@ -212,9 +210,6 @@ bool Pathtracer::handle_event(SDL_Event event) {
 		}
 		return true;
 
-	} else if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_0) {
-		reset();
-
 	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
 		int x, y; // NOTE: y IS INVERSED!!!!!!!!!!!
 		SDL_GetMouseState(&x, &y);
@@ -229,8 +224,10 @@ bool Pathtracer::handle_event(SDL_Event event) {
 			Cfg.Pathtracer.FocalDistance->set(d);
 			TRACE("setting focal distance to %f", d);
 		}
+		return true;
 	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
 		logged_rays.clear();
+		return true;
 	}
 
 	return false;
@@ -254,7 +251,7 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 }
 
 // TODO: load scene recursively
-void Pathtracer::load_scene(Scene *scene) {
+void Pathtracer::load_scene(SceneObject *scene) {
 
 	primitives.clear();
 	lights.clear();
@@ -298,17 +295,17 @@ void Pathtracer::load_scene(Scene *scene) {
 		  meshes_count, primitives.size(), lights.size());
 }
 
-void Pathtracer::enable() {
+void Pathtracer::on_selected() {
 	if (!initialized) initialize();
 	enabled = true;
 	TRACE("pathtracer enabled");
-	Camera::Active->lock();
+	camera->lock();
 }
 
-void Pathtracer::disable() {
+void Pathtracer::on_unselected() {
 	enabled = false;
 	TRACE("pathtracer disabled");
-	Camera::Active->unlock();
+	camera->unlock();
 }
 
 void Pathtracer::pause_trace() {
@@ -546,13 +543,13 @@ void Pathtracer::load_ispc_data() {
 
 	// construct camera
 	ispc_data->camera.resize(1);
-	mat3 c2wr = mat3(Camera::Active->object_to_world());
+	mat3 c2wr = mat3(camera->object_to_world());
 	ispc_data->camera[0].camera_to_world_rotation.colx = ispc_vec3(c2wr[0]);
 	ispc_data->camera[0].camera_to_world_rotation.coly = ispc_vec3(c2wr[1]);
 	ispc_data->camera[0].camera_to_world_rotation.colz = ispc_vec3(c2wr[2]);
-	ispc_data->camera[0].position = ispc_vec3(Camera::Active->world_position());
-	ispc_data->camera[0].fov = Camera::Active->fov;
-	ispc_data->camera[0].aspect_ratio = Camera::Active->aspect_ratio;
+	ispc_data->camera[0].position = ispc_vec3(camera->world_position());
+	ispc_data->camera[0].fov = camera->fov;
+	ispc_data->camera[0].aspect_ratio = camera->aspect_ratio;
 
 	// pixel offsets
 	ispc_data->pixel_offsets = pixel_offsets;
@@ -733,10 +730,12 @@ void Pathtracer::output_file(const std::string& path) {
 	} 
 }
 
-void Pathtracer::draw(VkCommandBuffer cmdbuf)
+void Pathtracer::render(VkCommandBuffer cmdbuf)
 {
+	if (!initialized) initialize();
+
 	// update
-	if (Cfg.Pathtracer.Multithreaded && !Cfg.Pathtracer.ISPC)
+	if (Cfg.Pathtracer.Multithreaded && !Cfg.Pathtracer.ISPC) // multithreaded c++
 	{
 		if (!finished) {
 			int uploaded_threads = 0;
@@ -788,9 +787,8 @@ void Pathtracer::draw(VkCommandBuffer cmdbuf)
 				pause_trace();
 
 			} else {
-				size_t X = rendered_tiles % tiles_X;
-				size_t Y = rendered_tiles / tiles_X;
 
+				// TODO: spawn a task to do this instead
 				raytrace_tile(0, rendered_tiles);
 				upload_tile(0, rendered_tiles);
 
@@ -830,6 +828,7 @@ void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &pa
 	TRACE("TODO: rewrite this")
 	return;
 
+	/*
 	initialize_pathtracer_config();
 
 	Pathtracer::Instance = new Pathtracer(w, h, "command line pathtracer", false);
@@ -856,6 +855,40 @@ void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &pa
 	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()
 	delete Camera::Active;
 	delete Pathtracer::Instance;
+	 */
+}
+
+Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h, bool _has_window)
+{
+	static Pathtracer* renderer = nullptr;
+	static uint32_t w, h;
+	static bool has_window;
+
+	if (_w == 0 || _h == 0) {
+		// just get whatever is already created
+		return renderer;
+	}
+
+	if (renderer == nullptr || _w != w || _h != h || _has_window != has_window) {
+		delete renderer;
+
+		w = _w; h = _h; has_window = _has_window;
+		renderer = new Pathtracer(w, h, has_window);
+
+		if (has_window) Vulkan::Instance->destructionQueue.emplace_back([](){ delete renderer; });
+	}
+	return renderer;
+}
+
+void Pathtracer::draw_config_ui()
+{
+	// reset
+	bool reset_condition = paused;
+	ImGui::BeginDisabled(!reset_condition);
+	if (ImGui::Button("clear buffer")) {
+		reset();
+	}
+	ImGui::EndDisabled();
 }
 
 // file that contains the actual pathtracing meat

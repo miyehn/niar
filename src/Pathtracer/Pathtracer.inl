@@ -3,8 +3,8 @@
 
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
-	size_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));
-	size_t num_offsets = pow(sqk, 2);
+	uint32_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));
+	uint32_t num_offsets = pow(sqk, 2);
 	TRACE("generating %lu pixel offsets", num_offsets);
 	
 	// canonical arrangement
@@ -41,12 +41,12 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 
 	size_t w = index % width;
 	size_t h = height - index / width;
-	float fov = Camera::Active->fov;
+	float fov = camera->fov;
 	float half_width = float(width) / 2.0f;
 	float half_height = float(height) / 2.0f;
 	// the raytraced image plane is at plane z = -1. Supposed k is its size in half.
 	float k_y = tan(fov / 2.0f);
-	float k_x = k_y * Camera::Active->aspect_ratio;
+	float k_x = k_y * camera->aspect_ratio;
 
 	RayTask task;
 	Ray& ray = task.ray;
@@ -54,7 +54,7 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 	for (int i = 0; i < (jittered ? pixel_offsets.size() : Cfg.Pathtracer.MinRaysPerPixel->get()); i++) {
 		vec2 offset = jittered ? pixel_offsets[i] : sample::unit_square_uniform();
 
-		ray.o = Camera::Active->world_position();
+		ray.o = camera->world_position();
 		ray.tmin = 0.0;
 		ray.tmax = INF;
 
@@ -63,15 +63,15 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 		float dy = (h + offset.y - half_height) / half_height;
 
 		vec3 d_unnormalized_c = vec3(k_x * dx, k_y * dy, -1);
-		vec3 d_unnormalized_w = mat3(Camera::Active->object_to_world()) * d_unnormalized_c;
+		vec3 d_unnormalized_w = mat3(camera->object_to_world()) * d_unnormalized_c;
 		ray.d = normalize(d_unnormalized_w);
 
 		if (Cfg.Pathtracer.UseDOF->get()) {
 			vec3 focal_p = ray.o + Cfg.Pathtracer.FocalDistance->get() * d_unnormalized_w;
 
 			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * Cfg.Pathtracer.ApertureRadius->get(), 0);
-			vec3 aperture_shift_world = mat3(Camera::Active->object_to_world()) * aperture_shift_cam;
-			ray.o = Camera::Active->world_position() + aperture_shift_world;
+			vec3 aperture_shift_world = mat3(camera->object_to_world()) * aperture_shift_cam;
+			ray.o = camera->world_position() + aperture_shift_world;
 			ray.d = normalize(focal_p - ray.o);
 		}
 
@@ -96,7 +96,7 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 // DEBUG ONLY!!!
 void Pathtracer::raytrace_debug(size_t index) {
 	logged_rays.clear();
-	logged_rays.push_back(Camera::Active->world_position());
+	logged_rays.push_back(camera->world_position());
 
 	int w = index % width;
 	int h = index / width;
@@ -116,11 +116,11 @@ void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 
 	Ray& ray = task.ray;
 
-	ray.o = Camera::Active->world_position();
+	ray.o = camera->world_position();
 	ray.tmin = 0.0f;
 	ray.tmax = INF;
 
-	float fov = Camera::Active->fov;
+	float fov = camera->fov;
 	// dx, dy: deviation from canvas center, normalized to range [-1, 1]
 	vec2 offset = vec2(0.5f, 0.5f);
 	float half_width = float(width) / 2.0f;
@@ -129,10 +129,10 @@ void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 	float dy = (y + offset.y - half_height) / half_height;
 	// the raytraced image plane is at plane z = -1. Supposed k is its size in half.
 	float k_y = tan(fov / 2.0f);
-	float k_x = k_y * Camera::Active->aspect_ratio;
+	float k_x = k_y * camera->aspect_ratio;
 
 	vec3 d_cam = normalize(vec3(k_x * dx, k_y * dy, -1));
-	ray.d = mat3(Camera::Active->object_to_world()) * d_cam;
+	ray.d = mat3(camera->object_to_world()) * d_cam;
 }
 
 float Pathtracer::depth_of_first_hit(int x, int y) {
@@ -143,7 +143,7 @@ float Pathtracer::depth_of_first_hit(int x, int y) {
 	double t; vec3 n;
 	bvh->intersect_primitives(task.ray, t, n, use_bvh);
 
-	t *= dot(task.ray.d, Camera::Active->forward());
+	t *= dot(task.ray.d, camera->forward());
 
 	return float(t);
 }

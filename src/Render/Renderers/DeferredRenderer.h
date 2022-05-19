@@ -40,7 +40,7 @@ public:
 
 	void render(VkCommandBuffer cmdbuf) override;
 
-	void draw_config_ui();
+	void draw_config_ui() override;
 
 	static DeferredRenderer* get();
 
