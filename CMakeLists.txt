@@ -46,7 +46,6 @@ set(SRC
 	${CMAKE_SOURCE_DIR}/include/imgui/backends/imgui_impl_sdl.cpp
 	${CMAKE_SOURCE_DIR}/include/imgui/backends/imgui_impl_vulkan.cpp
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui_widgets.cpp
-	# include/openfbx/ofbx.cpp
 	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
 	src/Utils/myn/CVar.cpp
 	src/Utils/myn/Misc.cpp
@@ -70,11 +69,10 @@ set(SRC
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/DebugDraw.cpp
 	src/Render/Materials/Rise.cpp
-	src/Render/Renderers/RayTracingRenderer.cpp
-	src/Scene/RtxTriangle.cpp
-	src/Render/Vulkan/ShaderBindingTable.cpp
 	src/Render/Renderers/SimpleRenderer.cpp
 	)
+
+set(SRC_RTX src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
 
 if(APPLE)
 	add_executable(niar ${SRC})

@@ -25,7 +25,6 @@ void main() {
     sampledNormal.rg = -sampledNormal.rg;
     vec3 normal = TANGENT_TO_WORLD_ROT * normalize(sampledNormal);
 
-    float ao = texture(AOMap, uv).r;
     vec3 color = texture(AlbedoMap, uv).rgb * materialParams.BaseColorFactor.rgb;
 
     vec3 lightDir = normalize(vec3(0, 0.5, 1));
