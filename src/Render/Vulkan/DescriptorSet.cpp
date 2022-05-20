@@ -155,7 +155,7 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 	EXPECT(vkAllocateDescriptorSets(Vulkan::Instance->device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
 }
 
-void DescriptorSet::pointToBuffer(VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType)
+void DescriptorSet::pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType)
 {
 	uint32_t numInstances = descriptorSets.size();
 	EXPECT(numInstances != 0, true)

@@ -40,17 +40,17 @@ struct PointData
 };
 
 // behaves like a material because it has its own pipeline, etc., but is actually drawing from a vertex buffer
-// usage: create an instance, add a bunch of points then call updateBuffer(), then call bindAndDraw() in a render pass
+// usage: create an instance, add a bunch of points then call uploadVertexBuffer(), then call bindAndDraw() in a render pass
 class DebugPoints
 {
 public:
 
-	explicit DebugPoints(DeferredRenderer* renderer);
+	explicit DebugPoints(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass=0);
 	~DebugPoints();
 
 	void addPoint(const glm::vec3& position, glm::u8vec4 color);
 
-	void updateBuffer();
+	void uploadVertexBuffer();
 
 	void bindAndDraw(VkCommandBuffer cmdbuf);
 
@@ -60,8 +60,9 @@ public:
 
 private:
 
-	static VkPipeline pipeline;
-	static VkPipelineLayout pipelineLayout;
+	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	DescriptorSet descriptorSet = {};
 
 	std::vector<PointData> points;
 };
@@ -70,14 +71,14 @@ class DebugLines
 {
 public:
 
-	explicit DebugLines(DeferredRenderer* renderer);
+	explicit DebugLines(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass=0);
 	~DebugLines();
 
 	void addSegment(const PointData& endPoint1, const PointData& endPoint2);
 
 	void addBox(const glm::vec3& minPos, const glm::vec3& maxPos, glm::u8vec4 color);
 
-	void updateBuffer();
+	void uploadVertexBuffer();
 
 	void bindAndDraw(VkCommandBuffer cmdbuf);
 
@@ -86,8 +87,9 @@ public:
 	uint32_t numSegments() { return points.size() / 2; }
 
 private:
-	static VkPipeline pipeline;
-	static VkPipelineLayout pipelineLayout;
+	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	DescriptorSet descriptorSet = {};
 
 	std::vector<PointData> points;
 };

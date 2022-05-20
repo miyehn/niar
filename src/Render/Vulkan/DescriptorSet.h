@@ -27,7 +27,7 @@ public:
 
 	VkDescriptorSet getInstance(uint32_t index = 0) const { return descriptorSets[index]; }
 
-	void pointToBuffer(VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType);
+	void pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType);
 
 	void pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType);
 

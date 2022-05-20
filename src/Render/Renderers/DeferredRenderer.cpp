@@ -522,17 +522,17 @@ DeferredRenderer::DeferredRenderer()
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
 
 	{// debug draw stuff
-#if 0 // example debug points
-		if (!debugPoints) debugPoints = new DebugPoints(this);
+#if 1 // example debug points
+		if (!debugPoints) debugPoints = new DebugPoints(viewInfoUbo, postProcessPass, 1);
 		debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
 		debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
 		debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
 		debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
-		debugPoints->updateBuffer();
+		debugPoints->uploadVertexBuffer();
 #endif
 
 		std::vector<PointData> lines;
-		if (!debugLines) debugLines = new DebugLines(this);
+		if (!debugLines) debugLines = new DebugLines(viewInfoUbo, postProcessPass, 1);
 		// x axis
 		debugLines->addSegment(
 			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
@@ -547,7 +547,7 @@ DeferredRenderer::DeferredRenderer()
 			PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
 
 		debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
-		debugLines->updateBuffer();
+		debugLines->uploadVertexBuffer();
 
 	}
 }
@@ -571,7 +571,7 @@ DeferredRenderer::~DeferredRenderer()
 	delete debugLines;
 }
 
-void DeferredRenderer::updateFrameGlobalDescriptorSet()
+void DeferredRenderer::updateViewInfoUbo()
 {
 	ViewInfo.ViewMatrix = camera->world_to_object();
 	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
@@ -591,7 +591,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		it.second->resetInstanceCounter();
 	}
 
-	updateFrameGlobalDescriptorSet();
+	updateViewInfoUbo();
 
 	frameGlobalDescriptorSet.bind(
 		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);

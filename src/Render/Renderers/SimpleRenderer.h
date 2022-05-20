@@ -3,6 +3,7 @@
 
 class Texture2D;
 class Material;
+class DebugLines;
 
 class SimpleRenderer : public Renderer
 {
@@ -22,6 +23,8 @@ private:
 	Texture2D* sceneColor;
 	Texture2D* sceneDepth;
 	VkFramebuffer frameBuffer;
+
+	DebugLines* debugLines = nullptr;
 
 	// uniforms
 	struct

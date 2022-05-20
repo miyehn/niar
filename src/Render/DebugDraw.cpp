@@ -4,10 +4,7 @@
 
 //................... points .......................
 
-VkPipeline DebugPoints::pipeline = VK_NULL_HANDLE;
-VkPipelineLayout DebugPoints::pipelineLayout = VK_NULL_HANDLE;
-
-DebugPoints::DebugPoints(DeferredRenderer* renderer)
+DebugPoints::DebugPoints(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass)
 {
 	if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
 	{
@@ -17,8 +14,8 @@ DebugPoints::DebugPoints(DeferredRenderer* renderer)
 		pipelineBuilder.vertPath = "spirv/debug_point.vert.spv";
 		pipelineBuilder.fragPath = "spirv/debug_point.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.compatibleRenderPass = renderer->postProcessPass;
-		pipelineBuilder.compatibleSubpass = 1;
+		pipelineBuilder.compatibleRenderPass = compatiblePass;
+		pipelineBuilder.compatibleSubpass = compatibleSubpass;
 
 		// input info
 		pipelineBuilder.pipelineState.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
@@ -27,8 +24,12 @@ DebugPoints::DebugPoints(DeferredRenderer* renderer)
 		pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
 		pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_POINT;
 
-		DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		// uniform buffer that contains frameglobal info
+		DescriptorSetLayout setLayout = {};
+		setLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		descriptorSet = DescriptorSet(setLayout);
+		descriptorSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		pipelineBuilder.useDescriptorSetLayout(0, setLayout);
 
 		pipelineBuilder.build(pipeline, pipelineLayout);
 	}
@@ -36,7 +37,12 @@ DebugPoints::DebugPoints(DeferredRenderer* renderer)
 
 void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf)
 {
-	updateBuffer();
+	if (points.empty()) return;
+	descriptorSet.bind(
+		cmdbuf,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		0,
+		pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };
@@ -55,7 +61,7 @@ void DebugPoints::addPoint(const glm::vec3 &position, glm::u8vec4 color)
 	points.emplace_back(position, color);
 }
 
-void DebugPoints::updateBuffer()
+void DebugPoints::uploadVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(PointData) * points.size();
 	if (bufferSize != pointsBuffer.numStrides * pointsBuffer.strideSize)
@@ -76,10 +82,7 @@ void DebugPoints::updateBuffer()
 
 ///////////////////// lines ///////////////////////
 
-VkPipeline DebugLines::pipeline = VK_NULL_HANDLE;
-VkPipelineLayout DebugLines::pipelineLayout = VK_NULL_HANDLE;
-
-DebugLines::DebugLines(DeferredRenderer *renderer)
+DebugLines::DebugLines(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass)
 {
 	if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
 	{
@@ -89,8 +92,8 @@ DebugLines::DebugLines(DeferredRenderer *renderer)
 		pipelineBuilder.vertPath = "spirv/debug_point.vert.spv";
 		pipelineBuilder.fragPath = "spirv/debug_point.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.compatibleRenderPass = renderer->postProcessPass;
-		pipelineBuilder.compatibleSubpass = 1;
+		pipelineBuilder.compatibleRenderPass = compatiblePass;
+		pipelineBuilder.compatibleSubpass = compatibleSubpass;
 
 		// input info
 		pipelineBuilder.pipelineState.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
@@ -99,8 +102,12 @@ DebugLines::DebugLines(DeferredRenderer *renderer)
 		pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
 		pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
 
-		DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		// uniform buffer that contains frameglobal info
+		DescriptorSetLayout setLayout = {};
+		setLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		descriptorSet = DescriptorSet(setLayout);
+		descriptorSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		pipelineBuilder.useDescriptorSetLayout(0, setLayout);
 
 		pipelineBuilder.build(pipeline, pipelineLayout);
 	}
@@ -113,7 +120,12 @@ DebugLines::~DebugLines()
 
 void DebugLines::bindAndDraw(VkCommandBuffer cmdbuf)
 {
-	updateBuffer();
+	if (points.empty()) return;
+	descriptorSet.bind(
+		cmdbuf,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		0,
+		pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };
@@ -155,21 +167,18 @@ void DebugLines::addBox(const glm::vec3 &minPos, const glm::vec3 &maxPos, glm::u
 	addSegment(aba, abb);
 }
 
-void DebugLines::updateBuffer()
+void DebugLines::uploadVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(PointData) * points.size();
-	if (bufferSize != pointsBuffer.numStrides * pointsBuffer.strideSize)
-	{
-		pointsBuffer.release();
-		VmaBuffer stagingBuffer(
-			&Vulkan::Instance->memoryAllocator, bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-		stagingBuffer.writeData((void*)points.data());
+	pointsBuffer.release();
+	VmaBuffer stagingBuffer(
+		&Vulkan::Instance->memoryAllocator, bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	stagingBuffer.writeData((void*)points.data());
 
-		auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		pointsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	pointsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
 
-		vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
-		stagingBuffer.release();
-	}
+	vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	stagingBuffer.release();
 }

@@ -8,6 +8,7 @@
 #include "Render/Vulkan/VulkanUtils.h"
 #include "SimpleRenderer.h"
 #include "Render/Texture.h"
+#include "Render/DebugDraw.h"
 
 namespace
 {
@@ -110,6 +111,24 @@ SimpleRenderer::SimpleRenderer()
 		descriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	}
 
+	{// debug draw setup
+		debugLines = new DebugLines(viewInfoUbo, renderPass);
+		// x axis
+		debugLines->addSegment(
+			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
+			PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
+		// y axis
+		debugLines->addSegment(
+			PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
+			PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
+		// z axis
+		debugLines->addSegment(
+			PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
+			PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
+
+		debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
+		debugLines->uploadVertexBuffer();
+	}
 }
 
 SimpleRenderer::~SimpleRenderer()
@@ -119,6 +138,7 @@ SimpleRenderer::~SimpleRenderer()
 	viewInfoUbo.release();
 	delete sceneColor;
 	delete sceneDepth;
+	delete debugLines;
 }
 
 SimpleRenderer *SimpleRenderer::get()
@@ -214,6 +234,10 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 				m->draw(cmdbuf);
 				instance_ctr++;
 			}
+		}
+		{
+			SCOPED_DRAW_EVENT(cmdbuf, "debug draw")
+			debugLines->bindAndDraw(cmdbuf);
 		}
 	}
 	vkCmdEndRenderPass(cmdbuf);

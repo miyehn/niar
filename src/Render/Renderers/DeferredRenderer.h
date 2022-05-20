@@ -76,7 +76,7 @@ private:
 
 	PostProcessing* postProcessing;
 
-	void updateFrameGlobalDescriptorSet();
+	void updateViewInfoUbo();
 
 	static Material* getOrCreateMeshMaterial(const std::string& materialName);
 };
