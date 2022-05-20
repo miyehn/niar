@@ -5,6 +5,7 @@
 #include "Scene/AABB.hpp"
 #include "BVH.hpp"
 #include "Render/Renderers/Renderer.h"
+#include "Render/Vulkan/DescriptorSet.h"
 #include <vulkan/vulkan.h>
 
 struct Scene;
@@ -14,6 +15,7 @@ struct Primitive;
 struct PathtracerLight;
 struct RaytraceThread;
 class Texture2D;
+class DebugLines;
 
 struct ISPC_Data;
 
@@ -92,6 +94,7 @@ private:
 
 	// for debug use
 	void raytrace_debug(size_t index);
+	void clear_debug_ray();
 	std::vector<vec3> logged_rays;
 
 	//---- threading stuff ----
@@ -115,6 +118,22 @@ private:
 	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
 
 	// vulkan
-	Texture2D* window_surface;
+	Texture2D* window_surface = nullptr;
+	DebugLines* debugLines = nullptr;
+
+	struct {
+		glm::mat4 ViewMatrix;
+		glm::mat4 ProjectionMatrix;
+
+		glm::vec3 CameraPosition;
+		float _pad0 = 2.333f;
+
+		glm::vec3 ViewDir;
+		float _pad1 = 2.333f;
+
+	} ViewInfo;
+
+	VmaBuffer viewInfoUbo;
+	DescriptorSet descriptorSet;
 
 };

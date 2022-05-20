@@ -63,7 +63,7 @@ namespace
 		simple = 0,
 		deferred = 1,
 		pathtracer = 2
-	} renderer_index = e_renderer::simple;
+	} renderer_index = e_renderer::deferred;
 
 	std::vector<Renderer*> renderers{};
 

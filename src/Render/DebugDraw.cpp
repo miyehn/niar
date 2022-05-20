@@ -170,6 +170,7 @@ void DebugLines::addBox(const glm::vec3 &minPos, const glm::vec3 &maxPos, glm::u
 void DebugLines::uploadVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(PointData) * points.size();
+	Vulkan::Instance->waitDeviceIdle();
 	pointsBuffer.release();
 	VmaBuffer stagingBuffer(
 		&Vulkan::Instance->memoryAllocator, bufferSize,

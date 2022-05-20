@@ -6,6 +6,7 @@
 #include "Render/Texture.h"
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/Vulkan/VulkanUtils.h"
+#include "Render/DebugDraw.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>
@@ -98,6 +99,8 @@ Pathtracer::~Pathtracer() {
 	if (has_window)
 	{
 		delete window_surface;
+		viewInfoUbo.release();
+		delete debugLines;
 	}
 	delete image_buffer;
 	for (size_t i=0; i<num_threads; i++) {
@@ -109,7 +112,7 @@ Pathtracer::~Pathtracer() {
 	for (auto l : lights) delete l;
 	for (auto t : primitives) delete t;
 
-	if (bvh) delete bvh;
+	delete bvh;
 
 	// delete BSDF library
 	for (auto& pair : BSDFs) {
@@ -163,6 +166,13 @@ void Pathtracer::initialize() {
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"Pathtracer window surface image");
 		window_surface = new Texture2D(windowSurfaceCreator);
+
+		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+								sizeof(ViewInfo),
+								VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+		debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
 
 		if (Cfg.Pathtracer.Multithreaded) {
 			//------------- threading ---------------
@@ -226,7 +236,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 		}
 		return true;
 	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
-		logged_rays.clear();
+		clear_debug_ray();
 		return true;
 	}
 
@@ -300,6 +310,16 @@ void Pathtracer::on_selected() {
 	enabled = true;
 	TRACE("pathtracer enabled");
 	camera->lock();
+
+	// update view info to buffer
+	ViewInfo.ViewMatrix = camera->world_to_object();
+	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
+	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+
+	ViewInfo.CameraPosition = camera->world_position();
+	ViewInfo.ViewDir = camera->forward();
+
+	viewInfoUbo.writeData(&ViewInfo);
 }
 
 void Pathtracer::on_unselected() {
@@ -821,6 +841,12 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 						   VK_ACCESS_TRANSFER_WRITE_BIT,
 						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 						   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	if (debugLines && debugLines->numSegments() > 0) {
+		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
+		debugLines->bindAndDraw(cmdbuf);
+		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
+	}
 }
 
 void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &path)

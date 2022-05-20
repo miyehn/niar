@@ -74,6 +74,8 @@ public:
 	explicit DebugLines(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass=0);
 	~DebugLines();
 
+	void clear() { points.clear(); }
+
 	void addSegment(const PointData& endPoint1, const PointData& endPoint2);
 
 	void addBox(const glm::vec3& minPos, const glm::vec3& maxPos, glm::u8vec4 color);
