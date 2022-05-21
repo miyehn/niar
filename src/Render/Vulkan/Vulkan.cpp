@@ -607,9 +607,12 @@ VkPresentModeKHR Vulkan::chooseSwapPresentMode(const std::vector<VkPresentModeKH
 	VK_PRESENT_MODE_FIFO_KHR (2)
 	VK_PRESENT_MODE_IMMEDIATE_KHR (0)
 	*/
+
+	/* MAILBOX is making my 2080 go 1k+ fps...
 	for (VkPresentModeKHR availablePresentMode : availablePresentModes) {
 		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) return availablePresentMode;
 	}
+	*/
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
