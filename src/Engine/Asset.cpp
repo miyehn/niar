@@ -42,12 +42,6 @@ void Asset::reload()
 	}
 }
 
-void Asset::clear_references() {
-	for (auto& p : assets_pool) {
-		delete p.second;
-	}
-}
-
 void reloadAllAssets()
 {
 	for (auto& p : assets_pool) {

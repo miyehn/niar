@@ -21,7 +21,7 @@ Vulkan::Vulkan(SDL_Window* window) {
     #endif
     createSurface();
 
-	if (Cfg.RTX)
+	if (Config->lookup<int>("Debug.RTX"))
 	{
 		deviceExtensions.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 		deviceExtensions.emplace_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
@@ -39,7 +39,7 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createFramebuffers();
 	createCommandBuffers();
 
-	if (Cfg.RTX) initRayTracing();
+	if (Config->lookup<int>("Debug.RTX")) initRayTracing();
 
 	initImGui();
 }
@@ -192,7 +192,7 @@ void Vulkan::createMemoryAllocator()
 		.device = device,
 		.instance = instance
 	};
-	if (Cfg.RTX)
+	if (Config->lookup<int>("Debug.RTX"))
 	{
 		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	}
@@ -556,7 +556,7 @@ void Vulkan::createLogicalDevice() {
 		.pEnabledFeatures = &deviceFeatures,
 	};
 
-	if (Cfg.RTX)
+	if (Config->lookup<int>("Debug.RTX"))
 	{
 		VkPhysicalDeviceVulkan12Features features12 = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
@@ -934,7 +934,7 @@ void Vulkan::findProxyFunctionPointers()
 	FIND_FN_PTR(vkCmdInsertDebugUtilsLabelEXT)
 	FIND_FN_PTR(vkSetDebugUtilsObjectNameEXT)
 
-	if (Cfg.RTX)
+	if (Config->lookup<int>("Debug.RTX"))
 	{
 		FIND_FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
 		FIND_FN_PTR(vkCreateAccelerationStructureKHR)

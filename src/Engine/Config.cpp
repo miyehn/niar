@@ -2,18 +2,18 @@
 #include "Render/Texture.h"
 #include "Asset.h"
 
-using namespace libconfig;
-
 ProgramConfigOld Cfg;
 
-void create_config_src(const std::string &path, Config& out_config_src)
+ConfigFile* Config = nullptr;
+
+void create_config_src(const std::string &path, libconfig::Config& out_config_src)
 {
 	try {
 		out_config_src.readFile(path.c_str());
-	} catch (const FileIOException &fioex) {
+	} catch (const libconfig::FileIOException &fioex) {
 		ERR("I/O error while reading %s", path.c_str())
 		return;
-	} catch (const ParseException &pex) {
+	} catch (const libconfig::ParseException &pex) {
 		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError())
 		return;
 	}
@@ -21,8 +21,8 @@ void create_config_src(const std::string &path, Config& out_config_src)
 
 void initialize_pathtracer_config()
 {
-	Config config_src;
-	create_config_src(Cfg.PathtracerConfigSource, config_src);
+	libconfig::Config config_src;
+	create_config_src(ROOT_DIR"/" + Config->lookup<std::string>("PathtracerConfigSource"), config_src);
 
 	try {
 		// pathtracer
@@ -41,61 +41,32 @@ void initialize_pathtracer_config()
 		Cfg.Pathtracer.RussianRouletteThreshold = config_src.lookup("Pathtracer.RussianRouletteThreshold");
 		Cfg.Pathtracer.MinRaysPerPixel->set(config_src.lookup("Pathtracer.MinRaysPerPixel"));
 
-	} catch (const SettingNotFoundException &nfex) {
+	} catch (const libconfig::SettingNotFoundException &nfex) {
 		ERR("Some setting(s) not found in config.ini");
-	} catch (const SettingTypeException &tpex) {
+	} catch (const libconfig::SettingTypeException &tpex) {
 		ERR("Some setting(s) assigned to wrong type");
 	}
 
-}
-
-void initialize_global_config()
-{
-	Config config_src;
-	create_config_src(ROOT_DIR"/config.ini", config_src);
-
-	try
-	{
-		Cfg.SceneSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("SceneSource");
-		Cfg.PathtracerConfigSource = std::string(ROOT_DIR"/") + (const char*)config_src.lookup("PathtracerConfigSource");
-#ifdef MACOS
-		Cfg.RenderDoc = 0;
-		Cfg.RTX = 0;
-#else
-		Cfg.RenderDoc = config_src.lookup("Debug.RenderDoc");
-		Cfg.RTX = config_src.lookup("Debug.RTX");
-#endif
-		Cfg.CollapseSceneTree = config_src.lookup("Debug.CollapseSceneTree");
-
-	} catch (const SettingNotFoundException &nfex) {
-		ERR("Some setting(s) not found in config.ini");
-	} catch (const SettingTypeException &tpex) {
-		ERR("Some setting(s) assigned to wrong type");
-	}
 }
 
 void initialize_all_config()
 {
-	//-------- read config from config.ini --------
-	initialize_global_config();
-
 	//-------- Pathtracer --------
 	initialize_pathtracer_config();
-
 }
 
 ConfigFile::ConfigFile(
 	const std::string& path,
 	const std::function<void(const ConfigFile &cfg)> &loadAction) : Asset(path, nullptr)
-{// process config file
+{
 	load_action = [this, path, loadAction]() {
+		create_config_src(ROOT_DIR"/" + path, config);
 		if (loadAction) {
-			create_config_src(ROOT_DIR"/" + path, config);
-			try{
+			try {
 				loadAction(*this);
-			} catch (const SettingNotFoundException &nfex) {
+			} catch (const libconfig::SettingNotFoundException &nfex) {
 				ERR("Some setting(s) not found in config.ini");
-			} catch (const SettingTypeException &tpex) {
+			} catch (const libconfig::SettingTypeException &tpex) {
 				ERR("Some setting(s) assigned to wrong type");
 			}
 		}

@@ -16,7 +16,7 @@ public:
 
 	explicit Scene(const std::string &_name = "[unnamed scene]");
 
-	void load_tinygltf(const std::string& path, bool preserve_existing_objects = true);
+	void load_tinygltf(const std::string& absolute_path, bool preserve_existing_objects = true);
 
 	//-------- where the configurations are being set before the scene is drawn --------
 

@@ -63,7 +63,7 @@ namespace
 		simple = 0,
 		deferred = 1,
 		pathtracer = 2
-	} renderer_index = e_renderer::deferred;
+	} renderer_index = e_renderer::simple;
 
 	std::vector<Renderer*> renderers{};
 
@@ -91,7 +91,7 @@ static void init()
 
 #if 0
 	Scene* gltf = new Scene("Test stage");
-	//gltf->load_tinygltf(Cfg.SceneSource, false);
+	//gltf->load_tinygltf(ROOT_DIR"/"+Config->lookup<std::string>("SceneSource"), false);
 	Scene::Active = gltf;
 
 	// rtx
@@ -104,8 +104,8 @@ static void init()
 	rtRenderer->debugSetup(nullptr);
 	renderer = rtRenderer;
 #else
-	Scene* gltf = new Scene("Cfg.SceneSource");
-	gltf->load_tinygltf(Cfg.SceneSource, false);
+	Scene* gltf = new Scene("SceneSource");
+	gltf->load_tinygltf(ROOT_DIR"/"+Config->lookup<std::string>("SceneSource"), false);
 	gltf->add_child(new PathtracerController());
 	Scene::Active = gltf;
 #endif
@@ -120,7 +120,7 @@ static void init()
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
 	// renderdoc
-	if (Cfg.RenderDoc)
+	if (Config->lookup<int>("Debug.RenderDoc"))
 	{
 		ui::button("capture frame", RenderDoc::captureNextFrame, "Rendering");
 		ui::elem([](){ ImGui::SameLine(); }, "Rendering");
@@ -259,27 +259,13 @@ static void cleanup()
 
 	SDL_DestroyWindow(window);
 	SDL_Quit();
-	Asset::clear_references();
 }
 
 int main(int argc, const char * argv[])
 {
 	std::srand(time(nullptr));
 
-	new ConfigFile("config.ini", [](const ConfigFile &cfg){
-		Cfg.SceneSource = std::string(ROOT_DIR"/") + cfg.lookup<const char*>("SceneSource");
-		Cfg.PathtracerConfigSource = std::string(ROOT_DIR"/") + cfg.lookup<const char*>("PathtracerConfigSource");
-#ifdef MACOS
-		Cfg.RenderDoc = 0;
-		Cfg.RTX = 0;
-#else
-		Cfg.RenderDoc = config_src.lookup("Debug.RenderDoc");
-		Cfg.RTX = config_src.lookup("Debug.RTX");
-#endif
-		Cfg.CollapseSceneTree = cfg.lookup<int>("Debug.CollapseSceneTree");
-	});
-
-	//initialize_global_config();
+	Config = new ConfigFile("config.ini");
 
 	cxxopts::Options options("niar", "a toy renderer");
 	options.allow_unrecognised_options();
@@ -311,7 +297,7 @@ int main(int argc, const char * argv[])
 
 	//------------- else: load and run the scene --------------
 
-	if (Cfg.RenderDoc) RenderDoc::load("niar");
+	if (Config->lookup<int>("Debug.RenderDoc")) RenderDoc::load("niar");
 
 	init();
 
@@ -335,6 +321,7 @@ int main(int argc, const char * argv[])
 	}
 
 	cleanup();
+	delete Config;
 
 	return 0;
 }

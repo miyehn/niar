@@ -10,7 +10,6 @@
 PathtracerController::PathtracerController() {
 	name = "Pathtracer controller";
 	show_transform = false;
-	_enabled = false;
 }
 
 bool PathtracerController::handle_event(SDL_Event event) {

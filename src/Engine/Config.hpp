@@ -7,7 +7,6 @@
 
 void initialize_pathtracer_config();
 void initialize_basic_asset_config();
-void initialize_global_config();
 void initialize_all_config();
 
 class ConfigFile : Asset
@@ -33,11 +32,6 @@ private:
 
 struct ProgramConfigOld
 {
-	std::string SceneSource;
-	std::string PathtracerConfigSource;
-	int RenderDoc;
-	int RTX;
-	int CollapseSceneTree;
 	struct
 	{
 		int ISPC = 0;
@@ -60,3 +54,5 @@ struct ProgramConfigOld
 };
 
 extern ProgramConfigOld Cfg;
+
+extern ConfigFile* Config;

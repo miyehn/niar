@@ -155,7 +155,7 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 }
 }// namespace
 
-void Scene::load_tinygltf(const std::string &path, bool preserve_existing_objects)
+void Scene::load_tinygltf(const std::string &absolute_path, bool preserve_existing_objects)
 {
 	if (!preserve_existing_objects) {
 		for (int i=0; i<children.size(); i++) delete children[i];
@@ -169,8 +169,8 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 	std::string err;
 	std::string warn;
 
-	//bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path);
-	bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path);
+	//bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, absolute_path);
+	bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, absolute_path);
 
 	if (!warn.empty()) WARN("[TinyGLTF] %s", warn.c_str())
 	if (!err.empty()) ERR("[TinyGLTF] %s", err.c_str())
@@ -278,7 +278,7 @@ void Scene::load_tinygltf(const std::string &path, bool preserve_existing_object
 		}
 	}
 
-	if (Cfg.CollapseSceneTree) collapseSceneTree(tree);
+	if (Config->lookup<int>("Debug.CollapseSceneTree")) collapseSceneTree(tree);
 
 	// actually construct the scene tree
 
