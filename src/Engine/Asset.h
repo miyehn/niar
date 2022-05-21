@@ -16,8 +16,8 @@ public:
 	void reload();
 
 protected:
-	Asset(const std::string &path, const std::function<void()> &load_action);
-	std::string path;
+	Asset(const std::string &relative_path, const std::function<void()> &load_action);
+	std::string relative_path;
 	std::function<void()> load_action;
 
 private:

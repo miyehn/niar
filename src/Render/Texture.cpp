@@ -126,7 +126,7 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 		ERR("Trying to load image '%s' with wrong channelDepth", path.c_str())
 	}
 
-	//LOG("load texture '%s' %dx%dx%d", path.c_str(), iwidth, iheight, native_channels)
+	//LOG("load texture '%s' %dx%dx%d", relative_path.c_str(), iwidth, iheight, native_channels)
 	EXPECT(pixels != nullptr, true)
 
 	imageFormat = getFormatFromMap(textureFormat);

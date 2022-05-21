@@ -180,14 +180,17 @@ static bool process_input()
 		else if (event.type==SDL_KEYUP &&
 				 event.key.keysym.sym==SDLK_ESCAPE) { quit=true; break; }
 
-		// imgui
-		// pass on control to the rest of the app if event.type is not keyup
+		// window gains focus
+		else if (event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_FOCUS_GAINED) {
+			reloadAllAssets();
+		}
+
+		// imgui; pass on control to the rest of the app if event.type is not keyup
 		bool imgui_processed_input = ImGui_ImplSDL2_ProcessEvent(&event);
-		//if (imgui_processed_input) continue;
 		if (imgui_processed_input && event.type != SDL_KEYUP) continue;
-		else
-		{
-			// let all scene(s) handle the input
+
+		// the rest of the app
+		else if (!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard) {
 			Scene::Active->handle_event(event);
 		}
 	}
@@ -264,14 +267,14 @@ int main(int argc, const char * argv[])
 {
 	std::srand(time(nullptr));
 
-	Config = new ConfigFile("config.ini");
+	Config = new ConfigFile("config/global.ini");
 
 	cxxopts::Options options("niar", "a toy renderer");
 	options.allow_unrecognised_options();
 	options.add_options()
 		("w,width", "window width", cxxopts::value<int>())
 		("h,height", "window height", cxxopts::value<int>())
-		("o,output", "output path", cxxopts::value<std::string>());
+		("o,output", "output relative_path", cxxopts::value<std::string>());
 
 	auto result = options.parse(argc, argv);
 

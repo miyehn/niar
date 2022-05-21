@@ -4,12 +4,12 @@
 
 ConfigFile* Config = nullptr;
 
-void create_config_src(const std::string &path, libconfig::Config& out_config_src)
+void create_config_src(const std::string &absolute_path, libconfig::Config& out_config_src)
 {
 	try {
-		out_config_src.readFile(path.c_str());
+		out_config_src.readFile(absolute_path.c_str());
 	} catch (const libconfig::FileIOException &fioex) {
-		ERR("I/O error while reading %s", path.c_str())
+		ERR("I/O error while reading %s", absolute_path.c_str())
 		return;
 	} catch (const libconfig::ParseException &pex) {
 		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError())
@@ -27,7 +27,7 @@ ConfigFile::ConfigFile(
 			try {
 				loadAction(this);
 			} catch (const libconfig::SettingNotFoundException &nfex) {
-				ERR("Some setting(s) not found in config.ini");
+				ERR("Some setting(s) not found in global.ini");
 			} catch (const libconfig::SettingTypeException &tpex) {
 				ERR("Some setting(s) assigned to wrong type");
 			}

@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-// for showing last path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
+// for showing last relative_path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
 #ifdef WINOS
 #define PATH_ELIM_SLASH '\\'
 #endif

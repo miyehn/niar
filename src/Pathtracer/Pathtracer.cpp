@@ -34,7 +34,7 @@ struct RaytraceThread {
 
 	int tid;
 	std::thread thread;
-	std::mutex m;
+	std::mutex m{};
 	std::condition_variable cv;
 
 	std::atomic<bool> finished;
@@ -894,7 +894,7 @@ void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &pa
 	Pathtracer::Instance->raytrace_scene_to_buf();
 	TIMER_END();
 	TRACE("done! took %f seconds", execution_time);
-	Pathtracer::Instance->output_file(path);
+	Pathtracer::Instance->output_file(relative_path);
 
 	// delete Scene::Active; // TODO: pull out graphics tear down from Scene::~Scene()
 	delete Camera::Active;

@@ -15,7 +15,7 @@ public:
 			T value = config.lookup(cfg_path);
 			return value;
 		} catch (const libconfig::SettingNotFoundException &nfex) {
-			ERR("\"%s\" not found in config file \"%s\"", cfg_path.c_str(), path.c_str());
+			ERR("\"%s\" not found in config file \"%s\"", cfg_path.c_str(), relative_path.c_str());
 		} catch (const libconfig::SettingTypeException &tpex) {
 			ERR("\"%s\" is not of type %s", cfg_path.c_str(), typeid(T).name());
 		}

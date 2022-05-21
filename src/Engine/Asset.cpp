@@ -37,17 +37,17 @@ std::unordered_map<std::string, Asset*> assets_pool;
 
 Asset::Asset(const std::string &_path, const std::function<void()> &_load_action)
 {
-	path = _path;
+	relative_path = _path;
 	load_action = _load_action;
-	assets_pool[path] = this;
+	assets_pool[relative_path] = this;
 	if (load_action) reload();
 }
 
 void Asset::reload()
 {
-	time_t last_write_time = get_last_write_time(ROOT_DIR"/" + path);
+	time_t last_write_time = get_last_write_time(ROOT_DIR"/" + relative_path);
 	if (last_load_time < last_write_time) {
-		LOG("loading %s", path.c_str())
+		LOG("loading asset %s", relative_path.c_str())
 		load_action();
 		last_load_time = get_file_clock_now();
 	}
