@@ -1,9 +1,6 @@
 #include "Config.hpp"
 #include "Render/Texture.h"
-#include "libconfig/libconfig.h++"
 #include "Asset.h"
-
-#include <filesystem>
 
 using namespace libconfig;
 
@@ -11,14 +8,13 @@ ProgramConfigOld Cfg;
 
 void create_config_src(const std::string &path, Config& out_config_src)
 {
-	LOG("%llu", sizeof(std::function<void()>))
 	try {
 		out_config_src.readFile(path.c_str());
 	} catch (const FileIOException &fioex) {
-		ERR("I/O error while reading config.ini");
+		ERR("I/O error while reading %s", path.c_str())
 		return;
 	} catch (const ParseException &pex) {
-		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError());
+		ERR("Config file parse error at %s:%d - %s", pex.getFile(), pex.getLine(), pex.getError())
 		return;
 	}
 }
@@ -86,7 +82,23 @@ void initialize_all_config()
 	//-------- Pathtracer --------
 	initialize_pathtracer_config();
 
-	//-------- Assets --------
-	// (if in the future I create more config
-	//initialize_asset_config();
+}
+
+ConfigFile::ConfigFile(
+	const std::string& path,
+	const std::function<void(const ConfigFile &cfg)> &loadAction) : Asset(path, nullptr)
+{// process config file
+	load_action = [this, path, loadAction]() {
+		if (loadAction) {
+			create_config_src(ROOT_DIR"/" + path, config);
+			try{
+				loadAction(*this);
+			} catch (const SettingNotFoundException &nfex) {
+				ERR("Some setting(s) not found in config.ini");
+			} catch (const SettingTypeException &tpex) {
+				ERR("Some setting(s) assigned to wrong type");
+			}
+		}
+	};
+	reload();
 }

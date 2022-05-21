@@ -259,13 +259,27 @@ static void cleanup()
 
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+	Asset::clear_references();
 }
 
 int main(int argc, const char * argv[])
 {
-	initialize_global_config();
-
 	std::srand(time(nullptr));
+
+	new ConfigFile("config.ini", [](const ConfigFile &cfg){
+		Cfg.SceneSource = std::string(ROOT_DIR"/") + cfg.lookup<const char*>("SceneSource");
+		Cfg.PathtracerConfigSource = std::string(ROOT_DIR"/") + cfg.lookup<const char*>("PathtracerConfigSource");
+#ifdef MACOS
+		Cfg.RenderDoc = 0;
+		Cfg.RTX = 0;
+#else
+		Cfg.RenderDoc = config_src.lookup("Debug.RenderDoc");
+		Cfg.RTX = config_src.lookup("Debug.RTX");
+#endif
+		Cfg.CollapseSceneTree = cfg.lookup<int>("Debug.CollapseSceneTree");
+	});
+
+	//initialize_global_config();
 
 	cxxopts::Options options("niar", "a toy renderer");
 	options.allow_unrecognised_options();

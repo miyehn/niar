@@ -1,7 +1,9 @@
 #include "Utils/myn/CVar.h"
+#include "Utils/myn/Log.h"
 #include "Asset.h"
 #include <functional>
 #include <utility>
+#include <libconfig/libconfig.h++>
 
 void initialize_pathtracer_config();
 void initialize_basic_asset_config();
@@ -10,7 +12,23 @@ void initialize_all_config();
 
 class ConfigFile : Asset
 {
-	//ConfigFile(const std::string& path);
+public:
+	explicit ConfigFile(const std::string& path, const std::function<void(const ConfigFile &cfg)>& loadAction = nullptr);
+
+	template<typename T>
+	T lookup(const std::string& cfg_path) const {
+		try {
+			T value = config.lookup(cfg_path);
+			return value;
+		} catch (const libconfig::SettingNotFoundException &nfex) {
+			ERR("Some setting(s) not found in config.ini");
+		} catch (const libconfig::SettingTypeException &tpex) {
+			ERR("Some setting(s) assigned to wrong type");
+		}
+		return T();
+	}
+private:
+	libconfig::Config config = {};
 };
 
 struct ProgramConfigOld
