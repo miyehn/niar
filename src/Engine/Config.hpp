@@ -1,12 +1,19 @@
 #include "Utils/myn/CVar.h"
+#include "Asset.h"
 #include <functional>
+#include <utility>
 
 void initialize_pathtracer_config();
 void initialize_basic_asset_config();
 void initialize_global_config();
 void initialize_all_config();
 
-struct ProgramConfig
+class ConfigFile : Asset
+{
+	//ConfigFile(const std::string& path);
+};
+
+struct ProgramConfigOld
 {
 	std::string SceneSource;
 	std::string PathtracerConfigSource;
@@ -34,4 +41,4 @@ struct ProgramConfig
 	Pathtracer;
 };
 
-extern ProgramConfig Cfg;
+extern ProgramConfigOld Cfg;

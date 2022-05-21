@@ -1,15 +1,17 @@
 #include "Config.hpp"
-#include "Render/Mesh.h"
 #include "Render/Texture.h"
-//#include "Render/Materials/DeferredBasepass.h"
 #include "libconfig/libconfig.h++"
+#include "Asset.h"
+
+#include <filesystem>
 
 using namespace libconfig;
 
-ProgramConfig Cfg;
+ProgramConfigOld Cfg;
 
 void create_config_src(const std::string &path, Config& out_config_src)
 {
+	LOG("%llu", sizeof(std::function<void()>))
 	try {
 		out_config_src.readFile(path.c_str());
 	} catch (const FileIOException &fioex) {
