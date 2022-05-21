@@ -723,11 +723,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 DeferredRenderer *DeferredRenderer::get()
 {
 	static DeferredRenderer* deferredRenderer = nullptr;
-	if (deferredRenderer == nullptr)
-	{
-		deferredRenderer = new DeferredRenderer();
-		Vulkan::Instance->destructionQueue.emplace_back([](){ delete deferredRenderer; });
-	}
+
+	if (deferredRenderer == nullptr) deferredRenderer = new DeferredRenderer();
+
 	return deferredRenderer;
 }
 

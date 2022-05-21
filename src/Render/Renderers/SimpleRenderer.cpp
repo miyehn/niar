@@ -144,11 +144,9 @@ SimpleRenderer::~SimpleRenderer()
 SimpleRenderer *SimpleRenderer::get()
 {
 	static SimpleRenderer* renderer = nullptr;
-	if (renderer == nullptr)
-	{
-		renderer = new SimpleRenderer();
-		Vulkan::Instance->destructionQueue.emplace_back([](){ delete renderer; });
-	}
+
+	if (renderer == nullptr) renderer = new SimpleRenderer();
+
 	return renderer;
 }
 

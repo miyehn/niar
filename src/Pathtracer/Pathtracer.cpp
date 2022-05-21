@@ -27,19 +27,16 @@ struct RaytraceThread {
 	
 	RaytraceThread(std::function<void(int)> work, int _tid) : tid(_tid) {
 		thread = std::thread(work, _tid);
-		finished = true;
-		tile_index = -1;
-		status = uninitialized;
 	}
 
-	int tid;
-	std::thread thread;
+	std::atomic<int> tid = 0;
+	std::thread thread{};
 	std::mutex m{};
-	std::condition_variable cv;
+	std::condition_variable cv{};
 
-	std::atomic<bool> finished;
-	std::atomic<Status> status;
-	int tile_index; // protected by m just like the tile buffer
+	std::atomic<bool> finished = true;
+	std::atomic<Status> status = uninitialized;
+	int tile_index = -1; // protected by m just like the tile buffer
 
 };
 
@@ -91,16 +88,22 @@ Pathtracer::Pathtracer(
 
 Pathtracer::~Pathtracer() {
 	if (!initialized) return;
+	clear_tasks_and_threads_begin();
+
+	clear_tasks_and_threads_wait();
+
 	if (has_window)
 	{
 		delete window_surface;
 		viewInfoUbo.release();
 		delete debugLines;
 	}
+
+	delete config;
+
 	delete image_buffer;
 	for (uint32_t i=0; i<cached_config.NumThreads; i++) {
 		delete subimage_buffers[i];
-		// TODO: cleanup the threads in a more elegant way instead of being forced terminated?
 	}
 	delete subimage_buffers;
 
@@ -115,18 +118,80 @@ Pathtracer::~Pathtracer() {
 	}
 	BSDFs.clear();
 
-	delete config;
-
 	TRACE("deleted pathtracer");
 }
 
 void Pathtracer::initialize() {
 	TRACE("initializing pathtracer");
 
+	// scene
+	if (drawable) load_scene(drawable);
+	else WARN("Pathtracer scene not loaded - no active scene");
+
+	// define thread work lambda
+	raytrace_task = [this](int tid)
+	{
+		while (true)
+		{
+			std::unique_lock<std::mutex> lock(threads[tid]->m);
+
+			// wait until main thread says it's okay to keep working (or okay to quit)
+			threads[tid]->cv.wait(lock, [this, tid] {
+				return threads[tid]->status == RaytraceThread::ready_for_next
+				|| threads[tid]->status == RaytraceThread::all_done;
+			});
+
+			// try to get next tile to work on
+			uint32_t tile;
+			if (raytrace_tasks.dequeue(tile))
+			{
+				threads[tid]->status = RaytraceThread::working;
+				threads[tid]->tile_index = tile;
+				raytrace_tile(tid, tile);
+				if (threads[tid]->status == RaytraceThread::all_done) {// modified by main thread while working
+					//LOG("%d: notified to quit early while working", tid)
+					break;
+				} else {
+					threads[tid]->status = RaytraceThread::pending_upload;
+				}
+			}
+			else
+			{
+				//LOG("%d: quit bc no more work to do", tid)
+				threads[tid]->status = RaytraceThread::all_done;
+				break;
+			}
+		}
+	};
+
+	// graphics api stuff
+	if (has_window)
+	{
+		ImageCreator windowSurfaceCreator(
+			VK_FORMAT_R8G8B8A8_UNORM,
+			{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"Pathtracer window surface image");
+		window_surface = new Texture2D(windowSurfaceCreator);
+
+		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+								sizeof(ViewInfo),
+								VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+		debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
+	}
+
+	//-------- load config --------
+
 	config = new ConfigFile("config/pathtracer.ini", [this](const ConfigFile* cfg) {
+
+		// read from file
 		cached_config.ISPC = cfg->lookup<int>("ISPC");
 		cached_config.UseBVH = cfg->lookup<int>("UseBVH");
 
+		cached_config.Multithreaded = cfg->lookup<int>("Multithreaded");
 		cached_config.NumThreads = cfg->lookup<int>("NumThreads");
 		cached_config.TileSize = cfg->lookup<int>("TileSize");
 
@@ -142,88 +207,30 @@ void Pathtracer::initialize() {
 		cached_config.RussianRouletteThreshold = cfg->lookup<float>("RussianRouletteThreshold");
 
 		cached_config.MinRaysPerPixel = cfg->lookup<int>("MinRaysPerPixel");
-	});
 
-	uint32_t tile_size = cached_config.TileSize;
-	uint32_t num_threads = cached_config.NumThreads;
+		// initialization related to config options
 
-	tiles_X = std::ceil(float(width) / tile_size);
-	tiles_Y = std::ceil(float(height) / tile_size);
+		tiles_X = std::ceil(float(width) / cached_config.TileSize);
+		tiles_Y = std::ceil(float(height) / cached_config.TileSize);
 
-	image_buffer = new unsigned char[width * height * NUM_CHANNELS * SIZE_PER_CHANNEL];
-	subimage_buffers = new unsigned char*[num_threads];
-	for (int i=0; i<num_threads; i++) {
-		subimage_buffers[i] = new unsigned char[tile_size * tile_size * NUM_CHANNELS *SIZE_PER_CHANNEL];
-	}
-
-	//-------- load scene --------
-	
-	bvh = nullptr;
-	if (drawable) load_scene(drawable);
-	else WARN("Pathtracer scene not loaded - no active scene");
-
-	ispc_data = nullptr;
-
-#if 0
-	// the two spheres (classical cornell box)
-	BSDF* sphere_bsdf_1 = new Glass();
-	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(-40, 430, -45), 30, sphere_bsdf_1)));
-	BSDF* sphere_bsdf_2 = new Glass();
-	primitives.emplace_back(static_cast<Primitive*>(new Sphere(vec3(40, 390, -45), 30, sphere_bsdf_2)));
-#endif
-
-	//-------- graphics api stuff setup --------
-
-	if (has_window) {
-
-		ImageCreator windowSurfaceCreator(
-			VK_FORMAT_R8G8B8A8_UNORM,
-			{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			"Pathtracer window surface image");
-		window_surface = new Texture2D(windowSurfaceCreator);
-
-		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
-								sizeof(ViewInfo),
-								VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-								VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-		debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
-
-		if (cached_config.Multithreaded) {
-			//------------- threading ---------------
-			// define work for raytrace threads
-			raytrace_task = [this](int tid) {
-				while (true) {
-					std::unique_lock<std::mutex> lock(threads[tid]->m);
-
-					// wait until main thread says it's okay to keep working
-					threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
-
-					// it now owns the lock, and main thread messaged it's okay to start tracing
-					uint32_t tile;
-					// try to get next tile to work on
-					if (raytrace_tasks.dequeue(tile)) {
-						threads[tid]->status = RaytraceThread::working;
-						threads[tid]->tile_index = tile;
-						raytrace_tile(tid, tile);
-						threads[tid]->status = RaytraceThread::pending_upload;
-					} else {
-						threads[tid]->status = RaytraceThread::all_done;
-						break;
-					}
-				}
-			};
-
-			for (uint32_t i=0; i<num_threads; i++) {
-				threads.push_back(new RaytraceThread(raytrace_task, i));
+		// cpu buffers
+		delete image_buffer;
+		if (subimage_buffers /* not null if it's previously created at least once */) {
+			for (uint32_t i=0; i<cached_config.NumThreads; i++) {
+				delete subimage_buffers[i];
 			}
-			//------------------------------------
+			delete subimage_buffers;
 		}
-	}
+		image_buffer = new unsigned char[width * height * NUM_CHANNELS * SIZE_PER_CHANNEL];
+		subimage_buffers = new unsigned char*[cached_config.NumThreads];
+		for (int i=0; i<cached_config.NumThreads; i++) {
+			subimage_buffers[i] = new unsigned char[
+			cached_config.TileSize * cached_config.TileSize * NUM_CHANNELS *SIZE_PER_CHANNEL];
+		}
 
-	reset();
+		// queue tasks, spawn threads, etc.
+		reset();
+	});
 
 	initialized = true;
 }
@@ -362,30 +369,48 @@ void Pathtracer::continue_trace() {
 	paused = false;
 }
 
+void Pathtracer::clear_tasks_and_threads_begin() {
+	if (cached_config.Multithreaded) {
+		raytrace_tasks.clear();
+		for (auto & thread : threads) {
+			thread->status = RaytraceThread::all_done;
+			thread->cv.notify_all();
+		}
+	}
+}
+
+void Pathtracer::clear_tasks_and_threads_wait() {
+	if (cached_config.Multithreaded) {
+		for (auto & thread : threads) {
+			if (thread->thread.joinable()) thread->thread.join();
+		}
+		threads.clear();
+	}
+}
+
 void Pathtracer::reset() {
 	TRACE("reset pathtracer");
-	
+
+	//-------- threading stuff --------
 	if (cached_config.Multithreaded) {
-		//-------- threading stuff --------
-		if (finished) {
-			threads.clear();
-			for (uint32_t i=0; i<cached_config.NumThreads; i++) {
-				threads.push_back(new RaytraceThread(raytrace_task, i));
-			}
-		}
-		raytrace_tasks.clear();
-		// reset thread status
-		for (uint32_t i=0; i < threads.size(); i++) {
-			threads[i]->status = RaytraceThread::uninitialized;
-		}
-		// enqueue all tiles
+
+		// clear old threads
+		clear_tasks_and_threads_begin();
+		clear_tasks_and_threads_wait();
+
+		// enqueue all new tiles
 		for (uint32_t i=0; i < tiles_X * tiles_Y; i++) {
 			raytrace_tasks.enqueue(i);
 		}
-		//---------------------------------
+		// spawn new threads to start working on them
+		for (uint32_t i=0; i<cached_config.NumThreads; i++) {
+			threads.push_back(new RaytraceThread(raytrace_task, i));
+		}
 	}
+	//---------------------------------
 
 	paused = true;
+	notified_pause_finish = true;
 	finished = false;
 	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
@@ -794,13 +819,13 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 					uploaded_threads++;
 					if (!paused) {
 						threads[i]->status = RaytraceThread::ready_for_next;
-						threads[i]->cv.notify_one();
+						threads[i]->cv.notify_all();
 					}
 
 				} else if (threads[i]->status == RaytraceThread::uninitialized) {
 					if (!paused) {
 						threads[i]->status = RaytraceThread::ready_for_next;
-						threads[i]->cv.notify_one();
+						threads[i]->cv.notify_all();
 					}
 				}
 
@@ -918,8 +943,6 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h, bool _has_window)
 
 		w = _w; h = _h; has_window = _has_window;
 		renderer = new Pathtracer(w, h, has_window);
-
-		if (has_window) Vulkan::Instance->destructionQueue.emplace_back([](){ delete renderer; });
 	}
 	return renderer;
 }
@@ -927,7 +950,7 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h, bool _has_window)
 void Pathtracer::draw_config_ui()
 {
 	// reset
-	bool reset_condition = paused && notified_pause_finish;
+	bool reset_condition = (paused && notified_pause_finish) || finished;
 	ImGui::BeginDisabled(!reset_condition);
 	if (ImGui::Button("clear buffer")) {
 		reset();

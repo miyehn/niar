@@ -256,6 +256,10 @@ static void cleanup()
 {
 	Vulkan::Instance->waitDeviceIdle();
 
+	for (auto renderer : renderers) {
+		delete renderer;
+	}
+
 	delete Scene::Active;
 	delete Vulkan::Instance;
 

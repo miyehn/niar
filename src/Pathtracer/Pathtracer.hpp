@@ -56,15 +56,15 @@ private:
 	struct {
 		int ISPC = 0;
 		int UseBVH = 1;
-		int Multithreaded = 1;
-		int NumThreads = 8;
+		int Multithreaded = 0; // initially 0 so if set to >0 by config file, will create the threads
+		int NumThreads = 0;
 		int TileSize = 16;
 		int UseDirectLight = 1;
 		int AreaLightSamples = 2;
 		int UseJitteredSampling = 1;
 		int UseDOF = 1;
 		float FocalDistance = 5.0f;
-		float ApertureRadius = 0.3f;
+		float ApertureRadius = 0.25f;
 		int MaxRayDepth = 16;
 		float RussianRouletteThreshold = 0.05f;
 		int MinRaysPerPixel = 4;
@@ -72,13 +72,13 @@ private:
 	ConfigFile* config = nullptr;
 
 	// ray tracing state and control
-	bool paused;
-	bool notified_pause_finish;
-	bool finished;
+	bool paused = true;
+	bool notified_pause_finish = true;
+	bool finished = true;
 	void pause_trace();
 	void continue_trace();
-	bool initialized;
-	bool enabled;
+	bool initialized = false;
+	bool enabled = false;
 	void reset();
 
 	myn::TimePoint last_begin_time;
@@ -88,11 +88,11 @@ private:
 	// scene
 	std::vector<Primitive*> primitives;
 	std::vector<PathtracerLight*> lights;
-	BVH* bvh;
+	BVH* bvh = nullptr;
 	void load_scene(SceneObject *scene);
 	static BSDF* get_or_create_mesh_bsdf(const std::string& materialName);
 
-	ISPC_Data* ispc_data;
+	ISPC_Data* ispc_data = nullptr;
 	void load_ispc_data();
 
 	//---- pathtracing routine ----
@@ -123,11 +123,14 @@ private:
 	std::vector<RaytraceThread*> threads;
 	myn::ThreadSafeQueue<uint32_t> raytrace_tasks;
 
+	void clear_tasks_and_threads_begin();
+	void clear_tasks_and_threads_wait();
+
 	//---- buffers & opengl ----
 
 	// an image buffer of size width * height * 3 (since it has rgb channels)
-	unsigned char* image_buffer;
-	unsigned char** subimage_buffers;
+	unsigned char* image_buffer = nullptr;
+	unsigned char** subimage_buffers = nullptr;
 
 	void upload_rows(uint32_t begin, uint32_t end);
 	void upload_tile(uint32_t subbuf_index, uint32_t tile_index);

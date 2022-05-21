@@ -8,8 +8,9 @@ class Renderer
 {
 protected:
 	Renderer() = default;
-	virtual ~Renderer() = default;
 public:
+
+	virtual ~Renderer() = default;
 
 	SceneObject* drawable = nullptr;
 	Camera* camera = nullptr;
