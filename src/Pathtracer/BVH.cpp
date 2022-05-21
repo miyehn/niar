@@ -416,7 +416,7 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n, bool use_bvh)
 		}
 		else
 		{
-			for (size_t i = 0; i < primitives_count; i++) {
+			for (uint32_t i = 0; i < primitives_count; i++) {
 				Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
 				if (prim_tmp) {
 					primitive = prim_tmp;
@@ -435,7 +435,7 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n, bool use_bvh)
 			}
 			else
 			{
-				for (size_t i = 0; i < primitives_count; i++) {
+				for (uint32_t i = 0; i < primitives_count; i++) {
 					Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
 					if (prim_tmp) {
 						primitive = prim_tmp;
@@ -449,7 +449,7 @@ Primitive* BVH::intersect_primitives(Ray& ray, double& t, vec3& n, bool use_bvh)
 	}
 	else
 	{
-		for (size_t i = 0; i < primitives_count; i++) {
+		for (uint32_t i = 0; i < primitives_count; i++) {
 			Primitive* prim_tmp = (*primitives_ptr)[primitives_start + i]->intersect(ray, t, n, true);
 			if (prim_tmp) {
 				primitive = prim_tmp;

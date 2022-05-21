@@ -16,6 +16,7 @@ struct PathtracerLight;
 struct RaytraceThread;
 class Texture2D;
 class DebugLines;
+class ConfigFile;
 
 struct ISPC_Data;
 
@@ -49,7 +50,26 @@ private:
 	// size for the pathtraced image - could be different from display window.
 	bool has_window;
 	uint32_t width, height;
-	size_t tile_size, tiles_X, tiles_Y;
+	uint32_t tiles_X, tiles_Y;
+
+	// store some frequently-accessed configs here to alleviate config lookup cost
+	struct {
+		int ISPC = 0;
+		int UseBVH = 1;
+		int Multithreaded = 1;
+		int NumThreads = 8;
+		int TileSize = 16;
+		int UseDirectLight = 1;
+		int AreaLightSamples = 2;
+		int UseJitteredSampling = 1;
+		int UseDOF = 1;
+		float FocalDistance = 5.0f;
+		float ApertureRadius = 0.3f;
+		int MaxRayDepth = 16;
+		float RussianRouletteThreshold = 0.05f;
+		int MinRaysPerPixel = 4;
+	} cached_config;
+	ConfigFile* config = nullptr;
 
 	// ray tracing state and control
 	bool paused;
@@ -63,7 +83,7 @@ private:
 
 	myn::TimePoint last_begin_time;
 	float cumulative_render_time;
-	size_t rendered_tiles;
+	uint32_t rendered_tiles;
 
 	// scene
 	std::vector<Primitive*> primitives;
@@ -71,7 +91,6 @@ private:
 	BVH* bvh;
 	void load_scene(SceneObject *scene);
 	static BSDF* get_or_create_mesh_bsdf(const std::string& materialName);
-	bool use_bvh;
 
 	ISPC_Data* ispc_data;
 	void load_ispc_data();
@@ -87,23 +106,22 @@ private:
 
 	// routine
 	void generate_one_ray(RayTask& task, int x, int y);
-	void generate_rays(std::vector<RayTask>& tasks, size_t index);
-	vec3 raytrace_pixel(size_t index);
-	void raytrace_tile(size_t tid, size_t tile_index);
+	void generate_rays(std::vector<RayTask>& tasks, uint32_t index);
+	vec3 raytrace_pixel(uint32_t index);
+	void raytrace_tile(uint32_t tid, uint32_t tile_index);
 	void trace_ray(RayTask& task, int ray_depth, bool debug);
 
 	// for debug use
-	void raytrace_debug(size_t index);
+	void raytrace_debug(uint32_t index);
 	void clear_debug_ray();
 	std::vector<vec3> logged_rays;
 
 	//---- threading stuff ----
 
-	size_t num_threads;
 	std::function<void(int)> raytrace_task;
 
 	std::vector<RaytraceThread*> threads;
-	myn::ThreadSafeQueue<size_t> raytrace_tasks;
+	myn::ThreadSafeQueue<uint32_t> raytrace_tasks;
 
 	//---- buffers & opengl ----
 
@@ -111,11 +129,11 @@ private:
 	unsigned char* image_buffer;
 	unsigned char** subimage_buffers;
 
-	void upload_rows(int32_t begin, int32_t end);
-	void upload_tile(size_t subbuf_index, size_t tile_index);
-	void upload_tile(size_t subbuf_index, int32_t begin_x, int32_t begin_y, int32_t w, int32_t h);
-	void set_mainbuffer_rgb(size_t i, vec3 rgb);
-	void set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb);
+	void upload_rows(uint32_t begin, uint32_t end);
+	void upload_tile(uint32_t subbuf_index, uint32_t tile_index);
+	void upload_tile(uint32_t subbuf_index, uint32_t begin_x, uint32_t begin_y, uint32_t w, uint32_t h);
+	void set_mainbuffer_rgb(uint32_t i, vec3 rgb);
+	void set_subbuffer_rgb(uint32_t buf_i, uint32_t i, vec3 rgb);
 
 	// vulkan
 	Texture2D* window_surface = nullptr;

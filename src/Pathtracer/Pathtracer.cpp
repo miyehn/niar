@@ -81,13 +81,8 @@ Pathtracer::Pathtracer(
 	bool _has_window
 	) {
 
-	if (Cfg.Pathtracer.SmallWindow) {
-		width = _width / 2;
-		height = _height / 2;
-	} else {
-		width = _width;
-		height = _height;
-	}
+	width = _width;
+	height = _height;
 
 	initialized = false;
 	enabled = false;
@@ -103,7 +98,7 @@ Pathtracer::~Pathtracer() {
 		delete debugLines;
 	}
 	delete image_buffer;
-	for (size_t i=0; i<num_threads; i++) {
+	for (uint32_t i=0; i<cached_config.NumThreads; i++) {
 		delete subimage_buffers[i];
 		// TODO: cleanup the threads in a more elegant way instead of being forced terminated?
 	}
@@ -120,14 +115,37 @@ Pathtracer::~Pathtracer() {
 	}
 	BSDFs.clear();
 
+	delete config;
+
 	TRACE("deleted pathtracer");
 }
 
 void Pathtracer::initialize() {
 	TRACE("initializing pathtracer");
 
-	num_threads = Cfg.Pathtracer.NumThreads;
-	tile_size = Cfg.Pathtracer.TileSize;
+	config = new ConfigFile("config/pathtracer.ini", [this](const ConfigFile* cfg) {
+		cached_config.ISPC = cfg->lookup<int>("ISPC");
+		cached_config.UseBVH = cfg->lookup<int>("UseBVH");
+
+		cached_config.NumThreads = cfg->lookup<int>("NumThreads");
+		cached_config.TileSize = cfg->lookup<int>("TileSize");
+
+		cached_config.UseDirectLight = cfg->lookup<int>("UseDirectLight");
+		cached_config.AreaLightSamples = cfg->lookup<int>("AreaLightSamples");
+
+		cached_config.UseJitteredSampling = cfg->lookup<int>("UseJitteredSampling");
+		cached_config.UseDOF = cfg->lookup<int>("UseDOF");
+		cached_config.FocalDistance = cfg->lookup<float>("FocalDistance");
+		cached_config.ApertureRadius = cfg->lookup<float>("ApertureRadius");
+
+		cached_config.MaxRayDepth = cfg->lookup<int>("MaxRayDepth");
+		cached_config.RussianRouletteThreshold = cfg->lookup<float>("RussianRouletteThreshold");
+
+		cached_config.MinRaysPerPixel = cfg->lookup<int>("MinRaysPerPixel");
+	});
+
+	uint32_t tile_size = cached_config.TileSize;
+	uint32_t num_threads = cached_config.NumThreads;
 
 	tiles_X = std::ceil(float(width) / tile_size);
 	tiles_Y = std::ceil(float(height) / tile_size);
@@ -141,7 +159,6 @@ void Pathtracer::initialize() {
 	//-------- load scene --------
 	
 	bvh = nullptr;
-	use_bvh = true;
 	if (drawable) load_scene(drawable);
 	else WARN("Pathtracer scene not loaded - no active scene");
 
@@ -174,7 +191,7 @@ void Pathtracer::initialize() {
 
 		debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
 
-		if (Cfg.Pathtracer.Multithreaded) {
+		if (cached_config.Multithreaded) {
 			//------------- threading ---------------
 			// define work for raytrace threads
 			raytrace_task = [this](int tid) {
@@ -185,7 +202,7 @@ void Pathtracer::initialize() {
 					threads[tid]->cv.wait(lock, [this, tid]{ return threads[tid]->status == RaytraceThread::ready_for_next; });
 
 					// it now owns the lock, and main thread messaged it's okay to start tracing
-					size_t tile;
+					uint32_t tile;
 					// try to get next tile to work on
 					if (raytrace_tasks.dequeue(tile)) {
 						threads[tid]->status = RaytraceThread::working;
@@ -199,7 +216,7 @@ void Pathtracer::initialize() {
 				}
 			};
 
-			for (size_t i=0; i<num_threads; i++) {
+			for (uint32_t i=0; i<num_threads; i++) {
 				threads.push_back(new RaytraceThread(raytrace_task, i));
 			}
 			//------------------------------------
@@ -226,12 +243,12 @@ bool Pathtracer::handle_event(SDL_Event event) {
 		const uint8* state = SDL_GetKeyboardState(nullptr);
 
 		if (state[SDL_SCANCODE_LSHIFT]) {
-			size_t pixel_index = (height-y) * width + x;
+			uint32_t pixel_index = (height-y) * width + x;
 			raytrace_debug(pixel_index);
 
 		} else if (state[SDL_SCANCODE_LALT]) {
 			float d = depth_of_first_hit(x, height-y);
-			Cfg.Pathtracer.FocalDistance->set(d);
+			cached_config.FocalDistance = d;
 			TRACE("setting focal distance to %f", d);
 		}
 		return true;
@@ -339,8 +356,7 @@ void Pathtracer::pause_trace() {
 void Pathtracer::continue_trace() {
 	TRACE("continue trace");
 	last_begin_time = std::chrono::high_resolution_clock::now();
-	use_bvh = Cfg.Pathtracer.UseBVH->get();
-	if (Cfg.Pathtracer.ISPC) {
+	if (cached_config.ISPC) {
 		load_ispc_data();
 	}
 	paused = false;
@@ -349,21 +365,21 @@ void Pathtracer::continue_trace() {
 void Pathtracer::reset() {
 	TRACE("reset pathtracer");
 	
-	if (Cfg.Pathtracer.Multithreaded) {
+	if (cached_config.Multithreaded) {
 		//-------- threading stuff --------
 		if (finished) {
 			threads.clear();
-			for (size_t i=0; i<num_threads; i++) {
+			for (uint32_t i=0; i<cached_config.NumThreads; i++) {
 				threads.push_back(new RaytraceThread(raytrace_task, i));
 			}
 		}
 		raytrace_tasks.clear();
 		// reset thread status
-		for (size_t i=0; i < threads.size(); i++) {
+		for (uint32_t i=0; i < threads.size(); i++) {
 			threads[i]->status = RaytraceThread::uninitialized;
 		}
 		// enqueue all tiles
-		for (size_t i=0; i < tiles_X * tiles_Y; i++) {
+		for (uint32_t i=0; i < tiles_X * tiles_Y; i++) {
 			raytrace_tasks.enqueue(i);
 		}
 		//---------------------------------
@@ -379,7 +395,7 @@ void Pathtracer::reset() {
 	if (has_window) upload_rows(0, height);
 }
 
-void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
+void Pathtracer::set_mainbuffer_rgb(uint32_t i, vec3 rgb) {
 	uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
 	image_buffer[pixel_size * i] = char(rgb.r * 255.0f);
 	image_buffer[pixel_size * i + 1] = char(rgb.g * 255.0f);
@@ -387,7 +403,7 @@ void Pathtracer::set_mainbuffer_rgb(size_t i, vec3 rgb) {
 	image_buffer[pixel_size * i + 3] = 255;
 }
 
-void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
+void Pathtracer::set_subbuffer_rgb(uint32_t buf_i, uint32_t i, vec3 rgb) {
 	uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
 	unsigned char* buf = subimage_buffers[buf_i];
 	buf[pixel_size * i] = char(rgb.r * 255.0f);
@@ -396,7 +412,7 @@ void Pathtracer::set_subbuffer_rgb(size_t buf_i, size_t i, vec3 rgb) {
 	buf[pixel_size * i + 3] = 255;
 }
 
-void Pathtracer::upload_rows(int32_t begin, int32_t rows)
+void Pathtracer::upload_rows(uint32_t begin, uint32_t rows)
 {
 	uint32_t subimage_offset = width * begin * NUM_CHANNELS * SIZE_PER_CHANNEL;
 	uint8_t* data = image_buffer + subimage_offset;
@@ -412,7 +428,7 @@ void Pathtracer::upload_rows(int32_t begin, int32_t rows)
 	TRACE("refresh! updated %d rows, %d%% done.", rows, percentage);
 }
 
-void Pathtracer::upload_tile(size_t subbuf_index, int32_t begin_x, int32_t begin_y, int32_t w, int32_t h)
+void Pathtracer::upload_tile(uint32_t subbuf_index, uint32_t begin_x, uint32_t begin_y, uint32_t w, uint32_t h)
 {
 	unsigned char* buffer = subimage_buffers[subbuf_index];
 	vk::uploadPixelsToImage(
@@ -424,15 +440,16 @@ void Pathtracer::upload_tile(size_t subbuf_index, int32_t begin_x, int32_t begin
 	);
 }
 
-void Pathtracer::upload_tile(size_t subbuf_index, size_t tile_index) {
-	size_t X = tile_index % tiles_X;
-	size_t Y = tile_index / tiles_X;
+void Pathtracer::upload_tile(uint32_t subbuf_index, uint32_t tile_index) {
+	uint32_t X = tile_index % tiles_X;
+	uint32_t Y = tile_index / tiles_X;
+	uint32_t tile_size = cached_config.TileSize;
 
-	size_t tile_w = std::min(tile_size, width - X * tile_size);
-	size_t tile_h = std::min(tile_size, height - Y * tile_size);
+	uint32_t tile_w = std::min(tile_size, width - X * tile_size);
+	uint32_t tile_h = std::min(tile_size, height - Y * tile_size);
 
-	size_t x_offset = X * tile_size;
-	size_t y_offset = Y * tile_size;
+	uint32_t x_offset = X * tile_size;
+	uint32_t y_offset = Y * tile_size;
 	
 	upload_tile(subbuf_index, x_offset, y_offset, tile_w, tile_h);
 }
@@ -442,17 +459,19 @@ vec3 gamma_correct(vec3 in) {
 	return pow(in, gamma);
 }
 
-void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
-	size_t X = tile_index % tiles_X;
-	size_t Y = tile_index / tiles_X;
+void Pathtracer::raytrace_tile(uint32_t tid, uint32_t tile_index) {
+	uint32_t X = tile_index % tiles_X;
+	uint32_t Y = tile_index / tiles_X;
 
-	size_t tile_w = std::min(tile_size, width - X * tile_size);
-	size_t tile_h = std::min(tile_size, height - Y * tile_size);
+	uint32_t tile_size = cached_config.TileSize;
 
-	size_t x_offset = X * tile_size;
-	size_t y_offset = Y * tile_size;
+	uint32_t tile_w = std::min(tile_size, width - X * tile_size);
+	uint32_t tile_h = std::min(tile_size, height - Y * tile_size);
 
-	if (Cfg.Pathtracer.ISPC)
+	uint32_t x_offset = X * tile_size;
+	uint32_t y_offset = Y * tile_size;
+
+	if (cached_config.ISPC)
 	{
 		// dispatch task to ispc
 		ispc::raytrace_scene_ispc(
@@ -485,15 +504,15 @@ void Pathtracer::raytrace_tile(size_t tid, size_t tile_index) {
 	}
 	else
 	{
-		for (size_t y = 0; y < tile_h; y++) {
-			for (size_t x = 0; x < tile_w; x++) {
+		for (uint32_t y = 0; y < tile_h; y++) {
+			for (uint32_t x = 0; x < tile_w; x++) {
 
-				size_t px_index_main = width * (y_offset + y) + (x_offset + x);
+				uint32_t px_index_main = width * (y_offset + y) + (x_offset + x);
 				vec3 color = raytrace_pixel(px_index_main);
 				if (!has_window) color = gamma_correct(color);
 				set_mainbuffer_rgb(px_index_main, color);
 
-				size_t px_index_sub = y * tile_w + x;
+				uint32_t px_index_sub = y * tile_w + x;
 				set_subbuffer_rgb(tid, px_index_sub, color);
 
 			}
@@ -617,24 +636,24 @@ void Pathtracer::load_ispc_data() {
 	// and the rest of the inputs
 	ispc_data->width = width;
 	ispc_data->height = height;
-	ispc_data->tile_size = tile_size;
-	ispc_data->num_threads = Cfg.Pathtracer.Multithreaded ? Cfg.Pathtracer.NumThreads : 1;
-	ispc_data->max_ray_depth = Cfg.Pathtracer.MaxRayDepth;
-	ispc_data->rr_threshold = Cfg.Pathtracer.RussianRouletteThreshold;
-	ispc_data->use_direct_light = Cfg.Pathtracer.UseDirectLight;
-	ispc_data->area_light_samples = Cfg.Pathtracer.AreaLightSamples;
+	ispc_data->tile_size = cached_config.TileSize;
+	ispc_data->num_threads = cached_config.Multithreaded ? cached_config.NumThreads : 1;
+	ispc_data->max_ray_depth = cached_config.MaxRayDepth;
+	ispc_data->rr_threshold = cached_config.RussianRouletteThreshold;
+	ispc_data->use_direct_light = cached_config.UseDirectLight;
+	ispc_data->area_light_samples = cached_config.AreaLightSamples;
 	ispc_data->bvh_stack_size = (1 + max_depth) * 2;
-	ispc_data->use_bvh = Cfg.Pathtracer.UseBVH->get();
-	ispc_data->use_dof = Cfg.Pathtracer.UseDOF->get();
-	ispc_data->focal_distance = Cfg.Pathtracer.FocalDistance->get();
-	ispc_data->aperture_radius = Cfg.Pathtracer.ApertureRadius->get();
+	ispc_data->use_bvh = cached_config.UseBVH;
+	ispc_data->use_dof = cached_config.UseDOF;
+	ispc_data->focal_distance = cached_config.FocalDistance;
+	ispc_data->aperture_radius = cached_config.ApertureRadius;
 
 	TRACE("reloaded ISPC data");
 }
 
 void Pathtracer::raytrace_scene_to_buf() {
 
-	if (Cfg.Pathtracer.ISPC)
+	if (cached_config.ISPC)
 	{
 		load_ispc_data();
 		LOG("ispc max depth: %u", ispc_data->bvh_stack_size);
@@ -670,11 +689,10 @@ void Pathtracer::raytrace_scene_to_buf() {
 	}
 	else
 	{
-		use_bvh = Cfg.Pathtracer.UseBVH->get();
-		if (Cfg.Pathtracer.Multithreaded)
+		if (cached_config.Multithreaded)
 		{
 			myn::ThreadSafeQueue<uint> tasks;
-			uint task_size = tile_size * tile_size;
+			uint task_size = cached_config.TileSize * cached_config.TileSize;
 			uint image_size = width * height;
 			for (uint i = 0; i < image_size; i += task_size) {
 				tasks.enqueue(i);
@@ -695,21 +713,21 @@ void Pathtracer::raytrace_scene_to_buf() {
 			LOG("enqueued %zu tasks", tasks.size());
 			// create the threads and execute
 			std::vector<std::thread> threads_tmp;
-			for (uint tid = 0; tid < num_threads; tid++) {
-				threads_tmp.push_back(std::thread(raytrace_task, tid));
+			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
+				threads_tmp.emplace_back(raytrace_task, tid);
 			}
-			LOG("created %zu threads", num_threads);
-			for (uint tid = 0; tid < num_threads; tid++) {
+			LOG("created %d threads", cached_config.NumThreads);
+			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
 				threads_tmp[tid].join();
 			}
 			LOG("joined threads");
 		}
 		else
 		{
-			for (size_t y = 0; y < height; y++) {
-				for (size_t x = 0; x < width; x++) {
+			for (uint32_t y = 0; y < height; y++) {
+				for (uint32_t x = 0; x < width; x++) {
 
-					size_t px_index = width * y + x;
+					uint32_t px_index = width * y + x;
 					vec3 color = raytrace_pixel(px_index);
 					set_mainbuffer_rgb(px_index, color);
 
@@ -755,13 +773,13 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 	if (!initialized) initialize();
 
 	// update
-	if (Cfg.Pathtracer.Multithreaded && !Cfg.Pathtracer.ISPC) // multithreaded c++
+	if (cached_config.Multithreaded && !cached_config.ISPC) // multithreaded c++
 	{
 		if (!finished) {
 			int uploaded_threads = 0;
 			int finished_threads = 0;
 
-			for (size_t i=0; i<threads.size(); i++) {
+			for (uint32_t i=0; i<threads.size(); i++) {
 
 				if (threads[i]->status == RaytraceThread::all_done) {
 					finished_threads++;
@@ -909,7 +927,7 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h, bool _has_window)
 void Pathtracer::draw_config_ui()
 {
 	// reset
-	bool reset_condition = paused;
+	bool reset_condition = paused && notified_pause_finish;
 	ImGui::BeginDisabled(!reset_condition);
 	if (ImGui::Button("clear buffer")) {
 		reset();

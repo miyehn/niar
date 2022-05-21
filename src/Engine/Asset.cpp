@@ -7,6 +7,17 @@
 #include <filesystem>
 #include <unordered_map>
 
+time_t get_file_clock_now() {
+#ifdef MACOS
+	auto epoch = std::chrono::file_clock::time_point();
+	auto now = std::chrono::file_clock::now();
+	return std::chrono::duration<time_t>(now - epoch).count();
+#else
+	auto tp = std::chrono::system_clock::now();
+	return std::chrono::system_clock::to_time_t(tp);
+#endif
+}
+
 time_t get_last_write_time(const std::string& path)
 {
 	auto file_time = std::filesystem::last_write_time(path);
@@ -38,7 +49,7 @@ void Asset::reload()
 	if (last_load_time < last_write_time) {
 		LOG("loading %s", path.c_str())
 		load_action();
-		last_load_time = last_write_time;
+		last_load_time = get_file_clock_now();
 	}
 }
 

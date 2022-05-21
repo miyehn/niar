@@ -3,9 +3,9 @@
 
 void Pathtracer::generate_pixel_offsets() {
 	pixel_offsets.clear();
-	uint32_t sqk = std::ceil(sqrt(Cfg.Pathtracer.MinRaysPerPixel->get()));
+	uint32_t sqk = std::ceil(sqrt(cached_config.MinRaysPerPixel));
 	uint32_t num_offsets = pow(sqk, 2);
-	TRACE("generating %lu pixel offsets", num_offsets);
+	TRACE("generating %u pixel offsets", num_offsets);
 	
 	// canonical arrangement
 	for (int j=0; j<sqk; j++) {
@@ -36,11 +36,11 @@ void Pathtracer::generate_pixel_offsets() {
 
 }
 
-void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
+void Pathtracer::generate_rays(std::vector<RayTask>& tasks, uint32_t index) {
 	tasks.clear();
 
-	size_t w = index % width;
-	size_t h = height - index / width;
+	uint32_t w = index % width;
+	uint32_t h = height - index / width;
 	float fov = camera->fov;
 	float half_width = float(width) / 2.0f;
 	float half_height = float(height) / 2.0f;
@@ -50,8 +50,8 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 
 	RayTask task;
 	Ray& ray = task.ray;
-	bool jittered = Cfg.Pathtracer.UseJitteredSampling;
-	for (int i = 0; i < (jittered ? pixel_offsets.size() : Cfg.Pathtracer.MinRaysPerPixel->get()); i++) {
+	bool jittered = cached_config.UseJitteredSampling;
+	for (int i = 0; i < (jittered ? pixel_offsets.size() : cached_config.MinRaysPerPixel); i++) {
 		vec2 offset = jittered ? pixel_offsets[i] : sample::unit_square_uniform();
 
 		ray.o = camera->world_position();
@@ -66,10 +66,10 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 		vec3 d_unnormalized_w = mat3(camera->object_to_world()) * d_unnormalized_c;
 		ray.d = normalize(d_unnormalized_w);
 
-		if (Cfg.Pathtracer.UseDOF->get()) {
-			vec3 focal_p = ray.o + Cfg.Pathtracer.FocalDistance->get() * d_unnormalized_w;
+		if (cached_config.UseDOF) {
+			vec3 focal_p = ray.o + cached_config.FocalDistance * d_unnormalized_w;
 
-			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * Cfg.Pathtracer.ApertureRadius->get(), 0);
+			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * cached_config.ApertureRadius, 0);
 			vec3 aperture_shift_world = mat3(camera->object_to_world()) * aperture_shift_cam;
 			ray.o = camera->world_position() + aperture_shift_world;
 			ray.d = normalize(focal_p - ray.o);
@@ -79,12 +79,12 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, size_t index) {
 	}
 }
 
-vec3 Pathtracer::raytrace_pixel(size_t index) {
+vec3 Pathtracer::raytrace_pixel(uint32_t index) {
 	std::vector<RayTask> tasks;
 	generate_rays(tasks, index);
 
 	vec3 result = vec3(0);
-	for (size_t i = 0; i < tasks.size(); i++) {
+	for (uint32_t i = 0; i < tasks.size(); i++) {
 		trace_ray(tasks[i], 0, false);
 		result += clamp(tasks[i].output, vec3(0), vec3(1));
 	}
@@ -94,7 +94,7 @@ vec3 Pathtracer::raytrace_pixel(size_t index) {
 }
 
 // DEBUG ONLY!!!
-void Pathtracer::raytrace_debug(size_t index) {
+void Pathtracer::raytrace_debug(uint32_t index) {
 	logged_rays.clear();
 	logged_rays.push_back(camera->world_position());
 
@@ -153,7 +153,7 @@ float Pathtracer::depth_of_first_hit(int x, int y) {
 	
 	// info of closest hit
 	double t; vec3 n;
-	bvh->intersect_primitives(task.ray, t, n, use_bvh);
+	bvh->intersect_primitives(task.ray, t, n, cached_config.UseBVH);
 
 	t *= dot(task.ray.d, camera->forward());
 
@@ -177,13 +177,13 @@ inline float brightness(const vec3& color) {
 }
 
 void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
-	if (ray_depth >= Cfg.Pathtracer.MaxRayDepth) return;
+	if (ray_depth >= cached_config.MaxRayDepth) return;
 
 	Ray& ray = task.ray;
 
 	// info of closest hit
 	double t; vec3 n;
-	Primitive* primitive = bvh->intersect_primitives(ray, t, n, use_bvh);
+	Primitive* primitive = bvh->intersect_primitives(ray, t, n, cached_config.UseBVH);
 
 	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
 
@@ -205,7 +205,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		float costhetai; // some variation of dot(wi_world, n)
 
 		//---- emission ----
-		if (Cfg.Pathtracer.UseDirectLight) {
+		if (cached_config.UseDirectLight) {
 			// totally a hack...
 			if (ray_depth == 0 || ray.receive_le || !bsdf->is_emissive) L += bsdf->get_emission();
 		} else {
@@ -213,17 +213,17 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		}
 
 
-		if (Cfg.Pathtracer.UseDirectLight) {
+		if (cached_config.UseDirectLight) {
 			//---- direct light contribution ----
 			if (!bsdf->is_delta) {
-				for (size_t i = 0; i < lights.size(); i++) {
+				for (uint32_t i = 0; i < lights.size(); i++) {
 
 					// Mesh lights
 					if (lights[i]->type == PathtracerLight::AreaLight)
 					{
 						AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
-						float each_sample_weight = 1.0f / Cfg.Pathtracer.AreaLightSamples;
-						for (size_t j = 0; j < Cfg.Pathtracer.AreaLightSamples; j++) {
+						float each_sample_weight = 1.0f / cached_config.AreaLightSamples;
+						for (uint32_t j = 0; j < cached_config.AreaLightSamples; j++) {
 
 							// get ray to light
 							Ray ray_to_light;
@@ -232,7 +232,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 
 							// test if ray to light hits anything other than the starting primitive and the light
 							double tmp_t; vec3 tmp_n;
-							bool in_shadow = bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, use_bvh) != nullptr;
+							bool in_shadow = bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
 
 							// add contribution
 							if (!in_shadow) {
@@ -258,8 +258,8 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 
 #if 1 // indirect lighting (recursive)
 
-		if ((Cfg.Pathtracer.UseDirectLight && !bsdf->is_emissive) ||
-			 !(Cfg.Pathtracer.UseDirectLight)) {
+		if ((cached_config.UseDirectLight && !bsdf->is_emissive) ||
+			 !(cached_config.UseDirectLight)) {
 			if (debug) {
 				LOG("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
 			}
@@ -281,9 +281,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			// russian roulette
 			float termination_prob = 0.0f;
 			ray.rr_contribution *= brightness(f) * costhetai;
-			if (ray.rr_contribution < Cfg.Pathtracer.RussianRouletteThreshold) {
-				termination_prob = (Cfg.Pathtracer.RussianRouletteThreshold - ray.rr_contribution) 
-					/ Cfg.Pathtracer.RussianRouletteThreshold;
+			if (ray.rr_contribution < cached_config.RussianRouletteThreshold) {
+				termination_prob = (cached_config.RussianRouletteThreshold - ray.rr_contribution)
+					/ cached_config.RussianRouletteThreshold;
 			}
 			bool terminate = sample::rand01() < termination_prob;
 
@@ -292,7 +292,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			if (!terminate) {
 				vec3 refl_offset = wi_hemi.z > 0 ? EPSILON * n : -EPSILON * n;
 				Ray ray_refl(hit_p + refl_offset, wi_world); // alright I give up fighting epsilon for now...
-				if (Cfg.Pathtracer.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
+				if (cached_config.UseDirectLight && bsdf->is_delta) ray_refl.receive_le = true;
 				task.ray = ray_refl;
 				task.contribution *= f * costhetai / pdf * (1.0f / (1.0f - termination_prob));
 				// if it has some termination probability, weigh it more if it's not terminated

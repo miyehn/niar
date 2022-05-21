@@ -87,7 +87,6 @@ static void init()
 
 	LOG("loading resources (vulkan)...");
 	Texture2D::createDefaultTextures();
-	initialize_pathtracer_config();
 
 #if 0
 	Scene* gltf = new Scene("Test stage");
