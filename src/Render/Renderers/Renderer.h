@@ -15,6 +15,8 @@ public:
 	SceneObject* drawable = nullptr;
 	Camera* camera = nullptr;
 
+	bool prevent_scene_reload = false;
+
 	virtual void on_selected() {}
 	virtual void on_unselected() {}
 

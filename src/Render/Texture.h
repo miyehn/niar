@@ -11,9 +11,7 @@ struct ImageFormat {
 };
 
 /*
- * CAUTION: textures are either pooled or managed by other objects.
- * pooled textures are cleaned up at the end
- * but other ones (like render targets) need to be cleaned up manually
+ * Pooled textures: textures loaded from file / gltf asset;
  */
 class Texture
 {
@@ -34,13 +32,13 @@ public:
 	VkImageView imageView;
 	VkFormat imageFormat;
 
-	// load from file
+	// load from file (POOLED)
 	explicit Texture2D(
 		const std::string &name,
 		const std::string &path,
 		ImageFormat textureFormat={4,8,1});
 
-	// create with code but provide pixel data (ie. gltf)
+	// create with code but provide pixel data (ie. gltf) (POOLED)
 	explicit Texture2D(
 		const std::string &name,
 		uint8_t* data,
@@ -49,12 +47,12 @@ public:
 		ImageFormat format
 		);
 
-	// allocate programmatically; NOT POOLED
+	// allocate programmatically (NOT POOLED)
 	explicit Texture2D(ImageCreator &imageCreator);
 
 	~Texture2D() override;
 
-	static void createDefaultTextures();
+	static void createDefaultTextures(); // (POOLED)
 
 protected:
 	uint32_t width;

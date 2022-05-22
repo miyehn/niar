@@ -9,6 +9,7 @@ class DebugLines;
 class DeferredLighting;
 class Material;
 class PostProcessing;
+class GltfMaterial;
 
 class DeferredRenderer : public Renderer
 {
@@ -78,5 +79,8 @@ private:
 
 	void updateViewInfoUbo();
 
-	static Material* getOrCreateMeshMaterial(const std::string& materialName);
+	// mesh materials
+
+	std::unordered_map<std::string, GltfMaterial*> materials;
+	Material* getOrCreateMeshMaterial(const std::string& materialName);
 };

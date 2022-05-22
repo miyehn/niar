@@ -49,6 +49,9 @@ struct BSDF {
 	virtual glm::vec3 f(const glm::vec3& wi, const glm::vec3& wo, bool debug = false) const = 0;
 	virtual glm::vec3 sample_f(float& pdf, glm::vec3& wi, glm::vec3 wo, bool debug = false) const = 0;
 
+	// asset management
+	uint32_t asset_version = 0;
+
 protected:
 	// emission
 	glm::vec3 Le;

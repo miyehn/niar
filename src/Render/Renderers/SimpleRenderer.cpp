@@ -10,11 +10,6 @@
 #include "Render/Texture.h"
 #include "Render/DebugDraw.h"
 
-namespace
-{
-static std::unordered_map<std::string, GltfMaterial*> materials;
-}
-
 SimpleRenderer::SimpleRenderer()
 {
 	renderExtent = Vulkan::Instance->swapChainExtent;
@@ -139,6 +134,7 @@ SimpleRenderer::~SimpleRenderer()
 	delete sceneColor;
 	delete sceneDepth;
 	delete debugLines;
+	for (const auto& p : materials) delete p.second;
 }
 
 SimpleRenderer *SimpleRenderer::get()
@@ -247,17 +243,34 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
 }
 
+/*
+ * find if this material is in the pool. If it is, and its version matches with info, just return.
+ * Otherwise need to create a new one:
+ *  - if material is not in the pool at all, just create it.
+ *  - if it IS in the pool but version doesn't match, the old one is obsolete and need to be cleaned up
+ *    and then create a new one from the up-to-date info
+ */
 Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialName)
 {
 	auto iter = materials.find(materialName);
-	if (iter != materials.end()) return iter->second;
-
-	// not found; create a new one
 	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
 	EXPECT(info != nullptr, true)
+
+	if (iter != materials.end()) {
+		auto pooled_mat = iter->second;
+		if (pooled_mat->getVersion() == info->_version) {
+			// up to date; just return it
+			return pooled_mat;
+		}
+		else {
+			// pooled material is obsolete; delete it.
+			delete pooled_mat;
+		}
+	}
+
+	// create a new one
 	auto newMaterial = new SimpleGltfMaterial(*info);
 	materials[newMaterial->name] = newMaterial;
-	Vulkan::Instance->destructionQueue.emplace_back([newMaterial](){ delete newMaterial; });
 
 	return newMaterial;
 }

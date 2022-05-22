@@ -161,13 +161,19 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 }
 }
 
-GltfAsset::GltfAsset(SceneObject* outer_root, const std::string &relative_path, const std::function<void()> &loadAction)
+GltfAsset::GltfAsset(
+	SceneObject* outer_root,
+	const std::string &relative_path,
+	const std::function<bool()> &reload_condition)
 : Asset(relative_path,nullptr)
 {
-	load_action = [this, outer_root, relative_path, loadAction]() {
+	load_action = [this, outer_root, relative_path, reload_condition]() {
 
 		// cleanup first, if necessary
 		outer_root->try_remove_child(asset_root);
+		Vulkan::Instance->waitDeviceIdle();
+		release_resources();
+		delete asset_root;
 
 		tinygltf::Model model;
 		tinygltf::TinyGLTF loader;
@@ -186,8 +192,7 @@ GltfAsset::GltfAsset(SceneObject* outer_root, const std::string &relative_path, 
 
 		// image (texture), material
 
-		struct ImageInfo
-		{
+		struct ImageInfo {
 			ImageFormat format;
 			Texture2D* texture;
 		};
@@ -214,11 +219,13 @@ GltfAsset::GltfAsset(SceneObject* outer_root, const std::string &relative_path, 
 		for (int i = 0; i < model.images.size(); i++)
 		{
 			auto& img = model.images[i];
-			image_infos[i].texture = new Texture2D(
+			auto tex = new Texture2D(
 				img.name,
 				img.image.data(),
 				img.width, img.height,
 				image_infos[i].format);
+			image_infos[i].texture = tex;
+			asset_textures.push_back(tex);
 		}
 
 		// materials
@@ -258,6 +265,7 @@ GltfAsset::GltfAsset(SceneObject* outer_root, const std::string &relative_path, 
 			glm::vec4 emissiveFactor = glm::vec4(em[0], em[1], em[2], 1);
 
 			GltfMaterialInfo info = {
+				._version = 0,
 				.name = mat.name,
 				.albedoTexName = albedo,
 				.normalTexName = normal,
@@ -271,7 +279,6 @@ GltfAsset::GltfAsset(SceneObject* outer_root, const std::string &relative_path, 
 		}
 
 		//====================
-
 
 		// camera, mesh
 		auto tree = loadSceneTree(model.nodes);
@@ -371,5 +378,15 @@ GltfAsset::GltfAsset(SceneObject* outer_root, const std::string &relative_path, 
 
 		delete tree;
 	};
+	this->reload_condition = reload_condition;
+
 	reload();
+}
+
+void GltfAsset::release_resources()
+{
+	for (auto tex : asset_textures) {
+		delete tex;
+	}
+	asset_textures.clear();
 }

@@ -105,7 +105,9 @@ static void init()
 	renderer = rtRenderer;
 #else
 	Scene* gltf = new Scene("SceneSource");
-	new GltfAsset(gltf, Config->lookup<std::string>("SceneSource"));
+	new GltfAsset(gltf, Config->lookup<std::string>("SceneSource"), [](){
+		return renderer_index != e_renderer::pathtracer;
+	});
 	gltf->add_child(new PathtracerController());
 	Scene::Active = gltf;
 #endif
@@ -185,6 +187,12 @@ static bool process_input()
 		else if (event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_FOCUS_GAINED) {
 			if (Config->lookup<int>("Debug.AutoHotReload")) {
 				reloadAllAssets();
+
+				// find a camera and set it active
+				Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
+					auto cam = dynamic_cast<Camera*>(obj);
+					if (cam) Camera::Active = cam;
+				});
 			}
 		}
 
@@ -262,6 +270,8 @@ static void cleanup()
 	for (auto renderer : renderers) {
 		delete renderer;
 	}
+
+	releaseAllAssets();
 
 	delete Scene::Active;
 	delete Vulkan::Instance;

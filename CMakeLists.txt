@@ -65,7 +65,6 @@ set(SRC
 	src/Engine/DebugUI.cpp
 	src/Engine/DebugUI.h
 	src/Utils/myn/RenderDoc.cpp
-	src/Scene/Scene_LoadGltf.cpp
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/DebugDraw.cpp
 	src/Render/Materials/Rise.cpp

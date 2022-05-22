@@ -36,5 +36,4 @@ protected:
 
 	// materials with dynamic uniform buffers should implement this
 	virtual void resetInstanceCounter() {}
-
 };

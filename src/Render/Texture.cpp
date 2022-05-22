@@ -7,17 +7,16 @@
 std::unordered_map<std::string, Texture *>& texturePool()
 {
 	static std::unordered_map<std::string, Texture *> pool;
+	/*
 	static bool firstEntrance = true;
-	if (firstEntrance)
-	{
+	if (firstEntrance) {
 		Vulkan::Instance->destructionQueue.emplace_back([](){
 			for (auto &tex : pool)
-			{
 				delete tex.second;
-			}
 		});
 		firstEntrance = false;
 	}
+	 */
 	return pool;
 }
 
@@ -26,11 +25,8 @@ Texture *Texture::get(const std::string &path)
 	auto it = texturePool().find(path);
 	if (it != texturePool().end()) return (*it).second;
 
-	WARN("retrieving texture '%s' before it is added to the pool. Trying to load from file with default settings (SRGB)..",
-		 path.c_str())
-	auto new_texture = new Texture2D(path, path);
-	texturePool()[path] = new_texture;
-	return new_texture;
+	WARN("retrieving texture '%s' before it is added to the pool. Returning black dummy..", path.c_str())
+	return texturePool().find("_black")->second;
 }
 
 Texture::~Texture()
@@ -156,6 +152,8 @@ void Texture2D::createDefaultTextures()
 		return;
 	}
 
+	std::vector<Texture2D*> global_textures;
+
 	auto* whiteTexture = new Texture2D();
 	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	whiteTexture->num_slices = 1;
@@ -170,6 +168,7 @@ void Texture2D::createDefaultTextures()
 		whiteTexture->resource,
 		whiteTexture->imageView);
 	texturePool()["_white"] = whiteTexture;
+	global_textures.push_back(whiteTexture);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, whiteTexture->resource.image, "_white")
 
 	auto* blackTexture = new Texture2D();
@@ -186,6 +185,7 @@ void Texture2D::createDefaultTextures()
 		blackTexture->resource,
 		blackTexture->imageView);
 	texturePool()["_black"] = blackTexture;
+	global_textures.push_back(blackTexture);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, blackTexture->resource.image, "_black")
 
 	auto* defaultNormal = new Texture2D();
@@ -202,7 +202,13 @@ void Texture2D::createDefaultTextures()
 		defaultNormal->resource,
 		defaultNormal->imageView);
 	texturePool()["_defaultNormal"] = defaultNormal;
+	global_textures.push_back(defaultNormal);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
+
+	Vulkan::Instance->destructionQueue.emplace_back([global_textures](){
+		for (auto tex : global_textures)
+			delete tex;
+	});
 }
 
 Texture2D::Texture2D(ImageCreator &imageCreator)

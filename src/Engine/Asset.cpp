@@ -4,6 +4,7 @@
 
 #include "Asset.h"
 #include "Utils/myn/Log.h"
+#include "GltfAsset.h"
 #include <filesystem>
 #include <unordered_map>
 
@@ -46,23 +47,43 @@ Asset::Asset(const std::string &_path, const std::function<void()> &_load_action
 {
 	relative_path = _path;
 	load_action = _load_action;
+	reload_condition = [](){ return true; };
 	assets_pool[relative_path] = this;
 	if (load_action) reload();
 }
 
-void Asset::reload()
-{
+void Asset::reload() {
 	time_t last_write_time = get_last_write_time(ROOT_DIR"/" + relative_path);
 	if (last_load_time < last_write_time) {
 		LOG("loading asset %s", relative_path.c_str())
-		load_action();
-		last_load_time = get_file_clock_now();
+		if (reload_condition()) {
+			load_action();
+			last_load_time = get_file_clock_now();
+		} else {
+			WARN("'%s' was edited but reloaded: condition not met", relative_path.c_str())
+		}
 	}
+}
+
+Asset::~Asset() {
+	assets_pool.erase(relative_path);
 }
 
 void reloadAllAssets()
 {
 	for (auto& p : assets_pool) {
 		p.second->reload();
+	}
+}
+
+void releaseAllAssets()
+{
+	for (const auto& pair : assets_pool) {
+		auto asset = pair.second;
+		if (asset) {
+			if (auto* gltf = dynamic_cast<GltfAsset*>(pair.second)) {
+				gltf->release_resources();
+			}
+		}
 	}
 }

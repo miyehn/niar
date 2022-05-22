@@ -6,7 +6,6 @@
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
-#include "Engine/DebugUI.h"
 #include <imgui.h>
 
 #define GPOSITION_ATTACHMENT 0
@@ -15,11 +14,6 @@
 #define GMETALLICROUGHNESSAO_ATTACHMENT 3
 #define SCENECOLOR_ATTACHMENT 4
 #define SCENEDEPTH_ATTACHMENT 5
-
-namespace
-{
-static std::unordered_map<std::string, GltfMaterial*> materials;
-}
 
 class PostProcessing : public Material
 {
@@ -569,6 +563,8 @@ DeferredRenderer::~DeferredRenderer()
 
 	delete debugPoints;
 	delete debugLines;
+
+	for (const auto& p : materials) delete p.second;
 }
 
 void DeferredRenderer::updateViewInfoUbo()
@@ -729,27 +725,41 @@ DeferredRenderer *DeferredRenderer::get()
 	return deferredRenderer;
 }
 
+/*
+ * find if this material is in the pool. If it is, and its version matches with info, just return.
+ * Otherwise need to create a new one:
+ *  - if material is not in the pool at all, just create it.
+ *  - if it IS in the pool but version doesn't match, the old one is obsolete and need to be cleaned up
+ *    and then create a new one from the up-to-date info
+ */
 Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)
 {
 	auto iter = materials.find(materialName);
-	if (iter != materials.end()) return iter->second;
-
-	// not found; create a new one
 	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
 	EXPECT(info != nullptr, true)
+
+	if (iter != materials.end()) {
+		auto pooled_mat = iter->second;
+		if (pooled_mat->getVersion() == info->_version) {
+			// up to date
+			return pooled_mat;
+		} else {
+			// obsolete; delete and create a new one below
+			delete pooled_mat;
+		}
+	}
+
+	// create a new one
 	auto newMaterial = new PbrGltfMaterial(*info);
 	materials[newMaterial->name] = newMaterial;
-	Vulkan::Instance->destructionQueue.emplace_back([newMaterial](){ delete newMaterial; });
 
 	return newMaterial;
 }
 
 void DeferredRenderer::draw_config_ui() {
-	//ui::sliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f", "Deferred renderer");
 	ImGui::SliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f");
 	ImGui::Combo(
 		"tone mapping",
 		&ViewInfo.ToneMappingOption,
 		"Off\0Reinhard2\0ACES\0\0");
-	//ui::elem([this](){}, "Deferred renderer");
 }

@@ -90,10 +90,13 @@ private:
 	std::vector<PathtracerLight*> lights;
 	BVH* bvh = nullptr;
 	void load_scene(SceneObject *scene);
-	static BSDF* get_or_create_mesh_bsdf(const std::string& materialName);
 
 	ISPC_Data* ispc_data = nullptr;
 	void load_ispc_data();
+
+	// materials (bsdf)
+	std::unordered_map<std::string, BSDF*> BSDFs;
+	BSDF* get_or_create_mesh_bsdf(const std::string& materialName);
 
 	//---- pathtracing routine ----
 	

@@ -5,8 +5,9 @@ class Texture2D;
 
 namespace tinygltf { struct Material; }
 
-struct GltfMaterialInfo
-{
+// used for each renderer to create corresponding materials
+struct GltfMaterialInfo {
+	uint32_t _version;
 	std::string name;
 	std::string albedoTexName;
 	std::string normalTexName;
@@ -28,12 +29,17 @@ public:
 
 	void resetInstanceCounter() override;
 
-	static void addInfo(const GltfMaterialInfo& info);
+	static void addInfo(GltfMaterialInfo& info);
 	static GltfMaterialInfo* getInfo(const std::string& materialName);
+
+	uint32_t getVersion() { return _version; }
 
 protected:
 	explicit GltfMaterial(const GltfMaterialInfo& info);
 	DescriptorSet dynamicSet;
+
+	// used for checking if this gltf material is obsolete and need to be re-created
+	uint32_t _version = 0;
 
 private:
 

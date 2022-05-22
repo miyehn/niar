@@ -67,11 +67,6 @@ struct ISPC_Data
 	float aperture_radius;
 };
 
-namespace
-{
-static std::unordered_map<std::string, BSDF*> BSDFs;
-}
-
 Pathtracer::Pathtracer(
 	uint32_t _width,
 	uint32_t _height,
@@ -89,7 +84,6 @@ Pathtracer::Pathtracer(
 Pathtracer::~Pathtracer() {
 	if (!initialized) return;
 	clear_tasks_and_threads_begin();
-
 	clear_tasks_and_threads_wait();
 
 	if (has_window)
@@ -272,13 +266,22 @@ bool Pathtracer::handle_event(SDL_Event event) {
 BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 {
 	auto iter = BSDFs.find(materialName);
-	if (iter != BSDFs.end()) return iter->second;
-
-	// not found; create a new one
 	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
 	EXPECT(info != nullptr, true)
 
+	if (iter != BSDFs.end()) {
+		auto pooled_bsdf = iter->second;
+		if (pooled_bsdf->asset_version == info->_version) {
+			return pooled_bsdf;
+		} else {
+			delete pooled_bsdf;
+		}
+	}
+
+	// create a new one
+
 	auto bsdf = new Diffuse(info->BaseColorFactor);
+	bsdf->asset_version = info->_version;
 	bsdf->set_emission(info->EmissiveFactor);
 	BSDFs[info->name] = bsdf;
 	TRACE("created new BSDF (%f, %f, %f)", bsdf->albedo.r, bsdf->albedo.g, bsdf->albedo.b)

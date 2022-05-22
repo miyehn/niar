@@ -43,6 +43,7 @@ std::unordered_map<std::string, GltfMaterialInfo> gltfMaterialInfos;
 GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 {
 	this->name = info.name;
+	this->_version = info._version;
 	LOG("loading material '%s'..", name.c_str())
 	VkDeviceSize alignment = Vulkan::Instance->minUniformBufferOffsetAlignment;
 	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
@@ -88,12 +89,17 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 	}
 }
 
-void GltfMaterial::addInfo(const GltfMaterialInfo &info)
+/*
+ * info passed in has _version = 0, but should check if it collides with an already-pooled info
+ * if so, bump its version before putting into the pool.
+ */
+void GltfMaterial::addInfo(GltfMaterialInfo &info)
 {
 	auto iter = gltfMaterialInfos.find(info.name);
 	if (iter != gltfMaterialInfos.end())
-	{
-		WARN("Adding tinygltf material of duplicate name '%s'. Overriding..", info.name.c_str())
+	{// collided.
+		info._version = iter->second._version + 1;
+		LOG("Adding tinygltf material of duplicate name '%s'. bumping version..", info.name.c_str())
 	}
 	gltfMaterialInfos[info.name] = info;
 }
