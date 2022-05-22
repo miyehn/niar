@@ -187,6 +187,8 @@ void Pathtracer::initialize() {
 
 	config = new ConfigFile("config/pathtracer.ini", [this](const ConfigFile* cfg) {
 
+		uint32_t old_num_threads = cached_config.NumThreads;
+
 		// read from file
 		cached_config.ISPC = cfg->lookup<int>("ISPC");
 		cached_config.UseBVH = cfg->lookup<int>("UseBVH");
@@ -216,7 +218,7 @@ void Pathtracer::initialize() {
 		// cpu buffers
 		delete image_buffer;
 		if (subimage_buffers /* not null if it's previously created at least once */) {
-			for (uint32_t i=0; i<cached_config.NumThreads; i++) {
+			for (uint32_t i=0; i<old_num_threads; i++) {
 				delete subimage_buffers[i];
 			}
 			delete subimage_buffers;
