@@ -1,6 +1,6 @@
 #include "Mesh.h"
 #include "Pathtracer/BSDF.hpp"
-#include "Engine/Config.hpp"
+#include "Engine/ConfigAsset.hpp"
 
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
@@ -96,25 +96,25 @@ void Mesh::draw(VkCommandBuffer cmdbuf)
 	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
 }
 
-void Mesh::set_local_position(vec3 _local_position) {
+void Mesh::set_local_position(vec3 local_position) {
 	if (!locked) {
-		local_position_value = _local_position;
+		_local_position = local_position;
 		generate_aabb();
 		//get_scene()->generate_aabb();
 	}
 }
 
-void Mesh::set_rotation(quat _rotation) {
+void Mesh::set_rotation(quat rotation) {
 	if (!locked) {
-		rotation_value = _rotation;
+		_rotation = rotation;
 		generate_aabb();
 		//get_scene()->generate_aabb();
 	}
 }
 
-void Mesh::set_scale(vec3 _scale) {
+void Mesh::set_scale(vec3 scale) {
 	if (!locked) {
-		scale_value = _scale;
+		_scale = scale;
 		generate_aabb();
 		//get_scene()->generate_aabb();
 	}

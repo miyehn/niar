@@ -14,10 +14,6 @@ struct Light : public SceneObject {
 	~Light() override = default;
 	glm::vec3 get_emission() { return color * intensity; }
 
-	void set_local_position(glm::vec3 _local_position) override { local_position_value = _local_position; }
-	void set_rotation(glm::quat _rotation) override { rotation_value = _rotation; }
-	void set_scale(glm::vec3 _scale) override { scale_value = _scale; }
-
 protected:
 	glm::vec3 color;
 	float intensity;

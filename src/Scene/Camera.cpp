@@ -5,23 +5,23 @@
 
 using namespace glm;
 
-void Camera::set_local_position(vec3 _local_position) {
-	local_position_value = _local_position;
+void Camera::set_local_position(vec3 local_position) {
+	_local_position = local_position;
 }
 
-void Camera::set_rotation(quat _rotation) {
-	rotation_value = _rotation;
+void Camera::set_rotation(quat rotation) {
+	_rotation = rotation;
 }
 
-void Camera::set_scale(vec3 _scale) {
-	scale_value = vec3(1);
+void Camera::set_scale(vec3 scale) {
+	_scale = vec3(1);
 }
 
 Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 		orthographic(_ortho), width(w), height(h) {
 
-	local_position_value = vec3(0);
-	rotation_value = glm::quat(1, 0, 0, 0);
+	_local_position = vec3(0);
+	_rotation = glm::quat(1, 0, 0, 0);
 
 	// TODO: make these properties
 	move_speed = 150.0f;
@@ -54,38 +54,38 @@ void Camera::update_control(float elapsed) {
 		if (state[SDL_SCANCODE_LSHIFT]) {
 			// up, down
 			if (state[SDL_SCANCODE_W]) {
-				local_position_value.z += move_speed * elapsed;
+				_local_position.z += move_speed * elapsed;
 			}
 			if (state[SDL_SCANCODE_S]) {
-				local_position_value.z -= move_speed * elapsed;
+				_local_position.z -= move_speed * elapsed;
 			}
 
 		} else {
 			// WASD movement; E - up; Q - down
 			if (state[SDL_SCANCODE_A]) {
-				local_position_value -= move_speed * elapsed * right;
+				_local_position -= move_speed * elapsed * right;
 			}
 			if (state[SDL_SCANCODE_D]) {
-				local_position_value += move_speed * elapsed * right;
+				_local_position += move_speed * elapsed * right;
 			}
 			if (state[SDL_SCANCODE_S]) {
-				local_position_value -= move_speed * elapsed * forward;
+				_local_position -= move_speed * elapsed * forward;
 			}
 			if (state[SDL_SCANCODE_W]) {
-				local_position_value += move_speed * elapsed * forward;
+				_local_position += move_speed * elapsed * forward;
 			}
 			if (state[SDL_SCANCODE_E]) {
-				local_position_value.y += move_speed * elapsed;
+				_local_position.y += move_speed * elapsed;
 			}
 			if (state[SDL_SCANCODE_Q]) {
-				local_position_value.y -= move_speed * elapsed;
+				_local_position.y -= move_speed * elapsed;
 			}
 		}
 
 		// rotation
-		float yaw = glm::yaw(rotation_value);
-		float pitch = glm::pitch(rotation_value);
-		float roll = glm::roll(rotation_value);
+		float yaw = glm::yaw(_rotation);
+		float pitch = glm::pitch(_rotation);
+		float roll = glm::roll(_rotation);
 
 		int mouse_x, mouse_y;
 		if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON_LEFT) {
@@ -102,7 +102,7 @@ void Camera::update_control(float elapsed) {
 	else
 	{
 		// HACK
-		// rotation_value = quatLookAt(normalize(-world_position()), vec3(0, 1, 0));
+		// _rotation = quatLookAt(normalize(-world_position()), vec3(0, 1, 0));
 	}
 }
 

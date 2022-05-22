@@ -4,7 +4,7 @@
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
 #include "Render/Materials/GltfMaterial.h"
-#include "Engine/Config.hpp"
+#include "Engine/ConfigAsset.hpp"
 
 #include <glm/gtx/matrix_decompose.hpp>
 #include <tinygltf/tiny_gltf.h>

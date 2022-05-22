@@ -4,10 +4,10 @@
 #include <utility>
 #include <libconfig/libconfig.h++>
 
-class ConfigFile : Asset
+class ConfigAsset : Asset
 {
 public:
-	explicit ConfigFile(const std::string& relative_path, const std::function<void(const ConfigFile *cfg)>& loadAction = nullptr);
+	explicit ConfigAsset(const std::string& relative_path, const std::function<void(const ConfigAsset *cfg)>& loadAction = nullptr);
 
 	template<typename T>
 	T lookup(const std::string& cfg_path) const {
@@ -25,4 +25,4 @@ private:
 	libconfig::Config config = {};
 };
 
-extern ConfigFile* Config;
+extern ConfigAsset* Config;

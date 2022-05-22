@@ -1,5 +1,5 @@
 #include "Light.hpp"
-#include "Engine/Config.hpp"
+#include "Engine/ConfigAsset.hpp"
 
 #include <tinygltf/tiny_gltf.h>
 
@@ -39,7 +39,7 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos)
 		intensity = factor;
 	}
 
-	local_position_value = _local_pos;
+	_local_position = _local_pos;
 
 	name = "[unnamed point light]";
 }

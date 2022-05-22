@@ -2,7 +2,7 @@
 #include "Render/Mesh.h"
 #include "BSDF.hpp"
 #include "PathtracerLight.hpp"
-#include "Engine/Config.hpp"
+#include "Engine/ConfigAsset.hpp"
 #include "Render/Texture.h"
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/Vulkan/VulkanUtils.h"
@@ -185,7 +185,7 @@ void Pathtracer::initialize() {
 
 	//-------- load config --------
 
-	config = new ConfigFile("config/pathtracer.ini", [this](const ConfigFile* cfg) {
+	config = new ConfigAsset("config/pathtracer.ini", [this](const ConfigAsset* cfg) {
 
 		uint32_t old_num_threads = cached_config.NumThreads;
 

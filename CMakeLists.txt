@@ -28,7 +28,7 @@ set(SRC
 	src/Engine/SceneObject.cpp
 	src/Render/Mesh.cpp
     src/Scene/GrassField.cpp
-	src/Engine/Config.cpp
+	src/Engine/ConfigAsset.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
 	src/Pathtracer/Primitive.cpp
@@ -70,7 +70,7 @@ set(SRC
 	src/Render/DebugDraw.cpp
 	src/Render/Materials/Rise.cpp
 	src/Render/Renderers/SimpleRenderer.cpp
-		src/Scene/PathtracerController.cpp src/Scene/PathtracerController.h src/Engine/Asset.cpp src/Engine/Asset.h)
+		src/Scene/PathtracerController.cpp src/Scene/PathtracerController.h src/Engine/Asset.cpp src/Engine/Asset.h src/Engine/GltfAsset.cpp src/Engine/GltfAsset.h)
 
 set(SRC_RTX src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
 

@@ -1,7 +1,7 @@
 #include "Vulkan.hpp"
 #include "PipelineBuilder.h"
 #include "RenderPassBuilder.h"
-#include "Engine/Config.hpp"
+#include "Engine/ConfigAsset.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>

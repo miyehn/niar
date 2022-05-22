@@ -1,8 +1,8 @@
-#include "Config.hpp"
+#include "ConfigAsset.hpp"
 #include "Render/Texture.h"
 #include "Asset.h"
 
-ConfigFile* Config = nullptr;
+ConfigAsset* Config = nullptr;
 
 void create_config_src(const std::string &absolute_path, libconfig::Config& out_config_src)
 {
@@ -17,9 +17,9 @@ void create_config_src(const std::string &absolute_path, libconfig::Config& out_
 	}
 }
 
-ConfigFile::ConfigFile(
+ConfigAsset::ConfigAsset(
 	const std::string& relative_path,
-	const std::function<void(const ConfigFile *cfg)> &loadAction) : Asset(relative_path, nullptr)
+	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_path, nullptr)
 {
 	load_action = [this, relative_path, loadAction]() {
 		create_config_src(ROOT_DIR"/" + relative_path, config);

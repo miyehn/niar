@@ -16,7 +16,7 @@ struct PathtracerLight;
 struct RaytraceThread;
 class Texture2D;
 class DebugLines;
-class ConfigFile;
+class ConfigAsset;
 
 struct ISPC_Data;
 
@@ -69,7 +69,7 @@ private:
 		float RussianRouletteThreshold = 0.05f;
 		int MinRaysPerPixel = 4;
 	} cached_config;
-	ConfigFile* config = nullptr;
+	ConfigAsset* config = nullptr;
 
 	// ray tracing state and control
 	bool paused = true;

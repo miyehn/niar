@@ -30,13 +30,15 @@ public:
 	void foreach_descendent_bfs(
 		const std::function<void(SceneObject*)>& fn,
 		const std::function<bool(SceneObject*)>& filter_condition = [](SceneObject* obj) {return true;});
-	virtual bool add_child(SceneObject* child);
+	void set_parent(SceneObject* in_parent);
+	bool add_child(SceneObject* child);
+	bool try_remove_child(SceneObject* child);
 
 	// other operations
 
-	virtual void set_local_position(glm::vec3 _local_position) { local_position_value = _local_position; }
-	virtual void set_rotation(glm::quat _rotation) { rotation_value = _rotation; }
-	virtual void set_scale(glm::vec3 _scale) { scale_value = _scale; }
+	virtual void set_local_position(glm::vec3 local_position) { _local_position = local_position; }
+	virtual void set_rotation(glm::quat rotation) { _rotation = rotation; }
+	virtual void set_scale(glm::vec3 scale) { _scale = scale; }
 
 	void draw_transform_ui(bool global) const;
 	virtual void draw_config_ui() {};
@@ -51,9 +53,9 @@ public:
 	glm::mat3 world_to_object_rotation() const;
 
 	glm::vec3 world_position() const;
-	glm::vec3 local_position() const { return local_position_value; }
-	glm::quat rotation() const { return rotation_value; }
-	glm::vec3 scale() const { return scale_value; }
+	glm::vec3 local_position() const { return _local_position; }
+	glm::quat rotation() const { return _rotation; }
+	glm::vec3 scale() const { return _scale; }
 
 	bool enabled() const { return _enabled; }
 	void toggle_enabled();
@@ -63,9 +65,9 @@ public:
 
 protected:
 
-	glm::vec3 local_position_value;
-	glm::quat rotation_value;
-	glm::vec3 scale_value;
+	glm::vec3 _local_position;
+	glm::quat _rotation;
+	glm::vec3 _scale;
 
 	virtual void on_enable() {}
 	virtual void on_disable() {}

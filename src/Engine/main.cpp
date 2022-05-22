@@ -4,7 +4,8 @@
 #include "Scene/PathtracerController.h"
 #include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
-#include "Config.hpp"
+#include "ConfigAsset.hpp"
+#include "GltfAsset.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
 #include "Render/Mesh.h"
@@ -104,7 +105,7 @@ static void init()
 	renderer = rtRenderer;
 #else
 	Scene* gltf = new Scene("SceneSource");
-	gltf->load_tinygltf(ROOT_DIR"/"+Config->lookup<std::string>("SceneSource"), false);
+	new GltfAsset(gltf, Config->lookup<std::string>("SceneSource"));
 	gltf->add_child(new PathtracerController());
 	Scene::Active = gltf;
 #endif
@@ -182,7 +183,9 @@ static bool process_input()
 
 		// window gains focus
 		else if (event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_FOCUS_GAINED) {
-			reloadAllAssets();
+			if (Config->lookup<int>("Debug.AutoHotReload")) {
+				reloadAllAssets();
+			}
 		}
 
 		// imgui; pass on control to the rest of the app if event.type is not keyup
@@ -271,7 +274,7 @@ int main(int argc, const char * argv[])
 {
 	std::srand(time(nullptr));
 
-	Config = new ConfigFile("config/global.ini");
+	Config = new ConfigAsset("config/global.ini");
 
 	cxxopts::Options options("niar", "a toy renderer");
 	options.allow_unrecognised_options();

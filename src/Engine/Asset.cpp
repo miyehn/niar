@@ -58,7 +58,6 @@ void Asset::reload()
 		load_action();
 		last_load_time = get_file_clock_now();
 	}
-	LOG("(%s doesn't need to reload", relative_path.c_str())
 }
 
 void reloadAllAssets()

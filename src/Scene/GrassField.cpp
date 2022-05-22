@@ -20,24 +20,24 @@ bool GrassField::handle_event(SDL_Event event) {
 	return SceneObject::handle_event(event);
 }
 
-void GrassField::set_local_position(vec3 _local_position) {
-	local_position_value = _local_position;
+void GrassField::set_local_position(vec3 local_position) {
+	_local_position = local_position;
 	/*
 	generate_aabb();
 	get_scene()->generate_aabb();
 	*/
 }
 
-void GrassField::set_rotation(quat _rotation) {
-	rotation_value = _rotation;
+void GrassField::set_rotation(quat rotation) {
+	_rotation = rotation;
 	/*
 	generate_aabb();
 	get_scene()->generate_aabb();
 	*/
 }
 
-void GrassField::set_scale(vec3 _scale) {
-	scale_value = _scale;
+void GrassField::set_scale(vec3 scale) {
+	_scale = scale;
 	/*
 	generate_aabb();
 	get_scene()->generate_aabb();
