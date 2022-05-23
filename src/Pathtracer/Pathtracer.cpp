@@ -179,7 +179,7 @@ void Pathtracer::initialize() {
 
 	//-------- load config --------
 
-	config = new ConfigAsset("config/pathtracer.ini", [this](const ConfigAsset* cfg) {
+	config = new ConfigAsset("config/pathtracer.ini", true, [this](const ConfigAsset* cfg) {
 
 		uint32_t old_num_threads = cached_config.NumThreads;
 

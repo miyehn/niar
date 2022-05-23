@@ -19,19 +19,24 @@ void create_config_src(const std::string &absolute_path, libconfig::Config& out_
 
 ConfigAsset::ConfigAsset(
 	const std::string& relative_path,
+	bool allow_reload,
 	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_path, nullptr)
 {
+	if (!allow_reload) {
+		reload_condition = [this](){ return !initialized; };
+	}
 	load_action = [this, relative_path, loadAction]() {
 		create_config_src(ROOT_DIR"/" + relative_path, config);
 		if (loadAction) {
 			try {
 				loadAction(this);
 			} catch (const libconfig::SettingNotFoundException &nfex) {
-				ERR("Some setting(s) not found in global.ini");
+				ERR("Some setting(s) not found in '%s'", relative_path.c_str());
 			} catch (const libconfig::SettingTypeException &tpex) {
-				ERR("Some setting(s) assigned to wrong type");
+				ERR("Some setting(s) in '%s' assigned to wrong type", relative_path.c_str());
 			}
 		}
+		initialized = true;
 	};
 	reload();
 }

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Asset.h"
+#include <vector>
 
 class SceneObject;
 class Texture2D;

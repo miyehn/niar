@@ -7,7 +7,10 @@
 class ConfigAsset : Asset
 {
 public:
-	explicit ConfigAsset(const std::string& relative_path, const std::function<void(const ConfigAsset *cfg)>& loadAction = nullptr);
+	explicit ConfigAsset(
+		const std::string& relative_path,
+		bool allow_reload = true,
+		const std::function<void(const ConfigAsset *cfg)>& loadAction = nullptr);
 
 	template<typename T>
 	T lookup(const std::string& cfg_path) const {
@@ -22,6 +25,7 @@ public:
 		return T();
 	}
 private:
+	bool initialized = false;
 	libconfig::Config config = {};
 };
 

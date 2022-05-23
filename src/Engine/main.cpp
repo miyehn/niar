@@ -130,8 +130,7 @@ static void init()
 		ui::elem([](){ ImGui::Separator(); }, "Rendering");
 	}
 
-	// renderer selector
-	{
+	{// renderer selector
 		renderers.push_back(SimpleRenderer::get());
 		renderers.push_back(DeferredRenderer::get());
 		renderers.push_back(Pathtracer::get(width, height));
@@ -147,8 +146,7 @@ static void init()
 		}, "Rendering");
 	}
 
-	// scene hierarchy
-	{
+	{// scene hierarchy
 		static bool show_global_transform = false;
 		ui::checkBox("show global transform", &show_global_transform, "Scene hierarchy (" + Scene::Active->name + ")");
 		ui::elem([&]()
@@ -241,7 +239,7 @@ static void draw()
 	renderer->drawable = Scene::Active;
 
 	if (renderer != prev_renderer) {
-		if (renderer) renderer->on_selected();
+		renderer->on_selected();
 		if (prev_renderer) prev_renderer->on_unselected();
 		prev_renderer = renderer;
 	}
@@ -284,7 +282,7 @@ int main(int argc, const char * argv[])
 {
 	std::srand(time(nullptr));
 
-	Config = new ConfigAsset("config/global.ini");
+	Config = new ConfigAsset("config/global.ini", false);
 
 	cxxopts::Options options("niar", "a toy renderer");
 	options.allow_unrecognised_options();
