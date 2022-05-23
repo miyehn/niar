@@ -124,7 +124,6 @@ if(WIN32)
 		${Vulkan_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
 		${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
-		${CMAKE_SOURCE_DIR}/lib/stb_image.a 
 		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
 	)
 	set_target_properties(niar PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
