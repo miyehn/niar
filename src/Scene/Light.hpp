@@ -2,7 +2,7 @@
 #include "Engine/SceneObject.hpp"
 #include "Utils/myn/Misc.h"
 
-struct Scene;
+class Scene;
 struct Camera;
 struct Mesh;
 namespace tinygltf { struct Light; }

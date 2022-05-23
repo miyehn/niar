@@ -35,11 +35,6 @@ GltfMaterial::~GltfMaterial()
 	materialParamsBuffer.release();
 }
 
-namespace
-{
-std::unordered_map<std::string, GltfMaterialInfo> gltfMaterialInfos;
-}
-
 GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 {
 	this->name = info.name;
@@ -87,32 +82,6 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 		dynamicSet.pointToImageView(metallic_roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(ao->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
-}
-
-/*
- * info passed in has _version = 0, but should check if it collides with an already-pooled info
- * if so, bump its version before putting into the pool.
- */
-void GltfMaterial::addInfo(GltfMaterialInfo &info)
-{
-	auto iter = gltfMaterialInfos.find(info.name);
-	if (iter != gltfMaterialInfos.end())
-	{// collided.
-		info._version = iter->second._version + 1;
-		LOG("Adding tinygltf material of duplicate name '%s'. bumping version..", info.name.c_str())
-	}
-	gltfMaterialInfos[info.name] = info;
-}
-
-GltfMaterialInfo *GltfMaterial::getInfo(const std::string &materialName)
-{
-	auto iter = gltfMaterialInfos.find(materialName);
-	if (iter == gltfMaterialInfos.end())
-	{
-		WARN("Can't find tinygltf material named '%s'", materialName.c_str())
-		return nullptr;
-	}
-	return &iter->second;
 }
 
 void GltfMaterial::resetInstanceCounter()

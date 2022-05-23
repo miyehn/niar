@@ -3,17 +3,21 @@
 #include "BSDF.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/ConfigAsset.hpp"
-#include "Render/Texture.h"
-#include "Render/Materials/GltfMaterial.h"
-#include "Render/Vulkan/VulkanUtils.h"
-#include "Render/DebugDraw.h"
+#include "Render/Materials/GltfMaterialInfo.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
+#if GRAPHICS_DISPLAY
 #include <imgui.h>
+#include "Render/Vulkan/VulkanUtils.h"
+#include "Render/DebugDraw.h"
+#include "Render/Texture.h"
+#else
+#include <fstream>
+#endif
 
 #define NUM_CHANNELS 4
 #define SIZE_PER_CHANNEL 1
@@ -76,22 +80,23 @@ Pathtracer::Pathtracer(
 	width = _width;
 	height = _height;
 
+#if GRAPHICS_DISPLAY
 	initialized = false;
 	enabled = false;
-	has_window = _has_window;
+#endif
 }
 
 Pathtracer::~Pathtracer() {
+
+#if GRAPHICS_DISPLAY
 	if (!initialized) return;
 	clear_tasks_and_threads_begin();
 	clear_tasks_and_threads_wait();
 
-	if (has_window)
-	{
-		delete window_surface;
-		viewInfoUbo.release();
-		delete debugLines;
-	}
+	delete window_surface;
+	viewInfoUbo.release();
+	delete debugLines;
+#endif
 
 	delete config;
 
@@ -158,24 +163,23 @@ void Pathtracer::initialize() {
 		}
 	};
 
+#if GRAPHICS_DISPLAY
 	// graphics api stuff
-	if (has_window)
-	{
-		ImageCreator windowSurfaceCreator(
-			VK_FORMAT_R8G8B8A8_UNORM,
-			{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			"Pathtracer window surface image");
-		window_surface = new Texture2D(windowSurfaceCreator);
+	ImageCreator windowSurfaceCreator(
+		VK_FORMAT_R8G8B8A8_UNORM,
+		{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
+		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		"Pathtracer window surface image");
+	window_surface = new Texture2D(windowSurfaceCreator);
 
-		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
-								sizeof(ViewInfo),
-								VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-								VMA_MEMORY_USAGE_CPU_TO_GPU);
+	viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+							sizeof(ViewInfo),
+							VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+							VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-		debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
-	}
+	debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
+#endif
 
 	//-------- load config --------
 
@@ -228,45 +232,15 @@ void Pathtracer::initialize() {
 		reset();
 	});
 
+#if GRAPHICS_DISPLAY
 	initialized = true;
-}
-
-bool Pathtracer::handle_event(SDL_Event event) {
-	if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE && !finished) {
-		if (paused) continue_trace();
-		else {
-			TRACE("pausing - waiting for pending tiles");
-			pause_trace();
-		}
-		return true;
-
-	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
-		int x, y; // NOTE: y IS INVERSED!!!!!!!!!!!
-		SDL_GetMouseState(&x, &y);
-		const uint8* state = SDL_GetKeyboardState(nullptr);
-
-		if (state[SDL_SCANCODE_LSHIFT]) {
-			uint32_t pixel_index = (height-y) * width + x;
-			raytrace_debug(pixel_index);
-
-		} else if (state[SDL_SCANCODE_LALT]) {
-			float d = depth_of_first_hit(x, height-y);
-			cached_config.FocalDistance = d;
-			TRACE("setting focal distance to %f", d);
-		}
-		return true;
-	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
-		clear_debug_ray();
-		return true;
-	}
-
-	return false;
+#endif
 }
 
 BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 {
 	auto iter = BSDFs.find(materialName);
-	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
+	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
 	EXPECT(info != nullptr, true)
 
 	if (iter != BSDFs.end()) {
@@ -333,75 +307,17 @@ void Pathtracer::load_scene(SceneObject *scene) {
 	TRACE("loaded a scene with %d meshes, %lu triangles, %lu lights",
 		  meshes_count, primitives.size(), lights.size());
 }
-
-void Pathtracer::on_selected() {
-	if (!initialized) initialize();
-	enabled = true;
-	TRACE("pathtracer enabled");
-	camera->lock();
-
-	// update view info to buffer
-	ViewInfo.ViewMatrix = camera->world_to_object();
-	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
-	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
-
-	ViewInfo.CameraPosition = camera->world_position();
-	ViewInfo.ViewDir = camera->forward();
-
-	viewInfoUbo.writeData(&ViewInfo);
-}
-
-void Pathtracer::on_unselected() {
-	enabled = false;
-	TRACE("pathtracer disabled");
-	camera->unlock();
-}
-
-void Pathtracer::pause_trace() {
-	myn::TimePoint end_time = std::chrono::high_resolution_clock::now();
-	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
-	TRACE("rendered %f seconds so far.", cumulative_render_time);
-	notified_pause_finish = false;
-	paused = true;
-}
-
-void Pathtracer::continue_trace() {
-	TRACE("continue trace");
-	last_begin_time = std::chrono::high_resolution_clock::now();
-	if (cached_config.ISPC) {
-		load_ispc_data();
-	}
-	paused = false;
-}
-
-void Pathtracer::clear_tasks_and_threads_begin() {
-	if (cached_config.Multithreaded) {
-		raytrace_tasks.clear();
-		for (auto & thread : threads) {
-			thread->status = RaytraceThread::all_done;
-			thread->cv.notify_all();
-		}
-	}
-}
-
-void Pathtracer::clear_tasks_and_threads_wait() {
-	if (cached_config.Multithreaded) {
-		for (auto & thread : threads) {
-			if (thread->thread.joinable()) thread->thread.join();
-		}
-		threads.clear();
-	}
-}
-
 void Pathtracer::reset() {
 	TRACE("reset pathtracer");
 
 	//-------- threading stuff --------
 	if (cached_config.Multithreaded) {
 
+#if GRAPHICS_DISPLAY
 		// clear old threads
 		clear_tasks_and_threads_begin();
 		clear_tasks_and_threads_wait();
+#endif
 
 		// enqueue all new tiles
 		for (uint32_t i=0; i < tiles_X * tiles_Y; i++) {
@@ -413,16 +329,18 @@ void Pathtracer::reset() {
 		}
 	}
 	//---------------------------------
-
-	paused = true;
-	notified_pause_finish = true;
-	finished = false;
 	rendered_tiles = 0;
 	cumulative_render_time = 0.0f;
 	generate_pixel_offsets();
 
 	memset(image_buffer, 40, width * height * NUM_CHANNELS * SIZE_PER_CHANNEL);
-	if (has_window) upload_rows(0, height);
+#if GRAPHICS_DISPLAY
+	paused = true;
+	notified_pause_finish = true;
+	finished = false;
+
+	upload_rows(0, height);
+#endif
 }
 
 void Pathtracer::set_mainbuffer_rgb(uint32_t i, vec3 rgb) {
@@ -440,48 +358,6 @@ void Pathtracer::set_subbuffer_rgb(uint32_t buf_i, uint32_t i, vec3 rgb) {
 	buf[pixel_size * i + 1] = char(rgb.g * 255.0f);
 	buf[pixel_size * i + 2] = char(rgb.b * 255.0f);
 	buf[pixel_size * i + 3] = 255;
-}
-
-void Pathtracer::upload_rows(uint32_t begin, uint32_t rows)
-{
-	uint32_t subimage_offset = width * begin * NUM_CHANNELS * SIZE_PER_CHANNEL;
-	uint8_t* data = image_buffer + subimage_offset;
-	vk::uploadPixelsToImage(
-		data,
-		0, begin,
-		width, rows,
-		NUM_CHANNELS *SIZE_PER_CHANNEL,
-		window_surface->resource
-		);
-
-	int percentage = int(float(begin + rows) / float(height) * 100.0f);
-	TRACE("refresh! updated %d rows, %d%% done.", rows, percentage);
-}
-
-void Pathtracer::upload_tile(uint32_t subbuf_index, uint32_t begin_x, uint32_t begin_y, uint32_t w, uint32_t h)
-{
-	unsigned char* buffer = subimage_buffers[subbuf_index];
-	vk::uploadPixelsToImage(
-		buffer,
-		begin_x, begin_y,
-		w, h,
-		NUM_CHANNELS *SIZE_PER_CHANNEL,
-		window_surface->resource
-	);
-}
-
-void Pathtracer::upload_tile(uint32_t subbuf_index, uint32_t tile_index) {
-	uint32_t X = tile_index % tiles_X;
-	uint32_t Y = tile_index / tiles_X;
-	uint32_t tile_size = cached_config.TileSize;
-
-	uint32_t tile_w = std::min(tile_size, width - X * tile_size);
-	uint32_t tile_h = std::min(tile_size, height - Y * tile_size);
-
-	uint32_t x_offset = X * tile_size;
-	uint32_t y_offset = Y * tile_size;
-	
-	upload_tile(subbuf_index, x_offset, y_offset, tile_w, tile_h);
 }
 
 vec3 gamma_correct(vec3 in) {
@@ -539,7 +415,9 @@ void Pathtracer::raytrace_tile(uint32_t tid, uint32_t tile_index) {
 
 				uint32_t px_index_main = width * (y_offset + y) + (x_offset + x);
 				vec3 color = raytrace_pixel(px_index_main);
-				if (!has_window) color = gamma_correct(color);
+#if !GRAPHICS_DISPLAY
+				color = gamma_correct(color);
+#endif
 				set_mainbuffer_rgb(px_index_main, color);
 
 				uint32_t px_index_sub = y * tile_w + x;
@@ -681,121 +559,143 @@ void Pathtracer::load_ispc_data() {
 	TRACE("reloaded ISPC data");
 }
 
-void Pathtracer::raytrace_scene_to_buf() {
+#if !GRAPHICS_DISPLAY
+#endif
 
-	if (cached_config.ISPC)
-	{
-		load_ispc_data();
-		LOG("ispc max depth: %u", ispc_data->bvh_stack_size);
+#if GRAPHICS_DISPLAY
 
-		// dispatch task to ispc
-		ispc::raytrace_scene_ispc(
-			ispc_data->camera.data(), 
-			(float*)ispc_data->pixel_offsets.data(),
-			ispc_data->num_offsets,
-			ispc_data->triangles.data(),
-			ispc_data->bsdfs.data(),
-			ispc_data->area_light_indices.data(),
-			ispc_data->num_triangles,
-			ispc_data->num_area_lights,
-			image_buffer,
-			ispc_data->width,
-			ispc_data->height,
-			false,
-			ispc_data->tile_size,
-			0, 0, // tile_width, tile_height
-			0, 0, // tile_indexX, tile_indexY
-			ispc_data->num_threads,
-			ispc_data->max_ray_depth,
-			ispc_data->rr_threshold,
-			ispc_data->use_direct_light,
-			ispc_data->area_light_samples,
-			ispc_data->bvh_root.data(),
-			ispc_data->bvh_stack_size,
-			ispc_data->use_bvh,
-			ispc_data->use_dof,
-			ispc_data->focal_distance,
-			ispc_data->aperture_radius);
-	}
-	else
-	{
-		if (cached_config.Multithreaded)
-		{
-			myn::ThreadSafeQueue<uint> tasks;
-			uint task_size = cached_config.TileSize * cached_config.TileSize;
-			uint image_size = width * height;
-			for (uint i = 0; i < image_size; i += task_size) {
-				tasks.enqueue(i);
-			}
-			std::function<void(int)> raytrace_task = [&](int tid){
-				uint task_begin;
-				while (tasks.dequeue(task_begin))
-				{
-					uint task_end = glm::min(image_size, task_begin + task_size);
-					for (uint task = task_begin; task < task_end; task++)
-					{
-						vec3 color = raytrace_pixel(task);
-						if (!has_window) color = gamma_correct(color);
-						set_mainbuffer_rgb(task, color);
-					}
-				}
-			};
-			LOG("enqueued %zu tasks", tasks.size());
-			// create the threads and execute
-			std::vector<std::thread> threads_tmp;
-			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
-				threads_tmp.emplace_back(raytrace_task, tid);
-			}
-			LOG("created %d threads", cached_config.NumThreads);
-			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
-				threads_tmp[tid].join();
-			}
-			LOG("joined threads");
+bool Pathtracer::handle_event(SDL_Event event) {
+	if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE && !finished) {
+		if (paused) continue_trace();
+		else {
+			TRACE("pausing - waiting for pending tiles");
+			pause_trace();
 		}
-		else
-		{
-			for (uint32_t y = 0; y < height; y++) {
-				for (uint32_t x = 0; x < width; x++) {
+		return true;
 
-					uint32_t px_index = width * y + x;
-					vec3 color = raytrace_pixel(px_index);
-					set_mainbuffer_rgb(px_index, color);
+	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_LEFT) {
+		int x, y; // NOTE: y IS INVERSED!!!!!!!!!!!
+		SDL_GetMouseState(&x, &y);
+		const uint8* state = SDL_GetKeyboardState(nullptr);
 
-				}
-			}
+		if (state[SDL_SCANCODE_LSHIFT]) {
+			uint32_t pixel_index = (height-y) * width + x;
+			raytrace_debug(pixel_index);
+
+		} else if (state[SDL_SCANCODE_LALT]) {
+			float d = depth_of_first_hit(x, height-y);
+			cached_config.FocalDistance = d;
+			TRACE("setting focal distance to %f", d);
 		}
-
+		return true;
+	} else if (event.type==SDL_MOUSEBUTTONUP && event.button.button==SDL_BUTTON_RIGHT) {
+		clear_debug_ray();
+		return true;
 	}
 
+	return false;
 }
 
-// https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
-void Pathtracer::output_file(const std::string& path) {
+void Pathtracer::on_selected() {
+	if (!initialized) initialize();
+	enabled = true;
+	TRACE("pathtracer enabled");
+	camera->lock();
 
-	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; } 
-	std::ofstream ofs; 
-	try { 
-		ofs.open(path.c_str(), std::ios::binary); // need to spec. binary mode for Windows users 
-		if (ofs.fail()) throw("Can't open output file"); 
-		ofs << "P6\n" << width << " " << height << "\n255\n"; 
-		unsigned char r, g, b; 
-		// loop over each pixel in the image, clamp and convert to byte format
-		uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				int i = y * width + x;
-				r = image_buffer[pixel_size * i];
-				g = image_buffer[pixel_size * i + 1];
-				b = image_buffer[pixel_size * i + 2];
-				ofs << r << g << b; 
-			}
+	// update view info to buffer
+	ViewInfo.ViewMatrix = camera->world_to_object();
+	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
+	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+
+	ViewInfo.CameraPosition = camera->world_position();
+	ViewInfo.ViewDir = camera->forward();
+
+	viewInfoUbo.writeData(&ViewInfo);
+}
+
+void Pathtracer::on_unselected() {
+	enabled = false;
+	TRACE("pathtracer disabled");
+	camera->unlock();
+}
+
+void Pathtracer::pause_trace() {
+	myn::TimePoint end_time = std::chrono::high_resolution_clock::now();
+	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
+	TRACE("rendered %f seconds so far.", cumulative_render_time);
+	notified_pause_finish = false;
+	paused = true;
+}
+
+void Pathtracer::continue_trace() {
+	TRACE("continue trace");
+	last_begin_time = std::chrono::high_resolution_clock::now();
+	if (cached_config.ISPC) {
+		load_ispc_data();
+	}
+	paused = false;
+}
+
+void Pathtracer::clear_tasks_and_threads_begin() {
+	if (cached_config.Multithreaded) {
+		raytrace_tasks.clear();
+		for (auto & thread : threads) {
+			thread->status = RaytraceThread::all_done;
+			thread->cv.notify_all();
 		}
-		ofs.close(); 
-	} 
-	catch (const char *err) { 
-		fprintf(stderr, "%s\n", err); 
-		ofs.close(); 
-	} 
+	}
+}
+
+void Pathtracer::clear_tasks_and_threads_wait() {
+	if (cached_config.Multithreaded) {
+		for (auto & thread : threads) {
+			if (thread->thread.joinable()) thread->thread.join();
+		}
+		threads.clear();
+	}
+}
+
+
+void Pathtracer::upload_rows(uint32_t begin, uint32_t rows)
+{
+	uint32_t subimage_offset = width * begin * NUM_CHANNELS * SIZE_PER_CHANNEL;
+	uint8_t* data = image_buffer + subimage_offset;
+	vk::uploadPixelsToImage(
+		data,
+		0, begin,
+		width, rows,
+		NUM_CHANNELS *SIZE_PER_CHANNEL,
+		window_surface->resource
+		);
+
+	int percentage = int(float(begin + rows) / float(height) * 100.0f);
+	TRACE("refresh! updated %d rows, %d%% done.", rows, percentage);
+}
+
+void Pathtracer::upload_tile(uint32_t subbuf_index, uint32_t begin_x, uint32_t begin_y, uint32_t w, uint32_t h)
+{
+	unsigned char* buffer = subimage_buffers[subbuf_index];
+	vk::uploadPixelsToImage(
+		buffer,
+		begin_x, begin_y,
+		w, h,
+		NUM_CHANNELS *SIZE_PER_CHANNEL,
+		window_surface->resource
+	);
+}
+
+void Pathtracer::upload_tile(uint32_t subbuf_index, uint32_t tile_index) {
+	uint32_t X = tile_index % tiles_X;
+	uint32_t Y = tile_index / tiles_X;
+	uint32_t tile_size = cached_config.TileSize;
+
+	uint32_t tile_w = std::min(tile_size, width - X * tile_size);
+	uint32_t tile_h = std::min(tile_size, height - Y * tile_size);
+
+	uint32_t x_offset = X * tile_size;
+	uint32_t y_offset = Y * tile_size;
+
+	upload_tile(subbuf_index, x_offset, y_offset, tile_w, tile_h);
 }
 
 void Pathtracer::render(VkCommandBuffer cmdbuf)
@@ -897,7 +797,136 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 	}
 }
 
-void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &path)
+void Pathtracer::draw_config_ui()
+{
+	// reset
+	bool reset_condition = (paused && notified_pause_finish) || finished;
+	ImGui::BeginDisabled(!reset_condition);
+	if (ImGui::Button("clear buffer")) {
+		reset();
+	}
+	ImGui::EndDisabled();
+}
+#else
+
+void Pathtracer::raytrace_scene_to_buf() {
+
+	if (cached_config.ISPC)
+	{
+		load_ispc_data();
+		LOG("ispc max depth: %u", ispc_data->bvh_stack_size);
+
+		// dispatch task to ispc
+		ispc::raytrace_scene_ispc(
+			ispc_data->camera.data(),
+			(float*)ispc_data->pixel_offsets.data(),
+			ispc_data->num_offsets,
+			ispc_data->triangles.data(),
+			ispc_data->bsdfs.data(),
+			ispc_data->area_light_indices.data(),
+			ispc_data->num_triangles,
+			ispc_data->num_area_lights,
+			image_buffer,
+			ispc_data->width,
+			ispc_data->height,
+			false,
+			ispc_data->tile_size,
+			0, 0, // tile_width, tile_height
+			0, 0, // tile_indexX, tile_indexY
+			ispc_data->num_threads,
+			ispc_data->max_ray_depth,
+			ispc_data->rr_threshold,
+			ispc_data->use_direct_light,
+			ispc_data->area_light_samples,
+			ispc_data->bvh_root.data(),
+			ispc_data->bvh_stack_size,
+			ispc_data->use_bvh,
+			ispc_data->use_dof,
+			ispc_data->focal_distance,
+			ispc_data->aperture_radius);
+	}
+	else
+	{
+		if (cached_config.Multithreaded)
+		{
+			myn::ThreadSafeQueue<uint> tasks;
+			uint task_size = cached_config.TileSize * cached_config.TileSize;
+			uint image_size = width * height;
+			for (uint i = 0; i < image_size; i += task_size) {
+				tasks.enqueue(i);
+			}
+			std::function<void(int)> raytrace_task = [&](int tid){
+				uint task_begin;
+				while (tasks.dequeue(task_begin))
+				{
+					uint task_end = glm::min(image_size, task_begin + task_size);
+					for (uint task = task_begin; task < task_end; task++)
+					{
+						vec3 color = raytrace_pixel(task);
+						color = gamma_correct(color);
+						set_mainbuffer_rgb(task, color);
+					}
+				}
+			};
+			LOG("enqueued %zu tasks", tasks.size());
+			// create the threads and execute
+			std::vector<std::thread> threads_tmp;
+			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
+				threads_tmp.emplace_back(raytrace_task, tid);
+			}
+			LOG("created %d threads", cached_config.NumThreads);
+			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
+				threads_tmp[tid].join();
+			}
+			LOG("joined threads");
+		}
+		else
+		{
+			for (uint32_t y = 0; y < height; y++) {
+				for (uint32_t x = 0; x < width; x++) {
+
+					uint32_t px_index = width * y + x;
+					vec3 color = raytrace_pixel(px_index);
+					set_mainbuffer_rgb(px_index, color);
+
+				}
+			}
+		}
+
+	}
+
+}
+
+// https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
+void Pathtracer::output_file(const std::string& path) {
+
+	if (width == 0 || height == 0) { fprintf(stderr, "Can't save an empty image\n"); return; }
+	std::ofstream ofs;
+	try {
+		ofs.open(path.c_str(), std::ios::binary); // need to spec. binary mode for Windows users
+		if (ofs.fail()) throw("Can't open output file");
+		ofs << "P6\n" << width << " " << height << "\n255\n";
+		unsigned char r, g, b;
+		// loop over each pixel in the image, clamp and convert to byte format
+		uint32_t pixel_size = NUM_CHANNELS * SIZE_PER_CHANNEL;
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int i = y * width + x;
+				r = image_buffer[pixel_size * i];
+				g = image_buffer[pixel_size * i + 1];
+				b = image_buffer[pixel_size * i + 2];
+				ofs << r << g << b;
+			}
+		}
+		ofs.close();
+	}
+	catch (const char *err) {
+		fprintf(stderr, "%s\n", err);
+		ofs.close();
+	}
+}
+
+void Pathtracer::render_to_file(uint32_t w, uint32_t h, const std::string &path)
 {
 	TRACE("TODO: rewrite this")
 	return;
@@ -931,6 +960,7 @@ void Pathtracer::pathtrace_to_file(uint32_t w, uint32_t h, const std::string &pa
 	delete Pathtracer::Instance;
 	 */
 }
+#endif
 
 Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h, bool _has_window)
 {
@@ -950,17 +980,6 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h, bool _has_window)
 		renderer = new Pathtracer(w, h, has_window);
 	}
 	return renderer;
-}
-
-void Pathtracer::draw_config_ui()
-{
-	// reset
-	bool reset_condition = (paused && notified_pause_finish) || finished;
-	ImGui::BeginDisabled(!reset_condition);
-	if (ImGui::Button("clear buffer")) {
-		reset();
-	}
-	ImGui::EndDisabled();
 }
 
 // file that contains the actual pathtracing meat

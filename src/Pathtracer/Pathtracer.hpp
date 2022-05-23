@@ -1,12 +1,13 @@
 #pragma once
 #include "Utils/myn/Timer.h"
 #include "Utils/myn/ThreadSafeQueue.h"
-#include "Engine/SceneObject.hpp"
 #include "Scene/AABB.hpp"
 #include "BVH.hpp"
 #include "Render/Renderers/Renderer.h"
+#if GRAPHICS_DISPLAY
 #include "Render/Vulkan/DescriptorSet.h"
 #include <vulkan/vulkan.h>
+#endif
 
 struct Scene;
 struct Ray;
@@ -24,31 +25,35 @@ class Pathtracer : public Renderer {
 public:
 	static Pathtracer* get(uint32_t w = 0, uint32_t h = 0, bool has_window = true);
 
-	static void pathtrace_to_file(uint32_t w, uint32_t h, const std::string& path);
-	
 	Pathtracer(
 			uint32_t _width,
 			uint32_t _height,
 			bool _has_window = true);
 	~Pathtracer() override;
 
+#if GRAPHICS_DISPLAY
 	bool handle_event(SDL_Event event);
 	void draw_config_ui() override;
 	void render(VkCommandBuffer cmdbuf) override;
 
-	void initialize();
 	void on_selected() override;
 	void on_unselected() override;
 
 	bool is_enabled() const { return enabled; }
 
+#else
 	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
 	void output_file(const std::string& path);
+
+	void render_to_file(uint32_t w, uint32_t h, const std::string& path) override;
+
+#endif
+
+	void initialize();
 
 private:
 
 	// size for the pathtraced image - could be different from display window.
-	bool has_window;
 	uint32_t width, height;
 	uint32_t tiles_X, tiles_Y;
 
@@ -71,14 +76,16 @@ private:
 	} cached_config;
 	ConfigAsset* config = nullptr;
 
+#if GRAPHICS_DISPLAY
 	// ray tracing state and control
+	bool initialized = false;
 	bool paused = true;
 	bool notified_pause_finish = true;
 	bool finished = true;
 	void pause_trace();
 	void continue_trace();
-	bool initialized = false;
 	bool enabled = false;
+#endif
 	void reset();
 
 	myn::TimePoint last_begin_time;
@@ -104,8 +111,10 @@ private:
 	std::vector<vec2> pixel_offsets;
 	void generate_pixel_offsets();
 
+#if GRAPHICS_DISPLAY
 	// depth of field
 	float depth_of_first_hit(int x, int y);
+#endif
 
 	// routine
 	void generate_one_ray(RayTask& task, int x, int y);
@@ -114,10 +123,12 @@ private:
 	void raytrace_tile(uint32_t tid, uint32_t tile_index);
 	void trace_ray(RayTask& task, int ray_depth, bool debug);
 
+#if GRAPHICS_DISPLAY
 	// for debug use
 	void raytrace_debug(uint32_t index);
 	void clear_debug_ray();
 	std::vector<vec3> logged_rays;
+#endif
 
 	//---- threading stuff ----
 
@@ -126,8 +137,10 @@ private:
 	std::vector<RaytraceThread*> threads;
 	myn::ThreadSafeQueue<uint32_t> raytrace_tasks;
 
+#if GRAPHICS_DISPLAY
 	void clear_tasks_and_threads_begin();
 	void clear_tasks_and_threads_wait();
+#endif
 
 	//---- buffers & opengl ----
 
@@ -135,11 +148,13 @@ private:
 	unsigned char* image_buffer = nullptr;
 	unsigned char** subimage_buffers = nullptr;
 
+	void set_mainbuffer_rgb(uint32_t i, vec3 rgb);
+	void set_subbuffer_rgb(uint32_t buf_i, uint32_t i, vec3 rgb);
+
+#if GRAPHICS_DISPLAY
 	void upload_rows(uint32_t begin, uint32_t end);
 	void upload_tile(uint32_t subbuf_index, uint32_t tile_index);
 	void upload_tile(uint32_t subbuf_index, uint32_t begin_x, uint32_t begin_y, uint32_t w, uint32_t h);
-	void set_mainbuffer_rgb(uint32_t i, vec3 rgb);
-	void set_subbuffer_rgb(uint32_t buf_i, uint32_t i, vec3 rgb);
 
 	// vulkan
 	Texture2D* window_surface = nullptr;
@@ -159,5 +174,6 @@ private:
 
 	VmaBuffer viewInfoUbo;
 	DescriptorSet descriptorSet;
+#endif
 
 };

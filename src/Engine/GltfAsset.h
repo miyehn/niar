@@ -10,6 +10,9 @@
 class SceneObject;
 class Texture2D;
 
+/*
+ * Currently offline rendering doesn't load textures because managing textures sounds like a pain
+ */
 class GltfAsset : public Asset
 {
 public:
@@ -25,6 +28,8 @@ public:
 private:
 
 	SceneObject* asset_root = nullptr;
+#if GRAPHICS_DISPLAY
 	std::vector<Texture2D*> asset_textures;
+#endif
 };
 

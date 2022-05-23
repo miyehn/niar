@@ -16,12 +16,16 @@ struct Camera : SceneObject {
 	explicit Camera(uint32_t w = 0, uint32_t h = 0, bool _ortho = false);
 	explicit Camera(const std::string& node_name, const tinygltf::Camera*);
 
+#if GRAPHICS_DISPLAY
 	void update_control(float time_elapsed);
+#endif
 
 	// properties, can be set by the program
 
+#if GRAPHICS_DISPLAY
 	float move_speed;
 	float rotate_speed;
+#endif
 
 	float fov;
 	float cutoffNear;
@@ -34,6 +38,7 @@ struct Camera : SceneObject {
 
 	Frustum frustum();
 
+#if GRAPHICS_DISPLAY
 	// can move & rotate camera?
 	void lock();
 	void unlock();
@@ -41,6 +46,7 @@ struct Camera : SceneObject {
 	// functions
 
 	void draw_config_ui() override;
+#endif
 
 	void set_local_position(glm::vec3 _local_position) override;
 	void set_rotation(glm::quat _rotation) override;

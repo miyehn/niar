@@ -735,7 +735,7 @@ DeferredRenderer *DeferredRenderer::get()
 Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)
 {
 	auto iter = materials.find(materialName);
-	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
+	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
 	EXPECT(info != nullptr, true)
 
 	if (iter != materials.end()) {

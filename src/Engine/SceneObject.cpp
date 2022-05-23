@@ -1,7 +1,9 @@
 #include "SceneObject.hpp"
 #include "Utils/myn/Log.h"
-#include <imgui.h>
 #include <queue>
+#if GRAPHICS_DISPLAY
+#include <imgui.h>
+#endif
 
 using namespace glm;
 
@@ -23,6 +25,7 @@ SceneObject::~SceneObject() {
 	children.clear();
 }
 
+#if GRAPHICS_DISPLAY
 bool SceneObject::handle_event(SDL_Event event) {
 	bool handled = false;
 	for (auto & child : children) {
@@ -41,6 +44,7 @@ void SceneObject::draw(VkCommandBuffer cmdbuf) {
 	for (auto & child : children)
 		if (child->enabled()) child->draw(cmdbuf);
 }
+#endif
 
 bool SceneObject::add_child(SceneObject* child) {
 	if (!child) {
@@ -158,6 +162,7 @@ void SceneObject::foreach_descendent_bfs(
 	}
 }
 
+#if GRAPHICS_DISPLAY
 void SceneObject::draw_transform_ui(bool global) const
 {
 	vec3 pos = global ? world_position() : local_position();
@@ -183,6 +188,7 @@ void SceneObject::draw_transform_ui(bool global) const
 	//ImGui::TextDisabled("[rot] %.3f, %.3f, %.3f", degrees(rot.x), degrees(rot.y), degrees(rot.z));
 	//ImGui::TextDisabled("[scl] %.3f, %.3f, %.3f", scl.x, scl.y, scl.z);
 }
+#endif
 
 void SceneObject::toggle_enabled() {
 	_enabled = !_enabled;

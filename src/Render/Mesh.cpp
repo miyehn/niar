@@ -2,13 +2,14 @@
 #include "Pathtracer/BSDF.hpp"
 #include "Engine/ConfigAsset.hpp"
 
-#include "Render/Vulkan/Vulkan.hpp"
-#include "Render/Vulkan/VulkanUtils.h"
-
-#include "Render/Materials/Material.h"
-
 #include <tinygltf/tiny_gltf.h>
 #include <map>
+
+#if GRAPHICS_DISPLAY
+#include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/VulkanUtils.h"
+#include "Render/Materials/Material.h"
+#endif
 
 using namespace glm;
 
@@ -18,6 +19,7 @@ void Mesh::set_material_name(const std::string& mesh_name, const std::string& ma
 	material_assignment[mesh_name] = mat_name;
 }
 
+#if GRAPHICS_DISPLAY
 void Mesh::create_vertex_buffer()
 {
 	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
@@ -67,20 +69,6 @@ void Mesh::initialize_gpu() {
 	LOG("loaded mesh '%s' of %lu vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 }
 
-void Mesh::generate_aabb() {
-	mat4 o2w = object_to_world();
-	aabb = AABB();
-	for (int i=0; i<vertices.size(); i++) {
-		aabb.add_point(o2w * vec4(vertices[i].position, 1));
-	}
-}
-
-Mesh::~Mesh() {
-	//if (bsdf) delete bsdf;
-	vertexBuffer.release();
-	indexBuffer.release();
-}
-
 void Mesh::update(float elapsed) {
 	SceneObject::update(elapsed);
 	locked = true;
@@ -94,6 +82,23 @@ void Mesh::draw(VkCommandBuffer cmdbuf)
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
 	vkCmdBindIndexBuffer(cmdbuf, indexBuffer.getBufferInstance(), 0, VK_INDEX_TYPE);
 	vkCmdDrawIndexed(cmdbuf, faces.size(), 1, 0, 0, 0);
+}
+#endif
+
+void Mesh::generate_aabb() {
+	mat4 o2w = object_to_world();
+	aabb = AABB();
+	for (int i=0; i<vertices.size(); i++) {
+		aabb.add_point(o2w * vec4(vertices[i].position, 1));
+	}
+}
+
+Mesh::~Mesh() {
+	//if (bsdf) delete bsdf;
+#if GRAPHICS_DISPLAY
+	vertexBuffer.release();
+	indexBuffer.release();
+#endif
 }
 
 void Mesh::set_local_position(vec3 local_position) {
@@ -120,30 +125,7 @@ void Mesh::set_scale(vec3 scale) {
 	}
 }
 
-std::vector<Mesh *> Mesh::load_gltf(
-	const std::string& node_name,
-	const tinygltf::Mesh* in_mesh,
-	const tinygltf::Model* in_model,
-	const std::vector<std::string>& texture_names)
-{
-	std::vector<Mesh*> output;
-	LOG("loading mesh obj %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
-	for (int i = 0; i < in_mesh->primitives.size(); i++)
-	{
-		auto& prim = in_mesh->primitives[i];
-		if (prim.mode != TINYGLTF_MODE_TRIANGLES)
-		{
-			WARN("%s contains unsupported mesh mode %d. skipping..", in_mesh->name.c_str(), prim.mode)
-			continue;
-		}
-		auto in_name = node_name + " | " + in_mesh->name + "[" + std::to_string(i) + "]";
-		auto m = new Mesh(in_name, &prim, in_model, texture_names);
-		output.emplace_back(m);
-	}
-	return output;
-}
-
-// internal
+// for loading tinygltf only
 Mesh::Mesh(
 	const std::string& in_name,
 	const tinygltf::Primitive *in_prim,

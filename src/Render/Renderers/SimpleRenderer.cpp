@@ -253,7 +253,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialName)
 {
 	auto iter = materials.find(materialName);
-	GltfMaterialInfo* info = GltfMaterial::getInfo(materialName);
+	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
 	EXPECT(info != nullptr, true)
 
 	if (iter != materials.end()) {

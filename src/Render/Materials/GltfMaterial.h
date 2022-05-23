@@ -1,22 +1,10 @@
 #pragma once
 #include "Material.h"
+#include "GltfMaterialInfo.h"
 
 class Texture2D;
 
 namespace tinygltf { struct Material; }
-
-// used for each renderer to create corresponding materials
-struct GltfMaterialInfo {
-	uint32_t _version;
-	std::string name;
-	std::string albedoTexName;
-	std::string normalTexName;
-	std::string mrTexName;
-	std::string aoTexName;
-	glm::vec4 BaseColorFactor;
-	glm::vec4 EmissiveFactor;
-	glm::vec4 MetallicRoughnessAONormalStrengths;
-};
 
 // virtual class; see inherited ones below
 // currently not handling emission because blender gltf 2.0 export seems broken..
@@ -28,9 +16,6 @@ public:
 	~GltfMaterial() override;
 
 	void resetInstanceCounter() override;
-
-	static void addInfo(GltfMaterialInfo& info);
-	static GltfMaterialInfo* getInfo(const std::string& materialName);
 
 	uint32_t getVersion() { return _version; }
 

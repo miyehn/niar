@@ -308,7 +308,7 @@ int main(int argc, const char * argv[])
 		}
 		std::string path = result["output"].as<std::string>();
 		LOG("rendering pathtracer scene to file: %s", path.c_str());
-		Pathtracer::pathtrace_to_file(w, h, path);
+		//Pathtracer::render_to_file(w, h, path); // TODO
 		return 0;
 	}
 

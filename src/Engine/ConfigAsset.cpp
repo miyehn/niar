@@ -1,5 +1,7 @@
 #include "ConfigAsset.hpp"
+#if GRAPHICS_DISPLAY
 #include "Render/Texture.h"
+#endif
 #include "Asset.h"
 
 ConfigAsset* Config = nullptr;

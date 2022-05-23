@@ -93,6 +93,7 @@ vec3 Pathtracer::raytrace_pixel(uint32_t index) {
 	return result;
 }
 
+#if GRAPHICS_DISPLAY
 // DEBUG ONLY!!!
 void Pathtracer::raytrace_debug(uint32_t index) {
 	logged_rays.clear();
@@ -123,6 +124,7 @@ void Pathtracer::clear_debug_ray()
 	logged_rays.clear();
 	debugLines->clear();
 }
+#endif
 
 void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 
@@ -147,6 +149,7 @@ void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 	ray.d = mat3(camera->object_to_world()) * d_cam;
 }
 
+#if GRAPHICS_DISPLAY
 float Pathtracer::depth_of_first_hit(int x, int y) {
 	RayTask task;
 	generate_one_ray(task, x, y);
@@ -159,6 +162,7 @@ float Pathtracer::depth_of_first_hit(int x, int y) {
 
 	return float(t);
 }
+#endif
 
 void make_h2w(mat3& h2w, const vec3& z) { // TODO: make more robust
 	// choose a vector different from z
@@ -191,7 +195,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		// pre-compute (or declare) some common things to be used later
 		vec3 L = vec3(0);
 		vec3 hit_p = ray.o + float(t) * ray.d;
+#if GRAPHICS_DISPLAY
 		if (debug) logged_rays.push_back(hit_p);
+#endif
 		// construct transform from hemisphere space to world space;
 		mat3 h2w; 
 		make_h2w(h2w, n);

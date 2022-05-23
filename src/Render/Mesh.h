@@ -1,9 +1,11 @@
 #pragma once
 #include "Engine/SceneObject.hpp"
 #include "Scene/AABB.hpp"
-#include "Render/Vulkan/Buffer.h"
 #include "Render/Vertex.h"
 #include <unordered_map>
+#if GRAPHICS_DISPLAY
+#include "Render/Vulkan/Buffer.h"
+#endif
 
 struct BSDF;
 struct aiMesh;
@@ -22,19 +24,24 @@ namespace tinygltf
 struct Mesh : SceneObject {
 public:
 
-	// load from glTF data
-	static std::vector<Mesh*> load_gltf(
-		const std::string& node_name,
-		const tinygltf::Mesh* in_mesh,
+	/*
+	 * Should only be called from gltf loader
+	 */
+	explicit Mesh(
+		const std::string& name,
+		const tinygltf::Primitive* in_mesh,
 		const tinygltf::Model* in_model,
-		const std::vector<std::string>& texture_names);
+		const std::vector<std::string>& material_names);
 
-	void initialize_gpu();
 	~Mesh() override;
+
+#if GRAPHICS_DISPLAY
+	void initialize_gpu();
 
 	void update(float elapsed) override;
 
 	void draw(VkCommandBuffer cmdbuf) override;
+#endif
 
 	void set_local_position(glm::vec3 _local_position) override;
 	void set_rotation(glm::quat _rotation) override;
@@ -55,15 +62,10 @@ private:
 
 	static std::unordered_map<std::string, std::string> material_assignment;
 
-	explicit Mesh(
-		const std::string& name,
-		const tinygltf::Primitive* in_mesh,
-		const tinygltf::Model* in_model,
-		const std::vector<std::string>& material_names);
-
 	bool locked = false;
 	void generate_aabb();
 
+#if GRAPHICS_DISPLAY
 	//---- vulkan stuff ----
 
 	VmaBuffer vertexBuffer;
@@ -71,5 +73,6 @@ private:
 
 	void create_vertex_buffer();
 	void create_index_buffer();
+#endif
 
 };

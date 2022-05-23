@@ -6,17 +6,19 @@
 #include "Scene/Camera.hpp"
 #include "Scene/Light.hpp"
 #include "Render/Mesh.h"
-#include "Render/Texture.h"
-#include "Render/Materials/GltfMaterial.h"
 #include "Engine/ConfigAsset.hpp"
 #include "GltfAsset.h"
-#include "SceneObject.hpp"
+#include "Render/Materials/GltfMaterialInfo.h"
 
 #include <glm/gtx/matrix_decompose.hpp>
 #include <tinygltf/tiny_gltf.h>
 
 #include <unordered_map>
 #include <queue>
+
+#if GRAPHICS_DISPLAY
+#include "Render/Texture.h"
+#endif
 
 namespace
 {
@@ -160,6 +162,29 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 	}
 }
 }
+// load from glTF data
+std::vector<Mesh*> load_gltf_meshes(
+	const std::string& node_name,
+	const tinygltf::Mesh* in_mesh,
+	const tinygltf::Model* in_model,
+	const std::vector<std::string>& texture_names)
+{
+	std::vector<Mesh*> output;
+	LOG("loading mesh obj %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
+	for (int i = 0; i < in_mesh->primitives.size(); i++)
+	{
+		auto& prim = in_mesh->primitives[i];
+		if (prim.mode != TINYGLTF_MODE_TRIANGLES)
+		{
+			WARN("%s contains unsupported mesh mode %d. skipping..", in_mesh->name.c_str(), prim.mode)
+			continue;
+		}
+		auto in_name = node_name + " | " + in_mesh->name + "[" + std::to_string(i) + "]";
+		auto m = new Mesh(in_name, &prim, in_model, texture_names);
+		output.emplace_back(m);
+	}
+	return output;
+}
 
 GltfAsset::GltfAsset(
 	SceneObject* outer_root,
@@ -171,7 +196,9 @@ GltfAsset::GltfAsset(
 
 		// cleanup first, if necessary
 		outer_root->try_remove_child(asset_root);
+#if GRAPHICS_DISPLAY
 		Vulkan::Instance->waitDeviceIdle();
+#endif
 		release_resources();
 		delete asset_root;
 
@@ -190,6 +217,7 @@ GltfAsset::GltfAsset(
 
 		//====================
 
+#if GRAPHICS_DISPLAY
 		// image (texture), material
 
 		struct ImageInfo {
@@ -227,6 +255,7 @@ GltfAsset::GltfAsset(
 			image_infos[i].texture = tex;
 			asset_textures.push_back(tex);
 		}
+#endif
 
 		// materials
 		std::vector<std::string> texture_names(model.textures.size());
@@ -275,7 +304,7 @@ GltfAsset::GltfAsset(
 				.EmissiveFactor = emissiveFactor,
 				.MetallicRoughnessAONormalStrengths = strengths
 			};
-			GltfMaterial::addInfo(info);
+			GltfMaterialInfo::add(info);
 		}
 
 		//====================
@@ -329,19 +358,23 @@ GltfAsset::GltfAsset(
 			else if (node->mesh_idx != -1)
 			{
 				auto in_mesh = &model.meshes[node->mesh_idx];
-				std::vector<Mesh*> meshes = Mesh::load_gltf(node->name, in_mesh, &model, material_names);
+				std::vector<Mesh*> meshes = load_gltf_meshes(node->name, in_mesh, &model, material_names);
 				if (in_mesh->primitives.size() > 1)
 				{
 					object = new SceneObject(nullptr, in_mesh->name);
 					for (auto m : meshes)
 					{
+#if GRAPHICS_DISPLAY
 						m->initialize_gpu();
+#endif
 						object->add_child(m);
 					}
 				}
 				else
 				{
+#if GRAPHICS_DISPLAY
 					meshes[0]->initialize_gpu();
+#endif
 					object = meshes[0];
 				}
 			}
@@ -385,8 +418,10 @@ GltfAsset::GltfAsset(
 
 void GltfAsset::release_resources()
 {
+#if GRAPHICS_DISPLAY
 	for (auto tex : asset_textures) {
 		delete tex;
 	}
 	asset_textures.clear();
+#endif
 }

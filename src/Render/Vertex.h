@@ -1,6 +1,8 @@
 #pragma once
 #include <glm/glm.hpp>
+#if GRAPHICS_DISPLAY
 #include <vulkan/vulkan.h>
+#endif
 
 struct Vertex
 {
@@ -12,6 +14,7 @@ struct Vertex
 	glm::vec3 tangent = glm::vec3(1, 0, 0);
 	glm::vec2 uv = glm::vec2(0.5f, 0.5f);
 
+#if GRAPHICS_DISPLAY
 	// about how to cut the binding-th array into strides
 	static void getBindingDescription(VkVertexInputBindingDescription& bindingDescription)
 	{
@@ -51,5 +54,6 @@ struct Vertex
 			.offset = (uint32_t)offsetof(Vertex, uv)
 		});
 	}
+#endif
 };
 static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 3 + 2), "vertex struct should be packed");

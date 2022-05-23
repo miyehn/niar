@@ -54,7 +54,7 @@ void BVH::expand_bvh()
 		BVH* right_tmp = new BVH(primitives_ptr, depth + 1);
 		uint left_cnt = 0, right_cnt = 0;
 
-		for (int j=0; j<primitives_count; j++)
+		for (uint32_t j=0; j<primitives_count; j++)
 		{
 			Triangle* T = dynamic_cast<Triangle*>( (*primitives_ptr)[primitives_start + j] );
 			if (center(T).x < x_divide) {
@@ -101,9 +101,9 @@ void BVH::expand_bvh()
 		BVH* right_tmp = new BVH(primitives_ptr, depth + 1);
 		uint left_cnt = 0, right_cnt = 0;
 
-		for (int j=0; j<primitives_count; j++)
+		for (uint32_t j=0; j<primitives_count; j++)
 		{
-			Triangle* T = dynamic_cast<Triangle*>( (*primitives_ptr)[primitives_start + j] );
+			auto* T = dynamic_cast<Triangle*>( (*primitives_ptr)[primitives_start + j] );
 			if (center(T).y < y_divide) {
 				left_cnt++;
 			} else {
@@ -148,7 +148,7 @@ void BVH::expand_bvh()
 		BVH* right_tmp = new BVH(primitives_ptr, depth + 1);
 		uint left_cnt = 0, right_cnt = 0;
 
-		for (int j=0; j<primitives_count; j++)
+		for (uint32_t j=0; j<primitives_count; j++)
 		{
 			Triangle* T = dynamic_cast<Triangle*>( (*primitives_ptr)[primitives_start + j] );
 			if (center(T).z < z_divide) {

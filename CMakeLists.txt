@@ -20,8 +20,8 @@ message(STATUS "Vulkan Found = ${Vulkan_FOUND}")
 message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
-set(SRC
-	src/Engine/main.cpp
+set(NIAR_SRC
+	src/Engine/Niar.cpp
 	src/Render/Vulkan/Vulkan.cpp
 	src/Scene/Scene.cpp
     src/Scene/Camera.cpp
@@ -47,16 +47,17 @@ set(SRC
 	${CMAKE_SOURCE_DIR}/include/imgui/backends/imgui_impl_vulkan.cpp
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui_widgets.cpp
 	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
-	src/Utils/myn/CVar.cpp
+	# src/Utils/myn/CVar.cpp
 	src/Utils/myn/Misc.cpp
     src/Render/Vulkan/PipelineBuilder.cpp
 	src/Render/Vulkan/RenderPassBuilder.cpp
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
-	src/Utils/myn/Color.cpp
 	src/Render/Texture.cpp
+	src/Utils/myn/Color.cpp
     src/Utils/StbImageImpl.cpp
 	src/Utils/TinyGLTFImpl.cpp
+	src/Utils/myn/RenderDoc.cpp
 	src/Render/Vulkan/SamplerCache.cpp
 	src/Render/Vulkan/ShaderModule.cpp
 	src/Render/Vulkan/VulkanUtils.cpp
@@ -64,18 +65,45 @@ set(SRC
 	src/Render/Vulkan/ImageCreator.cpp
 	src/Engine/DebugUI.cpp
 	src/Engine/DebugUI.h
-	src/Utils/myn/RenderDoc.cpp
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/DebugDraw.cpp
 	src/Render/Materials/Rise.cpp
 	src/Render/Renderers/SimpleRenderer.cpp
-		src/Scene/PathtracerController.cpp src/Scene/PathtracerController.h src/Engine/Asset.cpp src/Engine/Asset.h src/Engine/GltfAsset.cpp src/Engine/GltfAsset.h)
+	src/Scene/PathtracerController.cpp
+	src/Engine/Asset.cpp
+	src/Engine/GltfAsset.cpp
+	src/Render/Materials/GltfMaterialInfo.cpp
+	)
 
-set(SRC_RTX src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
+set(RTX_SRC src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
+
+set(ASZELEA_SRC
+	src/Engine/Aszelea.cpp
+	src/Engine/SceneObject.cpp
+	src/Scene/Camera.cpp
+	src/Scene/Light.cpp
+	src/Scene/AABB.cpp
+	src/Render/Materials/GltfMaterialInfo.cpp
+	src/Render/Mesh.cpp
+	src/Engine/Asset.cpp
+	src/Engine/GltfAsset.cpp
+	src/Engine/ConfigAsset.cpp
+	src/Pathtracer/Primitive.cpp
+	src/Pathtracer/BSDF.cpp
+	src/Pathtracer/PathtracerLight.cpp
+	src/Pathtracer/BVH.cpp
+	src/Pathtracer/Pathtracer.cpp
+	src/Utils/myn/Misc.cpp
+	src/Utils/TinyGLTFImpl.cpp
+	src/Utils/StbImageImpl.cpp
+	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
+	${TASKSYS_O}
+	)
 
 if(APPLE)
-	add_executable(niar ${SRC})
 	add_definitions(-DMACOS)
+
+	add_executable(niar ${NIAR_SRC})
 	target_link_libraries(niar
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
@@ -83,11 +111,14 @@ if(APPLE)
 		${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
 		${CMAKE_SOURCE_DIR}/lib/libconfig++.a
 	)
+
+	add_executable(asz ${ASZELEA_SRC})
 endif(APPLE)
 
 if(WIN32)
-	add_executable(niar WIN32 ${SRC})
 	add_definitions(-DWINOS)
+
+	add_executable(niar WIN32 ${NIAR_SRC})
 	target_link_libraries(niar
 		${CMAKE_THREAD_LIBS_INIT}
 		${Vulkan_LIBRARY}
@@ -99,12 +130,23 @@ if(WIN32)
 	set_target_properties(niar PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 	configure_file(lib/SDL2.dll ${niar_BINARY_DIR} COPYONLY)
 	configure_file(lib/libconfig++.dll ${niar_BINARY_DIR} COPYONLY)
+
+	add_executable(asz WIN32 ${ASZELEA_SRC})
+	target_link_libraries(asz
+		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
+		)
+	set_target_properties(asz PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 endif(WIN32)
 
 # include_directories(include src)
-target_include_directories(niar PUBLIC SRC include ${Vulkan_INCLUDE_DIR})
+include_directories(PUBLIC src include)
+target_include_directories(niar PUBLIC ${Vulkan_INCLUDE_DIR})
 target_include_directories(niar PUBLIC include/SDL2)
 target_include_directories(niar PUBLIC include/imgui)
+
+target_compile_definitions(niar PRIVATE GRAPHICS_DISPLAY=1)
+target_compile_definitions(asz PRIVATE GRAPHICS_DISPLAY=0)
+
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 

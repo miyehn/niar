@@ -1,7 +1,9 @@
 #include "Camera.hpp"
 #include "Utils/myn/Log.h"
-#include <imgui.h>
 #include <tinygltf/tiny_gltf.h>
+#if GRAPHICS_DISPLAY
+#include <imgui.h>
+#endif
 
 using namespace glm;
 
@@ -23,9 +25,11 @@ Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 	_local_position = vec3(0);
 	_rotation = glm::quat(1, 0, 0, 0);
 
+#if GRAPHICS_DISPLAY
 	// TODO: make these properties
 	move_speed = 150.0f;
 	rotate_speed = 0.002f;
+#endif
 
 	fov = radians(60.0f);
 	cutoffNear = 0.5f;
@@ -40,6 +44,7 @@ Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 
 }
 
+#if GRAPHICS_DISPLAY
 // Never really got how camera rotation control works but gonna settle for now...
 // Camera is looking down z axis when yaw, pitch, row = 0
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
@@ -106,6 +111,15 @@ void Camera::update_control(float elapsed) {
 	}
 }
 
+void Camera::lock() {
+	locked = true;
+}
+
+void Camera::unlock() {
+	locked = false;
+}
+#endif
+
 Frustum Camera::frustum() {
 	if (orthographic) WARN("creating a frustum for orthographic camera (which is meanlingless)");
 	Frustum frus(8);
@@ -147,14 +161,6 @@ vec3 Camera::forward() {
 	return glm::normalize(glm::mat3(object_to_world()) * vec3(0, 0, -1));
 }
 
-void Camera::lock() {
-	locked = true;
-}
-
-void Camera::unlock() {
-	locked = false;
-}
-
 vec4 Camera::ZBufferParams() {
 	vec4 res;
 	res.x = cutoffNear;
@@ -176,8 +182,10 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 {
 	name = node_name + " | " + in_camera->name;
 	LOG("loading camera '%s'..", name.c_str())
+#if GRAPHICS_DISPLAY
 	move_speed = 5;
 	rotate_speed = 0.002f;
+#endif
 	if (in_camera->type != "perspective")
 	{
 		WARN("Unsupported camera (%s : %s)", in_camera->name.c_str(), in_camera->type.c_str())
@@ -199,6 +207,7 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 	orthographic = false;
 }
 
+#if GRAPHICS_DISPLAY
 void Camera::draw_config_ui()
 {
 	if (ImGui::Button("look at origin"))
@@ -207,3 +216,4 @@ void Camera::draw_config_ui()
 		set_rotation(rot);
 	}
 }
+#endif

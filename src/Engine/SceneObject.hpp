@@ -2,10 +2,13 @@
 #include <string>
 #include <functional>
 #include <vector>
-#include <SDL_events.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+
+#if GRAPHICS_DISPLAY
+#include <SDL_events.h>
 #include <vulkan/vulkan.h>
+#endif
 
 class Scene;
 
@@ -17,12 +20,14 @@ public:
 			std::string _name = "[unnamed scene object]");
 	virtual ~SceneObject();
 
+#if GRAPHICS_DISPLAY
 	// inherited
 	virtual bool handle_event(SDL_Event event);
 	virtual void update(float elapsed);
 
 	// draw function
 	virtual void draw(VkCommandBuffer cmdbuf);
+#endif
 
 	// hierarchy operations
 	SceneObject* parent;
@@ -40,8 +45,10 @@ public:
 	virtual void set_rotation(glm::quat rotation) { _rotation = rotation; }
 	virtual void set_scale(glm::vec3 scale) { _scale = scale; }
 
+#if GRAPHICS_DISPLAY
 	void draw_transform_ui(bool global) const;
 	virtual void draw_config_ui() {};
+#endif
 
 	// transformation
 	glm::mat4 object_to_parent() const;
