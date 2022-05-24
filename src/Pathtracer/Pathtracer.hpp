@@ -23,12 +23,8 @@ struct ISPC_Data;
 
 class Pathtracer : public Renderer {
 public:
-	static Pathtracer* get(uint32_t w = 0, uint32_t h = 0, bool has_window = true);
+	static Pathtracer* get(uint32_t w = 0, uint32_t h = 0);
 
-	Pathtracer(
-			uint32_t _width,
-			uint32_t _height,
-			bool _has_window = true);
 	~Pathtracer() override;
 
 #if GRAPHICS_DISPLAY
@@ -42,16 +38,15 @@ public:
 	bool is_enabled() const { return enabled; }
 
 #else
-	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
-	void output_file(const std::string& path);
-
-	void render_to_file(uint32_t w, uint32_t h, const std::string& path) override;
+	void render_to_file(const std::string& output_path_rel_to_bin) override;
 
 #endif
 
 	void initialize();
 
 private:
+
+	Pathtracer(uint32_t _width, uint32_t _height);
 
 	// size for the pathtraced image - could be different from display window.
 	uint32_t width, height;
@@ -78,7 +73,6 @@ private:
 
 #if GRAPHICS_DISPLAY
 	// ray tracing state and control
-	bool initialized = false;
 	bool paused = true;
 	bool notified_pause_finish = true;
 	bool finished = true;
@@ -86,6 +80,7 @@ private:
 	void continue_trace();
 	bool enabled = false;
 #endif
+	bool initialized = false;
 	void reset();
 
 	myn::TimePoint last_begin_time;
@@ -122,6 +117,9 @@ private:
 	vec3 raytrace_pixel(uint32_t index);
 	void raytrace_tile(uint32_t tid, uint32_t tile_index);
 	void trace_ray(RayTask& task, int ray_depth, bool debug);
+
+	void raytrace_scene_to_buf(); //trace to main output buffer directly; used for rendering to file
+	void output_file(const std::string& path);
 
 #if GRAPHICS_DISPLAY
 	// for debug use

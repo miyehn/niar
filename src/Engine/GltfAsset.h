@@ -23,6 +23,8 @@ public:
 
 	~GltfAsset() override { release_resources(); }
 
+	SceneObject* get_root() { return asset_root; }
+
 	void release_resources();
 
 private:

@@ -27,6 +27,6 @@ public:
 
 	virtual void render(VkCommandBuffer cmdbuf) = 0;
 #else
-	virtual void render_to_file(uint32_t w, uint32_t h, const std::string& path) = 0;
+	virtual void render_to_file(const std::string& output_path_rel_to_bin) = 0;
 #endif
 };

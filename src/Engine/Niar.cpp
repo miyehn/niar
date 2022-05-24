@@ -1,4 +1,3 @@
-#include "cxxopts/cxxopts.hpp"
 #include "Scene/Scene.hpp"
 #include "Scene/Camera.hpp"
 #include "Scene/PathtracerController.h"
@@ -11,7 +10,6 @@
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
 
-#include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Engine/DebugUI.h"
 
@@ -283,36 +281,6 @@ int main(int argc, const char * argv[])
 	std::srand(time(nullptr));
 
 	Config = new ConfigAsset("config/global.ini", false);
-
-	cxxopts::Options options("niar", "a toy renderer");
-	options.allow_unrecognised_options();
-	options.add_options()
-		("w,width", "window width", cxxopts::value<int>())
-		("h,height", "window height", cxxopts::value<int>())
-		("o,output", "output relative_path", cxxopts::value<std::string>());
-
-	auto result = options.parse(argc, argv);
-
-	//------------- pathtrace to file --------------
-
-	if (result.count("output")) // pathtrace to file
-	{
-		// render pathtracer scene to file
-		int w = 200;
-		int h = 150;
-		if (result.count("width")) {
-			w = result["width"].as<int>();
-		}
-		if (result.count("height")) {
-			h = result["height"].as<int>();
-		}
-		std::string path = result["output"].as<std::string>();
-		LOG("rendering pathtracer scene to file: %s", path.c_str());
-		//Pathtracer::render_to_file(w, h, path); // TODO
-		return 0;
-	}
-
-	//------------- else: load and run the scene --------------
 
 	if (Config->lookup<int>("Debug.RenderDoc")) RenderDoc::load("niar");
 

@@ -195,7 +195,7 @@ GltfAsset::GltfAsset(
 	load_action = [this, outer_root, relative_path, reload_condition]() {
 
 		// cleanup first, if necessary
-		outer_root->try_remove_child(asset_root);
+		if (outer_root) outer_root->try_remove_child(asset_root);
 #if GRAPHICS_DISPLAY
 		Vulkan::Instance->waitDeviceIdle();
 #endif
@@ -407,7 +407,7 @@ GltfAsset::GltfAsset(
 		}
 
 		asset_root = nodeToDrawable[tree];
-		outer_root->add_child(asset_root);
+		if (outer_root) outer_root->add_child(asset_root);
 
 		delete tree;
 	};
