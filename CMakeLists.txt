@@ -20,8 +20,8 @@ message(STATUS "Vulkan Found = ${Vulkan_FOUND}")
 message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
-set(NIAR_SRC
-	src/Engine/Niar.cpp
+set(ELLYN_SRC
+	src/Engine/Ellyn.cpp
 	src/Render/Vulkan/Vulkan.cpp
 	src/Scene/Scene.cpp
     src/Scene/Camera.cpp
@@ -103,8 +103,8 @@ set(ASZELEA_SRC
 if(APPLE)
 	add_definitions(-DMACOS)
 
-	add_executable(niar ${NIAR_SRC})
-	target_link_libraries(niar
+	add_executable(ellyn ${ELLYN_SRC})
+	target_link_libraries(ellyn
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
 		${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
@@ -118,17 +118,17 @@ endif(APPLE)
 if(WIN32)
 	add_definitions(-DWINOS)
 
-	add_executable(niar WIN32 ${NIAR_SRC})
-	target_link_libraries(niar
+	add_executable(ellyn WIN32 ${ELLYN_SRC})
+	target_link_libraries(ellyn
 		${CMAKE_THREAD_LIBS_INIT}
 		${Vulkan_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
 		${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
 		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
 	)
-	set_target_properties(niar PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
-	configure_file(lib/SDL2.dll ${niar_BINARY_DIR} COPYONLY)
-	configure_file(lib/libconfig++.dll ${niar_BINARY_DIR} COPYONLY)
+	set_target_properties(ellyn PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+	configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} COPYONLY)
+	configure_file(lib/libconfig++.dll ${ellyn_BINARY_DIR} COPYONLY)
 
 	add_executable(asz WIN32 ${ASZELEA_SRC})
 	target_link_libraries(asz
@@ -139,11 +139,11 @@ endif(WIN32)
 
 # include_directories(include src)
 include_directories(PUBLIC src include)
-target_include_directories(niar PUBLIC ${Vulkan_INCLUDE_DIR})
-target_include_directories(niar PUBLIC include/SDL2)
-target_include_directories(niar PUBLIC include/imgui)
+target_include_directories(ellyn PUBLIC ${Vulkan_INCLUDE_DIR})
+target_include_directories(ellyn PUBLIC include/SDL2)
+target_include_directories(ellyn PUBLIC include/imgui)
 
-target_compile_definitions(niar PRIVATE GRAPHICS_DISPLAY=1)
+target_compile_definitions(ellyn PRIVATE GRAPHICS_DISPLAY=1)
 target_compile_definitions(asz PRIVATE GRAPHICS_DISPLAY=0)
 
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
@@ -178,7 +178,7 @@ add_custom_target(ispc
 	DEPENDS ${TASKSYS_O} ${KERNEL_H} ${KERNEL_O}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
-add_dependencies(niar ispc)
+add_dependencies(ellyn ispc)
 
 #-------- vulkan shaders --------
 set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders)
