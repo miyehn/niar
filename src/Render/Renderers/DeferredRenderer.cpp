@@ -659,7 +659,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			{
 				if (point_light_ctr >= MAX_LIGHTS_PER_PASS) break;
 				deferredLighting->pointLights.Data[point_light_ctr].position = L->world_position();
-				deferredLighting->pointLights.Data[point_light_ctr].color = L->get_emission();
+				deferredLighting->pointLights.Data[point_light_ctr].color = L->get_emission() / (4 * PI);
 				point_light_ctr++;
 			}
 			else if (auto L = dynamic_cast<DirectionalLight*>(drawable))

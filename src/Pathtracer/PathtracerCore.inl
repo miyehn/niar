@@ -84,9 +84,9 @@ vec3 Pathtracer::raytrace_pixel(uint32_t index) {
 	generate_rays(tasks, index);
 
 	vec3 result = vec3(0);
-	for (uint32_t i = 0; i < tasks.size(); i++) {
-		trace_ray(tasks[i], 0, false);
-		result += clamp(tasks[i].output, vec3(0), vec3(1));
+	for (auto & task : tasks) {
+		trace_ray(task, 0, false);
+		result += clamp(task.output, vec3(0), vec3(1));
 	}
 
 	result *= 1.0f / float(tasks.size());
@@ -141,7 +141,7 @@ void Pathtracer::generate_one_ray(RayTask& task, int x, int y) {
 	float half_height = float(height) / 2.0f;
 	float dx = (x + offset.x - half_width) / half_width;
 	float dy = (y + offset.y - half_height) / half_height;
-	// the raytraced image plane is at plane z = -1. Supposed k is its size in half.
+	// the ray traced image plane is at plane z = -1. Supposed k is its size in half.
 	float k_y = tan(fov / 2.0f);
 	float k_x = k_y * camera->aspect_ratio;
 
@@ -225,16 +225,16 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 				for (uint32_t i = 0; i < lights.size(); i++) {
 
 					// Mesh lights
-					if (lights[i]->type == PathtracerLight::AreaLight)
+					if (lights[i]->type == PathtracerLight::Mesh)
 					{
-						AreaLight* area_light = dynamic_cast<AreaLight*>(lights[i]);
-						float each_sample_weight = 1.0f / cached_config.AreaLightSamples;
+						auto* mesh_light = dynamic_cast<PathtracerMeshLight*>(lights[i]);
+						float each_sample_weight = 1.0f / (float)cached_config.AreaLightSamples;
 						for (uint32_t j = 0; j < cached_config.AreaLightSamples; j++) {
 
 							// get ray to light
 							Ray ray_to_light;
 							// in this case not a real pdf, but just something to divide by?
-							float pdf = area_light->ray_to_light_pdf(ray_to_light, hit_p);
+							float pdf = mesh_light->ray_to_light_pdf(ray_to_light, hit_p);
 
 							// test if ray to light hits anything other than the starting primitive and the light
 							double tmp_t; vec3 tmp_n;
@@ -244,18 +244,34 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 							if (!in_shadow) {
 								wi_world = ray_to_light.d;
 								wi_hemi = w2h * wi_world;
-								// funny how spheres can technically cast self shadows but clampint cosine gives same effect
+								// funny how spheres can technically cast self shadows but clamping cosine gives same effect
 								// thanks convexity?
 								costhetai = std::max(0.0f, dot(n, wi_world));
-								vec3 L_direct = area_light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
+								vec3 L_direct = mesh_light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
 								// correction for when above num and denom both 0. TODO: is this right?
 								if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
 								L += L_direct * each_sample_weight;
 							}
 						}
 					}
+					else if (lights[i]->type == PathtracerLight::Point) {
+						auto *plight = dynamic_cast<PathtracerPointLight *>(lights[i]);
+						Ray ray_to_light;
+						float pdf = plight->ray_to_light_pdf(ray_to_light, hit_p);
 
-					// Other types of lights (TODO)
+						// test if ray to light hits anything other than the starting primitive and the light
+						double tmp_t; vec3 tmp_n;
+						bool in_shadow =
+							bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
+						// add contribution
+						if (!in_shadow) {
+							wi_world = ray_to_light.d;
+							wi_hemi = w2h * wi_world;
+							costhetai = std::max(0.0f, dot(n, wi_world));
+							L += plight->get_emission() / (4 * PI) * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
+						}
+					}
+					// Other types of light (TODO)
 
 				}
 			}
@@ -266,24 +282,26 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 
 		if ((cached_config.UseDirectLight && !bsdf->is_emissive) ||
 			 !(cached_config.UseDirectLight)) {
+#if GRAPHICS_DISPLAY
 			if (debug) {
 				LOG("---- hit at depth %d at (%f %f %f) ----", ray_depth, hit_p.x, hit_p.y, hit_p.z);
 			}
+#endif
 
 			float pdf;
 			vec3 f = bsdf->sample_f(pdf, wi_hemi, wo_hemi, debug);
 
 			// transform wi back to world space
 			wi_world = h2w * wi_hemi;
-			costhetai = abs(dot(n, wi_world)); 
-
+			costhetai = abs(dot(n, wi_world));
+#if GRAPHICS_DISPLAY
 			if (debug) {
 				LOG("wo: %f %f %f (normalized to %f %f %f)", 
 						wo_world.x, wo_world.y, wo_world.z, wo_hemi.x, wo_hemi.y, wo_hemi.z);
 				LOG("wi: %f %f %f (normalized to %f %f %f)", 
 						wi_world.x, wi_world.y, wi_world.z, wi_hemi.x, wi_hemi.y, wi_hemi.z);
 			}
-
+#endif
 			// russian roulette
 			float termination_prob = 0.0f;
 			ray.rr_contribution *= brightness(f) * costhetai;
@@ -303,11 +321,16 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 				task.contribution *= f * costhetai / pdf * (1.0f / (1.0f - termination_prob));
 				// if it has some termination probability, weigh it more if it's not terminated
 				trace_ray(task, ray_depth + 1, debug);
-			} else if (debug) {
+			}
+#if GRAPHICS_DISPLAY
+			else if (debug) {
 				LOG("terminated by russian roulette");
 			}
+#endif
 		}
 #endif
+#if GRAPHICS_DISPLAY
 		if (debug) LOG("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
 	}
+#endif
 }

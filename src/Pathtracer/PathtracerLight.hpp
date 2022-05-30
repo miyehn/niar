@@ -7,22 +7,23 @@ struct Triangle;
 struct PathtracerLight {
 
 	enum Type {
-		AreaLight
+		Mesh,
+		Point
 	};
 
 	Type type;
 
-	virtual ~PathtracerLight() {}
+	virtual ~PathtracerLight() = default;
 
 	virtual glm::vec3 get_emission() = 0;
 
 	virtual float ray_to_light_pdf(Ray& ray, const glm::vec3& origin) = 0;
 };
 
-struct AreaLight : public PathtracerLight {
+struct PathtracerMeshLight : public PathtracerLight {
 
-	AreaLight(Triangle* _triangle);
-	virtual ~AreaLight() {}
+	explicit PathtracerMeshLight(Triangle* _triangle);
+	~PathtracerMeshLight() override = default;
 
 	Triangle* triangle;
 
@@ -32,3 +33,16 @@ struct AreaLight : public PathtracerLight {
 	float ray_to_light_pdf(Ray& ray, const glm::vec3& origin) override;
 };
 
+struct PathtracerPointLight : public PathtracerLight {
+
+	explicit PathtracerPointLight(const glm::vec3& position, const glm::vec3& emission);
+	~PathtracerPointLight() override = default;
+
+	glm::vec3 position;
+	glm::vec3 emission;
+
+	glm::vec3 get_emission() override;
+
+	// returns pdf for sampling this particular ray among A' (area projected onto hemisphere)
+	float ray_to_light_pdf(Ray& ray, const glm::vec3& origin) override;
+};

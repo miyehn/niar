@@ -12,6 +12,7 @@
 #include <condition_variable>
 #if GRAPHICS_DISPLAY
 #include <imgui.h>
+#include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Render/DebugDraw.h"
 #include "Render/Texture.h"
@@ -234,7 +235,6 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 	return bsdf;
 }
 
-// TODO: load scene recursively
 void Pathtracer::load_scene(SceneObject *scene) {
 
 	primitives.clear();
@@ -245,8 +245,7 @@ void Pathtracer::load_scene(SceneObject *scene) {
 	int meshes_count = 0;
 	scene->foreach_descendent_bfs([&](SceneObject* drawable)
 	{
-		Mesh* mesh = dynamic_cast<Mesh*>(drawable);
-		if (mesh) {
+		if (Mesh* mesh = dynamic_cast<Mesh*>(drawable)) {
 
 			BSDF* bsdf = get_or_create_mesh_bsdf(mesh->materialName);
 			mesh->bsdf = bsdf;
@@ -258,15 +257,19 @@ void Pathtracer::load_scene(SceneObject *scene) {
 				Vertex v1 = mesh->vertices[mesh->faces[i]];
 				Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
 				Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
-				Triangle* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
-				Primitive* P = static_cast<Primitive*>(T);
+				auto* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
+				auto* P = static_cast<Primitive*>(T);
 				primitives.push_back(P);
 
 				// also load as light if emissive
 				if (emissive) {
-					lights.push_back(static_cast<PathtracerLight*>(new AreaLight(T)));
+					lights.push_back(static_cast<PathtracerLight*>(new PathtracerMeshLight(T)));
 				}
 			}
+		}
+		else if (PointLight* plight = dynamic_cast<PointLight*>(drawable)) {
+			lights.push_back(static_cast<PathtracerLight*>(
+				new PathtracerPointLight(plight->world_position(), plight->get_emission())));
 		}
 	});
 

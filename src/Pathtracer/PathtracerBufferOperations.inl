@@ -74,8 +74,8 @@ void Pathtracer::load_ispc_data() {
 	ispc_data->area_light_indices.resize(lights.size());
 	uint light_count = 0;
 	for (int i=0; i<lights.size(); i++) {
-		if (lights[i]->type == PathtracerLight::AreaLight) {
-			Triangle* T = dynamic_cast<AreaLight*>(lights[i])->triangle;
+		if (lights[i]->type == PathtracerLight::Mesh) {
+			Triangle* T = dynamic_cast<PathtracerMeshLight*>(lights[i])->triangle;
 			auto it = find(primitives.begin(), primitives.end(), T);
 			if (it != primitives.end()) { // found
 				ispc_data->area_light_indices[light_count] = it - primitives.begin();

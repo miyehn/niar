@@ -4,17 +4,17 @@
 
 using namespace glm;
 
-AreaLight::AreaLight(Triangle* _triangle)
+PathtracerMeshLight::PathtracerMeshLight(Triangle* _triangle)
 	: triangle(_triangle)
 {
-	type = PathtracerLight::AreaLight;
+	type = PathtracerLight::Mesh;
 }
 
-vec3 AreaLight::get_emission() {
+vec3 PathtracerMeshLight::get_emission() {
 	return triangle->bsdf->get_emission();
 }
 
-float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
+float PathtracerMeshLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	vec3 light_p = triangle->sample_point();
 
 	ray.o = origin;
@@ -34,3 +34,24 @@ float AreaLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	return d2 / (triangle->area * costheta_l);
 }
 
+PathtracerPointLight::PathtracerPointLight(const glm::vec3& in_position, const glm::vec3& in_emission)
+	: position(in_position), emission(in_emission)
+{
+	type = PathtracerLight::Point;
+}
+
+glm::vec3 PathtracerPointLight::get_emission() {
+	return emission;
+}
+
+float PathtracerPointLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
+	ray.o = origin;
+	vec3 path = position - origin;
+	double path_len = length(path);
+	ray.d = normalize(path);
+
+	ray.tmin = EPSILON;
+	ray.tmax = path_len - 2 * EPSILON;
+
+	return (float)(path_len * path_len);
+}

@@ -38,8 +38,7 @@ struct BSDF {
 	// albedo
 	glm::vec3 albedo;
 
-	virtual ~BSDF(){
-	}
+	virtual ~BSDF()= default;
 
 	/* output: proportion of light going to direction wo (for each wavelength)
 	 * wi: negative of light incoming dir (output, sampled)
@@ -53,7 +52,8 @@ struct BSDF {
 	uint32_t asset_version = 0;
 
 protected:
-	// emission
+	/* Emission: Watt / m^2 for directional and mesh lights; Watts for point lights
+	 */
 	glm::vec3 Le;
 	bool compute_is_emissive() const;
 
