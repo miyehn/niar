@@ -268,7 +268,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 							wi_world = ray_to_light.d;
 							wi_hemi = w2h * wi_world;
 							costhetai = std::max(0.0f, dot(n, wi_world));
-							L += plight->get_emission() / (4 * PI) * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
+							L += plight->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
 						}
 					}
 					// Other types of light (TODO)

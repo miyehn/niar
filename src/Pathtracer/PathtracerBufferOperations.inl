@@ -228,9 +228,10 @@ void Pathtracer::raytrace_tile(uint32_t tid, uint32_t tile_index) {
 
 				uint32_t px_index_main = width * (y_offset + y) + (x_offset + x);
 				vec3 color = raytrace_pixel(px_index_main);
-#if !GRAPHICS_DISPLAY
+
+				// do gamma correction BEFORE converting to R8G8B8A8 to avoid banding
 				color = gamma_correct(color);
-#endif
+
 				set_mainbuffer_rgb(px_index_main, color);
 
 				uint32_t px_index_sub = y * tile_w + x;

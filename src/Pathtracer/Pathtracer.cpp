@@ -137,7 +137,7 @@ void Pathtracer::initialize() {
 #if GRAPHICS_DISPLAY
 	// graphics api stuff
 	ImageCreator windowSurfaceCreator(
-		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_FORMAT_R8G8B8A8_SRGB,
 		{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
 		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT,
@@ -267,7 +267,7 @@ void Pathtracer::load_scene(SceneObject *scene) {
 				}
 			}
 		}
-		else if (PointLight* plight = dynamic_cast<PointLight*>(drawable)) {
+		else if (auto* plight = dynamic_cast<PointLight*>(drawable)) {
 			lights.push_back(static_cast<PathtracerLight*>(
 				new PathtracerPointLight(plight->world_position(), plight->get_emission())));
 		}

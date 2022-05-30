@@ -53,5 +53,5 @@ float PathtracerPointLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
 	ray.tmin = EPSILON;
 	ray.tmax = path_len - 2 * EPSILON;
 
-	return (float)(path_len * path_len);
+	return (float)(path_len * path_len * 4 * PI);
 }
