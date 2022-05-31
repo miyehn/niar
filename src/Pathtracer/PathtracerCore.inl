@@ -164,10 +164,12 @@ float Pathtracer::depth_of_first_hit(int x, int y) {
 }
 #endif
 
+namespace
+{
 void make_h2w(mat3& h2w, const vec3& z) { // TODO: make more robust
 	// choose a vector different from z
 	vec3 tmp = normalize(vec3(1, 2, 3));
-	
+
 	vec3 x = cross(tmp, z);
 	x = normalize(x);
 	vec3 y = cross(z, x);
@@ -177,7 +179,25 @@ void make_h2w(mat3& h2w, const vec3& z) { // TODO: make more robust
 
 // see: https://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
 inline float brightness(const vec3& color) {
-	return 0.2989f * color.r + 0.587f * color.g + 0.114 * color.b;
+	return 0.2989f * color.r + 0.587f * color.g + 0.114f * color.b;
+}
+};
+
+void Pathtracer::select_random_light(PathtracerLight* &light, float &one_over_pdf) {
+	float rnd = sample::rand01();
+	LightAndWeight lw = {
+		.light = nullptr,
+		.cumulative_weight = rnd,
+		.one_over_pdf = 1
+	};
+	auto it = std::lower_bound(lights.begin(), lights.end(), lw);
+	if (it == lights.end()) {
+		light = lights.back().light;
+		one_over_pdf = lights.back().one_over_pdf;
+	} else {
+		light = it->light;
+		one_over_pdf = it->one_over_pdf;
+	}
 }
 
 void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
@@ -218,77 +238,35 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			L += bsdf->get_emission();
 		}
 
-
 		if (cached_config.UseDirectLight) {
 			//---- direct light contribution ----
 			if (!bsdf->is_delta) {
-				for (uint32_t i = 0; i < lights.size(); i++) {
 
-					// Mesh lights
-					if (lights[i]->type == PathtracerLight::Mesh)
-					{
-						auto* mesh_light = dynamic_cast<PathtracerMeshLight*>(lights[i]);
-						float each_sample_weight = 1.0f / (float)cached_config.AreaLightSamples;
-						for (uint32_t j = 0; j < cached_config.AreaLightSamples; j++) {
+				float each_sample_weight = 1.0f / (float)cached_config.DirectLightSamples;
+				for (uint32_t i = 0; i < cached_config.DirectLightSamples; i++) {
 
-							// get ray to light
-							Ray ray_to_light;
-							// in this case not a real pdf, but just something to divide by?
-							float pdf = mesh_light->ray_to_light_pdf(ray_to_light, hit_p);
+					PathtracerLight* light; float one_over_pdf;
+					select_random_light(light, one_over_pdf);
 
-							// test if ray to light hits anything other than the starting primitive and the light
-							double tmp_t; vec3 tmp_n;
-							bool in_shadow = bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
+					Ray ray_to_light; float attenuation;
+					ray_to_light.o = hit_p;
+					light->ray_to_light_and_attenuation(ray_to_light, attenuation);
 
-							// add contribution
-							if (!in_shadow) {
-								wi_world = ray_to_light.d;
-								wi_hemi = w2h * wi_world;
-								// funny how spheres can technically cast self shadows but clamping cosine gives same effect
-								// thanks convexity?
-								costhetai = std::max(0.0f, dot(n, wi_world));
-								vec3 L_direct = mesh_light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
-								// correction for when above num and denom both 0. TODO: is this right?
-								if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
-								L += L_direct * each_sample_weight;
-							}
-						}
+					double tmp_t; vec3 tmp_n;
+					bool in_shadow =
+						bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
+					if (!in_shadow) {
+						wi_world = ray_to_light.d;
+						wi_hemi = w2h * wi_world;
+						costhetai = std::max(0.0f, dot(n, wi_world));
+						vec3 L_direct = light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai * attenuation
+							* one_over_pdf * each_sample_weight;
+						// correction for when above num and denom both 0. TODO: is this right?
+						if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
+						L += L_direct;
 					}
-					else if (lights[i]->type == PathtracerLight::Point) {
-						auto *plight = dynamic_cast<PathtracerPointLight *>(lights[i]);
-						Ray ray_to_light;
-						float pdf = plight->ray_to_light_pdf(ray_to_light, hit_p);
-
-						// test if ray to light hits anything other than the starting primitive and the light
-						double tmp_t; vec3 tmp_n;
-						bool in_shadow =
-							bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
-						// add contribution
-						if (!in_shadow) {
-							wi_world = ray_to_light.d;
-							wi_hemi = w2h * wi_world;
-							costhetai = std::max(0.0f, dot(n, wi_world));
-							L += plight->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
-						}
-					}
-					else if (lights[i]->type == PathtracerLight::Directional) {
-						auto *dlight = dynamic_cast<PathtracerDirectionalLight *>(lights[i]);
-						Ray ray_to_light;
-						float pdf = dlight->ray_to_light_pdf(ray_to_light, hit_p);
-						// test if ray to light hits anything other than the starting primitive and the light
-						double tmp_t; vec3 tmp_n;
-						bool in_shadow =
-							bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
-						// add contribution
-						if (!in_shadow) {
-							wi_world = ray_to_light.d;
-							wi_hemi = w2h * wi_world;
-							costhetai = std::max(0.0f, dot(n, wi_world));
-							L += dlight->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
-						}
-					}
-
 				}
+
 			}
 		}
 		task.output += task.contribution * L;

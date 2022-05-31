@@ -77,7 +77,7 @@ Pathtracer::~Pathtracer() {
 	}
 	delete subimage_buffers;
 
-	for (auto l : lights) delete l;
+	for (auto l : lights) delete l.light;
 	for (auto t : primitives) delete t;
 
 	delete bvh;
@@ -167,7 +167,7 @@ void Pathtracer::initialize() {
 		cached_config.TileSize = cfg->lookup<int>("TileSize");
 
 		cached_config.UseDirectLight = cfg->lookup<int>("UseDirectLight");
-		cached_config.AreaLightSamples = cfg->lookup<int>("AreaLightSamples");
+		cached_config.DirectLightSamples = cfg->lookup<int>("DirectLightSamples");
 
 		cached_config.UseJitteredSampling = cfg->lookup<int>("UseJitteredSampling");
 		cached_config.UseDOF = cfg->lookup<int>("UseDOF");
@@ -243,6 +243,7 @@ void Pathtracer::load_scene(SceneObject *scene) {
 	bvh = new BVH(&primitives, 0);
 
 	int meshes_count = 0;
+	float light_power_sum = 0;
 	scene->foreach_descendent_bfs([&](SceneObject* drawable)
 	{
 		if (Mesh* mesh = dynamic_cast<Mesh*>(drawable)) {
@@ -263,19 +264,37 @@ void Pathtracer::load_scene(SceneObject *scene) {
 
 				// also load as light if emissive
 				if (emissive) {
-					lights.push_back(static_cast<PathtracerLight*>(new PathtracerMeshLight(T)));
+					auto L = new PathtracerMeshLight(T);
+					float w = L->get_weight();
+					light_power_sum += w;
+					lights.push_back( {static_cast<PathtracerLight*>(L), w} );
 				}
 			}
 		}
 		else if (auto* plight = dynamic_cast<PointLight*>(drawable)) {
-			lights.push_back(static_cast<PathtracerLight*>(
-				new PathtracerPointLight(plight->world_position(), plight->get_emission())));
+			auto L = new PathtracerPointLight(plight->world_position(), plight->get_emission());
+			float w = L->get_weight();
+			light_power_sum += w;
+			lights.push_back( {static_cast<PathtracerLight*>(L), w} );
 		}
 		else if (auto* dlight = dynamic_cast<DirectionalLight*>(drawable)) {
-			lights.push_back(static_cast<PathtracerLight*>(
-				new PathtracerDirectionalLight(dlight->get_direction(), dlight->get_emission())));
+			auto L = new PathtracerDirectionalLight(dlight->get_direction(), dlight->get_emission());
+			float w = L->get_weight();
+			light_power_sum += w;
+			lights.push_back( {static_cast<PathtracerLight*>(L), w} );
 		}
 	});
+
+	// post-process light weights (normalize them)
+	for (int i = 0; i < lights.size(); i++) {
+		float normalized_w = lights[i].cumulative_weight / light_power_sum;
+		lights[i].one_over_pdf = 1.0f / normalized_w;
+		if (i == 0) {
+			lights[i].cumulative_weight = normalized_w;
+		} else {
+			lights[i].cumulative_weight = lights[i - 1].cumulative_weight + normalized_w;
+		}
+	}
 
 	bvh->primitives_start = 0;
 	bvh->primitives_count = primitives.size();

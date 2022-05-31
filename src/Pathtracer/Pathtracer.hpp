@@ -60,7 +60,7 @@ private:
 		int NumThreads = 0;
 		int TileSize = 16;
 		int UseDirectLight = 1;
-		int AreaLightSamples = 2;
+		int DirectLightSamples = 2;
 		int UseJitteredSampling = 1;
 		int UseDOF = 1;
 		float FocalDistance = 5.0f;
@@ -89,7 +89,16 @@ private:
 
 	// scene
 	std::vector<Primitive*> primitives;
-	std::vector<PathtracerLight*> lights;
+	struct LightAndWeight {
+		PathtracerLight* light;
+		float cumulative_weight;
+		float one_over_pdf;
+		bool operator<(const LightAndWeight &other) const {
+			return cumulative_weight < other.cumulative_weight;
+		}
+	};
+	std::vector<LightAndWeight> lights;
+	void select_random_light(PathtracerLight* &light, float& one_over_pdf);
 	BVH* bvh = nullptr;
 	void load_scene(SceneObject *scene);
 

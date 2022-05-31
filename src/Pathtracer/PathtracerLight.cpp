@@ -4,6 +4,12 @@
 
 using namespace glm;
 
+namespace {
+float luminance(const vec3& col) {
+	return 0.2126f * col.r + 0.7152f * col.g + 0.0722 * col.b;
+}
+};
+
 PathtracerMeshLight::PathtracerMeshLight(Triangle* _triangle)
 	: triangle(_triangle)
 {
@@ -14,11 +20,10 @@ vec3 PathtracerMeshLight::get_emission() {
 	return triangle->bsdf->get_emission();
 }
 
-float PathtracerMeshLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
+void PathtracerMeshLight::ray_to_light_and_attenuation(Ray &ray, float &attenuation) {
 	vec3 light_p = triangle->sample_point();
 
-	ray.o = origin;
-	ray.d = normalize(light_p - origin);
+	ray.d = normalize(light_p - ray.o);
 	double t; vec3 n;
 	triangle->intersect(ray, t, n, true);
 
@@ -31,7 +36,11 @@ float PathtracerMeshLight::ray_to_light_pdf(Ray& ray, const vec3 &origin) {
 	ray.tmax -= eps_adjusted;
 
 	// could be 0 or infinite
-	return d2 / (triangle->area * costheta_l);
+	attenuation = (triangle->area * costheta_l) / d2;
+}
+
+float PathtracerMeshLight::get_weight() {
+	return luminance(get_emission());
 }
 
 PathtracerPointLight::PathtracerPointLight(const glm::vec3& in_position, const glm::vec3& in_emission)
@@ -40,16 +49,19 @@ PathtracerPointLight::PathtracerPointLight(const glm::vec3& in_position, const g
 	type = PathtracerLight::Point;
 }
 
-float PathtracerPointLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
-	ray.o = origin;
-	vec3 path = position - origin;
+void PathtracerPointLight::ray_to_light_and_attenuation(Ray &ray, float &attenuation) {
+	vec3 path = position - ray.o;
 	double path_len = length(path);
 	ray.d = normalize(path);
 
 	ray.tmin = EPSILON;
 	ray.tmax = path_len - 2 * EPSILON;
 
-	return (float)(path_len * path_len * 4 * PI);
+	attenuation = 1.0f / (float)(path_len * path_len * 4 * PI);
+}
+
+float PathtracerPointLight::get_weight() {
+	return luminance(get_emission() / (4 * PI));
 }
 
 PathtracerDirectionalLight::PathtracerDirectionalLight(const vec3 &in_direction, const vec3 &in_emission)
@@ -58,12 +70,13 @@ PathtracerDirectionalLight::PathtracerDirectionalLight(const vec3 &in_direction,
 	type = PathtracerLight::Directional;
 }
 
-float PathtracerDirectionalLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
-	ray.o = origin;
+void PathtracerDirectionalLight::ray_to_light_and_attenuation(Ray &ray, float &attenuation) {
 	ray.d = -direction;
-
 	ray.tmin = EPSILON;
 	ray.tmax = INF;
+	attenuation = 1;
+}
 
-	return 1;
+float PathtracerDirectionalLight::get_weight() {
+	return luminance(get_emission());
 }

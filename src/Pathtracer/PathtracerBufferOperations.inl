@@ -73,9 +73,9 @@ void Pathtracer::load_ispc_data() {
 
 	ispc_data->area_light_indices.resize(lights.size());
 	uint light_count = 0;
-	for (int i=0; i<lights.size(); i++) {
-		if (lights[i]->type == PathtracerLight::Mesh) {
-			Triangle* T = dynamic_cast<PathtracerMeshLight*>(lights[i])->triangle;
+	for (auto & light : lights) {
+		if (light.light->type == PathtracerLight::Mesh) {
+			Triangle* T = dynamic_cast<PathtracerMeshLight*>(light.light)->triangle;
 			auto it = find(primitives.begin(), primitives.end(), T);
 			if (it != primitives.end()) { // found
 				ispc_data->area_light_indices[light_count] = it - primitives.begin();
@@ -146,7 +146,7 @@ void Pathtracer::load_ispc_data() {
 	ispc_data->max_ray_depth = cached_config.MaxRayDepth;
 	ispc_data->rr_threshold = cached_config.RussianRouletteThreshold;
 	ispc_data->use_direct_light = cached_config.UseDirectLight;
-	ispc_data->area_light_samples = cached_config.AreaLightSamples;
+	ispc_data->area_light_samples = cached_config.DirectLightSamples;
 	ispc_data->bvh_stack_size = (1 + max_depth) * 2;
 	ispc_data->use_bvh = cached_config.UseBVH;
 	ispc_data->use_dof = cached_config.UseDOF;
