@@ -271,6 +271,10 @@ void Pathtracer::load_scene(SceneObject *scene) {
 			lights.push_back(static_cast<PathtracerLight*>(
 				new PathtracerPointLight(plight->world_position(), plight->get_emission())));
 		}
+		else if (auto* dlight = dynamic_cast<DirectionalLight*>(drawable)) {
+			lights.push_back(static_cast<PathtracerLight*>(
+				new PathtracerDirectionalLight(dlight->get_direction(), dlight->get_emission())));
+		}
 	});
 
 	bvh->primitives_start = 0;

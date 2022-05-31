@@ -40,10 +40,6 @@ PathtracerPointLight::PathtracerPointLight(const glm::vec3& in_position, const g
 	type = PathtracerLight::Point;
 }
 
-glm::vec3 PathtracerPointLight::get_emission() {
-	return emission;
-}
-
 float PathtracerPointLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
 	ray.o = origin;
 	vec3 path = position - origin;
@@ -54,4 +50,20 @@ float PathtracerPointLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
 	ray.tmax = path_len - 2 * EPSILON;
 
 	return (float)(path_len * path_len * 4 * PI);
+}
+
+PathtracerDirectionalLight::PathtracerDirectionalLight(const vec3 &in_direction, const vec3 &in_emission)
+	: direction(in_direction), emission(in_emission)
+{
+	type = PathtracerLight::Directional;
+}
+
+float PathtracerDirectionalLight::ray_to_light_pdf(Ray &ray, const vec3 &origin) {
+	ray.o = origin;
+	ray.d = -direction;
+
+	ray.tmin = EPSILON;
+	ray.tmax = INF;
+
+	return 1;
 }

@@ -271,7 +271,22 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 							L += plight->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
 						}
 					}
-					// Other types of light (TODO)
+					else if (lights[i]->type == PathtracerLight::Directional) {
+						auto *dlight = dynamic_cast<PathtracerDirectionalLight *>(lights[i]);
+						Ray ray_to_light;
+						float pdf = dlight->ray_to_light_pdf(ray_to_light, hit_p);
+						// test if ray to light hits anything other than the starting primitive and the light
+						double tmp_t; vec3 tmp_n;
+						bool in_shadow =
+							bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
+						// add contribution
+						if (!in_shadow) {
+							wi_world = ray_to_light.d;
+							wi_hemi = w2h * wi_world;
+							costhetai = std::max(0.0f, dot(n, wi_world));
+							L += dlight->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai / pdf;
+						}
+					}
 
 				}
 			}
