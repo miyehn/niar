@@ -113,6 +113,7 @@ if(APPLE)
 	)
 
 	add_executable(asz ${ASZELEA_SRC})
+	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.a)
 endif(APPLE)
 
 if(WIN32)

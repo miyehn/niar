@@ -211,7 +211,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 
 	if (primitive) { // intersected with at least 1 primitive (has valid t, n, bsdf)
 
-		const BSDF* bsdf = primitive->bsdf;
+		const BSDF *bsdf = primitive->bsdf;
 		// pre-compute (or declare) some common things to be used later
 		vec3 L = vec3(0);
 		vec3 hit_p = ray.o + float(t) * ray.d;
@@ -219,7 +219,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		if (debug) logged_rays.push_back(hit_p);
 #endif
 		// construct transform from hemisphere space to world space;
-		mat3 h2w; 
+		mat3 h2w;
 		make_h2w(h2w, n);
 		mat3 w2h = transpose(h2w);
 		// wi, wo
@@ -242,17 +242,20 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			//---- direct light contribution ----
 			if (!bsdf->is_delta) {
 
-				float each_sample_weight = 1.0f / (float)cached_config.DirectLightSamples;
+				float each_sample_weight = 1.0f / (float) cached_config.DirectLightSamples;
 				for (uint32_t i = 0; i < cached_config.DirectLightSamples; i++) {
 
-					PathtracerLight* light; float one_over_pdf;
+					PathtracerLight *light;
+					float one_over_pdf;
 					select_random_light(light, one_over_pdf);
 
-					Ray ray_to_light; float attenuation;
+					Ray ray_to_light;
+					float attenuation;
 					ray_to_light.o = hit_p;
 					light->ray_to_light_and_attenuation(ray_to_light, attenuation);
 
-					double tmp_t; vec3 tmp_n;
+					double tmp_t;
+					vec3 tmp_n;
 					bool in_shadow =
 						bvh->intersect_primitives(ray_to_light, tmp_t, tmp_n, cached_config.UseBVH) != nullptr;
 					if (!in_shadow) {
@@ -260,7 +263,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 						wi_hemi = w2h * wi_world;
 						costhetai = std::max(0.0f, dot(n, wi_world));
 						vec3 L_direct = light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai * attenuation
-							* one_over_pdf * each_sample_weight;
+										* one_over_pdf * each_sample_weight;
 						// correction for when above num and denom both 0. TODO: is this right?
 						if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
 						L += L_direct;
@@ -324,6 +327,6 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 #endif
 #if GRAPHICS_DISPLAY
 		if (debug) LOG("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
-	}
 #endif
+	}
 }

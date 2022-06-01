@@ -74,7 +74,7 @@ void Pathtracer::load_ispc_data() {
 	ispc_data->area_light_indices.resize(lights.size());
 	uint light_count = 0;
 	for (auto & light : lights) {
-		if (light.light->type == PathtracerLight::Mesh) {
+		if (!light.light->is_delta()) {
 			Triangle* T = dynamic_cast<PathtracerMeshLight*>(light.light)->triangle;
 			auto it = find(primitives.begin(), primitives.end(), T);
 			if (it != primitives.end()) { // found
@@ -389,9 +389,9 @@ void Pathtracer::render_to_file(const std::string& output_path_rel_to_bin)
 	if (!initialized) initialize();
 
 	double num_camera_rays = double(width * height * pixel_offsets.size()) * 1e-6;
-	std::string workload = std::format("{:.3f}", num_camera_rays) + "M camera rays, "
+	std::string workload = std::to_string((int)(num_camera_rays * 1000) * 0.001) + "M camera rays, "
 		+ "max depth " + std::to_string(cached_config.MaxRayDepth) + ", "
-		+ "RR threshold " + std::format("{:.2f}", cached_config.RussianRouletteThreshold);
+		+ "RR threshold " + std::to_string((int)(cached_config.RussianRouletteThreshold * 100) * 0.01);
 
 	uint32_t num_camera_rays_per_task = cached_config.TileSize * cached_config.TileSize * pixel_offsets.size();
 	std::string threading = std::to_string(num_camera_rays_per_task) + " camera rays per tile, "

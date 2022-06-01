@@ -13,7 +13,7 @@ float luminance(const vec3& col) {
 PathtracerMeshLight::PathtracerMeshLight(Triangle* _triangle)
 	: triangle(_triangle)
 {
-	type = PathtracerLight::Mesh;
+	_is_delta = false;
 }
 
 vec3 PathtracerMeshLight::get_emission() {
@@ -46,7 +46,7 @@ float PathtracerMeshLight::get_weight() {
 PathtracerPointLight::PathtracerPointLight(const glm::vec3& in_position, const glm::vec3& in_emission)
 	: position(in_position), emission(in_emission)
 {
-	type = PathtracerLight::Point;
+	_is_delta = true;
 }
 
 void PathtracerPointLight::ray_to_light_and_attenuation(Ray &ray, float &attenuation) {
@@ -67,7 +67,7 @@ float PathtracerPointLight::get_weight() {
 PathtracerDirectionalLight::PathtracerDirectionalLight(const vec3 &in_direction, const vec3 &in_emission)
 	: direction(in_direction), emission(in_emission)
 {
-	type = PathtracerLight::Directional;
+	_is_delta = true;
 }
 
 void PathtracerDirectionalLight::ray_to_light_and_attenuation(Ray &ray, float &attenuation) {

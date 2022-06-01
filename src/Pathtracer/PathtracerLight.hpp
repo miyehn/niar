@@ -6,19 +6,16 @@ struct Triangle;
 
 class PathtracerLight {
 public:
-	enum Type {
-		Mesh,
-		Point,
-		Directional
-	};
-
-	Type type;
 
 	virtual ~PathtracerLight() = default;
+	bool is_delta() { return _is_delta; }
 
 	virtual float get_weight() = 0;
 	virtual glm::vec3 get_emission() = 0;
 	virtual void ray_to_light_and_attenuation(Ray& ray, float& attenuation) = 0;
+
+protected:
+	bool _is_delta;
 };
 
 class PathtracerMeshLight : public PathtracerLight {

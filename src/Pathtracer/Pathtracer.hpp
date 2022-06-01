@@ -4,6 +4,7 @@
 #include "Scene/AABB.hpp"
 #include "BVH.hpp"
 #include "Render/Renderers/Renderer.h"
+#include <unordered_map>
 #if GRAPHICS_DISPLAY
 #include "Render/Vulkan/DescriptorSet.h"
 #include <vulkan/vulkan.h>

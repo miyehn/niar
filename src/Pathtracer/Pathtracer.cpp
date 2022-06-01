@@ -1,6 +1,7 @@
 #include "Pathtracer.hpp"
 #include "Render/Mesh.h"
 #include "BSDF.hpp"
+#include "Scene/Light.hpp"
 #include "PathtracerLight.hpp"
 #include "Engine/ConfigAsset.hpp"
 #include "Render/Materials/GltfMaterialInfo.h"
@@ -17,7 +18,6 @@
 #include "Render/DebugDraw.h"
 #include "Render/Texture.h"
 #else
-#include <format>
 #include <stb_image/stb_image_write.h>
 #endif
 
