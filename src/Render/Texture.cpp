@@ -2,21 +2,9 @@
 #include <stb_image/stb_image.h>
 #include "Render/Vulkan/VulkanUtils.h"
 
-// std::unordered_map<std::string, Texture *> Texture::pool;
-
 std::unordered_map<std::string, Texture *>& texturePool()
 {
 	static std::unordered_map<std::string, Texture *> pool;
-	/*
-	static bool firstEntrance = true;
-	if (firstEntrance) {
-		Vulkan::Instance->destructionQueue.emplace_back([](){
-			for (auto &tex : pool)
-				delete tex.second;
-		});
-		firstEntrance = false;
-	}
-	 */
 	return pool;
 }
 
@@ -122,7 +110,6 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 		ERR("Trying to load image '%s' with wrong channelDepth", path.c_str())
 	}
 
-	//LOG("load texture '%s' %dx%dx%d", relative_path.c_str(), iwidth, iheight, native_channels)
 	EXPECT(pixels != nullptr, true)
 
 	imageFormat = getFormatFromMap(textureFormat);
@@ -139,7 +126,7 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 
 	stbi_image_free(pixels);
 
-	texturePool()[name] = this;
+	//texturePool()[name] = this;
 }
 
 void Texture2D::createDefaultTextures()

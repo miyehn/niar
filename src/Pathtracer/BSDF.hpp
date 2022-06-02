@@ -1,20 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
 
-namespace sample {
-
-float rand01();
-
-glm::vec2 unit_square_uniform();
-
-glm::vec2 unit_disc_uniform();
-
-glm::vec3 hemisphere_uniform();
-
-glm::vec3 hemisphere_cos_weighed();
-
-};
-
 struct BSDF {
 
 	enum Type {

@@ -5,6 +5,7 @@
 #include "PathtracerLight.hpp"
 #include "Engine/ConfigAsset.hpp"
 #include "Render/Materials/GltfMaterialInfo.h"
+#include "Utils/myn/Sample.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>
@@ -70,6 +71,7 @@ Pathtracer::~Pathtracer() {
 #endif
 
 	delete config;
+	delete envmap;
 
 	delete image_buffer;
 	for (uint32_t i=0; i<cached_config.NumThreads; i++) {
@@ -103,6 +105,7 @@ void Pathtracer::initialize() {
 	{
 		while (true)
 		{
+			// What can cause this line to hit EXEC_BAD_ACCESS?
 			std::unique_lock<std::mutex> lock(threads[tid]->m);
 
 			// wait until main thread says it's okay to keep working (or okay to quit)
@@ -197,6 +200,15 @@ void Pathtracer::initialize() {
 		for (int i=0; i<cached_config.NumThreads; i++) {
 			subimage_buffers[i] = new unsigned char[
 			cached_config.TileSize * cached_config.TileSize * NUM_CHANNELS *SIZE_PER_CHANNEL];
+		}
+
+		// environment map
+		delete envmap;
+		envmap = nullptr;
+		if (cfg->lookup<int>("UseEnvironmentMap")) {
+			envmap = new EnvironmentMapAsset(
+				cfg->lookup<std::string>("EnvironmentMap"),
+				    [](const EnvironmentMapAsset* env) {});
 		}
 
 		// queue tasks, spawn threads, etc.

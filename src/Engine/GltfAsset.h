@@ -34,4 +34,3 @@ private:
 	std::vector<Texture2D*> asset_textures;
 #endif
 };
-

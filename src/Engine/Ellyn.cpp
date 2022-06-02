@@ -22,6 +22,7 @@
 
 #include "Render/Materials/ComputeShaders.h"
 #include "Render/Renderers/DeferredRenderer.h"
+#include "EnvironmentMapAsset.h"
 
 using namespace myn;
 

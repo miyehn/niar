@@ -1,6 +1,7 @@
 #include "Primitive.hpp"
 #include "Render/Mesh.h"
 #include "BSDF.hpp"
+#include "Utils/myn/Sample.h"
 #include <unordered_map>
 
 #define USE_EMBEDDED_NORMAL 0
@@ -90,8 +91,8 @@ Primitive* Triangle::intersect(Ray& ray, double& t, vec3& normal, bool modify_ra
 }
 
 vec3 Triangle::sample_point() const {
-	float u = sample::rand01();
-	float v = sample::rand01();
+	float u = myn::sample::rand01();
+	float v = myn::sample::rand01();
 	if (u + v > 1) {
 		u = 1.0f - u;
 		v = 1.0f - v;

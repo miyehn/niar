@@ -11,14 +11,14 @@ void Pathtracer::generate_pixel_offsets() {
 	for (int j=0; j<sqk; j++) {
 		for (int i=0; i<sqk; i++) {
 			vec2 p;
-			p.x = (i + (j + sample::rand01()) / sqk) / sqk;
-			p.y = (j + (i + sample::rand01()) / sqk) / sqk;
+			p.x = (i + (j + myn::sample::rand01()) / sqk) / sqk;
+			p.y = (j + (i + myn::sample::rand01()) / sqk) / sqk;
 			pixel_offsets.push_back(p);
 		}
 	}
 	// shuffle canonical arrangement
 	for (int j=0; j<sqk; j++) {
-		int k = std::floor(j + sample::rand01() * (sqk - j));
+		int k = std::floor(j + myn::sample::rand01() * (sqk - j));
 		for (int i=0; i<sqk; i++) {
 			float tmp = pixel_offsets[j*sqk + i].x;
 			pixel_offsets[j*sqk + i].x = pixel_offsets[k*sqk + i].x;
@@ -26,7 +26,7 @@ void Pathtracer::generate_pixel_offsets() {
 		}
 	}
 	for (int i=0; i<sqk; i++) {
-		int k = floor(i + sample::rand01() * (sqk - i));
+		int k = floor(i + myn::sample::rand01() * (sqk - i));
 		for (int j=0; j<sqk; j++) {
 			float tmp = pixel_offsets[j*sqk + i].y;
 			pixel_offsets[j*sqk + i].y = pixel_offsets[j*sqk + k].y;
@@ -52,7 +52,7 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, uint32_t index) {
 	Ray& ray = task.ray;
 	bool jittered = cached_config.UseJitteredSampling;
 	for (int i = 0; i < (jittered ? pixel_offsets.size() : cached_config.MinRaysPerPixel); i++) {
-		vec2 offset = jittered ? pixel_offsets[i] : sample::unit_square_uniform();
+		vec2 offset = jittered ? pixel_offsets[i] : myn::sample::unit_square_uniform();
 
 		ray.o = camera->world_position();
 		ray.tmin = 0.0;
@@ -69,7 +69,7 @@ void Pathtracer::generate_rays(std::vector<RayTask>& tasks, uint32_t index) {
 		if (cached_config.UseDOF) {
 			vec3 focal_p = ray.o + cached_config.FocalDistance * d_unnormalized_w;
 
-			vec3 aperture_shift_cam = vec3(sample::unit_disc_uniform() * cached_config.ApertureRadius, 0);
+			vec3 aperture_shift_cam = vec3(myn::sample::unit_disc_uniform() * cached_config.ApertureRadius, 0);
 			vec3 aperture_shift_world = mat3(camera->object_to_world()) * aperture_shift_cam;
 			ray.o = camera->world_position() + aperture_shift_world;
 			ray.d = normalize(focal_p - ray.o);
@@ -184,7 +184,7 @@ inline float brightness(const vec3& color) {
 };
 
 void Pathtracer::select_random_light(PathtracerLight* &light, float &one_over_pdf) {
-	float rnd = sample::rand01();
+	float rnd = myn::sample::rand01();
 	LightAndWeight lw = {
 		.light = nullptr,
 		.cumulative_weight = rnd,
@@ -238,7 +238,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 			L += bsdf->get_emission();
 		}
 
-		if (cached_config.UseDirectLight) {
+		if (cached_config.UseDirectLight && !lights.empty()) {
 			//---- direct light contribution ----
 			if (!bsdf->is_delta) {
 
@@ -305,7 +305,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 				termination_prob = (cached_config.RussianRouletteThreshold - ray.rr_contribution)
 					/ cached_config.RussianRouletteThreshold;
 			}
-			bool terminate = sample::rand01() < termination_prob;
+			bool terminate = myn::sample::rand01() < termination_prob;
 
 			// recursive step: trace scattered ray in wi direction (if not terminated by RR)
 			vec3 Li = vec3(0);
@@ -328,5 +328,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 #if GRAPHICS_DISPLAY
 		if (debug) LOG("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
 #endif
+	}
+	else if (envmap != nullptr) {// ray missed
+		task.output += task.contribution * myn::sample::tex::longlatmap_float3(
+			(float*)(envmap->texels.data()), envmap->width, envmap->height, ray.d);
 	}
 }

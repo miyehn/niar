@@ -4,6 +4,7 @@
 #include "Scene/AABB.hpp"
 #include "BVH.hpp"
 #include "Render/Renderers/Renderer.h"
+#include "Engine/EnvironmentMapAsset.h"
 #include <unordered_map>
 #if GRAPHICS_DISPLAY
 #include "Render/Vulkan/DescriptorSet.h"
@@ -71,6 +72,8 @@ private:
 		int MinRaysPerPixel = 4;
 	} cached_config;
 	ConfigAsset* config = nullptr;
+
+	EnvironmentMapAsset* envmap = nullptr;
 
 #if GRAPHICS_DISPLAY
 	// ray tracing state and control

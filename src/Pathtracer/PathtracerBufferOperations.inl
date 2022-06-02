@@ -376,7 +376,6 @@ void Pathtracer::raytrace_scene_to_buf() {
 }
 
 void Pathtracer::output_file(const std::string& path) {
-
 	stbi_write_png(
 		path.c_str(),
 		width, height,4,

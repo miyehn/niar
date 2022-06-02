@@ -54,8 +54,7 @@ set(ELLYN_SRC
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
 	src/Render/Texture.cpp
-	src/Utils/myn/Color.cpp
-    src/Utils/StbImageImpl.cpp
+		src/Utils/StbImageImpl.cpp
 	src/Utils/TinyGLTFImpl.cpp
 	src/Utils/myn/RenderDoc.cpp
 	src/Render/Vulkan/SamplerCache.cpp
@@ -73,7 +72,7 @@ set(ELLYN_SRC
 	src/Engine/Asset.cpp
 	src/Engine/GltfAsset.cpp
 	src/Render/Materials/GltfMaterialInfo.cpp
-	)
+		src/Engine/EnvironmentMapAsset.cpp src/Engine/EnvironmentMapAsset.h src/Utils/TinyExrImpl.cpp src/Utils/myn/Sample.cpp)
 
 set(RTX_SRC src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
 
@@ -98,7 +97,7 @@ set(ASZELEA_SRC
 	src/Utils/StbImageImpl.cpp
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${TASKSYS_O}
-	)
+		src/Engine/EnvironmentMapAsset.cpp src/Engine/EnvironmentMapAsset.h src/Utils/TinyExrImpl.cpp src/Utils/myn/Sample.cpp)
 
 if(APPLE)
 	add_definitions(-DMACOS)

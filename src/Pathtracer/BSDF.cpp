@@ -1,6 +1,7 @@
 #include "BSDF.hpp"
 #include "Utils/myn/Misc.h"
 #include "Utils/myn/Log.h"
+#include "Utils/myn/Sample.h"
 
 #define SQ(x) (x * x)
 #define EMISSIVE_THRESHOLD SQ(0.4f)
@@ -8,63 +9,6 @@
 #define USE_COS_WEIGHED 1
 
 using namespace glm;
-
-float sample::rand01() {
-	return float(rand()) / float(RAND_MAX);
-}
-
-vec2 sample::unit_square_uniform() {
-	return vec2(rand01(), rand01());
-}
-
-vec2 sample::unit_disc_uniform() {
-	float x = rand01() - 0.5f; 
-	float y = rand01() - 0.5f;  
-	while(length(vec2(x, y)) > 0.5f) {
-		x = rand01() - 0.5f;
-		y = rand01() - 0.5f;
-	}
-	return vec2(x, y) * 2.0f;
-}
-
-vec3 sample::hemisphere_uniform() {
-	float x = rand01() - 0.5f; 
-	float y = rand01() - 0.5f; 
-	float z = rand01() - 0.5f;
-	while (length(vec3(x, y, z)) > 0.5f) {
-		x = rand01() - 0.5f;
-		y = rand01() - 0.5f;
-		z = rand01() - 0.5f;
-	}
-	return normalize(vec3(x, y, abs(z)));
-}
-
-// ehh.... significantly slower than uniform sampling..
-// see: https://bobobobo.wordpress.com/2012/06/11/cosine-weighted-hemisphere-sampling/
-vec3 sample::hemisphere_cos_weighed() {
-#if 1
-	float x = rand01() - 0.5f; 
-	float y = rand01() - 0.5f;  
-	while(length(vec2(x, y)) > 0.5f) {
-		x = rand01() - 0.5f;
-		y = rand01() - 0.5f;
-	}
-	x *= 2.0f; y *= 2.0f;
-	float l = length(vec2(x, y));
-	float z = sqrt(1.0f - l * l);
-
-	return vec3(x, y, z);
-#else // too slow....
-	float r1 = rand01();
-	float r2 = rand01();
-	float phi = r1 * TWO_PI;
-	float cos_theta = sqrt(r2);
-	float sin_theta = sqrt(1.0f - r2);
-	float cos_phi = cos(phi);
-	float sin_phi = sqrt(1.0f - pow(cos_phi, 2));
-	return vec3(cos_phi * sin_theta, sin_phi * sin_theta, cos_theta);
-#endif
-}
 
 bool BSDF::compute_is_emissive() const {
 	return dot(Le, Le) >= EMISSIVE_THRESHOLD;
@@ -76,7 +20,7 @@ vec3 Diffuse::f(const vec3& wi, const vec3& wo, bool debug) const {
 
 vec3 Diffuse::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 #if USE_COS_WEIGHED
-	wi = sample::hemisphere_cos_weighed();
+	wi = myn::sample::hemisphere_cos_weighed();
 	pdf = wi.z * ONE_OVER_PI;
 #else
 	wi = sample::hemisphere_uniform();
@@ -129,7 +73,7 @@ vec3 Glass::sample_f(float& pdf, vec3& wi, vec3 wo, bool debug) const {
 	float reflectance = r0 + (1.0f - r0) * pow(1.0f - cos_theta_i, 5);
 	
 	// flip a biased coin to decide whether to reflect or refract
-	bool reflect = sample::rand01() <= reflectance;
+	bool reflect = myn::sample::rand01() <= reflectance;
 	if (reflect) {
 		if (debug) LOG("reflect");
 		wi = -wo;
