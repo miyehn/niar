@@ -34,8 +34,7 @@ int main(int argc, const char * argv[])
 	// load scene
 	auto scene_asset = new GltfAsset(
 		nullptr,
-		Config->lookup<std::string>("SceneSource"),
-		    [](){ return true; });
+		Config->lookup<std::string>("SceneSource"));
 
 	// cleanup fn
 	auto cleanup = [scene_asset]() {

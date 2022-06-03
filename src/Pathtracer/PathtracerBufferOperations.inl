@@ -346,17 +346,17 @@ void Pathtracer::raytrace_scene_to_buf() {
 					}
 				}
 			};
-			LOG("enqueued %zu tasks", tasks.size());
+			TRACE("enqueued %zu tasks", tasks.size());
 			// create the threads and execute
 			std::vector<std::thread> threads_tmp;
 			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
 				threads_tmp.emplace_back(raytrace_task, tid);
 			}
-			LOG("created %d threads", cached_config.NumThreads);
+			TRACE("created %d threads", cached_config.NumThreads);
 			for (uint tid = 0; tid < cached_config.NumThreads; tid++) {
 				threads_tmp[tid].join();
 			}
-			LOG("joined threads");
+			TRACE("joined threads");
 		}
 		else
 		{
@@ -383,9 +383,14 @@ void Pathtracer::output_file(const std::string& path) {
 		width * 4);
 }
 
+// though render to file from GUI is not implemented yet...
 void Pathtracer::render_to_file(const std::string& output_path_rel_to_bin)
 {
+#if GRAPHICS_DISPLAY
 	if (!initialized) initialize();
+#else
+	initialize();
+#endif
 
 	double num_camera_rays = double(width * height * pixel_offsets.size()) * 1e-6;
 	std::string workload = std::to_string((int)(num_camera_rays * 1000) * 0.001) + "M camera rays, "

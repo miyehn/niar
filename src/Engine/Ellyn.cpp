@@ -104,9 +104,7 @@ static void init()
 	renderer = rtRenderer;
 #else
 	Scene* gltf = new Scene("SceneSource");
-	new GltfAsset(gltf, Config->lookup<std::string>("SceneSource"), [](){
-		return renderer_index != e_renderer::pathtracer;
-	});
+	new GltfAsset(gltf, Config->lookup<std::string>("SceneSource"));
 	gltf->add_child(new PathtracerController());
 	Scene::Active = gltf;
 #endif
@@ -132,7 +130,7 @@ static void init()
 		ui::elem([](){ ImGui::Separator(); }, "Rendering");
 	}
 
-	{// renderer selector
+	{// renderers
 		renderers.push_back(SimpleRenderer::get());
 		renderers.push_back(DeferredRenderer::get());
 		renderers.push_back(Pathtracer::get(width, height));

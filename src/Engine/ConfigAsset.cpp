@@ -27,7 +27,7 @@ ConfigAsset::ConfigAsset(
 	if (!allow_reload) {
 		reload_condition = [this](){ return !initialized; };
 	}
-	load_action = [this, relative_path, loadAction]() {
+	load_action_internal = [this, relative_path, loadAction]() {
 		create_config_src(ROOT_DIR"/" + relative_path, config);
 		if (loadAction) {
 			try {

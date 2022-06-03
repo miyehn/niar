@@ -13,8 +13,7 @@ EnvironmentMapAsset::EnvironmentMapAsset(
 	const std::string &relative_path,
 	const std::function<void(const EnvironmentMapAsset *)> &loadAction) : Asset(relative_path, nullptr)
 {
-	reload_condition = [this](){ return !initialized; };
-	load_action = [this, relative_path, loadAction]() {
+	load_action_internal = [this, relative_path, loadAction]() {
 
 		release_resources();
 
@@ -42,7 +41,6 @@ EnvironmentMapAsset::EnvironmentMapAsset(
 		if (loadAction) {
 			loadAction(this);
 		}
-		initialized = true;
 	};
 	reload();
 }

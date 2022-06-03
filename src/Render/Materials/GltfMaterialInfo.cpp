@@ -20,7 +20,7 @@ void GltfMaterialInfo::add(GltfMaterialInfo &info)
 	if (iter != gltfMaterialInfos.end())
 	{// collided.
 		info._version = iter->second._version + 1;
-		LOG("Adding tinygltf material of duplicate name '%s'. bumping version..", info.name.c_str())
+		ASSET("Adding tinygltf material info of duplicate name '%s'. bumping version..", info.name.c_str())
 	}
 	gltfMaterialInfos[info.name] = info;
 }

@@ -20,6 +20,7 @@ struct RaytraceThread;
 class Texture2D;
 class DebugLines;
 class ConfigAsset;
+class Asset;
 
 struct ISPC_Data;
 
@@ -83,8 +84,8 @@ private:
 	void pause_trace();
 	void continue_trace();
 	bool enabled = false;
-#endif
 	bool initialized = false;
+#endif
 	void reset();
 
 	myn::TimePoint last_begin_time;
@@ -104,7 +105,8 @@ private:
 	std::vector<LightAndWeight> lights;
 	void select_random_light(PathtracerLight* &light, float& one_over_pdf);
 	BVH* bvh = nullptr;
-	void load_scene(SceneObject *scene);
+	void reload_scene(SceneObject *scene);
+	uint32_t scene_version = 0;
 
 	ISPC_Data* ispc_data = nullptr;
 	void load_ispc_data();
@@ -141,6 +143,9 @@ private:
 	std::vector<vec3> logged_rays;
 #endif
 
+	// utilities
+	static Asset* get_scene_asset();
+
 	//---- threading stuff ----
 
 	std::function<void(int)> raytrace_task;
@@ -153,7 +158,7 @@ private:
 	void clear_tasks_and_threads_wait();
 #endif
 
-	//---- buffers & opengl ----
+	//---- buffers & gpu resources ----
 
 	// an image buffer of size width * height * 3 (since it has rgb channels)
 	unsigned char* image_buffer = nullptr;

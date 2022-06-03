@@ -18,8 +18,7 @@ class GltfAsset : public Asset
 public:
 	explicit GltfAsset(
 		SceneObject* outer_root,
-		const std::string& relative_path,
-		const std::function<bool()>& reload_condition);
+		const std::string& relative_path);
 
 	~GltfAsset() override { release_resources(); }
 

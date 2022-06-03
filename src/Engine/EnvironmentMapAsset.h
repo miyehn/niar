@@ -34,6 +34,4 @@ public:
 
 	std::vector<glm::vec3> texels;
 
-private:
-	bool initialized = false;
 };

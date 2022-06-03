@@ -82,6 +82,15 @@
 	NEWLINE \
 }
 
+// blue (assets)
+#define ASSET(...) { \
+	COLOR_BLUE \
+	printf("[Asset] "); \
+	printf(__VA_ARGS__); \
+	COLOR_RESET \
+	NEWLINE \
+}
+
 #define VKLOG(...) { \
 	COLOR_CYAN \
 	printf("[Vulkan validation] "); \

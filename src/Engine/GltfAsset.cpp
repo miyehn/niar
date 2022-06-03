@@ -188,11 +188,10 @@ std::vector<Mesh*> load_gltf_meshes(
 
 GltfAsset::GltfAsset(
 	SceneObject* outer_root,
-	const std::string &relative_path,
-	const std::function<bool()> &reload_condition)
-: Asset(relative_path,nullptr)
+	const std::string &relative_path)
+: Asset(relative_path, nullptr)
 {
-	load_action = [this, outer_root, relative_path, reload_condition]() {
+	load_action_internal = [this, outer_root, relative_path]() {
 
 		// cleanup first, if necessary
 		if (outer_root) outer_root->try_remove_child(asset_root);
@@ -411,7 +410,6 @@ GltfAsset::GltfAsset(
 
 		delete tree;
 	};
-	this->reload_condition = reload_condition;
 
 	reload();
 }

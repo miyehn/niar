@@ -96,9 +96,16 @@ Pathtracer::~Pathtracer() {
 void Pathtracer::initialize() {
 	TRACE("initializing pathtracer");
 
+#if GRAPHICS_DISPLAY
+	// subscribe itself to scene asset
+	get_scene_asset()->begin_reload.emplace_back([this](){
+		clear_tasks_and_threads_begin();
+		clear_tasks_and_threads_wait();
+	});
+#endif
+
 	// scene
-	if (drawable) load_scene(drawable);
-	else WARN("Pathtracer scene not loaded - no active scene");
+	reload_scene(drawable);
 
 	// define thread work lambda
 	raytrace_task = [this](int tid)
@@ -212,6 +219,12 @@ void Pathtracer::initialize() {
 		}
 
 		// queue tasks, spawn threads, etc.
+
+#if GRAPHICS_DISPLAY
+		// clear old threads
+		clear_tasks_and_threads_begin();
+		clear_tasks_and_threads_wait();
+#endif
 		reset();
 	});
 
@@ -247,11 +260,18 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 	return bsdf;
 }
 
-void Pathtracer::load_scene(SceneObject *scene) {
+void Pathtracer::reload_scene(SceneObject *scene) {
 
 	primitives.clear();
 	lights.clear();
 
+	// also delete BSDF library
+	for (auto& pair : BSDFs) {
+		delete pair.second;
+	}
+	BSDFs.clear();
+
+	delete bvh;
 	bvh = new BVH(&primitives, 0);
 
 	int meshes_count = 0;
@@ -313,6 +333,8 @@ void Pathtracer::load_scene(SceneObject *scene) {
 	bvh->update_extents();
 	bvh->expand_bvh();
 
+	scene_version = get_scene_asset()->get_version();
+
 	TRACE("loaded a scene with %d meshes, %lu triangles, %lu lights",
 		  meshes_count, primitives.size(), lights.size());
 }
@@ -321,12 +343,6 @@ void Pathtracer::reset() {
 
 	//-------- threading stuff --------
 	if (cached_config.Multithreaded) {
-
-#if GRAPHICS_DISPLAY
-		// clear old threads
-		clear_tasks_and_threads_begin();
-		clear_tasks_and_threads_wait();
-#endif
 
 		// enqueue all new tiles
 		for (uint32_t i=0; i < tiles_X * tiles_Y; i++) {
@@ -448,6 +464,11 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 {
 	if (!initialized) initialize();
 
+	if (scene_version != get_scene_asset()->get_version()) {
+		reload_scene(drawable);
+		reset();
+	}
+
 	// update
 	if (cached_config.Multithreaded && !cached_config.ISPC) // multithreaded c++
 	{
@@ -546,12 +567,15 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 void Pathtracer::draw_config_ui()
 {
 	// reset
-	bool reset_condition = (paused && notified_pause_finish) || finished;
-	ImGui::BeginDisabled(!reset_condition);
 	if (ImGui::Button("clear buffer")) {
+
+#if GRAPHICS_DISPLAY
+		// clear old threads
+		clear_tasks_and_threads_begin();
+		clear_tasks_and_threads_wait();
+#endif
 		reset();
 	}
-	ImGui::EndDisabled();
 }
 #endif
 
@@ -575,6 +599,13 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h)
 		renderer = new Pathtracer(w, h);
 	}
 	return renderer;
+}
+
+Asset* Pathtracer::get_scene_asset() {
+	auto scene_source = Config->lookup<std::string>("SceneSource");
+	auto scene_asset = Asset::find(scene_source);
+	EXPECT(scene_asset==nullptr, false)
+	return scene_asset;
 }
 
 // file that contains the actual path tracing meat
