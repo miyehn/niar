@@ -23,6 +23,7 @@ protected:
 	std::function<bool()> reload_condition;
 
 private:
+	bool _initialized = false;
 	time_t last_load_time = 0;
 };
 

@@ -63,7 +63,7 @@ namespace
 		simple = 0,
 		deferred = 1,
 		pathtracer = 2
-	} renderer_index = e_renderer::deferred;
+	} renderer_index = e_renderer::pathtracer;
 
 	std::vector<Renderer*> renderers{};
 
@@ -116,6 +116,9 @@ static void init()
 		auto cam = dynamic_cast<Camera*>(obj);
 		if (cam) Camera::Active = cam;
 	});
+	if (!Camera::Active) {
+		WARN("there's no active camera!")
+	}
 
 	ui::usePurpleStyle();
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
