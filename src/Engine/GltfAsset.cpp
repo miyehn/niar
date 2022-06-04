@@ -161,6 +161,17 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 		delete root;
 	}
 }
+
+bool findMaterialProperty(const tinygltf::Material& mat, const std::string& propertyName, tinygltf::Value& out_value) {
+	if (!mat.extras.IsObject()) return false;
+
+	if (mat.extras.IsObject() && mat.extras.Has(propertyName)) {
+		 out_value = mat.extras.Get(propertyName);
+		 return true;
+	}
+	return false;
+}
+
 }
 // load from glTF data
 std::vector<Mesh*> load_gltf_meshes(
@@ -294,6 +305,7 @@ GltfAsset::GltfAsset(
 
 			GltfMaterialInfo info = {
 				._version = 0,
+				.type = MaterialType::Surface,
 				.name = mat.name,
 				.albedoTexName = albedo,
 				.normalTexName = normal,
@@ -301,8 +313,27 @@ GltfAsset::GltfAsset(
 				.aoTexName = ao,
 				.BaseColorFactor = baseColorFactor,
 				.EmissiveFactor = emissiveFactor,
-				.MetallicRoughnessAONormalStrengths = strengths
+				.MetallicRoughnessAONormalStrengths = strengths,
+				.volumeColor = glm::vec4(0, 0, 0, 0),
+				.volumeDensity = 0
 			};
+
+			// and in case it's a volume material...
+			tinygltf::Value isVolume;
+			tinygltf::Value volumeColor;
+			tinygltf::Value volumeDensity;
+			if (findMaterialProperty(mat, "_is_volume", isVolume) &&
+				findMaterialProperty(mat, "_volume_color", volumeColor) &&
+				findMaterialProperty(mat, "_volume_density", volumeDensity))
+			{
+				info.type = MaterialType::Volume;
+				info.volumeColor = glm::vec4(
+					volumeColor.Get(0).GetNumberAsDouble(),
+					volumeColor.Get(1).GetNumberAsDouble(),
+					volumeColor.Get(2).GetNumberAsDouble(),
+					volumeColor.Get(3).GetNumberAsDouble());
+				info.volumeDensity = (float)volumeDensity.GetNumberAsDouble();
+			}
 			GltfMaterialInfo::add(info);
 		}
 

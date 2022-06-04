@@ -54,7 +54,25 @@ class MYN_OT_triangulate_selected(bpy.types.Operator):
 class MYN_OT_export_glb(bpy.types.Operator):
     bl_idname = "myn.export_glb"
     bl_label = "Triangulate all and export glb"
-    bl_options = {'REGISTER', 'UNDO'}              
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @staticmethod
+    def postprocess_materials(obj):
+        obj.report({'INFO'}, "hi")
+
+        # loop through materials
+        for i in range(0, len(bpy.data.materials)):
+            mat = bpy.data.materials[i]
+            # obj.report({'INFO'}, mat.name)
+            if mat.node_tree and len(mat.node_tree.nodes['Material Output'].inputs['Volume'].links) > 0:
+                volume_node = mat.node_tree.nodes['Material Output'].inputs['Volume'].links[0].from_node
+                obj.report({'INFO'}, "--volume: " + volume_node.name)
+                if volume_node.name == 'Principled Volume':
+                    # found a valid volume node, append its core properties to the material
+                    mat['_is_volume'] = True
+                    mat['_volume_color'] = volume_node.inputs['Color'].default_value
+                    mat['_volume_density'] = volume_node.inputs['Density'].default_value
+        return
     
     def execute(self, context):
 
@@ -101,7 +119,7 @@ class MYN_OT_export_glb(bpy.types.Operator):
             use_visible=True,
             use_renderable=False,
             use_active_collection=False,
-            export_extras=False,
+            export_extras=True,
             export_yup=True,
             export_apply=False,
             export_animations=False,
@@ -113,6 +131,8 @@ class MYN_OT_export_glb(bpy.types.Operator):
             bm_o = bmeshes_original[i]
             bm_o.to_mesh(meshes[i])
             bm_o.free()
+            
+        MYN_OT_export_glb.postprocess_materials(self);
         
         # report and exit
         self.report({'INFO'}, path)

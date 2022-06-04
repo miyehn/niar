@@ -7,9 +7,15 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 
+enum MaterialType {
+	Surface,
+	Volume
+};
+
 // used for each renderer to create corresponding materials
 struct GltfMaterialInfo {
 	uint32_t _version;
+	MaterialType type;
 	std::string name;
 	std::string albedoTexName;
 	std::string normalTexName;
@@ -18,6 +24,8 @@ struct GltfMaterialInfo {
 	glm::vec4 BaseColorFactor;
 	glm::vec4 EmissiveFactor;
 	glm::vec4 MetallicRoughnessAONormalStrengths;
+	glm::vec4 volumeColor;
+	float volumeDensity;
 
 	static void add(GltfMaterialInfo& info);
 	static GltfMaterialInfo* get(const std::string& materialName);
