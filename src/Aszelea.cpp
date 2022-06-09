@@ -5,7 +5,7 @@
 #include "Scene/SceneObject.hpp"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
-#include "Assets/GltfAsset.h"
+#include "Assets/SceneAsset.h"
 #include <cxxopts/cxxopts.hpp>
 
 int main(int argc, const char * argv[])
@@ -32,7 +32,7 @@ int main(int argc, const char * argv[])
 	Config = new ConfigAsset("config/global.ini", false);
 
 	// load scene
-	auto scene_asset = new GltfAsset(
+	auto scene_asset = new SceneAsset(
 		nullptr,
 		Config->lookup<std::string>("SceneSource"));
 

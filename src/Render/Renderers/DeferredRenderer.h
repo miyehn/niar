@@ -11,6 +11,22 @@ class Material;
 class PostProcessing;
 class GltfMaterial;
 
+#define GPOSITION_ATTACHMENT 0
+#define GNORMAL_ATTACHMENT 1
+#define GCOLOR_ATTACHMENT 2
+#define GMETALLICROUGHNESSAO_ATTACHMENT 3
+#define SCENECOLOR_ATTACHMENT 4
+#define SCENEDEPTH_ATTACHMENT 5
+
+// opaque
+#define DEFERRED_SUBPASS_GEOMETRY 0
+#define DEFERRED_SUBPASS_LIGHTING 1
+
+// post process
+#define DEFERRED_SUBPASS_PROBES 0
+#define DEFERRED_SUBPASS_POSTPROCESSING 1
+#define DEFERRED_SUBPASS_DEBUGDRAW 2
+
 class DeferredRenderer : public Renderer
 {
 public:
@@ -49,6 +65,8 @@ private:
 
 	DeferredRenderer();
 	~DeferredRenderer() override;
+
+	bool drawDebug = true;
 
 	VkFramebuffer framebuffer;
 	VkFramebuffer postProcessFramebuffer;

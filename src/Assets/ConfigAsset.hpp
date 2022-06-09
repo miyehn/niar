@@ -26,8 +26,10 @@ public:
 		}
 		return T();
 	}
+	const libconfig::Setting& lookupRaw(const std::string& cfg_path) const {
+		return config.lookup(cfg_path);
+	}
 private:
-	bool initialized = false;
 	libconfig::Config config = {};
 };
 

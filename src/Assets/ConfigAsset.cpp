@@ -24,9 +24,7 @@ ConfigAsset::ConfigAsset(
 	bool allow_reload,
 	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_path, nullptr)
 {
-	if (!allow_reload) {
-		reload_condition = [this](){ return !initialized; };
-	}
+	reload_condition = [allow_reload](){ return allow_reload; };
 	load_action_internal = [this, relative_path, loadAction]() {
 		create_config_src(ROOT_DIR"/" + relative_path, config);
 		if (loadAction) {
@@ -38,7 +36,6 @@ ConfigAsset::ConfigAsset(
 				ERR("Some setting(s) in '%s' assigned to wrong type", relative_path.c_str());
 			}
 		}
-		initialized = true;
 	};
 	reload();
 }

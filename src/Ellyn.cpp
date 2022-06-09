@@ -4,10 +4,10 @@
 #include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
-#include "Assets/GltfAsset.h"
+#include "Assets/SceneAsset.h"
+#include "Assets/MeshAsset.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
-#include "Render/Mesh.h"
 #include "Render/Texture.h"
 
 #include "Render/Vulkan/VulkanUtils.h"
@@ -23,6 +23,7 @@
 #include "Render/Materials/ComputeShaders.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Assets/EnvironmentMapAsset.h"
+#include "Scene/EnvMapVisualizer.h"
 
 using namespace myn;
 
@@ -51,23 +52,17 @@ namespace
 
 	bool show_imgui_demo = false;
 
-	struct // legacy
-	{
-		bool receiving = false;
-		std::string text = "";
-	} input;
-
 	// other potentially temporary globals
 
 	enum e_renderer {
 		simple = 0,
 		deferred = 1,
 		pathtracer = 2
-	} renderer_index = e_renderer::pathtracer;
+	} renderer_index = e_renderer::deferred;
 
 	std::vector<Renderer*> renderers{};
 
-} // fileprivate
+}// fileprivate
 
 static void init();
 
@@ -85,37 +80,38 @@ static void init()
 {
 	vk::init_window("niar", width, height, &window);
 
-	LOG("loading resources (vulkan)...");
-	Texture2D::createDefaultTextures();
+	{// shared resources
+		LOG("loading resources (vulkan)...");
+		Texture2D::createDefaultTextures();
 
-#if 0
-	Scene* gltf = new Scene("Test stage");
-	//gltf->load_tinygltf(ROOT_DIR"/"+Config->lookup<std::string>("SceneSource"), false);
-	Scene::Active = gltf;
+		const libconfig::Setting& asset_paths = Config->lookupRaw("AdditionalAssets");
+		int num_paths = asset_paths.getLength();
+		for (int i = 0; i < num_paths; i++) {
+			std::string path = asset_paths[i];
+			new MeshAsset(path, "sphere");
+		}
+	}
 
-	// rtx
-	auto tri = new RtxTriangle();
-	Scene::Active->add_child(tri);
+	{// scene
+		auto gltf = new Scene("SceneSource");
+		new SceneAsset(gltf, Config->lookup<std::string>("SceneSource"));
+		gltf->add_child(new PathtracerController());
 
-	// renderer setup
-	auto rtRenderer = RayTracingRenderer::get();
-	rtRenderer->outImage = tri->outImage;
-	rtRenderer->debugSetup(nullptr);
-	renderer = rtRenderer;
-#else
-	Scene* gltf = new Scene("SceneSource");
-	new GltfAsset(gltf, Config->lookup<std::string>("SceneSource"));
-	gltf->add_child(new PathtracerController());
-	Scene::Active = gltf;
-#endif
+		// DEBUG
+		auto probe = new EnvMapVisualizer;
+		probe->set_local_position(glm::vec3(0, 2, 0));
+		gltf->add_child(probe);
 
-	// find a camera and set it active
-	Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
-		auto cam = dynamic_cast<Camera*>(obj);
-		if (cam) Camera::Active = cam;
-	});
-	if (!Camera::Active) {
-		WARN("there's no active camera!")
+		Scene::Active = gltf;
+
+		// find a camera and set it active
+		Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
+			auto cam = dynamic_cast<Camera*>(obj);
+			if (cam) Camera::Active = cam;
+		});
+		if (!Camera::Active) {
+			WARN("there's no active camera!")
+		}
 	}
 
 	ui::usePurpleStyle();
@@ -270,6 +266,7 @@ static void cleanup()
 	}
 
 	releaseAllAssets();
+	// TODO: should also delete the assets themselves
 
 	delete Scene::Active;
 	delete Vulkan::Instance;

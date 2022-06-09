@@ -21,14 +21,14 @@ message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 set(ELLYN_SRC
-		src/Ellyn.cpp
+	src/Ellyn.cpp
 	src/Render/Vulkan/Vulkan.cpp
 	src/Scene/Scene.cpp
     src/Scene/Camera.cpp
-		src/Scene/SceneObject.cpp
+	src/Scene/SceneObject.cpp
 	src/Render/Mesh.cpp
     src/Scene/GrassField.cpp
-		src/Assets/ConfigAsset.cpp
+	src/Assets/ConfigAsset.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
 	src/Pathtracer/Primitive.cpp
@@ -54,7 +54,7 @@ set(ELLYN_SRC
 	src/Render/Vulkan/Buffer.cpp
 	src/Render/Vulkan/DescriptorSet.cpp
 	src/Render/Texture.cpp
-		src/Utils/StbImageImpl.cpp
+	src/Utils/StbImageImpl.cpp
 	src/Utils/TinyGLTFImpl.cpp
 	src/Utils/myn/RenderDoc.cpp
 	src/Render/Vulkan/SamplerCache.cpp
@@ -69,12 +69,12 @@ set(ELLYN_SRC
 	src/Render/Renderers/SimpleRenderer.cpp
 	src/Scene/PathtracerController.cpp
 	src/Assets/Asset.cpp
-	src/Assets/GltfAsset.cpp
+	src/Assets/SceneAsset.cpp
 	src/Render/Materials/GltfMaterialInfo.cpp
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
 	src/Utils/myn/Sample.cpp
-	src/Scene/MeshObject.cpp)
+	src/Scene/MeshObject.cpp src/Assets/MeshAsset.cpp src/Scene/EnvMapVisualizer.cpp)
 
 set(RTX_SRC src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
 
@@ -88,7 +88,7 @@ set(ASZELEA_SRC
 	src/Render/Mesh.cpp
 	src/Scene/MeshObject.cpp
 	src/Assets/Asset.cpp
-	src/Assets/GltfAsset.cpp
+	src/Assets/SceneAsset.cpp
 	src/Assets/ConfigAsset.cpp
 	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/BSDF.cpp

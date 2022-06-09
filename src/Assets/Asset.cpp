@@ -4,7 +4,8 @@
 
 #include "Asset.h"
 #include "Utils/myn/Log.h"
-#include "GltfAsset.h"
+#include "SceneAsset.h"
+#include "MeshAsset.h"
 #include <filesystem>
 #include <unordered_map>
 
@@ -92,8 +93,11 @@ void releaseAllAssets()
 	for (const auto& pair : assets_pool) {
 		auto asset = pair.second;
 		if (asset) {
-			if (auto* gltf = dynamic_cast<GltfAsset*>(pair.second)) {
+			if (auto* gltf = dynamic_cast<SceneAsset*>(pair.second)) {
 				gltf->release_resources();
+			}
+			else if (auto* masset = dynamic_cast<MeshAsset*>(pair.second)) {
+				masset->release_resources();
 			}
 		}
 	}

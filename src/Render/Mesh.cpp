@@ -145,7 +145,8 @@ Mesh::Mesh(
 	faces.resize(indices_cnt);
 	memcpy(faces.data(), indices_data, indices_cnt * sizeof(VERTEX_INDEX_TYPE));
 
-	uint32_t mat_index = in_prim->material >= 0 ? in_prim->material : 0;
-	materialName = material_names[mat_index];
-	set_material_name(name, material_names[mat_index]);
+	if (in_prim->material >= 0) {
+		materialName = material_names[in_prim->material];
+		set_material_name(name, material_names[in_prim->material]);
+	}
 }
