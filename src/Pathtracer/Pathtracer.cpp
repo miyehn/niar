@@ -3,7 +3,7 @@
 #include "BSDF.hpp"
 #include "Scene/Light.hpp"
 #include "PathtracerLight.hpp"
-#include "Engine/ConfigAsset.hpp"
+#include "Assets/ConfigAsset.hpp"
 #include "Render/Materials/GltfMaterialInfo.h"
 #include "Utils/myn/Sample.h"
 #include <stack>

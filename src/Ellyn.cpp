@@ -3,15 +3,15 @@
 #include "Scene/PathtracerController.h"
 #include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
-#include "ConfigAsset.hpp"
-#include "GltfAsset.h"
+#include "Assets/ConfigAsset.hpp"
+#include "Assets/GltfAsset.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
 #include "Render/Mesh.h"
 #include "Render/Texture.h"
 
 #include "Render/Vulkan/VulkanUtils.h"
-#include "Engine/DebugUI.h"
+#include "Utils/DebugUI.h"
 
 #include "Utils/myn/RenderDoc.h"
 
@@ -22,7 +22,7 @@
 
 #include "Render/Materials/ComputeShaders.h"
 #include "Render/Renderers/DeferredRenderer.h"
-#include "EnvironmentMapAsset.h"
+#include "Assets/EnvironmentMapAsset.h"
 
 using namespace myn;
 

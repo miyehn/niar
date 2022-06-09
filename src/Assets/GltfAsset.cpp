@@ -6,7 +6,7 @@
 #include "Scene/Camera.hpp"
 #include "Scene/Light.hpp"
 #include "Render/Mesh.h"
-#include "Engine/ConfigAsset.hpp"
+#include "ConfigAsset.hpp"
 #include "GltfAsset.h"
 #include "Render/Materials/GltfMaterialInfo.h"
 
@@ -172,7 +172,8 @@ bool findMaterialProperty(const tinygltf::Material& mat, const std::string& prop
 	return false;
 }
 
-}
+}// anonymous namespace
+
 // load from glTF data
 std::vector<Mesh*> load_gltf_meshes(
 	const std::string& node_name,

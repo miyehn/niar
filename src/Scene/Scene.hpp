@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/SceneObject.hpp"
+#include "SceneObject.hpp"
 #include "AABB.hpp"
 
 struct Light;

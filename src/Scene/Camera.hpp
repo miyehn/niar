@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/SceneObject.hpp"
+#include "SceneObject.hpp"
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

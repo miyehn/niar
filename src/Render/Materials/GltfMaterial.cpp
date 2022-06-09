@@ -1,5 +1,5 @@
 #include "GltfMaterial.h"
-#include "Engine/SceneObject.hpp"
+#include "Scene/SceneObject.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Texture.h"

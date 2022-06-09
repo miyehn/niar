@@ -1,5 +1,5 @@
 #include "Light.hpp"
-#include "Engine/ConfigAsset.hpp"
+#include "Assets/ConfigAsset.hpp"
 
 #include <tinygltf/tiny_gltf.h>
 

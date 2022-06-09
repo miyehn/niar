@@ -1,8 +1,8 @@
 #include "Scene.hpp"
-#include "Engine/ConfigAsset.hpp"
+#include "Assets/ConfigAsset.hpp"
 #include "Render/Mesh.h"
 
-#include "Engine/DebugUI.h"
+#include "Utils/DebugUI.h"
 
 // TODO: make this support parenting hierarchy
 std::vector<Mesh*> Scene::get_meshes() {

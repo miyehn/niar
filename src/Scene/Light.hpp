@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/SceneObject.hpp"
+#include "SceneObject.hpp"
 #include "Utils/myn/Misc.h"
 
 class Scene;
@@ -24,7 +24,7 @@ struct DirectionalLight : public Light {
 
 	explicit DirectionalLight(
 			glm::vec3 _color = glm::vec3(1),
-			float _intensity = 1.0f, 
+			float _intensity = 1.0f,
 			glm::vec3 dir = glm::vec3(0, 0, -1));
 
 	explicit DirectionalLight(const std::string& node_name, const tinygltf::Light* in_light);

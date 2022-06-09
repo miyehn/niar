@@ -2,10 +2,10 @@
 // Created by raind on 5/24/2022.
 //
 #include "Utils/myn/Log.h"
-#include "SceneObject.hpp"
+#include "Scene/SceneObject.hpp"
 #include "Pathtracer/Pathtracer.hpp"
-#include "Engine/ConfigAsset.hpp"
-#include "Engine/GltfAsset.h"
+#include "Assets/ConfigAsset.hpp"
+#include "Assets/GltfAsset.h"
 #include <cxxopts/cxxopts.hpp>
 
 int main(int argc, const char * argv[])

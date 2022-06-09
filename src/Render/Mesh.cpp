@@ -1,6 +1,6 @@
 #include "Mesh.h"
 #include "Pathtracer/BSDF.hpp"
-#include "Engine/ConfigAsset.hpp"
+#include "Assets/ConfigAsset.hpp"
 
 #include <tinygltf/tiny_gltf.h>
 #include <map>

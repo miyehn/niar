@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/SceneObject.hpp"
+#include "SceneObject.hpp"
 
 struct Blade{
 	Blade(glm::vec3 root);

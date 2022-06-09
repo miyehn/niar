@@ -21,14 +21,14 @@ message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 set(ELLYN_SRC
-	src/Engine/Ellyn.cpp
+		src/Ellyn.cpp
 	src/Render/Vulkan/Vulkan.cpp
 	src/Scene/Scene.cpp
     src/Scene/Camera.cpp
-	src/Engine/SceneObject.cpp
+		src/Scene/SceneObject.cpp
 	src/Render/Mesh.cpp
     src/Scene/GrassField.cpp
-	src/Engine/ConfigAsset.cpp
+		src/Assets/ConfigAsset.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
 	src/Pathtracer/Primitive.cpp
@@ -62,31 +62,31 @@ set(ELLYN_SRC
 	src/Render/Vulkan/VulkanUtils.cpp
 	src/Render/Renderers/DeferredRenderer.cpp
 	src/Render/Vulkan/ImageCreator.cpp
-	src/Engine/DebugUI.cpp
-	src/Engine/DebugUI.h
+		src/Utils/DebugUI.cpp
+		src/Utils/DebugUI.h
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/DebugDraw.cpp
 	src/Render/Materials/Rise.cpp
 	src/Render/Renderers/SimpleRenderer.cpp
 	src/Scene/PathtracerController.cpp
-	src/Engine/Asset.cpp
-	src/Engine/GltfAsset.cpp
+		src/Assets/Asset.cpp
+		src/Assets/GltfAsset.cpp
 	src/Render/Materials/GltfMaterialInfo.cpp
-		src/Engine/EnvironmentMapAsset.cpp src/Engine/EnvironmentMapAsset.h src/Utils/TinyExrImpl.cpp src/Utils/myn/Sample.cpp)
+		src/Assets/EnvironmentMapAsset.cpp src/Assets/EnvironmentMapAsset.h src/Utils/TinyExrImpl.cpp src/Utils/myn/Sample.cpp)
 
 set(RTX_SRC src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
 
 set(ASZELEA_SRC
-	src/Engine/Aszelea.cpp
-	src/Engine/SceneObject.cpp
+		src/Aszelea.cpp
+		src/Scene/SceneObject.cpp
 	src/Scene/Camera.cpp
 	src/Scene/Light.cpp
 	src/Scene/AABB.cpp
 	src/Render/Materials/GltfMaterialInfo.cpp
 	src/Render/Mesh.cpp
-	src/Engine/Asset.cpp
-	src/Engine/GltfAsset.cpp
-	src/Engine/ConfigAsset.cpp
+		src/Assets/Asset.cpp
+		src/Assets/GltfAsset.cpp
+		src/Assets/ConfigAsset.cpp
 	src/Pathtracer/Primitive.cpp
 	src/Pathtracer/BSDF.cpp
 	src/Pathtracer/PathtracerLight.cpp
@@ -97,7 +97,7 @@ set(ASZELEA_SRC
 	src/Utils/StbImageImpl.cpp
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${TASKSYS_O}
-		src/Engine/EnvironmentMapAsset.cpp src/Engine/EnvironmentMapAsset.h src/Utils/TinyExrImpl.cpp src/Utils/myn/Sample.cpp)
+		src/Assets/EnvironmentMapAsset.cpp src/Assets/EnvironmentMapAsset.h src/Utils/TinyExrImpl.cpp src/Utils/myn/Sample.cpp)
 
 if(APPLE)
 	add_definitions(-DMACOS)
