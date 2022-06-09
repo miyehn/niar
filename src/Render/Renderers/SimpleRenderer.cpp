@@ -4,6 +4,7 @@
 
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/Mesh.h"
+#include "Scene/MeshObject.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "SimpleRenderer.h"
@@ -197,9 +198,9 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		uint32_t instance_ctr = 0;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
-			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
+			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
 			{
-				auto mat = getOrCreateMeshMaterial(m->materialName);
+				auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);
 				auto pipeline = mat->getPipeline();
 
 				// pipeline changed: re-bind; re-set frame globals if necessary
@@ -224,8 +225,8 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 					last_material = mat;
 				}
 
-				mat->setParameters(cmdbuf, m);
-				m->draw(cmdbuf);
+				mat->setParameters(cmdbuf, mo);
+				mo->draw(cmdbuf);
 				instance_ctr++;
 			}
 		}

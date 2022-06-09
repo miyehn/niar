@@ -2,6 +2,7 @@
 #include "Render/Vulkan/RenderPassBuilder.h"
 #include "Render/Texture.h"
 #include "Render/Mesh.h"
+#include "Scene/MeshObject.h"
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
@@ -620,9 +621,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		uint32_t instance_ctr = 0;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
-			if (Mesh* m = dynamic_cast<Mesh*>(drawable))
+			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
 			{
-				auto mat = getOrCreateMeshMaterial(m->materialName);//m->get_material();
+				auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
 				auto pipeline = mat->getPipeline();
 
 				// pipeline changed: re-bind; re-set frame globals if necessary
@@ -639,8 +640,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 					last_material = mat;
 				}
 
-				mat->setParameters(cmdbuf, m);
-				m->draw(cmdbuf);
+				mat->setParameters(cmdbuf, mo);
+				mo->draw(cmdbuf);
 				instance_ctr++;
 			}
 		}

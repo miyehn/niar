@@ -1,5 +1,6 @@
 #include "Pathtracer.hpp"
 #include "Render/Mesh.h"
+#include "Scene/MeshObject.h"
 #include "BSDF.hpp"
 #include "Scene/Light.hpp"
 #include "PathtracerLight.hpp"
@@ -278,19 +279,19 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 	float light_power_sum = 0;
 	scene->foreach_descendent_bfs([&](SceneObject* drawable)
 	{
-		if (Mesh* mesh = dynamic_cast<Mesh*>(drawable)) {
+		if (MeshObject* mo = dynamic_cast<MeshObject*>(drawable)) {
 
-			BSDF* bsdf = get_or_create_mesh_bsdf(mesh->materialName);
-			mesh->bsdf = bsdf;
+			BSDF* bsdf = get_or_create_mesh_bsdf(mo->mesh->materialName);
+			mo->bsdf = bsdf;
 			meshes_count++;
 
-			bool emissive = mesh->bsdf->is_emissive;
-			for (int i=0; i<mesh->faces.size(); i+=3) {
+			bool emissive = mo->bsdf->is_emissive;
+			for (int i=0; i < mo->mesh->faces.size(); i+=3) {
 				// loop and load triangles
-				Vertex v1 = mesh->vertices[mesh->faces[i]];
-				Vertex v2 = mesh->vertices[mesh->faces[i + 1]];
-				Vertex v3 = mesh->vertices[mesh->faces[i + 2]];
-				auto* T = new Triangle(mesh->object_to_world(), v1, v2, v3, mesh->bsdf);
+				Vertex v1 = mo->mesh->vertices[mo->mesh->faces[i]];
+				Vertex v2 = mo->mesh->vertices[mo->mesh->faces[i + 1]];
+				Vertex v3 = mo->mesh->vertices[mo->mesh->faces[i + 2]];
+				auto* T = new Triangle(mo->object_to_world(), v1, v2, v3, mo->bsdf);
 				auto* P = static_cast<Primitive*>(T);
 				primitives.push_back(P);
 

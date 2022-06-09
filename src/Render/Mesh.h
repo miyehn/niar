@@ -21,7 +21,7 @@ namespace tinygltf
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
-struct Mesh : SceneObject {
+struct Mesh {
 public:
 
 	/*
@@ -33,26 +33,19 @@ public:
 		const tinygltf::Model* in_model,
 		const std::vector<std::string>& material_names);
 
-	~Mesh() override;
+	~Mesh();
 
 #if GRAPHICS_DISPLAY
 	void initialize_gpu();
 
-	void update(float elapsed) override;
-
-	void draw(VkCommandBuffer cmdbuf) override;
+	void draw(VkCommandBuffer cmdbuf);
 #endif
 
-	void set_local_position(glm::vec3 _local_position) override;
-	void set_rotation(glm::quat _rotation) override;
-	void set_scale(glm::vec3 _scale) override;
+	std::string name;
 
 	std::vector<Vertex> vertices;
 	std::vector<VERTEX_INDEX_TYPE> faces;
 	uint32_t get_num_triangles() const { return faces.size() / 3; }
-
-	AABB aabb;
-	BSDF* bsdf = nullptr;
 
 	std::string materialName;
 
@@ -63,7 +56,6 @@ private:
 	static std::unordered_map<std::string, std::string> material_assignment;
 
 	bool locked = false;
-	void generate_aabb();
 
 #if GRAPHICS_DISPLAY
 	//---- vulkan stuff ----

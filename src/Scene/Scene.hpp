@@ -6,7 +6,7 @@
 struct Light;
 struct DirectionalLight;
 struct PointLight;
-struct Mesh;
+struct MeshObject;
 
 /* a scene is a tree of drawables */
 class Scene : public SceneObject {
@@ -19,7 +19,7 @@ public:
 	//-------- where the configurations are being set before the scene is drawn --------
 
 	AABB aabb;
-	std::vector<Mesh*> get_meshes();
+	std::vector<MeshObject*> get_meshes();
 	void generate_aabb();
 
 private:

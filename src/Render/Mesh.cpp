@@ -69,14 +69,8 @@ void Mesh::initialize_gpu() {
 	LOG("loaded mesh '%s' of %lu vertices and %d triangles", name.c_str(), vertices.size(), get_num_triangles());
 }
 
-void Mesh::update(float elapsed) {
-	SceneObject::update(elapsed);
-	locked = true;
-}
-
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
-	//get_material()->setParameters(cmdbuf, this);
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = vertexBuffer.getBufferInstance();
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
@@ -85,44 +79,12 @@ void Mesh::draw(VkCommandBuffer cmdbuf)
 }
 #endif
 
-void Mesh::generate_aabb() {
-	mat4 o2w = object_to_world();
-	aabb = AABB();
-	for (int i=0; i<vertices.size(); i++) {
-		aabb.add_point(o2w * vec4(vertices[i].position, 1));
-	}
-}
-
 Mesh::~Mesh() {
 	//if (bsdf) delete bsdf;
 #if GRAPHICS_DISPLAY
 	vertexBuffer.release();
 	indexBuffer.release();
 #endif
-}
-
-void Mesh::set_local_position(vec3 local_position) {
-	if (!locked) {
-		_local_position = local_position;
-		generate_aabb();
-		//get_scene()->generate_aabb();
-	}
-}
-
-void Mesh::set_rotation(quat rotation) {
-	if (!locked) {
-		_rotation = rotation;
-		generate_aabb();
-		//get_scene()->generate_aabb();
-	}
-}
-
-void Mesh::set_scale(vec3 scale) {
-	if (!locked) {
-		_scale = scale;
-		generate_aabb();
-		//get_scene()->generate_aabb();
-	}
 }
 
 // for loading tinygltf only
@@ -182,8 +144,6 @@ Mesh::Mesh(
 
 	faces.resize(indices_cnt);
 	memcpy(faces.data(), indices_data, indices_cnt * sizeof(VERTEX_INDEX_TYPE));
-
-	generate_aabb();
 
 	uint32_t mat_index = in_prim->material >= 0 ? in_prim->material : 0;
 	materialName = material_names[mat_index];

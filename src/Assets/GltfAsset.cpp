@@ -15,6 +15,7 @@
 
 #include <unordered_map>
 #include <queue>
+#include "Scene/MeshObject.h"
 
 #if GRAPHICS_DISPLAY
 #include "Render/Texture.h"
@@ -398,7 +399,8 @@ GltfAsset::GltfAsset(
 #if GRAPHICS_DISPLAY
 						m->initialize_gpu();
 #endif
-						object->add_child(m);
+						//object->add_child(m);
+						object->add_child(new MeshObject(m));
 					}
 				}
 				else
@@ -406,7 +408,8 @@ GltfAsset::GltfAsset(
 #if GRAPHICS_DISPLAY
 					meshes[0]->initialize_gpu();
 #endif
-					object = meshes[0];
+					//object = meshes[0];
+					object = new MeshObject(meshes[0]);
 				}
 			}
 			else
