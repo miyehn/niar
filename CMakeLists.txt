@@ -76,7 +76,10 @@ set(ELLYN_SRC
 	src/Utils/myn/Sample.cpp
 	src/Scene/MeshObject.cpp src/Assets/MeshAsset.cpp src/Scene/EnvMapVisualizer.cpp)
 
-set(RTX_SRC src/Vulkan/ShaderBindingTable.cpp src/Scene/RtxTriangle.cpp src/Render/Renderers/RayTracingRenderer.cpp)
+set(RTX_SRC
+	src/Render/Vulkan/ShaderBindingTable.cpp
+	src/Scene/RtxTriangle.cpp
+	src/Render/Renderers/RayTracingRenderer.cpp)
 
 set(ASZELEA_SRC
 	src/Aszelea.cpp
@@ -123,7 +126,7 @@ endif(APPLE)
 if(WIN32)
 	add_definitions(-DWINOS)
 
-	add_executable(ellyn WIN32 ${ELLYN_SRC})
+	add_executable(ellyn WIN32 ${ELLYN_SRC} ${RTX_SRC})
 	target_link_libraries(ellyn
 		${CMAKE_THREAD_LIBS_INIT}
 		${Vulkan_LIBRARY}

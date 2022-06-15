@@ -57,7 +57,8 @@ namespace
 	enum e_renderer {
 		simple = 0,
 		deferred = 1,
-		pathtracer = 2
+		pathtracer = 2,
+		rtx = 3
 	} renderer_index = e_renderer::deferred;
 
 	std::vector<Renderer*> renderers{};
@@ -97,11 +98,18 @@ static void init()
 		new SceneAsset(gltf, Config->lookup<std::string>("SceneSource"));
 		gltf->add_child(new PathtracerController());
 
-		// DEBUG
+		// probe (debug)
 		auto probe = new EnvMapVisualizer;
 		probe->name = "probe";
 		probe->set_local_position(glm::vec3(0, 0, 0));
 		gltf->add_child(probe);
+
+		// rtx
+		if (Config->lookup<int>("Debug.RTX")) {
+			auto tri = new RtxTriangle();
+			gltf->add_child(tri);
+			RayTracingRenderer::get()->outImage = tri->outImage;
+		}
 
 		Scene::Active = gltf;
 
@@ -128,14 +136,22 @@ static void init()
 	}
 
 	{// renderers
+		int rtx_enabled = Config->lookup<int>("Debug.RTX");
 		renderers.push_back(SimpleRenderer::get());
 		renderers.push_back(DeferredRenderer::get());
 		renderers.push_back(Pathtracer::get(width, height));
+		if (rtx_enabled) {
+			renderers.push_back(RayTracingRenderer::get());
+		}
 
 		auto rendererIndexRef = (int*)&renderer_index;
-		ui::elem([rendererIndexRef]()
+		ui::elem([rendererIndexRef, rtx_enabled]()
 		{
-			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0\0");
+			if (rtx_enabled) {
+				ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0RTX\0\0");
+			} else {
+				ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0\0");
+			}
 			ImGui::Separator();
 
 			renderers[renderer_index]->draw_config_ui();

@@ -21,7 +21,7 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 	std::vector<RtxTriangle*> triangles;
 	drawable->foreach_descendent_bfs([&triangles](SceneObject* child){
 		if (auto tri = dynamic_cast<RtxTriangle*>(child)) {
-			if (tri->enabled) triangles.push_back(tri);
+			if (tri->enabled()) triangles.push_back(tri);
 		}
 	});
 
@@ -47,7 +47,6 @@ RayTracingRenderer *RayTracingRenderer::get()
 	if (renderer == nullptr)
 	{
 		renderer = new RayTracingRenderer();
-		Vulkan::Instance->destructionQueue.emplace_back([](){ delete renderer; });
 	}
 	return renderer;
 }
