@@ -99,7 +99,8 @@ static void init()
 
 		// DEBUG
 		auto probe = new EnvMapVisualizer;
-		probe->set_local_position(glm::vec3(0, 2, 0));
+		probe->name = "probe";
+		probe->set_local_position(glm::vec3(0, 0, 0));
 		gltf->add_child(probe);
 
 		Scene::Active = gltf;

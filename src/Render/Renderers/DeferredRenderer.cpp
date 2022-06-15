@@ -358,6 +358,13 @@ DeferredRenderer::DeferredRenderer()
 				.pColorAttachments = lightingColorAttachmentRefs.data(),
 				.pDepthStencilAttachment = nullptr
 			});
+		// probes visualization
+		passBuilder.subpasses.push_back({
+			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = lightingColorAttachmentRefs.data(),
+			.pDepthStencilAttachment = &depthAttachmentReference
+		});
 
 		// dependencies
 		// TODO: any dependency w external needed?
@@ -371,6 +378,15 @@ DeferredRenderer::DeferredRenderer()
 				.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
 				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 			});
+		passBuilder.dependencies.push_back({
+			.srcSubpass = DEFERRED_SUBPASS_LIGHTING,
+			.dstSubpass = DEFERRED_SUBPASS_PROBES,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		});
 
 		// build the renderpass
 		renderPass = passBuilder.build(Vulkan::Instance);
@@ -408,13 +424,6 @@ DeferredRenderer::DeferredRenderer()
 			1,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		};
-		// probes visualization
-		passBuilder.subpasses.push_back({
-			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &colorAttachmentRef,
-			.pDepthStencilAttachment = &depthAttachmentReference
-		});
 		// post processing
 		passBuilder.subpasses.push_back({
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -431,16 +440,6 @@ DeferredRenderer::DeferredRenderer()
 		});
 
 		// TODO: constraints correct?
-
-		passBuilder.dependencies.push_back({
-			.srcSubpass = DEFERRED_SUBPASS_PROBES,
-			.dstSubpass = DEFERRED_SUBPASS_POSTPROCESSING,
-			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
-		});
 		passBuilder.dependencies.push_back({
 			.srcSubpass = DEFERRED_SUBPASS_POSTPROCESSING,
 			.dstSubpass = DEFERRED_SUBPASS_DEBUGDRAW,
@@ -527,7 +526,7 @@ DeferredRenderer::DeferredRenderer()
 
 	{// debug draw stuff
 #if 1 // example debug points
-		if (!debugPoints) debugPoints = new DebugPoints(viewInfoUbo, postProcessPass, 2);
+		if (!debugPoints) debugPoints = new DebugPoints(viewInfoUbo, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
 		debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
 		debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
 		debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
@@ -536,7 +535,7 @@ DeferredRenderer::DeferredRenderer()
 #endif
 
 		std::vector<PointData> lines;
-		if (!debugLines) debugLines = new DebugLines(viewInfoUbo, postProcessPass, 2);
+		if (!debugLines) debugLines = new DebugLines(viewInfoUbo, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
 		// x axis
 		debugLines->addSegment(
 			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
@@ -691,6 +690,24 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		deferredLighting->usePipeline(cmdbuf);
 		vk::drawFullscreenTriangle(cmdbuf);
 
+		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
+	}
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "Probes")
+		bool firstInstance = true;
+		auto mat = EnvMapVisualizer::get_material();
+		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
+		{
+			if (auto* probe = dynamic_cast<EnvMapVisualizer*>(drawable)) {
+				if (firstInstance) {
+					mat->resetInstanceCounter();
+					mat->usePipeline(cmdbuf);
+				}
+				mat->setParameters(cmdbuf, probe);
+				probe->draw(cmdbuf);
+				firstInstance = false;
+			}
+		}
 		vkCmdEndRenderPass(cmdbuf);
 	}
 
@@ -705,24 +722,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			.pClearValues = nullptr
 		};
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
-		{
-			SCOPED_DRAW_EVENT(cmdbuf, "Probes")
-			bool firstInstance = true;
-			for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
-			{
-				if (auto* probe = dynamic_cast<EnvMapVisualizer*>(drawable)) {
-					auto mat = probe->get_material();
-					if (firstInstance) {
-						mat->resetInstanceCounter();
-						mat->usePipeline(cmdbuf);
-					}
-					mat->setParameters(cmdbuf, probe);
-					probe->draw(cmdbuf);
-					firstInstance = false;
-				}
-			}
-			vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
-		}
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
 			postProcessing->usePipeline(cmdbuf);

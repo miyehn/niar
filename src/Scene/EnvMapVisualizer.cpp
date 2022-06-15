@@ -52,7 +52,7 @@ public:
 			pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
 			pipelineBuilder.fragPath = "spirv/envmap_visualizer.frag.spv";
 			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-			pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->postProcessPass;
+			pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
 
 			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
