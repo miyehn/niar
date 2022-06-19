@@ -47,7 +47,6 @@ set(ELLYN_SRC
 	${CMAKE_SOURCE_DIR}/include/imgui/backends/imgui_impl_vulkan.cpp
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui_widgets.cpp
 	src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
-	# src/Utils/myn/CVar.cpp
 	src/Utils/myn/Misc.cpp
     src/Render/Vulkan/PipelineBuilder.cpp
 	src/Render/Vulkan/RenderPassBuilder.cpp
@@ -74,7 +73,8 @@ set(ELLYN_SRC
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
 	src/Utils/myn/Sample.cpp
-	src/Scene/MeshObject.cpp src/Assets/MeshAsset.cpp src/Scene/EnvMapVisualizer.cpp)
+	src/Scene/MeshObject.cpp
+	src/Scene/EnvMapVisualizer.cpp)
 
 set(RTX_SRC
 	src/Render/Vulkan/ShaderBindingTable.cpp

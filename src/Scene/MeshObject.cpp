@@ -7,6 +7,7 @@
 
 MeshObject::MeshObject(Mesh *in_mesh) : mesh(in_mesh)
 {
+	name = in_mesh->name;
 	generate_aabb();
 }
 
@@ -59,7 +60,7 @@ void MeshObject::generate_aabb()
 {
 	glm::mat4 o2w = object_to_world();
 	aabb = AABB();
-	for (int i=0; i<mesh->vertices.size(); i++) {
-		aabb.add_point(o2w * glm::vec4(mesh->vertices[i].position, 1));
+	for (int i=0; i<mesh->get_num_vertices(); i++) {
+		aabb.add_point(o2w * glm::vec4(mesh->get_vertices()[i].position, 1));
 	}
 }

@@ -5,7 +5,6 @@
 #include "Asset.h"
 #include "Utils/myn/Log.h"
 #include "SceneAsset.h"
-#include "MeshAsset.h"
 #include <filesystem>
 #include <unordered_map>
 

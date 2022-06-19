@@ -45,6 +45,10 @@ namespace vk
 		uint32_t pixelSize,
 		VmaAllocatedImage outResource);
 
+	void create_vertex_buffer(void* data, uint32_t num_vertices, uint32_t vertex_size, VmaBuffer& vertexBuffer);
+
+	void create_index_buffer(void* data, uint32_t num_indices, uint32_t index_size, VmaBuffer& indexBuffer);
+
 	void generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height);
 
 	void blitToScreen(VkCommandBuffer cmdbuf, VkImage image, VkOffset3D srcOffsetMin, VkOffset3D srcOffsetMax);

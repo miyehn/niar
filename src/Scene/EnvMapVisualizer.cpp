@@ -4,8 +4,7 @@
 
 #include "Render/Materials/Material.h"
 #include "EnvMapVisualizer.h"
-#include "Assets/MeshAsset.h"
-#include "Render/Mesh.h"
+#include "Assets/SceneAsset.h"
 #include "Utils/myn/Log.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Renderers/DeferredRenderer.h"

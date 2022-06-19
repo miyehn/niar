@@ -24,30 +24,47 @@ namespace tinygltf
 struct Mesh {
 public:
 
-	/*
-	 * Should only be called from gltf loader
-	 */
 	explicit Mesh(
 		const std::string& name,
-		const tinygltf::Primitive* in_mesh,
-		const tinygltf::Model* in_model,
-		const std::vector<std::string>& material_names);
+		const std::string& material_name);
 
-	~Mesh();
+	~Mesh() = default;
+
+	struct CpuDataAccessor {
+		const std::vector<Vertex>* vertices;
+		uint32_t num_vertices;
+		uint32_t offset_num_vertices;
+		const std::vector<VERTEX_INDEX_TYPE>* faces;
+		uint32_t num_indices;
+		uint32_t offset_num_indices;
+	};
 
 #if GRAPHICS_DISPLAY
-	void initialize_gpu();
+
+	struct GpuDataAccessor {
+		const VmaBuffer* vertexBuffer;
+		VkDeviceSize vertexBufferOffsetBytes;
+		const VmaBuffer* indexBuffer;
+		VkDeviceSize indexBufferOffsetBytes;
+	};
 
 	void draw(VkCommandBuffer cmdbuf);
 #endif
 
 	std::string name;
 
-	std::vector<Vertex> vertices;
-	std::vector<VERTEX_INDEX_TYPE> faces;
-	uint32_t get_num_triangles() const { return faces.size() / 3; }
+	[[nodiscard]] const Vertex* get_vertices() const;
+	[[nodiscard]] uint32_t get_num_vertices() const;
+
+	[[nodiscard]] const VERTEX_INDEX_TYPE* get_indices() const;
+	[[nodiscard]] uint32_t get_num_indices() const;
 
 	std::string materialName;
+
+	CpuDataAccessor cpu_data{};
+#if GRAPHICS_DISPLAY
+	GpuDataAccessor gpu_data{};
+#endif
 
 	static void set_material_name(const std::string& mesh_name, const std::string& mat_name);
 
@@ -56,15 +73,4 @@ private:
 	static std::unordered_map<std::string, std::string> material_assignment;
 
 	bool locked = false;
-
-#if GRAPHICS_DISPLAY
-	//---- vulkan stuff ----
-
-	VmaBuffer vertexBuffer;
-	VmaBuffer indexBuffer;
-
-	void create_vertex_buffer();
-	void create_index_buffer();
-#endif
-
 };

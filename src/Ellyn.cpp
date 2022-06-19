@@ -5,7 +5,6 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
-#include "Assets/MeshAsset.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
 #include "Render/Texture.h"
