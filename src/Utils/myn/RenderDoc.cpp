@@ -10,19 +10,19 @@
 namespace myn
 {
 
-RENDERDOC_API_1_4_1* RenderDoc::api = nullptr;
+RENDERDOC_API_1_5_0* RenderDoc::api = nullptr;
 bool RenderDoc::shouldCaptureFrame = false;
 
 bool RenderDoc::load(const std::string &appName)
 {
 #ifdef WINOS
 	//if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
-	if (HMODULE mod = LoadLibrary("D:\\Program Files\\RenderDoc\\renderdoc.dll"))
+	if (HMODULE mod = LoadLibrary("C:\\Program Files\\RenderDoc\\renderdoc.dll"))
 	{
 		pRENDERDOC_GetAPI RENDERDOC_GetAPI =
 			(pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
 
-		int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_4_1, (void**)&api);
+		int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_5_0, (void**)&api);
 		if (ret != 1) return false;
 
 		api->SetCaptureFilePathTemplate(("renderdoc/" + appName).c_str());

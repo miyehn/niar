@@ -1,5 +1,6 @@
 #include <string>
-class RENDERDOC_API_1_4_1;
+
+class RENDERDOC_API_1_5_0;
 
 namespace myn
 {
@@ -23,7 +24,7 @@ public:
 
 private:
 
-	static RENDERDOC_API_1_4_1 *api;
+	static RENDERDOC_API_1_5_0 *api;
 	static bool shouldCaptureFrame;
 };
 }// namespace myn
