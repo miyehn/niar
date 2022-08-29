@@ -735,6 +735,7 @@ inline void trace_rays(uniform uint start, uniform uint count)
 	#endif
 }
 
+/*
 task void raytrace_scene_ispc_task(
 	uniform uint batch,
 	uniform uint pixels_per_mini_batch,
@@ -822,6 +823,7 @@ task void raytrace_scene_ispc_task(
 		}
 	}
 }
+*/
 
 void gather_test(uniform uint* uniform input, uniform uint* uniform output, uniform uint count)
 {
@@ -933,7 +935,7 @@ export void raytrace_scene_ispc(
 	for (uniform uint batch = 0; batch < num_batches; batch++)
 	{
 		// trace rays for the current batch
-		launch[num_mini_batches] raytrace_scene_ispc_task(batch, pixels_per_mini_batch, pixels_per_batch, buf_size, ray_weight);
+		//launch[num_mini_batches] raytrace_scene_ispc_task(batch, pixels_per_mini_batch, pixels_per_batch, buf_size, ray_weight);
 		sync;
 	}
 

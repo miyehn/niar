@@ -1,6 +1,7 @@
 .idea/
 .ccls-cache/
 build/
+cmake-build-debug/
 src/tags
 src/Pathtracer/pathtracer_kernel_ispc.h
 dist/

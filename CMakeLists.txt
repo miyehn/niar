@@ -5,12 +5,12 @@ set(CMAKE_CXX_STANDARD 20)
 # set(CMAKE_CXX_FLAGS "-O3")
 
 if(WIN32)
-	set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.obj)
+	set(VULKAN_SDK C:/VulkanSDK/1.3.216.0)
+	set(Vulkan_LIBRARY ${VULKAN_SDK}/Lib/vulkan-1.lib)
 	set(ISPC_CXX_COMPILER cl)
 endif(WIN32)
 
 if(APPLE)
-	set(TASKSYS_O ${CMAKE_BINARY_DIR}/tasksys.o)
 	set(ISPC_CXX_COMPILER g++)
 endif(APPLE)
 
@@ -37,7 +37,6 @@ set(ELLYN_SRC
 	src/Pathtracer/PathtracerLight.cpp
 	src/Pathtracer/BVH.cpp
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
-	${TASKSYS_O}
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui.h
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui.cpp
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui_demo.cpp
@@ -102,7 +101,6 @@ set(ASZELEA_SRC
 	src/Utils/TinyGLTFImpl.cpp
 	src/Utils/StbImageImpl.cpp
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
-	${TASKSYS_O}
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
 	src/Utils/myn/Sample.cpp)
@@ -135,14 +133,15 @@ if(WIN32)
 		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
 	)
 	set_target_properties(ellyn PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
-	configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} COPYONLY)
-	configure_file(lib/libconfig++.dll ${ellyn_BINARY_DIR} COPYONLY)
 
 	add_executable(asz WIN32 ${ASZELEA_SRC})
 	target_link_libraries(asz
 		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
 		)
 	set_target_properties(asz PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+
+	configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} SDL2.dll COPYONLY)
+	configure_file(lib/libconfig++.dll ${ellyn_BINARY_DIR} libconfig++.dll COPYONLY)
 endif(WIN32)
 
 # include_directories(include src)
@@ -159,16 +158,7 @@ add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 
 add_definitions(-DDEBUG=1)
 
-
-#-------- building ispc --------
-# tasksys.o
-set(TASKSYS_SRC ${CMAKE_SOURCE_DIR}/include/ispc/tasksys.cpp)
-add_custom_command(
-	OUTPUT ${TASKSYS_O}
-	COMMAND ${ISPC_CXX_COMPILER} -c -m64 -O3 -Wall ${TASKSYS_SRC} -lm -lpthread -D_DEBUG -D_ITERATOR_DEBUG_LEVEL=2 -D_ALLOW_RUNTIME_LIBRARY_MISMATCH -o ${TASKSYS_O}
-	DEPENDS ${TASKSYS_SRC}
-	COMMENT "generating tasksys.o"
-)
+message(STATUS "${CMAKE_SOURCE_DIR}/lib/libconfig++.lib")
 
 # pathtracer_kernel.o
 set(KERNEL_SRC ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel.ispc)
@@ -183,7 +173,7 @@ add_custom_command(
 )
 # build
 add_custom_target(ispc
-	DEPENDS ${TASKSYS_O} ${KERNEL_H} ${KERNEL_O}
+	DEPENDS ${KERNEL_H} ${KERNEL_O}
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 add_dependencies(ellyn ispc)
