@@ -24,6 +24,8 @@ public:
 
 private:
 
+	RenderDoc() = default; // so its forever static
+
 	static RENDERDOC_API_1_5_0 *api;
 	static bool shouldCaptureFrame;
 };

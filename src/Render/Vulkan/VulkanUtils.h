@@ -60,7 +60,7 @@ class ScopedDrawEvent
 {
 	VkCommandBuffer &cmdbuf;
 public:
-	ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color = {1, 1, 1, 1});
+	ScopedDrawEvent(VkCommandBuffer &cmdbuf, const std::string &name, myn::Color color = {0, 0, 0, 0});
 	~ScopedDrawEvent();
 };
 

@@ -28,11 +28,13 @@ bool RenderDoc::load(const std::string &appName)
 		api->SetCaptureFilePathTemplate(("renderdoc/" + appName).c_str());
 		api->MaskOverlayBits(
 			0,
-			RENDERDOC_OverlayBits::eRENDERDOC_Overlay_Enabled |
-			RENDERDOC_OverlayBits::eRENDERDOC_Overlay_CaptureList);
+			RENDERDOC_OverlayBits::eRENDERDOC_Overlay_Enabled
+			| RENDERDOC_OverlayBits::eRENDERDOC_Overlay_CaptureList
+			//| RENDERDOC_OverlayBits::eRENDERDOC_Overlay_FrameNumber
+			);
 		api->SetCaptureKeys(nullptr, 0);
 
-		LOG("loaded renderdoc. captures will be saved at renderdoc/")
+		LOG("loaded renderdoc. captures will be saved in renderdoc/")
 
 		return true;
 	}
@@ -68,7 +70,11 @@ void RenderDoc::potentiallyEndCapture()
 	if (api && api->IsFrameCapturing())
 	{
 		api->EndFrameCapture(nullptr, nullptr);
-		LOG("saved renderdoc capture.")
+		LOG("captured.")
+
+		if (!api->ShowReplayUI()) {
+			api->LaunchReplayUI(1, nullptr);
+		}
 	}
 #endif
 }
