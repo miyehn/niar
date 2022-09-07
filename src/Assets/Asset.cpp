@@ -5,6 +5,7 @@
 #include "Asset.h"
 #include "Utils/myn/Log.h"
 #include "SceneAsset.h"
+#include "EnvironmentMapAsset.h"
 #include <filesystem>
 #include <unordered_map>
 
@@ -38,10 +39,7 @@ time_t get_last_write_time(const std::string& path)
 #undef to_time_t
 #endif
 
-namespace
-{
-std::unordered_map<std::string, Asset*> assets_pool;
-}
+std::unordered_map<std::string, Asset*> Asset::assets_pool;
 
 Asset::Asset(const std::string &_path, const std::function<void()> &_load_action)
 {
@@ -55,14 +53,14 @@ Asset::Asset(const std::string &_path, const std::function<void()> &_load_action
 void Asset::reload() {
 	time_t last_write_time = get_last_write_time(ROOT_DIR"/" + relative_path);
 	if (last_load_time < last_write_time) {
-		ASSET("loading asset '%s'", relative_path.c_str())
 		if (!_initialized || reload_condition()) {
 			// begin reload callbacks
 			for (auto& fn : begin_reload) fn();
 			// reload
-			load_action_internal();
 			last_load_time = get_file_clock_now();
 			if (_initialized) bump_version();
+			ASSET("loading asset '%s (now at v%d)'", relative_path.c_str(), _version)
+			load_action_internal();
 			_initialized = true;
 			// finish reload callbacks
 			for (auto& fn : finish_reload) fn();
@@ -73,31 +71,39 @@ void Asset::reload() {
 }
 
 Asset::~Asset() {
+	ASSERT(!_initialized)
 	assets_pool.erase(relative_path);
 }
 
-Asset *Asset::find(const std::string &key) {
-	return assets_pool[key];
+void Asset::release_resources() {
+	if (_initialized) {
+		ASSET("releasing asset %s", relative_path.c_str())
+	}
+	_initialized = false;
 }
 
-void reloadAllAssets()
-{
+void Asset::reload_all() {
 	for (auto& p : assets_pool) {
 		p.second->reload();
 	}
 }
 
-void releaseAllAssets()
-{
+void Asset::release_all() {
 	for (const auto& pair : assets_pool) {
 		auto asset = pair.second;
 		if (asset) {
-			if (auto* gltf = dynamic_cast<SceneAsset*>(pair.second)) {
-				gltf->release_resources();
-			}
-			else if (auto* masset = dynamic_cast<MeshAsset*>(pair.second)) {
-				masset->release_resources();
-			}
+			asset->release_resources();
 		}
 	}
+}
+
+void Asset::delete_all() {
+	std::vector<Asset*> assets;
+	for (const auto& pair : assets_pool) {
+		assets.push_back(pair.second);
+	}
+	for (const auto& asset : assets) {
+		delete asset;
+	}
+	assets_pool.clear();
 }

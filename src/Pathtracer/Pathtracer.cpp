@@ -28,6 +28,7 @@
 
 // include this generated header to be able to use the kernels
 #include "pathtracer_kernel_ispc.h"
+#include "Assets/SceneAsset.h"
 
 struct RaytraceThread {
 
@@ -70,9 +71,6 @@ Pathtracer::~Pathtracer() {
 	viewInfoUbo.release();
 	delete debugLines;
 #endif
-
-	delete config;
-	delete envmap;
 
 	delete image_buffer;
 	for (uint32_t i=0; i<cached_config.NumThreads; i++) {
@@ -195,6 +193,12 @@ void Pathtracer::initialize() {
 		tiles_X = std::ceil(float(width) / cached_config.TileSize);
 		tiles_Y = std::ceil(float(height) / cached_config.TileSize);
 
+#if GRAPHICS_DISPLAY
+		// clear old threads
+		clear_tasks_and_threads_begin();
+		clear_tasks_and_threads_wait();
+#endif
+
 		// cpu buffers
 		delete image_buffer;
 		if (subimage_buffers /* not null if it's previously created at least once */) {
@@ -210,22 +214,7 @@ void Pathtracer::initialize() {
 			cached_config.TileSize * cached_config.TileSize * NUM_CHANNELS *SIZE_PER_CHANNEL];
 		}
 
-		// environment map
-		delete envmap;
-		envmap = nullptr;
-		if (cfg->lookup<int>("UseEnvironmentMap")) {
-			envmap = new EnvironmentMapAsset(
-				cfg->lookup<std::string>("EnvironmentMap"),
-				    [](const EnvironmentMapAsset* env) {});
-		}
-
 		// queue tasks, spawn threads, etc.
-
-#if GRAPHICS_DISPLAY
-		// clear old threads
-		clear_tasks_and_threads_begin();
-		clear_tasks_and_threads_wait();
-#endif
 		reset();
 	});
 
@@ -279,7 +268,7 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 	float light_power_sum = 0;
 	scene->foreach_descendent_bfs([&](SceneObject* drawable)
 	{
-		if (MeshObject* mo = dynamic_cast<MeshObject*>(drawable)) {
+		if (auto* mo = dynamic_cast<MeshObject*>(drawable)) {
 
 			BSDF* bsdf = get_or_create_mesh_bsdf(mo->mesh->materialName);
 			mo->bsdf = bsdf;
@@ -339,6 +328,7 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 	TRACE("loaded a scene with %d meshes, %llu triangles, %llu lights",
 		  meshes_count, primitives.size(), lights.size());
 }
+
 void Pathtracer::reset() {
 	TRACE("reset pathtracer");
 
@@ -604,7 +594,7 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h)
 
 Asset* Pathtracer::get_scene_asset() {
 	auto scene_source = Config->lookup<std::string>("SceneSource");
-	auto scene_asset = Asset::find(scene_source);
+	auto scene_asset = Asset::find<SceneAsset>(scene_source);
 	EXPECT(scene_asset==nullptr, false)
 	return scene_asset;
 }

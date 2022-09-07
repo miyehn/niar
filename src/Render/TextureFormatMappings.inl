@@ -24,6 +24,7 @@ VkFormat getFormatFromMap(ImageFormat imageFormat)
 	formatMap[{1, 16, 0}] = VK_FORMAT_R16_SFLOAT;
 	formatMap[{1, 32, 0}] = VK_FORMAT_R32_SFLOAT;
 	formatMap[{3, 32, 0}] = VK_FORMAT_R32G32B32_SFLOAT;
+	formatMap[{4, 32, 0}] = VK_FORMAT_R32G32B32A32_SFLOAT;
 	formatMap[{4, 16, 0}] = VK_FORMAT_R16G16B16A16_SFLOAT;
 	formatMap[{4, 8, 0}] = VK_FORMAT_R8G8B8A8_UNORM;
 	formatMap[{4, 8, 1}] = VK_FORMAT_R8G8B8A8_SRGB;

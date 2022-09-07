@@ -16,6 +16,8 @@ class Texture2D;
 
 /*
  * Currently offline rendering doesn't load textures because managing textures sounds like a pain
+ * hmm actually... it's doable?
+ * TODO
  */
 class SceneAsset : public Asset
 {
@@ -24,11 +26,9 @@ public:
 		SceneObject* outer_root,
 		const std::string& relative_path);
 
-	~SceneAsset() override { release_resources(); }
-
 	SceneObject* get_root() { return asset_root; }
 
-	void release_resources();
+	void release_resources() override;
 
 private:
 
@@ -48,13 +48,12 @@ class MeshAsset : public Asset
 {
 public:
 	explicit MeshAsset(const std::string& relative_path, const std::string& alias);
-	~MeshAsset() override;
 
 	static Mesh* find(const std::string& alias);
 
-	Mesh* mesh;
+	Mesh* mesh = nullptr;
 
-	void release_resources();
+	void release_resources() override;
 
 private:
 

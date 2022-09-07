@@ -657,6 +657,7 @@ void SceneAsset::release_resources()
 	combined_vertex_buffer.release();
 	combined_index_buffer.release();
 #endif
+	Asset::release_resources();
 }
 
 ////////////////////// MeshAsset /////////////////////////
@@ -664,7 +665,7 @@ void SceneAsset::release_resources()
 std::unordered_map<std::string, std::string> alias_pool;
 
 MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
-	: Asset(relative_path, nullptr), mesh(nullptr)
+	: Asset(relative_path, nullptr)
 {
 	alias_pool[alias] = relative_path;
 
@@ -719,21 +720,17 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 #if GRAPHICS_DISPLAY
 			mesh->gpu_data = gpu_buffer_indices.at(buf_idx);
 #endif
-			ASSET("loading shared mesh asset '%s'", in_mesh.name.c_str())
+			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())
 		}
 
 	};
 	reload();
 }
 
-MeshAsset::~MeshAsset() {
-	release_resources();
-}
-
 Mesh *MeshAsset::find(const std::string &alias)
 {
 	auto rel_path = alias_pool[alias];
-	auto* ma = dynamic_cast<MeshAsset*>(Asset::find(rel_path));
+	auto* ma = Asset::find<MeshAsset>(rel_path);
 	return ma->mesh;
 }
 
@@ -748,4 +745,5 @@ void MeshAsset::release_resources()
 	combined_vertex_buffer.release();
 	combined_index_buffer.release();
 #endif
+	Asset::release_resources();
 }

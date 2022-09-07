@@ -265,7 +265,7 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 						vec3 L_direct = light->get_emission() * bsdf->f(wi_hemi, wo_hemi) * costhetai * attenuation
 										* one_over_pdf * each_sample_weight;
 						// correction for when above num and denom both 0. TODO: is this right?
-						if (isnan(L_direct.x) || isnan(L_direct.y) || isnan(L_direct.z)) L_direct = vec3(0);
+						if (glm::isnan(L_direct.x) || glm::isnan(L_direct.y) || glm::isnan(L_direct.z)) L_direct = vec3(0);
 						L += L_direct;
 					}
 				}
@@ -329,8 +329,9 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		if (debug) LOG("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
 #endif
 	}
-	else if (envmap != nullptr) {// ray missed
+	else if (Config->lookup<int>("LoadEnvironmentMap")) {// ray missed
+		auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
 		task.output += task.contribution * myn::sample::tex::longlatmap_float3(
-			(float*)(envmap->texels.data()), envmap->width, envmap->height, ray.d);
+			(float*)(envmap->texels3x32.data()), envmap->width, envmap->height, ray.d);
 	}
 }

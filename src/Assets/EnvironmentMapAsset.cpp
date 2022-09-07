@@ -7,39 +7,36 @@
 #include <tinyexr/tinyexr.h>
 #if GRAPHICS_DISPLAY
 #include "Render/Texture.h"
+#include "Render/Vulkan/VulkanUtils.h"
 #endif
 
 EnvironmentMapAsset::EnvironmentMapAsset(
-	const std::string &relative_path,
-	const std::function<void(const EnvironmentMapAsset *)> &loadAction) : Asset(relative_path, nullptr)
+	const std::string &relative_path) : Asset(relative_path, nullptr)
 {
-	load_action_internal = [this, relative_path, loadAction]() {
+	load_action_internal = [this, relative_path]() {
 
 		release_resources();
 
-		float* data; // width * height * RGBA
+		float* data4x32; // width * height * RGBA
 		const char* err;
-		int ret = LoadEXR(&data, &width, &height, (ROOT_DIR"/"+relative_path).c_str(), &err);
+		int ret = LoadEXR(&data4x32, &width, &height, (ROOT_DIR"/" + relative_path).c_str(), &err);
 		if (ret == TINYEXR_SUCCESS) {
-			texels.resize(width * height);
+			texels3x32.resize(width * height);
 			for (int i = 0; i < width * height; i++) {
-				texels[i] = glm::vec3(data[4*i], data[4*i+1], data[4*i+2]);
+				texels3x32[i] = glm::vec3(data4x32[4 * i], data4x32[4 * i + 1], data4x32[4 * i + 2]);
 			}
-#if GRAPHICS_DISPLAY && 0
-			// TODO: debug this on PC
+#if GRAPHICS_DISPLAY
+			// TODO: use in rasterizer
 			texture2D = new Texture2D(
 				relative_path,
-				(uint8_t*)texels.data(),
+				(uint8_t*)data4x32,
 				width, height,
-				{3, 32, 0});
+				{4, 32, 0});
+			NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, texture2D->resource.image, "Environment map")
 #endif
-			free(data);
+			free(data4x32);
 		} else {
 			ERR("load exr '%s' failed: %s", relative_path.c_str(), err)
-		}
-
-		if (loadAction) {
-			loadAction(this);
 		}
 	};
 	reload();
@@ -48,10 +45,8 @@ EnvironmentMapAsset::EnvironmentMapAsset(
 void EnvironmentMapAsset::release_resources() {
 #if GRAPHICS_DISPLAY
 	delete texture2D;
+	texture2D = nullptr;
 #endif
-	texels.clear();
-}
-
-EnvironmentMapAsset::~EnvironmentMapAsset() {
-	release_resources();
+	texels3x32.clear();
+	Asset::release_resources();
 }

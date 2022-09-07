@@ -94,8 +94,15 @@ static void init()
 
 	{// scene
 		auto gltf = new Scene("SceneSource");
+
+		// glb
 		new SceneAsset(gltf, Config->lookup<std::string>("SceneSource"));
 		gltf->add_child(new PathtracerController());
+
+		// environment map
+		if (Config->lookup<int>("LoadEnvironmentMap")) {
+			new EnvironmentMapAsset(Config->lookup<std::string>("EnvironmentMap"));
+		}
 
 		// probe (debug)
 		auto probe = new EnvMapVisualizer;
@@ -204,7 +211,8 @@ static bool process_input()
 		// window gains focus
 		else if (event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_FOCUS_GAINED) {
 			if (Config->lookup<int>("Debug.AutoHotReload")) {
-				reloadAllAssets();
+
+				Asset::reload_all();
 
 				// find a camera and set it active
 				Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
@@ -289,7 +297,8 @@ static void cleanup()
 		delete renderer;
 	}
 
-	releaseAllAssets();
+	Asset::release_all();
+	Asset::delete_all(); // TODO: debug
 	// TODO: should also delete the assets themselves
 
 	delete Scene::Active;
@@ -329,7 +338,6 @@ int main(int argc, const char * argv[])
 	}
 
 	cleanup();
-	delete Config;
 
 	return 0;
 }

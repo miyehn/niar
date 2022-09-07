@@ -114,7 +114,7 @@ class MYN_OT_export_glb(bpy.types.Operator):
             export_materials='EXPORT',
             export_colors=False,
             export_cameras=True,
-            export_selected=False,
+            #export_selected=False,
             use_selection=False,
             use_visible=True,
             use_renderable=False,

@@ -74,8 +74,6 @@ private:
 	} cached_config;
 	ConfigAsset* config = nullptr;
 
-	EnvironmentMapAsset* envmap = nullptr;
-
 #if GRAPHICS_DISPLAY
 	// ray tracing state and control
 	bool paused = true;

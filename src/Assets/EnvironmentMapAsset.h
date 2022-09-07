@@ -11,19 +11,15 @@
 class Texture2D;
 
 /*
- * reload is not supported because:
- * 1) reload automatically happens when path tracer config is reloaded
- * 2) why would I edit an exr file
+ * reload is not supported because why would I edit an exr file...
  */
 class EnvironmentMapAsset : public Asset
 {
 public:
 	explicit EnvironmentMapAsset(
-		const std::string& relative_path,
-		const std::function<void(const EnvironmentMapAsset *envmap)> &loadAction);
-	~EnvironmentMapAsset() override;
+		const std::string& relative_path);
 
-	void release_resources();
+	void release_resources() override;
 
 	int width = 0;
 	int height = 0;
@@ -32,6 +28,5 @@ public:
 	Texture2D* texture2D = nullptr;
 #endif
 
-	std::vector<glm::vec3> texels;
-
+	std::vector<glm::vec3> texels3x32;
 };
