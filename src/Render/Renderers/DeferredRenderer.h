@@ -52,6 +52,7 @@ public:
 
 		float Exposure;
 		int ToneMappingOption;
+		int UseEnvironmentMap;
 
 	} ViewInfo;
 

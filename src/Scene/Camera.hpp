@@ -34,8 +34,6 @@ struct Camera : SceneObject {
 	float width, height;
 	float aspect_ratio;
 
-	bool orthographic;
-
 	Frustum frustum();
 
 #if GRAPHICS_DISPLAY
@@ -64,5 +62,6 @@ struct Camera : SceneObject {
 private:
 	int prev_mouse_x;
 	int prev_mouse_y;
-	bool locked;
+	bool _locked;
+	bool _orthographic;
 };

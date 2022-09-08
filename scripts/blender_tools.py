@@ -120,7 +120,7 @@ class MYN_OT_export_glb(bpy.types.Operator):
             use_renderable=False,
             use_active_collection=False,
             export_extras=True,
-            export_yup=True,
+            export_yup=False,
             export_apply=False,
             export_animations=False,
             export_lights=True

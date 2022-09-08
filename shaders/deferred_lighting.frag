@@ -25,6 +25,8 @@ layout (set = 3, binding = 1) uniform DirectionalLightsInfo {
 	DirectionalLight[MaxLights] Data;
 } DirectionalLights;
 
+layout (set = 3, binding = 2) uniform sampler2D EnvironmentMap;
+
 layout(location = 0) in vec2 vf_uv;
 
 layout(location = 0) out vec4 FragColor;
@@ -64,19 +66,22 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
 	return g1 * g2;
 }
 
+// todo: sample longlat
+
 void main() {
 
 	vec4 GPosition = subpassLoad(GBUF0);
 	vec4 GNormal = subpassLoad(GBUF1);
 	vec4 GColor = subpassLoad(GBUF2);
-	vec4 GMRA = subpassLoad(GBUF3);
+	vec4 GMRAV = subpassLoad(GBUF3);
 
 	vec3 position = GPosition.xyz;
 	vec3 normal = GNormal.xyz;
 	vec3 albedo = GColor.rgb;
-	float metallic = GMRA.r;
-	float roughness = GMRA.g;
-	// float ambientOcclusion = GMRA.b;
+	float metallic = GMRAV.r;
+	float roughness = GMRAV.g;
+	// float ambientOcclusion = GMRAV.b;
+	float visibility = GMRAV.a;
 
 	ViewInfo viewInfo = GetViewInfo();
 
@@ -163,5 +168,16 @@ void main() {
 		vec3 Lo = (diffuse + specular) * radiance * NdotL;
 
 		FragColor.rgb += Lo;
+	}
+
+	// environment map
+	if (viewInfo.UseEnvironmentMap > 0)
+	{
+		bool hit = visibility > 0;
+		if (hit) {
+			// TODO
+		} else {
+			FragColor.rgb += texture(EnvironmentMap, vf_uv).rgb;
+		}
 	}
 }

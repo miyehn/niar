@@ -8,6 +8,8 @@
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
+#include "Assets/ConfigAsset.hpp"
+#include "Assets/EnvironmentMapAsset.h"
 #include <imgui.h>
 
 class PostProcessing : public Material
@@ -157,16 +159,25 @@ private:
 
 		{// create the layouts and build the pipeline
 
+			bool useEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
+
 			// set layouts and allocation
 			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 			DescriptorSetLayout dynamicSetLayout{};
 			dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			dynamicSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 			dynamicSet = DescriptorSet(dynamicSetLayout);
 
 			// assign values
 			dynamicSet.pointToBuffer(pointLightsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			dynamicSet.pointToBuffer(directionalLightsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			if (useEnvironmentMap) {
+				auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
+				dynamicSet.pointToImageView(envmap->texture2D->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			} else {
+				dynamicSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			}
 		}
 	}
 
@@ -520,12 +531,13 @@ DeferredRenderer::DeferredRenderer()
 	// misc
 	ViewInfo.Exposure = 0.0f;
 	ViewInfo.ToneMappingOption = 1;
+	ViewInfo.UseEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
 
 	{// debug draw stuff
-#if 1 // example debug points
+#if 0 // example debug points
 		if (!debugPoints) debugPoints = new DebugPoints(viewInfoUbo, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
 		debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
 		debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
@@ -538,18 +550,18 @@ DeferredRenderer::DeferredRenderer()
 		if (!debugLines) debugLines = new DebugLines(viewInfoUbo, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
 		// x axis
 		debugLines->addSegment(
-			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
+			PointData(glm::vec3(0, 0, 0), glm::u8vec4(255, 0, 0, 255)),
 			PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
 		// y axis
 		debugLines->addSegment(
-			PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
+			PointData(glm::vec3(0, 0, 0), glm::u8vec4(0, 255, 0, 255)),
 			PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
 		// z axis
 		debugLines->addSegment(
-			PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
+			PointData(glm::vec3(0, 0, 0), glm::u8vec4(0, 0, 255, 255)),
 			PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
 
-		debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
+		//debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
 		debugLines->uploadVertexBuffer();
 
 	}
@@ -606,7 +618,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawables.push_back(child);
 	}, [](SceneObject *obj){ return obj->enabled(); });
 
-	VkClearValue clearColor = {0, 0, 0, 1.0f};
+	VkClearValue clearColor = {0, 0, 0, 0};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
 	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };

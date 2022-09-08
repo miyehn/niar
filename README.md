@@ -2,16 +2,7 @@
 
 A playground to test my patience.
 
-Roadmap (as of 2/19/2022)
-* keep building the scene in Blender, write more tools, and get used to the content creation pipeline in general
-* batching draw calls
-* figure out foliage? even animate them w compute?
-* area lights
-* RTX shadow
-* volumetrics (real-time and path tracing)
-* global illumination that takes light leakage into account
-
-Lately I'm completely absorbed by [another side project](https://github.com/miyehn/ffxiv-blm-rotation) though.. This renderer is still my precious child I will get back to it like I always did I promise ;_;
+9/7/22 update: Oh man this information is outdated again... Documentation updates coming in the next few days.
 
 ---
 
@@ -56,54 +47,27 @@ Also check out the [grass-sim](https://github.com/miyehn/glFiddle/tree/grass-sim
 * TODO: optimize BVH traversal in ISPC
 * TODO: avoid allocating and deallocating buffers every time the ISPC function is called
 
-## Implementation notes (code tour)
-
-(Since I work on this on and off, I better write this down to help myself remember what I did when I pick it up)
+## Usage
 
 ### Run
 
 ```
-./niar
+./ellyn
 ```
 
-Press `ESC` to quit.
+WASD to move the camera, E/Q to move up/down. LMB drag to rotate camera. ESC to quit.
 
-There's a rasterizer and a pathtracer. Pathtracer is disabled by default, `TAB` to toggle between enabled and disabled. It initializes itself when it's first enabled, then keeps the setting, buffers, etc. even when it's later disabled.
-
-When pathtracer is disabled:
-* WASD to move camera, E/Q to move up/down.
-* LMB drag to rotate camera.
-
-When pathtracer is enabled:
-* Space bar to start/pause render. Note that when multitreaded rendering is enabled, it might take a little longer for the threads to finish the already-started tile when pausing command is sent.
-* `0` to clear the buffer.
-* `SHIFT` + LMB click to trace a debug ray through the clicked pixel and draw it as yellow line segments. There's also some (perhaps no longer helpful) console output.
-* RMB click to dismiss the debug ray overlay.
-* `Alt` + LMB click to set camera focal length to the scene depth at the selected pixel. Focal length is only effective when DOF (depth of field) is on.
+When pathtracer is set as the active renderer, camera control is disabled, but instead some pathtracer-specific controls become effective. Look for `PathtracerController` in the scene hierarchy for details.
 
 ### Render to file
 
 Something like:
 ```
-./niar -w 200 -h 150 -o output.ppm
+./asz -w 200 -h 150 -o output.png
 ```
-
-Note that currently rendering to file automatically loads the cornell box scene.
 
 ### Configuration
 
-See `config.ini` for properties that get loaded on program start. All settings have detailed comments there.
+See `config/global.ini` for properties that get loaded on program start. It gets loaded once and stays effective for the duration of the program.
 
-`config.ini` also specifies resource paths, including scene file (fbx), shaders and textures. Create materials in the `Materials` section, and assign materials to meshes in the `MaterialAssignments` section.
-
-To configure properties at runtime, use the console as such (type into the window, not the console itself):
-* `/` to start a command
-* `ls` to list all properties (CVars) and their current values
-* `set (property name) (new value)` to configure. `set` can be abbreviated as `s`. Ex: `s showdebugtex 1` to render the currently configured debug texture as overlay. Property names are case insensitive.
-* `ls textures` or `ls t` lists all the textures that can be drawn as overlay.
-
-<img src="img/cvars.png" height=400></img>
-
-Too add a property in `config.ini`, first define that property in the config file, then in `Input.hpp` add it to the struct called `Cfg`, and assign the property in `Input.cpp`. Then use it anywhere as `Cfg.PropertyName`.
-
-CVars can be defined / used anywhere. For the ones local to a file, define them with global scope inside some `.cpp` file. For the ones that need to be accessed everywhere, define in `Input.hpp` or even as part of the `Cfg` struct.
+There's also `config/pathtracer.ini` that gets loaded when the path tracer initializes. It automatically hot reloads, so I use it for tweaking path tracer settings.

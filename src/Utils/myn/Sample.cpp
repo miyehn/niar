@@ -87,13 +87,11 @@ vec3 sample::tex::tex2D_float3_bilinear(const float* texels_raw, uint32_t w, uin
 }
 
 vec3 sample::tex::longlatmap_float3(const float* texels_raw, uint32_t width, uint32_t height, const glm::vec3 &dir) {
-	//return vec3(0.3f, 0.3f, 0.3f);
+	float phi = atan2(dir.y, dir.x);
+	float theta = asin(dir.z);
 
-	auto sample_dir = glm::vec3( dir.x, dir.z, -dir.y );
-
-	float phi = glm::atan(sample_dir.y, sample_dir.x);
-	float theta = asin(sample_dir.z);
-	vec2 uv = vec2(phi * ONE_OVER_TWO_PI + 0.5f, theta * ONE_OVER_PI + 0.5f);
+	// need to invert them both
+	vec2 uv = vec2(-phi * ONE_OVER_TWO_PI + 0.5f, -theta * ONE_OVER_PI + 0.5f);
 
 	return sample::tex::tex2D_float3_bilinear(texels_raw, width, height, uv);
 }

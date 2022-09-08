@@ -67,10 +67,10 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 		dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 		// assign actual values to them
-		auto albedo = dynamic_cast<Texture2D*>(Texture::get(info.albedoTexName));
-		auto normal = dynamic_cast<Texture2D*>(Texture::get(info.normalTexName));
-		auto metallic_roughness = dynamic_cast<Texture2D*>(Texture::get(info.mrTexName));
-		auto ao = dynamic_cast<Texture2D*>(Texture::get(info.aoTexName));
+		auto albedo = Texture::get<Texture2D>(info.albedoTexName);
+		auto normal = Texture::get<Texture2D>(info.normalTexName);
+		auto metallic_roughness = Texture::get<Texture2D>(info.mrTexName);
+		auto ao = Texture::get<Texture2D>(info.aoTexName);
 
 		materialParams.BaseColorFactor = info.BaseColorFactor;
 		materialParams.MetallicRoughnessAONormalStrengths = info.MetallicRoughnessAONormalStrengths;

@@ -41,7 +41,7 @@ done
 if [ $error -ne 1 ]
 then
 	echo $num_shaders" shaders successfully compiled."
+else
+  # a hack to keep the window open on windows
+  /bin/bash
 fi
-
-# a hack to keep the window open on windows
-/bin/bash

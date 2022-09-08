@@ -16,13 +16,21 @@ struct ImageFormat {
 class Texture
 {
 public:
-	static Texture* get(const std::string &path);
+	template<typename T>
+	static T* get(const std::string &path) {
+		auto it = texturePool.find(path);
+		if (it != texturePool.end()) return dynamic_cast<T*>((*it).second);
+
+		WARN("retrieving texture '%s' before it is added to the pool. Returning black dummy..", path.c_str())
+		return dynamic_cast<T*>(texturePool.find("_black")->second);
+	}
 	virtual ~Texture();
 
 	VmaAllocatedImage resource;
 
 protected:
 	Texture() = default;
+	static std::unordered_map<std::string, Texture *> texturePool;
 };
 
 class Texture2D : public Texture

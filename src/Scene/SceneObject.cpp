@@ -86,7 +86,7 @@ bool SceneObject::try_remove_child(SceneObject *child)
 }
 
 mat4 SceneObject::object_to_parent() const {
-	vec3 sc = scale();
+	vec3 sc = _scale;
 	return mat4( // translate
 		vec4(1, 0, 0, 0),
 		vec4(0, 1, 0, 0),
@@ -194,4 +194,15 @@ void SceneObject::toggle_enabled() {
 	_enabled = !_enabled;
 	if (_enabled) on_enable();
 	else on_disable();
+}
+
+void SceneObject::rotate_around_axis(glm::vec3 ws_axis_unitvec, float theta) {
+	float cos_half_theta = cos(theta / 2);
+	float sin_half_theta = sin(theta / 2);
+	auto qrot = quat(
+		cos_half_theta,
+		ws_axis_unitvec.x * sin_half_theta,
+		ws_axis_unitvec.y * sin_half_theta,
+		ws_axis_unitvec.z * sin_half_theta);
+	_rotation = qrot * _rotation;
 }

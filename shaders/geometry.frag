@@ -16,27 +16,27 @@ layout(set = 3, binding = 3) uniform sampler2D NormalMap;
 layout(set = 3, binding = 4) uniform sampler2D MetallicRoughnessMap;
 layout(set = 3, binding = 5) uniform sampler2D AOMap;
 
-layout(location=0) out vec3 Position;
-layout(location=1) out vec3 Normal;
-layout(location=2) out vec3 Color;
-layout(location=3) out vec3 MRA;
+layout(location=0) out vec4 Position;
+layout(location=1) out vec4 Normal;
+layout(location=2) out vec4 Color;
+layout(location=3) out vec4 MRAV;
 
 void main()
 {
     vec2 uv = vf_uv;
 
-    Position = vf_position.xyz;
+    Position = vec4(vf_position.xyz, 0);
 
     vec3 sampled_normal = texture(NormalMap, uv).rgb * 2 - 1.0;
     sampled_normal.rg = -sampled_normal.rg;
     sampled_normal.rg *= materialParams.MetallicRoughnessAONormalStrengths.a;
-    Normal = TANGENT_TO_WORLD_ROT * normalize(sampled_normal);
+    Normal = vec4(TANGENT_TO_WORLD_ROT * normalize(sampled_normal), 0);
 
-    Color = texture(AlbedoMap, uv).rgb * materialParams.BaseColorFactor.rgb;
+    Color = vec4(texture(AlbedoMap, uv).rgb * materialParams.BaseColorFactor.rgb, 0);
 
     vec2 metallic_roughness = texture(MetallicRoughnessMap, uv).rg;
     float metallic = metallic_roughness.r * materialParams.MetallicRoughnessAONormalStrengths.r;
     float roughness = metallic_roughness.g * materialParams.MetallicRoughnessAONormalStrengths.g;
     float ao = texture(AOMap, uv).r * materialParams.MetallicRoughnessAONormalStrengths.b;
-    MRA = vec3(metallic, roughness, ao);
+    MRAV = vec4(metallic, roughness, ao, 1);
 }

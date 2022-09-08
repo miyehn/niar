@@ -20,7 +20,7 @@ void Camera::set_scale(vec3 scale) {
 }
 
 Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
-		orthographic(_ortho), width(w), height(h) {
+	_orthographic(_ortho), width(w), height(h) {
 
 	_local_position = vec3(0);
 	_rotation = glm::quat(1, 0, 0, 0);
@@ -37,7 +37,7 @@ Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 
 	aspect_ratio = (float)w / (float)h;
 
-	locked = false;
+	_locked = false;
 
 	prev_mouse_x = 0;
 	prev_mouse_y = 0;
@@ -50,11 +50,12 @@ Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 // UE4 implementation in: Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
 void Camera::update_control(float elapsed) {
 
-	if (!locked) {
+	if (!_locked) {
 		const Uint8* state = SDL_GetKeyboardState(nullptr);
 
 		vec3 forward = this->forward();
 		vec3 right = this->right();
+		vec3 local_up = this->up();
 
 		if (state[SDL_SCANCODE_LSHIFT]) {
 			// up, down
@@ -80,48 +81,37 @@ void Camera::update_control(float elapsed) {
 				_local_position += move_speed * elapsed * forward;
 			}
 			if (state[SDL_SCANCODE_E]) {
-				_local_position.y += move_speed * elapsed;
+				_local_position += move_speed * elapsed * local_up;
 			}
 			if (state[SDL_SCANCODE_Q]) {
-				_local_position.y -= move_speed * elapsed;
+				_local_position -= move_speed * elapsed * local_up;
 			}
 		}
 
 		// rotation
-		float yaw = glm::yaw(_rotation);
-		float pitch = glm::pitch(_rotation);
-		float roll = glm::roll(_rotation);
-
 		int mouse_x, mouse_y;
 		if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON_LEFT) {
 			float dx = (float)mouse_x - prev_mouse_x;
 			float dy = (float)mouse_y - prev_mouse_y;
-			yaw += -dx * rotate_speed;
-			pitch += -dy * rotate_speed;
+			rotate_around_axis(vec3(0, 0, 1), -dx * rotate_speed);
+			rotate_around_axis(right, -dy * rotate_speed);
 		}
 		prev_mouse_x = mouse_x;
 		prev_mouse_y = mouse_y;
-
-		set_rotation(vec3(pitch, yaw, roll));
-	}
-	else
-	{
-		// HACK
-		// _rotation = quatLookAt(normalize(-world_position()), vec3(0, 1, 0));
 	}
 }
 
 void Camera::lock() {
-	locked = true;
+	_locked = true;
 }
 
 void Camera::unlock() {
-	locked = false;
+	_locked = false;
 }
 #endif
 
 Frustum Camera::frustum() {
-	if (orthographic) WARN("creating a frustum for orthographic camera (which is meanlingless)");
+	if (_orthographic) WARN("creating a frustum for _orthographic camera (which is meaningless)");
 	Frustum frus(8);
 	vec3 f = forward();
 	vec3 u = up();
@@ -172,7 +162,7 @@ vec4 Camera::ZBufferParams() {
 
 mat4 Camera::camera_to_clip()
 {
-	mat4 camera_to_clip = orthographic ?
+	mat4 camera_to_clip = _orthographic ?
 						  ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
 						  perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
 	return camera_to_clip;
@@ -203,8 +193,8 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 
 	prev_mouse_x = 0;
 	prev_mouse_y = 0;
-	locked = false;
-	orthographic = false;
+	_locked = false;
+	_orthographic = false;
 }
 
 #if GRAPHICS_DISPLAY
@@ -214,6 +204,10 @@ void Camera::draw_config_ui()
 	{
 		glm::quat rot = glm::quatLookAt(-glm::normalize(local_position()), glm::vec3(0, 1, 0));
 		set_rotation(rot);
+	}
+	if (_locked) {
+		auto yellow = ImVec4(1.0f, 0.7f, 0.1f, 1.0f);
+		ImGui::TextColored(yellow, "Locked.");
 	}
 }
 #endif

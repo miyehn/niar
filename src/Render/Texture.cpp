@@ -2,20 +2,7 @@
 #include <stb_image/stb_image.h>
 #include "Render/Vulkan/VulkanUtils.h"
 
-std::unordered_map<std::string, Texture *>& texturePool()
-{
-	static std::unordered_map<std::string, Texture *> pool;
-	return pool;
-}
-
-Texture *Texture::get(const std::string &path)
-{
-	auto it = texturePool().find(path);
-	if (it != texturePool().end()) return (*it).second;
-
-	WARN("retrieving texture '%s' before it is added to the pool. Returning black dummy..", path.c_str())
-	return texturePool().find("_black")->second;
-}
+std::unordered_map<std::string, Texture *> Texture::texturePool;
 
 Texture::~Texture()
 {
@@ -92,13 +79,13 @@ void createTexture2DFromPixelData(
 Texture2D::Texture2D(const std::string &name, const std::string &path, ImageFormat textureFormat)
 {
 #ifdef DEBUG
-	auto it = texturePool().find(path);
-	if (it != texturePool().end()) WARN("trying to load texture '%s' that's already in the pool. Overriding..", path.c_str())
-	EXPECT(textureFormat.channelDepth % 8, 0)
+	auto it = texturePool.find(path);
+	if (it != texturePool.end()) WARN("trying to load texture '%s' that's already in the pool. Overriding..", path.c_str())
+	ASSERT(textureFormat.channelDepth % 8 == 0)
 #endif
 
-	int native_channels;
-	int iwidth, iheight;
+	int native_channels = 0;
+	int iwidth = 0, iheight = 0;
 	uint8_t* pixels = nullptr;
 	if (textureFormat.channelDepth==8) {
 		pixels = stbi_load(path.c_str(), &iwidth, &iheight, &native_channels, textureFormat.numChannels);
@@ -154,7 +141,7 @@ void Texture2D::createDefaultTextures()
 		false,
 		whiteTexture->resource,
 		whiteTexture->imageView);
-	texturePool()["_white"] = whiteTexture;
+	texturePool["_white"] = whiteTexture;
 	global_textures.push_back(whiteTexture);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, whiteTexture->resource.image, "_white")
 
@@ -171,7 +158,7 @@ void Texture2D::createDefaultTextures()
 		false,
 		blackTexture->resource,
 		blackTexture->imageView);
-	texturePool()["_black"] = blackTexture;
+	texturePool["_black"] = blackTexture;
 	global_textures.push_back(blackTexture);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, blackTexture->resource.image, "_black")
 
@@ -188,7 +175,7 @@ void Texture2D::createDefaultTextures()
 		false,
 		defaultNormal->resource,
 		defaultNormal->imageView);
-	texturePool()["_defaultNormal"] = defaultNormal;
+	texturePool["_defaultNormal"] = defaultNormal;
 	global_textures.push_back(defaultNormal);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
 
@@ -229,7 +216,7 @@ Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uin
 		true,
 		resource,
 		imageView);
-	texturePool()[name] = this;
+	texturePool[name] = this;
 
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")

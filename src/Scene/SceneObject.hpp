@@ -45,6 +45,8 @@ public:
 	virtual void set_rotation(glm::quat rotation) { _rotation = rotation; }
 	virtual void set_scale(glm::vec3 scale) { _scale = scale; }
 
+	void rotate_around_axis(glm::vec3 ws_axis_unitvec, float radians);
+
 #if GRAPHICS_DISPLAY
 	void draw_transform_ui(bool global) const;
 	virtual void draw_config_ui() {};
@@ -73,7 +75,7 @@ public:
 protected:
 
 	glm::vec3 _local_position;
-	glm::quat _rotation;
+	glm::quat _rotation; // {w, x, y, z}
 	glm::vec3 _scale;
 
 	virtual void on_enable() {}

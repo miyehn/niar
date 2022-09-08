@@ -12,6 +12,7 @@ struct ViewInfo
     // other global stuff
     float Exposure;
     int ToneMappingOption;
+    int UseEnvironmentMap;
 };
 
 layout (set = 0, binding = 0) uniform _ViewInfoUBO
