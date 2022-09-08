@@ -51,6 +51,8 @@ public:
 		int NumDirectionalLights;
 
 		float Exposure;
+		float AspectRatio;
+		float HalfVFovRadians;
 		int ToneMappingOption;
 		int UseEnvironmentMap;
 

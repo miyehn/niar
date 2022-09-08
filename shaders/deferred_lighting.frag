@@ -2,8 +2,7 @@
 
 #include "rendertargets.glsl"
 #include "scene_common.glsl"
-
-#define PI 3.14159265359
+#include "utils.glsl"
 
 struct PointLight {
 	vec3 position;
@@ -65,8 +64,6 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
 	float g2 = geometrySub(NdotL, roughness);
 	return g1 * g2;
 }
-
-// todo: sample longlat
 
 void main() {
 
@@ -175,9 +172,12 @@ void main() {
 	{
 		bool hit = visibility > 0;
 		if (hit) {
-			// TODO
+			// TODO: IBL maybe?
 		} else {
-			FragColor.rgb += texture(EnvironmentMap, vf_uv).rgb;
+			//FragColor.rgb += texture(EnvironmentMap, vf_uv).rgb;
+			vec3 viewDirWS = screenSpaceUvToViewDir(
+				vf_uv, viewInfo.ViewMatrix, viewInfo.HalfVFovRadians, viewInfo.AspectRatio);
+			FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS);
 		}
 	}
 }

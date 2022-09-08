@@ -93,8 +93,8 @@ void Camera::update_control(float elapsed) {
 		if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON_LEFT) {
 			float dx = (float)mouse_x - prev_mouse_x;
 			float dy = (float)mouse_y - prev_mouse_y;
-			rotate_around_axis(vec3(0, 0, 1), -dx * rotate_speed);
 			rotate_around_axis(right, -dy * rotate_speed);
+			rotate_around_axis(vec3(0, 0, 1), -dx * rotate_speed);
 		}
 		prev_mouse_x = mouse_x;
 		prev_mouse_y = mouse_y;

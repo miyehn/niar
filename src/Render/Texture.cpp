@@ -200,7 +200,7 @@ Texture2D::Texture2D(ImageCreator &imageCreator)
 	}
 }
 
-Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uint32_t height, ImageFormat format)
+Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uint32_t height, ImageFormat format, bool generateMips)
 {
 	LOG("loading texture '%s'..", name.c_str())
 
@@ -213,7 +213,7 @@ Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uin
 		data, width, height,
 		imageFormat,
 		(format.numChannels * format.channelDepth / 8),
-		true,
+		generateMips,
 		resource,
 		imageView);
 	texturePool[name] = this;

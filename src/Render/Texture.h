@@ -52,7 +52,8 @@ public:
 		uint8_t* data,
 		uint32_t width,
 		uint32_t height,
-		ImageFormat format
+		ImageFormat format,
+		bool generateMips = true
 		);
 
 	// allocate programmatically (NOT POOLED)

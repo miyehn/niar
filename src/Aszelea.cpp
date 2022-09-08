@@ -36,11 +36,15 @@ int main(int argc, const char * argv[])
 		nullptr,
 		Config->lookup<std::string>("SceneSource"));
 
+	// environment map
+	if (Config->lookup<int>("LoadEnvironmentMap")) {
+		new EnvironmentMapAsset(Config->lookup<std::string>("EnvironmentMap"));
+	}
+
 	// cleanup fn
-	auto cleanup = [scene_asset]() {
-		releaseAllAssets();
-		delete scene_asset;
-		delete Config;
+	auto cleanup = []() {
+		Asset::release_all();
+		Asset::delete_all();
 	};
 
 	// find a camera and set it active

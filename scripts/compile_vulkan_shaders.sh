@@ -30,7 +30,7 @@ do
   if [[ $shader == *".vert" ]] || [[ $shader == *".frag" ]] || [[ $shader == *".comp" ]] || [[ $shader == *".rgen" ]] || [[ $shader == *".rchit" ]] || [[ $shader == *".rahit" ]] || [[ $shader == *".rmiss" ]]; then
     bn="$(basename $shader)"
     echo $bn
-    if ! glslc $shader --target-env=vulkan1.2 -o $2"/"$bn".spv"; then
+    if ! glslc $shader --target-env=vulkan1.2 -g -O0 -o $2"/"$bn".spv"; then
       error=1
     else
       num_shaders=$((num_shaders+1))

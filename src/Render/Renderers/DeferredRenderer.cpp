@@ -597,6 +597,9 @@ void DeferredRenderer::updateViewInfoUbo()
 	ViewInfo.CameraPosition = camera->world_position();
 	ViewInfo.ViewDir = camera->forward();
 
+	ViewInfo.AspectRatio = camera->aspect_ratio;
+	ViewInfo.HalfVFovRadians = camera->fov;
+
 	viewInfoUbo.writeData(&ViewInfo);
 }
 

@@ -11,6 +11,8 @@ struct ViewInfo
 
     // other global stuff
     float Exposure;
+    float AspectRatio;
+    float HalfVFovRadians;
     int ToneMappingOption;
     int UseEnvironmentMap;
 };

@@ -194,7 +194,6 @@ static void init()
 			for (auto child : Scene::Active->children) make_tree(child);
 		}, "Scene hierarchy (" + Scene::Active->name + ")");
 	}
-
 }
 
 static bool process_input()
@@ -298,8 +297,7 @@ static void cleanup()
 	}
 
 	Asset::release_all();
-	Asset::delete_all(); // TODO: debug
-	// TODO: should also delete the assets themselves
+	Asset::delete_all();
 
 	delete Scene::Active;
 	delete Vulkan::Instance;
