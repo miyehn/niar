@@ -19,8 +19,8 @@ void main()
 {
   ViewInfo viewInfo = GetViewInfo();
 
-  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * ubo.ModelMatrix * vec4(in_position, 1.0);//OBJECT_TO_CLIP * vec4(in_position, 1);
-  vf_position = ubo.ModelMatrix * vec4(in_position, 1.0);
+  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * ubo.ModelMatrix * vec4(in_position, 1.0);
+  vf_position = ubo.ModelMatrix * vec4(in_position, 1.0) - vec4(viewInfo.CameraPosition, 0);
 
   vf_uv = in_uv;
 
