@@ -2,8 +2,11 @@
 // Created by raindu on 6/14/2022.
 //
 
+#include "Assets/ConfigAsset.hpp"
+#include "Assets/EnvironmentMapAsset.h"
+#include "Render/Texture.h"
 #include "Render/Materials/Material.h"
-#include "EnvMapVisualizer.h"
+#include "Probe.h"
 #include "Assets/SceneAsset.h"
 #include "Utils/myn/Log.h"
 #include "Render/Vulkan/Vulkan.hpp"
@@ -31,10 +34,18 @@ public:
 			// set layouts and allocation
 			DescriptorSetLayout dynamicSetLayout{};
 			dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_VERTEX_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
+			dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 			dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 			// assign actual values to them
 			dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
+			bool useEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
+			if (useEnvironmentMap) {
+				auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
+				dynamicSet.pointToImageView(envmap->texture2D->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			} else {
+				dynamicSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			}
 		}
 	}
 	~ProbeMaterial() override {
@@ -102,19 +113,19 @@ private:
 	uint32_t instanceCounter = 0;
 };
 
-EnvMapVisualizer::EnvMapVisualizer()
+Probe::Probe()
 {
 	_scale = glm::vec3(0.25f, 0.25f, 0.25f);
 }
 
 #if GRAPHICS_DISPLAY
-void EnvMapVisualizer::draw(VkCommandBuffer cmdbuf) {
+void Probe::draw(VkCommandBuffer cmdbuf) {
 	Mesh* m = MeshAsset::find("sphere");
 	EXPECT(m != nullptr, true)
 	m->draw(cmdbuf);
 }
 
-Material* EnvMapVisualizer::get_material(){
+Material* Probe::get_material(){
 	static ProbeMaterial* material = nullptr;
 	if (!material) {
 		material = new ProbeMaterial();
@@ -126,3 +137,29 @@ Material* EnvMapVisualizer::get_material(){
 }
 
 #endif
+
+EnvMapVisualizer::EnvMapVisualizer() : Probe() {
+	this->set_scale(glm::vec3(0.03f, 0.03f, 0.03f));
+}
+
+void EnvMapVisualizer::update(float elapsed) {
+	SceneObject::update(elapsed);
+	if (!Camera::Active) return;
+
+	auto camPosWS = Camera::Active->world_position();
+	auto camRot = Camera::Active->world_to_object_rotation();
+	auto halfY = Camera::Active->fov;
+	auto halfX = halfY * Camera::Active->aspect_ratio;
+
+	glm::vec3 offset = Camera::Active->forward();
+	offset += Camera::Active->right() * halfX * 0.4f;
+	offset += -Camera::Active->up() * halfY * 0.4f;
+	glm::vec3 targetPosWS = camPosWS + offset;
+
+	glm::vec3 targetPosParentSpace = targetPosWS;
+	if (parent) {
+		targetPosParentSpace = myn::transform_point(parent->world_to_object(), targetPosWS);
+	}
+
+	set_local_position(targetPosParentSpace);
+}

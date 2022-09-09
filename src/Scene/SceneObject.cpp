@@ -182,8 +182,10 @@ void SceneObject::draw_transform_ui(bool global) const
 	vec3 rot = eulerAngles(qrot);
 
 	ImGui::DragFloat3("pos", (float*)&_local_position, 0.05f);
-	ImGui::DragFloat3("rot", (float*)&_rotation, 15.0f);
 	ImGui::DragFloat3("scl", (float*)&_scale, 0.05f);
+	//ImGui::DragFloat3("rot", (float*)&_rotation, 15.0f);
+	ImGui::Text("%.3f, %.3f, %.3f [rotation]", degrees(rot.x), degrees(rot.y), degrees(rot.z));
+
 	//ImGui::TextDisabled("[pos] %.3f, %.3f, %.3f", pos.x, pos.y, pos.z);
 	//ImGui::TextDisabled("[rot] %.3f, %.3f, %.3f", degrees(rot.x), degrees(rot.y), degrees(rot.z));
 	//ImGui::TextDisabled("[scl] %.3f, %.3f, %.3f", scl.x, scl.y, scl.z);

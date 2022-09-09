@@ -22,7 +22,7 @@
 #include "Render/Materials/ComputeShaders.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Assets/EnvironmentMapAsset.h"
-#include "Scene/EnvMapVisualizer.h"
+#include "Scene/Probe.h"
 
 using namespace myn;
 
@@ -107,7 +107,6 @@ static void init()
 		// probe (debug)
 		auto probe = new EnvMapVisualizer;
 		probe->name = "probe";
-		probe->set_local_position(glm::vec3(0, 0, 0));
 		gltf->add_child(probe);
 
 #ifdef WINOS

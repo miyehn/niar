@@ -26,4 +26,6 @@ namespace myn
 
 	std::string s3(glm::vec3 v);
 
+	glm::vec3 transform_point(const glm::mat4 &mat, const glm::vec3 &vec);
+
 }// namespace myn

@@ -3,7 +3,7 @@
 #include "Render/Texture.h"
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
-#include "Scene/EnvMapVisualizer.h"
+#include "Scene/Probe.h"
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
@@ -710,10 +710,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Probes")
 		bool firstInstance = true;
-		auto mat = EnvMapVisualizer::get_material();
+		auto mat = Probe::get_material();
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
-			if (auto* probe = dynamic_cast<EnvMapVisualizer*>(drawable)) {
+			if (auto* probe = dynamic_cast<Probe*>(drawable)) {
 				if (firstInstance) {
 					mat->resetInstanceCounter();
 					mat->usePipeline(cmdbuf);

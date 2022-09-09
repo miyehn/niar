@@ -50,5 +50,10 @@ using namespace glm;
 		return "(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", "  + std::to_string(v.z) + ")";
 	}
 
+	glm::vec3 transform_point(const glm::mat4 &mat, const glm::vec3 &vec) {
+		glm::vec4 v4(vec.x, vec.y, vec.z, 1);
+		v4 = mat * v4;
+		return glm::vec3(v4.x, v4.y, v4.z) * (1.0f / v4.w);
+	}
 
 } // namespace myn

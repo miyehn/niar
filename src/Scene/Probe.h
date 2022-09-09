@@ -7,9 +7,9 @@
 
 class ProbeMaterial;
 
-class EnvMapVisualizer : public SceneObject {
+class Probe : public SceneObject {
 public:
-	EnvMapVisualizer();
+	Probe();
 
 #if GRAPHICS_DISPLAY
 	static Material* get_material();
@@ -17,3 +17,10 @@ public:
 #endif
 };
 
+class EnvMapVisualizer : public Probe {
+public:
+	EnvMapVisualizer();
+#if GRAPHICS_DISPLAY
+	void update(float elapsed) override;
+#endif
+};
