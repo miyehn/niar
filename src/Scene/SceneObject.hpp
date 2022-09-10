@@ -48,6 +48,8 @@ public:
 	void rotate_around_axis(glm::vec3 ws_axis_unitvec, float radians);
 
 #if GRAPHICS_DISPLAY
+	bool ui_default_open = false;
+	bool ui_show_transform = true;
 	void draw_transform_ui(bool global) const;
 	virtual void draw_config_ui() {};
 #endif
@@ -70,7 +72,6 @@ public:
 	void toggle_enabled();
 
 	std::string name;
-	bool show_transform = true;
 
 protected:
 

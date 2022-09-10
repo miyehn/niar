@@ -116,6 +116,7 @@ private:
 Probe::Probe()
 {
 	_scale = glm::vec3(0.25f, 0.25f, 0.25f);
+	ui_show_transform = false;
 }
 
 #if GRAPHICS_DISPLAY

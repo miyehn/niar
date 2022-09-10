@@ -636,6 +636,9 @@ SceneAsset::SceneAsset(
 		}
 
 		asset_root = nodeToDrawable[tree];
+#if GRAPHICS_DISPLAY
+		asset_root->ui_default_open = true;
+#endif
 		if (outer_root) outer_root->add_child(asset_root);
 
 		delete tree;

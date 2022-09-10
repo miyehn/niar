@@ -10,6 +10,7 @@
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/EnvironmentMapAsset.h"
+#include "Scene/SkyAtmosphere.h"
 #include <imgui.h>
 
 class PostProcessing : public Material
@@ -617,9 +618,17 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
 
 	std::vector<SceneObject*> drawables;
-	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {
+	SkyAtmosphere* sky = nullptr;
+	drawable->foreach_descendent_bfs([&drawables, &sky](SceneObject* child) {
 		drawables.push_back(child);
+		auto castSky = dynamic_cast<SkyAtmosphere*>(child);
+		if (castSky) sky = castSky;
 	}, [](SceneObject *obj){ return obj->enabled(); });
+
+	// TODO: find a better place to put this
+	if (sky) {
+		sky->updateAndComposite(nullptr);
+	}
 
 	VkClearValue clearColor = {0, 0, 0, 0};
 	VkClearValue clearDepth;

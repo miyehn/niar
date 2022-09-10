@@ -22,6 +22,11 @@ public:
 	std::vector<MeshObject*> get_meshes();
 	void generate_aabb();
 
+	//==== SceneObject interface ====
+#if GRAPHICS_DISPLAY
+	bool handle_event(SDL_Event event) override;
+#endif
+
 private:
 
 	void set_local_position(glm::vec3 _local_position) override {}

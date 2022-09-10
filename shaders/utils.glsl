@@ -5,12 +5,12 @@
 #define TWO_PI 6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
 
-vec3 sampleLongLatMap(sampler2D map, vec3 dir)
+vec3 sampleLongLatMap(sampler2D map, vec3 dir, float mipLevel)
 {
     float phi = atan(dir.y, dir.x);
     float theta = asin(dir.z);
     vec2 uv = vec2(-phi * ONE_OVER_TWO_PI + 0.5f, -theta * ONE_OVER_PI + 0.5f);
-    return texture(map, uv).rgb;
+    return textureLod(map, uv, mipLevel).rgb;
 }
 
 vec3 screenSpaceUvToViewDir(vec2 uv, mat4 ViewMatrix, float halfVFovRadians, float aspectRatio)

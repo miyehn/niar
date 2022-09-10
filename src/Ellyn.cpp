@@ -23,6 +23,7 @@
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Assets/EnvironmentMapAsset.h"
 #include "Scene/Probe.h"
+#include "Scene/SkyAtmosphere.h"
 
 using namespace myn;
 
@@ -106,8 +107,13 @@ static void init()
 
 		// probe (debug)
 		auto probe = new EnvMapVisualizer;
-		probe->name = "probe";
+		probe->name = "Probe";
 		gltf->add_child(probe);
+
+		// sky atmosphere
+		auto sky = new SkyAtmosphere;
+		sky->name = "Sky Atmosphere";
+		gltf->add_child(sky);
 
 #ifdef WINOS
 		// rtx
@@ -179,12 +185,13 @@ static void init()
 		{
 			std::function<void(SceneObject* node)> make_tree = [&make_tree](SceneObject* node)
 			{
+				ImGui::SetNextItemOpen(node->ui_default_open, ImGuiCond_Once);
 				if (ImGui::TreeNode(node->name.c_str()))
 				{
 					if (ImGui::Button(node->enabled() ? "disable" : "enable")) {
 						node->toggle_enabled();
 					}
-					if (node->show_transform) node->draw_transform_ui(show_global_transform);
+					if (node->ui_show_transform) node->draw_transform_ui(show_global_transform);
 					node->draw_config_ui();
 					for (auto child : node->children) make_tree(child);
 					ImGui::TreePop();
@@ -193,6 +200,7 @@ static void init()
 			for (auto child : Scene::Active->children) make_tree(child);
 		}, "Scene hierarchy (" + Scene::Active->name + ")");
 	}
+
 }
 
 static bool process_input()
@@ -221,11 +229,10 @@ static bool process_input()
 		}
 
 		// imgui; pass on control to the rest of the app if event.type is not keyup
-		bool imgui_processed_input = ImGui_ImplSDL2_ProcessEvent(&event);
-		if (imgui_processed_input && event.type != SDL_KEYUP) continue;
+		ImGui_ImplSDL2_ProcessEvent(&event);
 
 		// the rest of the app
-		else if (!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard) {
+		if (!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard) {
 			Scene::Active->handle_event(event);
 		}
 	}
@@ -247,8 +254,11 @@ static void update(float elapsed)
 	}
 }
 
+#define IMGUI 1
+
 static void draw()
 {
+#if IMGUI
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplSDL2_NewFrame(window);
 	ImGui::NewFrame();
@@ -256,6 +266,7 @@ static void draw()
 	if (show_imgui_demo) ImGui::ShowDemoWindow();
 
 	ui::drawUI();
+#endif
 
 	// renderer selection and configuration
 
@@ -275,6 +286,8 @@ static void draw()
 	auto cmdbuf = Vulkan::Instance->beginFrame();
 	{
 		renderer->render(cmdbuf);
+
+#if IMGUI
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "ImGui UI")
 			ImGui::Render();
@@ -283,6 +296,7 @@ static void draw()
 			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdbuf);
 			Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
 		}
+#endif
 	}
 	Vulkan::Instance->endFrame();
 }
@@ -325,13 +339,10 @@ int main(int argc, const char * argv[])
 		bool should_quit = process_input();
 		if (should_quit) break;
 
-		RenderDoc::potentiallyStartCapture();
-
+		myn::RenderDoc::potentiallyStartCapture();
 		update(elapsed);
-
 		draw();
-
-		RenderDoc::potentiallyEndCapture();
+		myn::RenderDoc::potentiallyEndCapture();
 	}
 
 	cleanup();

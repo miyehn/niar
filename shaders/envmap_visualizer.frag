@@ -12,5 +12,5 @@ layout(location=0) out vec4 outColor;
 
 void main() {
     vec3 normal = TANGENT_TO_WORLD_ROT * vec3(0, 0, 1);
-    outColor = vec4(sampleLongLatMap(EnvironmentMap, normal), 1);
+    outColor = vec4(sampleLongLatMap(EnvironmentMap, normal, 2), 1);
 }

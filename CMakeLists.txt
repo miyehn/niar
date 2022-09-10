@@ -73,7 +73,8 @@ set(ELLYN_SRC
 	src/Utils/TinyExrImpl.cpp
 	src/Utils/myn/Sample.cpp
 	src/Scene/MeshObject.cpp
-        src/Scene/Probe.cpp)
+	src/Scene/Probe.cpp
+	src/Scene/SkyAtmosphere.cpp)
 
 set(RTX_SRC
 	src/Render/Vulkan/ShaderBindingTable.cpp

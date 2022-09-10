@@ -4,6 +4,7 @@
 
 #include "Utils/DebugUI.h"
 #include "MeshObject.h"
+#include "Utils/myn/RenderDoc.h"
 
 // TODO: make this support parenting hierarchy
 std::vector<MeshObject*> Scene::get_meshes() {
@@ -24,5 +25,15 @@ void Scene::generate_aabb() {
 
 Scene::Scene(const std::string &_name) : SceneObject(nullptr, _name)
 {
+}
+
+bool Scene::handle_event(SDL_Event event) {
+	if (event.type == SDL_EventType::SDL_KEYDOWN) {
+		if (event.key.keysym.sym == SDLK_PRINTSCREEN) {
+			myn::RenderDoc::captureNextFrame();
+			LOG("capturing with renderdoc..")
+		}
+	}
+	return true;
 }
 

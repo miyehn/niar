@@ -79,6 +79,9 @@ void ui::drawUI()
 {
 	for (const auto& category : UIMap)
 	{
+		if (category.first == "Scene hierarchy (SceneSource)") {
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+		}
 		if (ImGui::CollapsingHeader(category.first.c_str()))
 		{
 			if (category.first == "Default")

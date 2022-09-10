@@ -175,6 +175,6 @@ void main() {
 		// environment map
 		vec3 viewDirWS = screenSpaceUvToViewDir(
 			vf_uv, viewInfo.ViewMatrix, viewInfo.HalfVFovRadians, viewInfo.AspectRatio);
-		FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS);
+		FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS, 0);
 	}
 }

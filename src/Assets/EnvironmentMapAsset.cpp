@@ -32,7 +32,7 @@ EnvironmentMapAsset::EnvironmentMapAsset(
 				(uint8_t*)data4x32,
 				width, height,
 				{4, 32, 0},
-				false);
+				true);
 			NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, texture2D->resource.image, "Environment map")
 #endif
 			free(data4x32);

@@ -1,5 +1,6 @@
 #include "ShaderModule.h"
 #include "Vulkan.hpp"
+#include "VulkanUtils.h"
 #include "Utils/myn/Misc.h"
 
 std::unordered_map<std::string, ShaderModule *> ShaderModule::pool;
@@ -13,6 +14,9 @@ ShaderModule::ShaderModule(const std::string &path)
 		.pCode = reinterpret_cast<const uint32_t *>(code.data())
 	};
 	EXPECT(vkCreateShaderModule(Vulkan::Instance->device, &createInfo, nullptr, &module), VK_SUCCESS)
+
+	std::string formattedName = "Shader '" + path + "'";
+	NAME_OBJECT(VK_OBJECT_TYPE_SHADER_MODULE, module, formattedName)
 }
 
 ShaderModule *ShaderModule::get(const std::string &path)
