@@ -153,10 +153,11 @@ void Pathtracer::initialize() {
 		"Pathtracer window surface image");
 	window_surface = new Texture2D(windowSurfaceCreator);
 
-	viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+	viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 							sizeof(ViewInfo),
 							VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							VMA_MEMORY_USAGE_CPU_TO_GPU);
+							VMA_MEMORY_USAGE_CPU_TO_GPU,
+							"View info uniform buffer (path tracer)"});
 
 	debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
 #endif

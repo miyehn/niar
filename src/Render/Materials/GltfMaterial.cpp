@@ -7,6 +7,8 @@
 #include <tinygltf/tiny_gltf.h>
 #include "Render/Renderers/SimpleRenderer.h"
 
+#define MAX_MATERIAL_INSTANCES 128
+
 void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	// per-material-instance params (static)
@@ -44,15 +46,19 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
 
 	// TODO: dynamically get numStrides (num instances of that material)
-	uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+	std::string bufferName = "Material uniform buffer (" + info.name + ")";
+	uniformBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 							  numBlocks * alignment,
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
-							  1, 128);
-	materialParamsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+							  bufferName,
+							  1, MAX_MATERIAL_INSTANCES});
+	bufferName = "Material params buffer (" + info.name + ")";
+	materialParamsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 									 sizeof(materialParams),
 									 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-									 VMA_MEMORY_USAGE_CPU_TO_GPU);
+									 VMA_MEMORY_USAGE_CPU_TO_GPU,
+									 bufferName});
 
 	{// pipeline and layouts
 

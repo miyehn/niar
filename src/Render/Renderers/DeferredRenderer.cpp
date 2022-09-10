@@ -149,14 +149,16 @@ private:
 	{
 		name = "Deferred Lighting";
 		mainRenderPass = renderer->renderPass;
-		pointLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+		pointLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 									  sizeof(pointLights),
 									  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-									  VMA_MEMORY_USAGE_CPU_TO_GPU);
-		directionalLightsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+									  VMA_MEMORY_USAGE_CPU_TO_GPU,
+									  "Point lights buffer"});
+		directionalLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 											sizeof(directionalLights),
 											VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-											VMA_MEMORY_USAGE_CPU_TO_GPU);
+											VMA_MEMORY_USAGE_CPU_TO_GPU,
+											"Directional lights buffer"});
 
 		{// create the layouts and build the pipeline
 
@@ -509,10 +511,11 @@ DeferredRenderer::DeferredRenderer()
 
 	{// frame-global descriptor set
 
-		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+		viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 								  sizeof(ViewInfo),
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-								  VMA_MEMORY_USAGE_CPU_TO_GPU);
+								  VMA_MEMORY_USAGE_CPU_TO_GPU,
+								  "View info uniform buffer (deferred renderer)"});
 
 		DescriptorSetLayout frameGlobalSetLayout{};
 		frameGlobalSetLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);

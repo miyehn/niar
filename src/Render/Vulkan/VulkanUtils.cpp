@@ -171,8 +171,8 @@ void vk::uploadPixelsToImage(
 	VmaAllocatedImage outResource)
 {
 	VkDeviceSize copyRegionSize = extentX * extentY * pixelSize;
-	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, copyRegionSize,
-							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaBuffer stagingBuffer({&Vulkan::Instance->memoryAllocator, copyRegionSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 	stagingBuffer.writeData(pixels);
 	Vulkan::Instance->immediateSubmit(
 		[&](VkCommandBuffer cmdbuf)
@@ -236,15 +236,23 @@ void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex
 	VkDeviceSize bufferSize = vertex_size * num_vertices;
 
 	// create a staging buffer
-	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, bufferSize,
-							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaBuffer stagingBuffer({
+		&Vulkan::Instance->memoryAllocator,
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy vertex buffer memory over to staging buffer
 	stagingBuffer.writeData(data);
 
 	// now create the actual vertex buffer
-	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	vertexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	vertexBuffer = VmaBuffer({
+		&Vulkan::Instance->memoryAllocator,
+		bufferSize,
+		vkUsage,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		"Vertex buffer"});
 
 	// and copy stuff from staging buffer to vertex buffer
 	vk::copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
@@ -256,15 +264,21 @@ void vk::create_index_buffer(void *data, uint32_t num_indices, uint32_t index_si
 	VkDeviceSize bufferSize = index_size * num_indices;
 
 	// create a staging buffer
-	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, bufferSize,
-							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaBuffer stagingBuffer({&Vulkan::Instance->memoryAllocator, bufferSize,
+							 VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy data to staging buffer
 	stagingBuffer.writeData(data);
 
 	// create the actual index buffer
-	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	indexBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	indexBuffer = VmaBuffer({
+		&Vulkan::Instance->memoryAllocator,
+		bufferSize,
+		vkUsage,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		"Index buffer"
+	});
 
 	// move stuff from staging buffer and destroy staging buffer
 	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);

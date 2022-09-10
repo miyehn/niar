@@ -23,11 +23,12 @@ public:
 		uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
 
 		// TODO: dynamically get numStrides (num instances of this material)
-		uniformBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+		uniformBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 								  numBlocks * alignment,
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU,
-								  1, MAX_NUM_PROBES);
+								  "Probes uniform buffer",
+								  1, MAX_NUM_PROBES});
 
 		{// pipeline and layouts
 

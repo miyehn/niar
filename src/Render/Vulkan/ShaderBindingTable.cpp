@@ -38,11 +38,13 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 	EXPECT(Vulkan::Instance->fn_vkGetRayTracingShaderGroupHandlesKHR(Vulkan::Instance->device, pipeline, 0, totalHandlesCount, dataSize, handles.data()), VK_SUCCESS)
 
 	VkDeviceSize sbtSize = raygenRegion.size + hitRegion.size + missRegion.size + callableRegion.size;
-	shaderBindingTable = VmaBuffer(
+	shaderBindingTable = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		sbtSize,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-		VMA_MEMORY_USAGE_CPU_TO_GPU);
+		VMA_MEMORY_USAGE_CPU_TO_GPU,
+		"Shader binding table"
+	});
 	NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, shaderBindingTable.getBufferInstance(), "shader binding table")
 
 	std::vector<uint8_t> alignedHandles(sbtSize, 0);

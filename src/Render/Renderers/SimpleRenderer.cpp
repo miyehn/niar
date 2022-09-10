@@ -97,10 +97,11 @@ SimpleRenderer::SimpleRenderer()
 	}
 
 	{// descriptor set (ubo)
-		viewInfoUbo = VmaBuffer(&Vulkan::Instance->memoryAllocator,
+		viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 								  sizeof(ViewInfo),
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-								  VMA_MEMORY_USAGE_CPU_TO_GPU);
+								  VMA_MEMORY_USAGE_CPU_TO_GPU,
+								  "View info uniform buffer (simple renderer)"});
 		DescriptorSetLayout layout{};
 		layout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		descriptorSet = DescriptorSet(layout);

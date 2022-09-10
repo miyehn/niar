@@ -23,22 +23,23 @@ void RtxTriangle::create_vertex_buffer()
 	VkDeviceSize bufferSize = sizeof(float) * 9;
 
 	// create a staging buffer
-	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, bufferSize,
-							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaBuffer stagingBuffer({&Vulkan::Instance->memoryAllocator, bufferSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy vertex buffer memory over to staging buffer
 	stagingBuffer.writeData((void *) vertices);
 
 	// now create the actual vertex buffer
-	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	vertexBuffer = VmaBuffer(
+	vertexBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		bufferSize,
 		vkUsage,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		"RtxTriangle vertex buffer"});
 
 	// and copy stuff from staging buffer to vertex buffer
 	vk::copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
@@ -52,22 +53,22 @@ void RtxTriangle::create_index_buffer()
 	VkDeviceSize bufferSize = sizeof(VERTEX_INDEX_TYPE) * 3;
 
 	// create a staging buffer
-	VmaBuffer stagingBuffer(&Vulkan::Instance->memoryAllocator, bufferSize,
-							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaBuffer stagingBuffer({&Vulkan::Instance->memoryAllocator, bufferSize,
+							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy data to staging buffer
 	stagingBuffer.writeData((void*)indices);
 
 	// create the actual index buffer
-	auto vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	indexBuffer = VmaBuffer(
+	indexBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		bufferSize,
 		vkUsage,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_GPU_ONLY});
 
 	// move stuff from staging buffer and destroy staging buffer
 	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
@@ -99,11 +100,11 @@ void buildBlas(
 	Vulkan::Instance->fn_vkGetAccelerationStructureBuildSizesKHR(
 		Vulkan::Instance->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxPrimitivesCount, &sizeInfo);
 
-	VmaBuffer scratchBuffer = VmaBuffer(
+	VmaBuffer scratchBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		sizeInfo.buildScratchSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_GPU_ONLY});
 	const VkBufferDeviceAddressInfo scratchBufferAddressInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
 		.buffer = scratchBuffer.getBufferInstance()
@@ -123,11 +124,11 @@ void buildBlas(
 	//======== actual alloc of buffer and accel structure ========
 
 	// pt 1 : alloc AS buffer and create it
-	VmaBuffer stagingBlasBuffer = VmaBuffer(
+	VmaBuffer stagingBlasBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		sizeInfo.accelerationStructureSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_GPU_ONLY});
 	VkAccelerationStructureCreateInfoKHR asCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 		.buffer = stagingBlasBuffer.getBufferInstance(),
@@ -186,11 +187,12 @@ void buildBlas(
 			sizeof(VkDeviceSize),
 			VK_QUERY_RESULT_WAIT_BIT), VK_SUCCESS);
 
-		*outBlasBuffer = VmaBuffer(
+		*outBlasBuffer = VmaBuffer({
 			&Vulkan::Instance->memoryAllocator,
 			compactSize,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-			VMA_MEMORY_USAGE_GPU_ONLY);
+			VMA_MEMORY_USAGE_GPU_ONLY,
+			"RtxTriangle blas buffer"});
 
 		VkAccelerationStructureCreateInfoKHR compactInfo = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
@@ -222,11 +224,11 @@ void buildTlas(
 	VkAccelerationStructureKHR* outTlas,
 	VmaBuffer* outTlasBuffer)
 {
-	VmaBuffer instancesBuffer = VmaBuffer(
+	VmaBuffer instancesBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		sizeof(VkAccelerationStructureInstanceKHR),
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-		VMA_MEMORY_USAGE_CPU_TO_GPU);
+		VMA_MEMORY_USAGE_CPU_TO_GPU});
 	instancesBuffer.writeData(&inst, sizeof(VkAccelerationStructureInstanceKHR));
 	const VkBufferDeviceAddressInfo instancesBufferAddressInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -263,11 +265,12 @@ void buildTlas(
 	Vulkan::Instance->fn_vkGetAccelerationStructureBuildSizesKHR(Vulkan::Instance->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &numInstances, &sizeInfo);
 
 	// buffer for TLAS
-	*outTlasBuffer = VmaBuffer(
+	*outTlasBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		sizeInfo.accelerationStructureSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		"RtxTriangle tlas buffer"});
 
 	// create TLAS
 	VkAccelerationStructureCreateInfoKHR createInfo = {
@@ -279,11 +282,11 @@ void buildTlas(
 	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &createInfo, nullptr, outTlas);
 
 	// scratch buffer
-	VmaBuffer scratchBuffer = VmaBuffer(
+	VmaBuffer scratchBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		sizeInfo.buildScratchSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		VMA_MEMORY_USAGE_GPU_ONLY});
 	const VkBufferDeviceAddressInfo scratchBufferAddressInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
 		.buffer = scratchBuffer.getBufferInstance()

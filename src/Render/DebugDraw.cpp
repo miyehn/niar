@@ -67,13 +67,14 @@ void DebugPoints::uploadVertexBuffer()
 	if (bufferSize != pointsBuffer.numStrides * pointsBuffer.strideSize)
 	{
 		pointsBuffer.release();
-		VmaBuffer stagingBuffer(
+		VmaBuffer stagingBuffer({
 			&Vulkan::Instance->memoryAllocator, bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 		stagingBuffer.writeData((void*)points.data());
 
-		auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		pointsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+		VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		pointsBuffer = VmaBuffer({
+			&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY, "Debug points vertex buffer"});
 
 		vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
 		stagingBuffer.release();
@@ -172,13 +173,20 @@ void DebugLines::uploadVertexBuffer()
 	VkDeviceSize bufferSize = sizeof(PointData) * points.size();
 	Vulkan::Instance->waitDeviceIdle();
 	pointsBuffer.release();
-	VmaBuffer stagingBuffer(
-		&Vulkan::Instance->memoryAllocator, bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaBuffer stagingBuffer({
+		&Vulkan::Instance->memoryAllocator,
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_CPU_TO_GPU});
 	stagingBuffer.writeData((void*)points.data());
 
-	auto vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	pointsBuffer = VmaBuffer(&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	pointsBuffer = VmaBuffer({
+		&Vulkan::Instance->memoryAllocator,
+		bufferSize,
+		vkUsage,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		"Debug lines vertex buffer"});
 
 	vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
 	stagingBuffer.release();

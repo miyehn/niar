@@ -1,18 +1,21 @@
 #include "Buffer.h"
+#include "VulkanUtils.h"
 #include "Utils/myn/Log.h"
 
-VmaBuffer::VmaBuffer(VmaAllocator *allocator, VkDeviceSize strideSize, VkBufferUsageFlags bufferUsage,
-					 VmaMemoryUsage memoryUsage, uint32_t numInstances, uint32_t numStrides)
-					 : allocator(allocator), numInstances(numInstances), strideSize(strideSize), numStrides(numStrides)
+VmaBuffer::VmaBuffer(const CreateInfo &info) :
+	allocator(info.allocator),
+	numInstances(info.numInstances),
+	strideSize(info.strideSize),
+	numStrides(info.numStrides)
 {
 	VkBufferCreateInfo bufferCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = strideSize * numStrides,
-		.usage = bufferUsage,
+		.usage = info.bufferUsage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 	VmaAllocationCreateInfo vmaAllocCreateInfo {
-		.usage = memoryUsage
+		.usage = info.memoryUsage
 	};
 	buffers.resize(numInstances);
 	allocations.resize(numInstances);
@@ -25,6 +28,10 @@ VmaBuffer::VmaBuffer(VmaAllocator *allocator, VkDeviceSize strideSize, VkBufferU
 			&buffers[i],
 			&allocations[i],
 			nullptr), VK_SUCCESS);
+		if (info.debugName.length() > 0) {
+			std::string instanceName = info.debugName + "(" + std::to_string(i) + "/" + std::to_string(numInstances) + ")";
+			NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, buffers[i], instanceName)
+		}
 	}
 }
 
