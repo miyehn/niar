@@ -1,5 +1,5 @@
 #pragma once
-#include <VulkanMemoryAllocator/vk_mem_alloc.h>
+#include <VulkanMemoryAllocator-3.0.1/include/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
@@ -23,7 +23,6 @@ public:
 	void writeData(void* inData, size_t writeSize = 0, size_t bufferIndex = 0, uint32_t strideIndex = 0);
 
 	VkBuffer getBufferInstance(uint32_t index = 0) const;
-	VmaAllocation getAllocationInstance(uint32_t index = 0) const;
 
 	void release();
 
@@ -35,4 +34,7 @@ private:
 	VmaAllocator* allocator = nullptr;
 	std::vector<VkBuffer> buffers;
 	std::vector<VmaAllocation> allocations;
+	std::vector<VmaAllocationInfo> allocationInfos;
+
+	VmaAllocationInfo getAllocationInfo(uint32_t index = 0) const;
 };

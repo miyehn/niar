@@ -14,11 +14,16 @@ VmaBuffer::VmaBuffer(const CreateInfo &info) :
 		.usage = info.bufferUsage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
+	const bool hostVisible = (info.memoryUsage & VMA_MEMORY_USAGE_CPU_ONLY) || (info.memoryUsage & VMA_MEMORY_USAGE_CPU_TO_GPU);
+	VmaAllocationCreateFlags createFlags = hostVisible ?
+		(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT) : 0;
 	VmaAllocationCreateInfo vmaAllocCreateInfo {
-		.usage = info.memoryUsage
+		.flags = createFlags,
+		.usage = info.memoryUsage,
 	};
 	buffers.resize(numInstances);
 	allocations.resize(numInstances);
+	allocationInfos.resize(numInstances);
 	for (auto i = 0; i < numInstances; i++)
 	{
 		EXPECT(vmaCreateBuffer(
@@ -27,7 +32,7 @@ VmaBuffer::VmaBuffer(const CreateInfo &info) :
 			&vmaAllocCreateInfo,
 			&buffers[i],
 			&allocations[i],
-			nullptr), VK_SUCCESS);
+			&allocationInfos[i]), VK_SUCCESS);
 		if (info.debugName.length() > 0) {
 			std::string instanceName = info.debugName + "(" + std::to_string(i) + "/" + std::to_string(numInstances) + ")";
 			NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, buffers[i], instanceName)
@@ -44,24 +49,21 @@ void VmaBuffer::release()
 	allocator = nullptr;
 }
 
-VkBuffer VmaBuffer::getBufferInstance(uint32_t index) const
-{
-	EXPECT(allocator == nullptr, false)
+VkBuffer VmaBuffer::getBufferInstance(uint32_t index) const {
+	ASSERT(allocator != nullptr)
 	return buffers[index];
 }
 
-VmaAllocation VmaBuffer::getAllocationInstance(uint32_t index) const
-{
-	EXPECT(allocator == nullptr, false)
-	return allocations[index];
+VmaAllocationInfo VmaBuffer::getAllocationInfo(uint32_t index) const {
+	ASSERT(allocator != nullptr)
+	return allocationInfos[index];
 }
 
 void VmaBuffer::writeData(void *inData, size_t writeSize, size_t bufferIndex, uint32_t strideIndex)
 {
-	EXPECT(allocator == nullptr, false)
+	ASSERT(allocator != nullptr)
 	if (writeSize == 0) writeSize = (size_t)strideSize;
-	void* mappedMemory;
-	vmaMapMemory(*allocator, getAllocationInstance(bufferIndex), &mappedMemory);
-	memcpy((uint8_t*)mappedMemory + strideIndex * strideSize, inData, writeSize);
-	vmaUnmapMemory(*allocator, getAllocationInstance(bufferIndex));
+	auto dstAddress = (uint8_t*) getAllocationInfo(bufferIndex).pMappedData + (strideIndex * strideSize);
+	ASSERT(dstAddress != nullptr)
+	memcpy(dstAddress, inData, writeSize);
 }
