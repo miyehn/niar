@@ -1,23 +1,46 @@
-# niar
-
 A playground to test my patience.
 
 9/7/22 update: Oh man this information is outdated again... Documentation updates coming in the next few days.
 
 ---
 
-**For real-time rendering**, here's a selected list of its features:
-* common Vulkan utilities to save my sanity
-* Dear ImGui and RenderDoc integration
-* loading gLTF scenes and basic scene management
-* rasterization and compute pipelines, and utilities to easily modify/extend them into new variants
-  * For rasterization, it uses PBR deferred pipeline by default
-* RTX pipeline using the `VK_KHR_ray_tracing_pipeline` extension
+## Features
 
-And some now-deleted features back when it still used OpenGL:
-* shadow mapping for point and directional lights with percentage closer filtering
-* automatic adjustments of light camera and its frustum based on view frustum and scene AABB
+Common Vulkan utilities to save my sanity: abstraction classes, validation layer, debug draw,etc. 
 
+Dear ImGui and RenderDoc integration
+
+Loading gLTF scenes and basic scene management
+* With a Blender addon to make my workflow easier 
+* Automatic hot reload when asset files change
+
+A variety of rendering options that can be modified/extended into more variants:
+* Simple forward
+* PBR deferred with many post-processing options 
+  * HDR, tone mapping, gamma correction, exposure compensation
+  * environment maps
+* CPU path tracing with optional SIMD acceleration using Intel ISPC
+  * diffuse, mirror and glass materials
+  * bounding volume hierarchy
+  * direct light rays for faster convergence
+  * Russian Roulette
+  * image-based lighting
+  * depth of field
+  * some SIMD-specific optimizations, see [this branch]()
+* Render to file using the path tracer
+* RTX pipeline using the `VK_KHR_ray_tracing_pipeline` extension, even though now it just draws a single triangle
+
+Compute shaders
+
+(OpenGL legacy feature, now deleted) shadow mapping for point and directional lights
+
+Runs on both Windows and Mac
+
+## Branches
+
+
+
+---
 <img src="img/fchouse-export-test.png" width=640></img>  
 (WIP model of our free company house in FF14)
 
