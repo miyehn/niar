@@ -15,7 +15,7 @@ vec3 sampleLongLatMap(sampler2D map, vec3 dir, float mipLevel)
 
 vec3 screenSpaceUvToViewDir(vec2 uv, mat4 ViewMatrix, float halfVFovRadians, float aspectRatio)
 {
-    float yHalf = halfVFovRadians;
+    float yHalf = tan(halfVFovRadians);
     float xHalf = yHalf * aspectRatio;
 
     vec2 ndc = uv;

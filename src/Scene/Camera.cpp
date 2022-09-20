@@ -173,7 +173,7 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 	name = node_name + " | " + in_camera->name;
 	LOG("loading camera '%s'..", name.c_str())
 #if GRAPHICS_DISPLAY
-	move_speed = 5;
+	move_speed = 8;
 	rotate_speed = 0.002f;
 #endif
 	if (in_camera->type != "perspective")

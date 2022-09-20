@@ -27,7 +27,7 @@ struct Camera : SceneObject {
 	float rotate_speed;
 #endif
 
-	float fov;
+	float fov; // full fov in radians
 	float cutoffNear;
 	float cutoffFar;
 

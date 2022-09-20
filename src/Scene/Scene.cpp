@@ -18,8 +18,8 @@ std::vector<MeshObject*> Scene::get_meshes() {
 void Scene::generate_aabb() {
 	std::vector<MeshObject*> meshes = get_meshes();
 	aabb = AABB();
-	for (int i=0; i<meshes.size(); i++) {
-		aabb.merge(meshes[i]->aabb);
+	for (auto & mesh : meshes) {
+		aabb.merge(mesh->aabb);
 	}
 }
 
@@ -34,6 +34,7 @@ bool Scene::handle_event(SDL_Event event) {
 			LOG("capturing with renderdoc..")
 		}
 	}
+	SceneObject::handle_event(event);
 	return true;
 }
 

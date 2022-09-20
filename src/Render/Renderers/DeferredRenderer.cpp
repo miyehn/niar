@@ -602,7 +602,7 @@ void DeferredRenderer::updateViewInfoUbo()
 	ViewInfo.ViewDir = camera->forward();
 
 	ViewInfo.AspectRatio = camera->aspect_ratio;
-	ViewInfo.HalfVFovRadians = camera->fov;
+	ViewInfo.HalfVFovRadians = camera->fov * 0.5f;
 
 	viewInfoUbo.writeData(&ViewInfo);
 }
@@ -720,7 +720,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "Probes")
+		SCOPED_DRAW_EVENT(cmdbuf, "EnvMap visualization")
 		bool firstInstance = true;
 		auto mat = Probe::get_material();
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.

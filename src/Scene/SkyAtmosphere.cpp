@@ -111,7 +111,7 @@ void SkyAtmosphere::updateAutoParameters() {
 
 void SkyAtmosphere::updateLuts() {
 	// TODO
-	TransmittanceLutCS::dispatch(transmittanceLut);
+	//TransmittanceLutCS::dispatch(transmittanceLut);
 }
 
 SkyAtmosphere::~SkyAtmosphere() {
