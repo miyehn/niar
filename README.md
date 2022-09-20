@@ -43,21 +43,22 @@ Compute shaders
 Runs on both PC and Mac
 
 ---
-<img src="img/9-19-simple-annotated.png" width="640px"/><br/>
+![](img/9-19-simple-annotated.png)
 
-<img src="img/9-19-deferred-annotated.png" width="640px"/><br/>
+![](img/9-19-deferred-annotated.png)
 
-<img src="img/9-19-pathtracer.png" width="640px"/><br/>
+![](img/9-19-pathtracer.png)
 
-<img src="https://github.com/miyehn/niar/blob/grass-sim/img/grass2.gif?raw=true" width="640px"/>
+![](https://github.com/miyehn/niar/blob/grass-sim/img/grass2.gif?raw=true)
 
-<img src="img/fchouse-export-test.png" width="640"/><br/>
+![](img/fchouse-export-test.png)
 
-<img src="img/water_tower_10_24.jpg" width="300px"/>
-<img src="img/water_tower_detail_10_24.jpg" width="340px"/><br/>
+![](img/water_tower_10_24.jpg)
+
+![](img/water_tower_detail_10_24.jpg)  
 (The above water tower model and its textures are from www.animatedheaven.weebly.com)
 
-<img src="img/dof.jpg"/><br/>
+![](img/dof.jpg)
 
 ## Usage
 
