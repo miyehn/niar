@@ -1,8 +1,8 @@
 A playground to test my patience.
 
-<img src="img/9-19-deferred.png" width="640px"/><br/>
+![](img/9-19-deferred.png)
 
-<img src="img/9-19-capture.png"/><br/>
+![](img/9-19-capture.png)
 
 [the capture file is here](img/9-19-capture.rdc)
 
