@@ -49,6 +49,8 @@ Runs on both PC and Mac
 
 ![](img/9-19-pathtracer.png)
 
+![](img/dof.jpg)
+
 ![](https://github.com/miyehn/niar/blob/grass-sim/img/grass2.gif?raw=true)
 
 ![](img/fchouse-export-test.png)
@@ -57,8 +59,6 @@ Runs on both PC and Mac
 
 ![](img/water_tower_detail_10_24.jpg)  
 (The above water tower model and its textures are from www.animatedheaven.weebly.com)
-
-![](img/dof.jpg)
 
 ## Usage
 
