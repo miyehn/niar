@@ -14,7 +14,7 @@ class GltfMaterial;
 #define GPOSITION_ATTACHMENT 0
 #define GNORMAL_ATTACHMENT 1
 #define GCOLOR_ATTACHMENT 2
-#define GMETALLICROUGHNESSAO_ATTACHMENT 3
+#define GORM_ATTACHMENT 3
 #define SCENECOLOR_ATTACHMENT 4
 #define SCENEDEPTH_ATTACHMENT 5
 
@@ -84,7 +84,7 @@ private:
 
 	Texture2D* GColor;
 
-	Texture2D* GMetallicRoughnessAO;
+	Texture2D* GORM;
 
 	Texture2D* sceneColor;
 

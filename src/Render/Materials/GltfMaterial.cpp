@@ -69,24 +69,21 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 		dynamicSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSetLayout.addBinding(5, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 		// assign actual values to them
 		auto albedo = Texture::get<Texture2D>(info.albedoTexName);
 		auto normal = Texture::get<Texture2D>(info.normalTexName);
-		auto metallic_roughness = Texture::get<Texture2D>(info.mrTexName);
-		auto ao = Texture::get<Texture2D>(info.aoTexName);
+		auto orm = Texture::get<Texture2D>(info.mrTexName);
 
 		materialParams.BaseColorFactor = info.BaseColorFactor;
-		materialParams.MetallicRoughnessAONormalStrengths = info.MetallicRoughnessAONormalStrengths;
+		materialParams.OcclusionRoughnessMetallicNormalStrengths = info.OcclusionRoughnessMetallicNormalStrengths;
 
 		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
 		dynamicSet.pointToBuffer(materialParamsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSet.pointToImageView(albedo->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet.pointToImageView(normal->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(metallic_roughness->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(ao->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(orm->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
 }
 

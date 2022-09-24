@@ -23,7 +23,7 @@ struct GltfMaterialInfo {
 	std::string aoTexName;
 	glm::vec4 BaseColorFactor;
 	glm::vec4 EmissiveFactor;
-	glm::vec4 MetallicRoughnessAONormalStrengths;
+	glm::vec4 OcclusionRoughnessMetallicNormalStrengths;
 	glm::vec4 volumeColor;
 	float volumeDensity;
 

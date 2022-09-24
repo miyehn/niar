@@ -11,7 +11,7 @@ struct Vertex
 
 	glm::vec3 position = glm::vec3(0, 0, 0);
 	glm::vec3 normal = glm::vec3(0, 0, 1);
-	glm::vec3 tangent = glm::vec3(1, 0, 0);
+	glm::vec4 tangent = glm::vec4(1, 0, 0, 1);
 	glm::vec2 uv = glm::vec2(0.5f, 0.5f);
 
 #if GRAPHICS_DISPLAY
@@ -56,4 +56,4 @@ struct Vertex
 	}
 #endif
 };
-static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 3 + 2), "vertex struct should be packed");
+static_assert(sizeof(Vertex) == sizeof(float) * (3 + 3 + 4 + 2), "vertex struct should be packed");

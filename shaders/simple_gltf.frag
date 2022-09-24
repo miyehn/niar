@@ -6,15 +6,14 @@ layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
 
 layout(set = 3, binding = 1) uniform MaterialParamsBufferObject {
     vec4 BaseColorFactor;
-    vec4 MetallicRoughnessAONormalStrengths;
+    vec4 OcclusionRoughnessMetallicNormalStrengths;
     vec4 _pad0;
     vec4 _pad1;
 } materialParams;
 
 layout(set = 3, binding = 2) uniform sampler2D AlbedoMap;
 layout(set = 3, binding = 3) uniform sampler2D NormalMap;
-layout(set = 3, binding = 4) uniform sampler2D MetallicRoughnessMap;
-layout(set = 3, binding = 5) uniform sampler2D AOMap;
+layout(set = 3, binding = 4) uniform sampler2D ORMMap;
 
 layout(location=0) out vec4 outColor;
 

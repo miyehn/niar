@@ -219,12 +219,12 @@ DeferredRenderer::DeferredRenderer()
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GColor");
 
-		ImageCreator GMetallicRoughnessAOCreator(
+		ImageCreator GORMCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
 			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			"GMetallicRoughnessAO");
+			"GORM");
 
 		ImageCreator sceneColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -250,7 +250,7 @@ DeferredRenderer::DeferredRenderer()
 		GPosition = new Texture2D(GPositionCreator);
 		GNormal = new Texture2D(GNormalCreator);
 		GColor = new Texture2D(GColorCreator);
-		GMetallicRoughnessAO = new Texture2D(GMetallicRoughnessAOCreator);
+		GORM = new Texture2D(GORMCreator);
 		sceneColor = new Texture2D(sceneColorCreator);
 		sceneDepth = new Texture2D(sceneDepthCreator);
 		postProcessed = new Texture2D(postProcessedCreator);
@@ -295,7 +295,7 @@ DeferredRenderer::DeferredRenderer()
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			});
-		// GMetallicRoughnessAO
+		// GORM
 		passBuilder.colorAttachments.push_back(
 			{
 				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -337,7 +337,7 @@ DeferredRenderer::DeferredRenderer()
 			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-			{GMETALLICROUGHNESSAO_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
 		VkAttachmentReference depthAttachmentReference = {
 			SCENEDEPTH_ATTACHMENT,
@@ -356,7 +356,7 @@ DeferredRenderer::DeferredRenderer()
 			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-			{GMETALLICROUGHNESSAO_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
+			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
 		};
 		std::vector<VkAttachmentReference> lightingColorAttachmentRefs = {
 			{SCENECOLOR_ATTACHMENT,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
@@ -471,7 +471,7 @@ DeferredRenderer::DeferredRenderer()
 			GPosition->imageView,
 			GNormal->imageView,
 			GColor->imageView,
-			GMetallicRoughnessAO->imageView,
+			GORM->imageView,
 			sceneColor->imageView,
 			sceneDepth->imageView
 		};
@@ -529,7 +529,7 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalDescriptorSet.pointToImageView(GMetallicRoughnessAO->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 	}
 
 	// misc
@@ -582,7 +582,7 @@ DeferredRenderer::~DeferredRenderer()
 	delete postProcessing;
 
 	std::vector<Texture2D*> images = {
-		GPosition, GNormal, GColor, GMetallicRoughnessAO, sceneColor, sceneDepth, postProcessed
+		GPosition, GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
 

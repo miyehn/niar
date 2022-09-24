@@ -8,7 +8,7 @@ layout(set = 3, binding = 0) uniform UniformBufferObject {
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
-layout (location = 2) in vec3 in_tangent;
+layout (location = 2) in vec4 in_tangent;
 layout (location = 3) in vec2 in_uv;
 
 layout (location = 0) out vec4 vf_position;
@@ -27,7 +27,7 @@ void main()
   mat3 OBJECT_TO_WORLD_ROT = mat3(ubo.ModelMatrix);
 
   vec3 N = normalize(OBJECT_TO_WORLD_ROT * in_normal);
-  vec3 T = normalize(OBJECT_TO_WORLD_ROT * in_tangent);
-  vec3 B = cross(N, T);
+  vec3 T = normalize(OBJECT_TO_WORLD_ROT * in_tangent.xyz);
+  vec3 B = cross(N, T) * in_tangent.w;
   TANGENT_TO_WORLD_ROT = mat3(T, B, N);
 }

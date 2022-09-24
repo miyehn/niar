@@ -277,7 +277,7 @@ void load_mesh_buffers(
 				// vertices
 				const vec3* positions;
 				const vec3* normals;
-				const vec3* tangents;
+				const vec4* tangents;
 				const vec2* uvs;
 				uint32_t positions_cnt, normals_cnt, tangents_cnt, uvs_cnt;
 				// TODO: can check for data types for safety (now assuming correct #components; all floats)
@@ -302,8 +302,8 @@ void load_mesh_buffers(
 				const VERTEX_INDEX_TYPE* indices_data;
 				uint32_t indices_cnt, num_components, component_type;
 				get_data(prim_buf_idx.ib_idx, reinterpret_cast<const uint8**>(&indices_data), &indices_cnt, &num_components, &component_type);
-				EXPECT_M(component_type, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, "Indices are not 16-bit unsigned ints!")
-				EXPECT_M(indices_cnt % 3, 0, "Num indices is not a multiply of 3!")
+				ASSERT_M(component_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, "Indices are not 16-bit unsigned ints!")
+				ASSERT_M(indices_cnt % 3 == 0, "Num indices is not a multiply of 3!")
 
 				for (auto i = 0; i < indices_cnt; i++) {
 					index_buffer_cpu.push_back(indices_data[i]);
@@ -477,9 +477,9 @@ SceneAsset::SceneAsset(
 			auto bc = mat.pbrMetallicRoughness.baseColorFactor;
 			auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
 			glm::vec4 strengths = {
-				(float)mat.pbrMetallicRoughness.metallicFactor,
-				(float)mat.pbrMetallicRoughness.roughnessFactor,
 				(float)mat.occlusionTexture.strength,
+				(float)mat.pbrMetallicRoughness.roughnessFactor,
+				(float)mat.pbrMetallicRoughness.metallicFactor,
 				(float)mat.normalTexture.scale
 			};
 			auto em = mat.emissiveFactor;
@@ -495,7 +495,7 @@ SceneAsset::SceneAsset(
 				.aoTexName = ao,
 				.BaseColorFactor = baseColorFactor,
 				.EmissiveFactor = emissiveFactor,
-				.MetallicRoughnessAONormalStrengths = strengths,
+				.OcclusionRoughnessMetallicNormalStrengths = strengths,
 				.volumeColor = glm::vec4(0, 0, 0, 0),
 				.volumeDensity = 0
 			};
@@ -546,7 +546,10 @@ SceneAsset::SceneAsset(
 			std::unordered_map<std::string, SceneNodeIntermediate*> nodes_map;
 			tree->foreach([&nodes_map](SceneNodeIntermediate* node) { nodes_map[node->name] = node; });
 			for (int i = 0; i < model.lights.size(); i++) {
-				nodes_map[model.lights[i].name]->light_idx = i;
+				auto& light_name = model.lights[i].name;
+				if (nodes_map.contains(light_name)) {
+					nodes_map[light_name]->light_idx = i;
+				}
 			}
 		}
 

@@ -37,7 +37,7 @@ private:
 	// static (per-material-instance)
 	struct {
 		glm::vec4 BaseColorFactor;
-		glm::vec4 MetallicRoughnessAONormalStrengths;
+		glm::vec4 OcclusionRoughnessMetallicNormalStrengths;
 		glm::vec4 _pad0;
 		glm::vec4 _pad1;
 	} materialParams;

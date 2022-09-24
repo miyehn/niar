@@ -72,15 +72,16 @@ void main() {
 	vec4 GPosition = subpassLoad(GBUF0);
 	vec4 GNormal = subpassLoad(GBUF1);
 	vec4 GColor = subpassLoad(GBUF2);
-	vec4 GMRAV = subpassLoad(GBUF3);
+	vec4 GORM = subpassLoad(GBUF3);
 
 	vec3 position = GPosition.xyz + viewInfo.CameraPosition;
 	vec3 normal = GNormal.xyz;
 	vec3 albedo = GColor.rgb;
-	float metallic = GMRAV.r;
-	float roughness = GMRAV.g;
-	// float ambientOcclusion = GMRAV.b;
-	float visibility = GMRAV.a;
+	float visibility = GColor.a;
+
+	// float occlusion = GORM.r;
+	float roughness = GORM.g;
+	float metallic = GORM.b;
 
 	// other light-independent properties
 	vec3 dirToCam = normalize(viewInfo.CameraPosition - position);
