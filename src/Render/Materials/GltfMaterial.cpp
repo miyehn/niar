@@ -79,6 +79,7 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 
 		materialParams.BaseColorFactor = info.BaseColorFactor;
 		materialParams.OcclusionRoughnessMetallicNormalStrengths = info.OcclusionRoughnessMetallicNormalStrengths;
+		materialParams.ClipThreshold_pad0 = glm::vec4(info.clipThreshold, 0, 0, 0);
 
 		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
 		dynamicSet.pointToBuffer(materialParamsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -88,14 +89,21 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 	}
 }
 
-void GltfMaterial::resetInstanceCounter()
-{
+void GltfMaterial::resetInstanceCounter() {
 	instanceCounter = 0;
 }
 
+bool PbrGltfMaterial::pipelineIsDirty = false;
 MaterialPipeline PbrGltfMaterial::getPipeline()
 {
 	static MaterialPipeline materialPipeline = {};
+
+	if (pipelineIsDirty) {
+		materialPipeline.pipeline = VK_NULL_HANDLE;
+		materialPipeline.layout = VK_NULL_HANDLE;
+		pipelineIsDirty = false;
+	}
+
 	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
 	{
 		auto vk = Vulkan::Instance;
@@ -106,7 +114,7 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 		pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
-			cachedMaterialInfo.cullBackFace ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
+			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
 		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
@@ -126,9 +134,17 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 	return materialPipeline;
 }
 
+bool SimpleGltfMaterial::pipelineIsDirty = false;
 MaterialPipeline SimpleGltfMaterial::getPipeline()
 {
 	static MaterialPipeline materialPipeline = {};
+
+	if (pipelineIsDirty) {
+		materialPipeline.pipeline = VK_NULL_HANDLE;
+		materialPipeline.layout = VK_NULL_HANDLE;
+		pipelineIsDirty = false;
+	}
+
 	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
 	{
 		auto vk = Vulkan::Instance;
@@ -139,7 +155,7 @@ MaterialPipeline SimpleGltfMaterial::getPipeline()
 		pipelineBuilder.fragPath = "spirv/simple_gltf.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
-			cachedMaterialInfo.cullBackFace ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
+			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
 		pipelineBuilder.compatibleRenderPass = SimpleRenderer::get()->renderPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->descriptorSet.getLayout();

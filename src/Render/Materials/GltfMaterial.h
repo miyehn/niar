@@ -15,6 +15,8 @@ public:
 	void usePipeline(VkCommandBuffer cmdbuf) override;
 	~GltfMaterial() override;
 
+	virtual void markPipelineDirty() = 0;
+
 	void resetInstanceCounter() override;
 
 	uint32_t getVersion() const { return cachedMaterialInfo._version; }
@@ -38,7 +40,7 @@ private:
 	struct {
 		glm::vec4 BaseColorFactor;
 		glm::vec4 OcclusionRoughnessMetallicNormalStrengths;
-		glm::vec4 _pad0;
+		glm::vec4 ClipThreshold_pad0;
 		glm::vec4 _pad1;
 	} materialParams;
 	VmaBuffer materialParamsBuffer;
@@ -52,6 +54,9 @@ public:
 	explicit PbrGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
 	MaterialPipeline getPipeline() override;
+	void markPipelineDirty() override { pipelineIsDirty = true; }
+private:
+	static bool pipelineIsDirty;
 };
 
 class SimpleGltfMaterial : public GltfMaterial
@@ -60,4 +65,7 @@ public:
 	explicit SimpleGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
 	MaterialPipeline getPipeline() override;
+	void markPipelineDirty() override { pipelineIsDirty = true; }
+private:
+	static bool pipelineIsDirty;
 };

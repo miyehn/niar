@@ -184,10 +184,10 @@ private:
 		}
 	}
 
-	VmaBuffer pointLightsBuffer;
-	VmaBuffer directionalLightsBuffer;
+	VmaBuffer pointLightsBuffer; // move to renderer
+	VmaBuffer directionalLightsBuffer; // move to renderer
 
-	DescriptorSet dynamicSet;
+	DescriptorSet dynamicSet; // point & directional light; envmap (move to renderer maybe)
 	VkRenderPass mainRenderPass;
 
 	friend class DeferredRenderer;
@@ -801,6 +801,7 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 			return pooled_mat;
 		} else {
 			// obsolete; delete and create a new one below
+			pooled_mat->markPipelineDirty();
 			delete pooled_mat;
 		}
 	}

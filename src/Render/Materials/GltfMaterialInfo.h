@@ -8,11 +8,17 @@
 #include <glm/glm.hpp>
 
 enum MaterialType {
-	Surface,
-	Volume
+	MT_Surface,
+	MT_Volume
+};
+
+enum BlendMode {
+	BM_OpaqueOrClip,
+	BM_AlphaBlend
 };
 
 // used for each renderer to create corresponding materials
+// https://docs.blender.org/manual/en/2.80/addons/io_scene_gltf2.html
 struct GltfMaterialInfo {
 	uint32_t _version;
 	MaterialType type;
@@ -24,9 +30,11 @@ struct GltfMaterialInfo {
 	glm::vec4 BaseColorFactor;
 	glm::vec4 EmissiveFactor;
 	glm::vec4 OcclusionRoughnessMetallicNormalStrengths;
-	glm::vec4 volumeColor;
+	int doubleSided;
+	BlendMode blendMode;
+	float clipThreshold;
 	float volumeDensity;
-	int cullBackFace;
+	glm::vec4 volumeColor;
 
 	static void add(GltfMaterialInfo& info);
 	static GltfMaterialInfo* get(const std::string& materialName);

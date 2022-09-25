@@ -266,6 +266,7 @@ Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialNam
 		}
 		else {
 			// pooled material is obsolete; delete it.
+			pooled_mat->markPipelineDirty();
 			delete pooled_mat;
 		}
 	}

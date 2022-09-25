@@ -485,9 +485,16 @@ SceneAsset::SceneAsset(
 			auto em = mat.emissiveFactor;
 			glm::vec4 emissiveFactor = glm::vec4(em[0], em[1], em[2], 1);
 
+			// blend mode
+			BlendMode blendMode = BM_OpaqueOrClip;
+			if (mat.alphaMode == "BLEND") blendMode = BM_AlphaBlend;
+
+			// clip threshold
+			float clipThreshold = mat.alphaMode == "OPAQUE" ? -1.0f : (float)mat.alphaCutoff;
+
 			GltfMaterialInfo info = {
 				._version = 0,
-				.type = MaterialType::Surface,
+				.type = MaterialType::MT_Surface,
 				.name = mat.name,
 				.albedoTexName = albedo,
 				.normalTexName = normal,
@@ -496,16 +503,12 @@ SceneAsset::SceneAsset(
 				.BaseColorFactor = baseColorFactor,
 				.EmissiveFactor = emissiveFactor,
 				.OcclusionRoughnessMetallicNormalStrengths = strengths,
-				.volumeColor = glm::vec4(0, 0, 0, 0),
+				.doubleSided = mat.doubleSided,
+				.blendMode = blendMode,
+				.clipThreshold = clipThreshold,
 				.volumeDensity = 0,
-				.cullBackFace = 1
+				.volumeColor = glm::vec4(0, 0, 0, 0),
 			};
-
-			// back face culling?
-			tinygltf::Value cullBackFace;
-			if (findMaterialProperty(mat, "cullBackFace", cullBackFace)) {
-				info.cullBackFace = cullBackFace.GetNumberAsInt();
-			}
 
 			// and in case it's a volume material...
 			tinygltf::Value isVolume;
@@ -515,7 +518,7 @@ SceneAsset::SceneAsset(
 				findMaterialProperty(mat, "_volume_color", volumeColor) &&
 				findMaterialProperty(mat, "_volume_density", volumeDensity))
 			{
-				info.type = MaterialType::Volume;
+				info.type = MaterialType::MT_Volume;
 				info.volumeColor = glm::vec4(
 					volumeColor.Get(0).GetNumberAsDouble(),
 					volumeColor.Get(1).GetNumberAsDouble(),

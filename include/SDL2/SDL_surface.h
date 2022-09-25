@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 /**
- *  \name Surface flags
+ *  \name MT_Surface flags
  *
  *  These are the currently supported flags for the ::SDL_Surface.
  *
@@ -50,10 +50,10 @@ extern "C" {
  */
 /* @{ */
 #define SDL_SWSURFACE       0           /**< Just here for compatibility */
-#define SDL_PREALLOC        0x00000001  /**< Surface uses preallocated memory */
-#define SDL_RLEACCEL        0x00000002  /**< Surface is RLE encoded */
-#define SDL_DONTFREE        0x00000004  /**< Surface is referenced internally */
-/* @} *//* Surface flags */
+#define SDL_PREALLOC        0x00000001  /**< MT_Surface uses preallocated memory */
+#define SDL_RLEACCEL        0x00000002  /**< MT_Surface is RLE encoded */
+#define SDL_DONTFREE        0x00000004  /**< MT_Surface is referenced internally */
+/* @} *//* MT_Surface flags */
 
 /**
  *  Evaluates to true if the surface needs to be locked before access.

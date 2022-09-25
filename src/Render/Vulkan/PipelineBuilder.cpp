@@ -248,6 +248,7 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 
 	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
 
+	// TODO: let whoever owns the pipeline do the cleanup
 	Vulkan::Instance->destructionQueue.emplace_back([outPipeline, outPipelineLayout](){
 		vkDestroyPipeline(Vulkan::Instance->device, outPipeline, nullptr);
 		vkDestroyPipelineLayout(Vulkan::Instance->device, outPipelineLayout, nullptr);
