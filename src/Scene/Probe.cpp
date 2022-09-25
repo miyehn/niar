@@ -35,18 +35,10 @@ public:
 			// set layouts and allocation
 			DescriptorSetLayout dynamicSetLayout{};
 			dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_VERTEX_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-			dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 			dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 			// assign actual values to them
 			dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-			bool useEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
-			if (useEnvironmentMap) {
-				auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
-				dynamicSet.pointToImageView(envmap->texture2D->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-			} else {
-				dynamicSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-			}
 		}
 	}
 	~ProbeMaterial() override {

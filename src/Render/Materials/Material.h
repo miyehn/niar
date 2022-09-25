@@ -18,6 +18,9 @@ struct MaterialPipeline
 	bool operator==(const MaterialPipeline& rhs) const {
 		return this->pipeline == rhs.pipeline && this->layout == rhs.layout;
 	}
+	bool operator<(const MaterialPipeline& rhs) const {
+		return this->pipeline < rhs.pipeline;
+	}
 };
 
 class Material

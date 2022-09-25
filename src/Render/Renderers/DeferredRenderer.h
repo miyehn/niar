@@ -27,12 +27,18 @@ class GltfMaterial;
 #define DEFERRED_SUBPASS_POSTPROCESSING 0
 #define DEFERRED_SUBPASS_DEBUGDRAW 1
 
+// lighting related
+#define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
+
 class DeferredRenderer : public Renderer
 {
 public:
 
 	DebugPoints* debugPoints = nullptr;
 	DebugLines* debugLines = nullptr;
+
+	VmaBuffer pointLightsBuffer; // move to renderer
+	VmaBuffer directionalLightsBuffer; // move to renderer
 
 	DescriptorSet frameGlobalDescriptorSet;
 
@@ -98,7 +104,27 @@ private:
 
 	PostProcessing* postProcessing;
 
-	void updateViewInfoUbo();
+	void updateUniformBuffers();
+
+	// light buffers
+
+	struct PointLightInfo {
+		alignas(16) glm::vec3 position;
+		alignas(16) glm::vec3 color;
+	};
+
+	struct DirectionalLightInfo {
+		alignas(16) glm::vec3 direction;
+		alignas(16) glm::vec3 color;
+	};
+
+	struct {
+		PointLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
+	} pointLights;
+
+	struct {
+		DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
+	} directionalLights;
 
 	// mesh materials
 

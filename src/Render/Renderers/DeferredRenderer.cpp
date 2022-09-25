@@ -12,6 +12,7 @@
 #include "Assets/EnvironmentMapAsset.h"
 #include "Scene/SkyAtmosphere.h"
 #include <imgui.h>
+#include <algorithm>
 
 class PostProcessing : public Material
 {
@@ -32,7 +33,7 @@ public:
 			pipelineBuilder.compatibleRenderPass = postProcessPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_POSTPROCESSING;
 
-			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
@@ -53,6 +54,7 @@ private:
 
 	explicit PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth)
 	{
+		this->renderer = renderer;
 		name = "Post Processing";
 		postProcessPass = renderer->postProcessPass;
 
@@ -71,13 +73,13 @@ private:
 	VkRenderPass postProcessPass;
 	DescriptorSet dynamicSet;
 
+	DeferredRenderer* renderer;
+
 	friend class DeferredRenderer;
 };
 
 class DeferredLighting : public Material
 {
-
-#define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
 public:
 
 	MaterialPipeline getPipeline() override
@@ -93,13 +95,11 @@ public:
 			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			pipelineBuilder.pipelineState.useVertexInput = false;
 			pipelineBuilder.pipelineState.useDepthStencil = false;
-			pipelineBuilder.compatibleRenderPass = mainRenderPass;
+			pipelineBuilder.compatibleRenderPass = renderer->renderPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_LIGHTING;
 
-			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
-			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
 			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
 		}
@@ -109,89 +109,19 @@ public:
 
 	void usePipeline(VkCommandBuffer cmdbuf) override
 	{
-		pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
-		directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
-
 		MaterialPipeline materialPipeline = getPipeline();
-		dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, materialPipeline.layout);
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, materialPipeline.pipeline);
 	}
-	~DeferredLighting() override
-	{
-		pointLightsBuffer.release();
-		directionalLightsBuffer.release();
-	}
-
-	struct PointLightInfo {
-		alignas(16) glm::vec3 position;
-		alignas(16) glm::vec3 color;
-	};
-
-	struct DirectionalLightInfo {
-		alignas(16) glm::vec3 direction;
-		alignas(16) glm::vec3 color;
-	};
-
-	struct {
-		PointLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
-	} pointLights;
-
-	struct {
-		DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
-	} directionalLights;
-
-	// optimization, set by renderer to decide how much data to actually write to uniform buffers
-	uint32_t numPointLights, numDirectionalLights;
 
 private:
 
-	explicit DeferredLighting(DeferredRenderer* renderer)
-	{
+	explicit DeferredLighting(DeferredRenderer* renderer) : renderer(renderer) {
 		name = "Deferred Lighting";
-		mainRenderPass = renderer->renderPass;
-		pointLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-									  sizeof(pointLights),
-									  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-									  VMA_MEMORY_USAGE_CPU_TO_GPU,
-									  "Point lights buffer"});
-		directionalLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-											sizeof(directionalLights),
-											VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-											VMA_MEMORY_USAGE_CPU_TO_GPU,
-											"Directional lights buffer"});
-
-		{// create the layouts and build the pipeline
-
-			bool useEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
-
-			// set layouts and allocation
-			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
-			DescriptorSetLayout dynamicSetLayout{};
-			dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			dynamicSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-			dynamicSet = DescriptorSet(dynamicSetLayout);
-
-			// assign values
-			dynamicSet.pointToBuffer(pointLightsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			dynamicSet.pointToBuffer(directionalLightsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			if (useEnvironmentMap) {
-				auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
-				dynamicSet.pointToImageView(envmap->texture2D->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-			} else {
-				dynamicSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-			}
-		}
 	}
 
-	VmaBuffer pointLightsBuffer; // move to renderer
-	VmaBuffer directionalLightsBuffer; // move to renderer
-
-	DescriptorSet dynamicSet; // point & directional light; envmap (move to renderer maybe)
-	VkRenderPass mainRenderPass;
+	DeferredRenderer* renderer;
 
 	friend class DeferredRenderer;
-
 };
 
 DeferredRenderer::DeferredRenderer()
@@ -517,12 +447,26 @@ DeferredRenderer::DeferredRenderer()
 								  VMA_MEMORY_USAGE_CPU_TO_GPU,
 								  "View info uniform buffer (deferred renderer)"});
 
+		pointLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+									   sizeof(pointLights),
+									   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+									   VMA_MEMORY_USAGE_CPU_TO_GPU,
+									   "Point lights buffer"});
+		directionalLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+											 sizeof(directionalLights),
+											 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+											 VMA_MEMORY_USAGE_CPU_TO_GPU,
+											 "Directional lights buffer"});
+
 		DescriptorSetLayout frameGlobalSetLayout{};
 		frameGlobalSetLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalSetLayout.addBinding(5, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		frameGlobalSetLayout.addBinding(6, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		frameGlobalSetLayout.addBinding(7, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 
 		frameGlobalDescriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -530,6 +474,15 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalDescriptorSet.pointToBuffer(pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		frameGlobalDescriptorSet.pointToBuffer(directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		bool useEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
+		if (useEnvironmentMap) {
+			auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
+			frameGlobalDescriptorSet.pointToImageView(envmap->texture2D->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		} else {
+			frameGlobalDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		}
 	}
 
 	// misc
@@ -578,6 +531,9 @@ DeferredRenderer::~DeferredRenderer()
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
 	viewInfoUbo.release();
 
+	pointLightsBuffer.release();
+	directionalLightsBuffer.release();
+
 	delete deferredLighting;
 	delete postProcessing;
 
@@ -592,7 +548,7 @@ DeferredRenderer::~DeferredRenderer()
 	for (const auto& p : materials) delete p.second;
 }
 
-void DeferredRenderer::updateViewInfoUbo()
+void DeferredRenderer::updateUniformBuffers()
 {
 	ViewInfo.ViewMatrix = camera->world_to_object();
 	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
@@ -604,29 +560,91 @@ void DeferredRenderer::updateViewInfoUbo()
 	ViewInfo.AspectRatio = camera->aspect_ratio;
 	ViewInfo.HalfVFovRadians = camera->fov * 0.5f;
 
+	int numPointLights = 0;
+	int numDirectionalLights = 0;
+	drawable->foreach_descendent_bfs([this, &numPointLights, &numDirectionalLights](SceneObject* child){
+		if (child->enabled()) {
+			if (auto L = dynamic_cast<PointLight*>(child))
+			{
+				if (numPointLights < MAX_LIGHTS_PER_PASS) {
+					pointLights.Data[numPointLights].position = L->world_position();
+					pointLights.Data[numPointLights].color = L->get_emission() / (4 * PI);
+					numPointLights++;
+				}
+			}
+			else if (auto L = dynamic_cast<DirectionalLight*>(child))
+			{
+				if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
+					directionalLights.Data[numDirectionalLights].direction = L->get_direction();
+					directionalLights.Data[numDirectionalLights].color = L->get_emission();
+					numDirectionalLights++;
+				}
+			}
+		}
+	});
+	ViewInfo.NumPointLights = numPointLights;
+	ViewInfo.NumDirectionalLights = numDirectionalLights;
+
 	viewInfoUbo.writeData(&ViewInfo);
+	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
+	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
 }
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
 	// reset material instance counters
-	for (auto it : materials)
-	{
+	for (auto it : materials) {
 		it.second->resetInstanceCounter();
 	}
 
-	updateViewInfoUbo();
+	updateUniformBuffers();
 
+	// here the layout is for just so it gets ANY compatible layout
 	frameGlobalDescriptorSet.bind(
 		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
 
-	std::vector<SceneObject*> drawables;
+	// objects gathering and sorting
+	std::vector<MeshObject*> opaqueMeshes;
+	std::vector<MeshObject*> translucentMeshes;
+	std::vector<Probe*> probes;
 	SkyAtmosphere* sky = nullptr;
-	drawable->foreach_descendent_bfs([&drawables, &sky](SceneObject* child) {
-		drawables.push_back(child);
-		auto castSky = dynamic_cast<SkyAtmosphere*>(child);
-		if (castSky) sky = castSky;
-	}, [](SceneObject *obj){ return obj->enabled(); });
+	{
+		// gather
+		drawable->foreach_descendent_bfs([&](SceneObject* child) {
+			// meshes
+			if (auto mo = dynamic_cast<MeshObject*>(child)) {
+				if (auto mat = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(mo->mesh->materialName))) {
+					if (mat->isOpaque()) { // opaque
+						opaqueMeshes.push_back(mo);
+					} else { // translucent
+						translucentMeshes.push_back(mo);
+					}
+				}
+			} else if (auto probe = dynamic_cast<Probe*>(child)) {
+				// probes
+				probes.push_back(probe);
+			} else {
+				// sky
+				auto castSky = dynamic_cast<SkyAtmosphere*>(child);
+				if (castSky) sky = castSky;
+			}
+		}, [](SceneObject *obj){ return obj->enabled(); });
+
+		// sort
+		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
+			auto aMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(a->mesh->materialName));
+			auto bMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(b->mesh->materialName));
+			auto aPipeline = aMaterial->getPipeline();
+			auto bPipeline = bMaterial->getPipeline();
+			if (aPipeline != bPipeline) { // different pipeline -> sort by pipeline
+				return aPipeline < bPipeline;
+			} else { // same pipeline -> compare material name
+				return aMaterial->name < bMaterial->name;
+			}
+		};
+		std::sort(opaqueMeshes.begin(), opaqueMeshes.end(), materialSortFn);
+		std::sort(translucentMeshes.begin(), translucentMeshes.end(), materialSortFn);
+	}
 
 	// TODO: find a better place to put this
 	if (sky) {
@@ -651,34 +669,30 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
-		//VkPipeline last_pipeline = VK_NULL_HANDLE;
 		MaterialPipeline last_pipeline = {};
 		uint32_t instance_ctr = 0;
-		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
+		for (auto mo : opaqueMeshes)
 		{
-			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
+			auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
+			auto pipeline = mat->getPipeline();
+
+			// pipeline changed: re-bind; re-set frame globals if necessary
+			if (pipeline != last_pipeline)
 			{
-				auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
-				auto pipeline = mat->getPipeline();
-
-				// pipeline changed: re-bind; re-set frame globals if necessary
-				if (pipeline != last_pipeline)
-				{
-					mat->usePipeline(cmdbuf);
-					last_pipeline = pipeline;
-				}
-
-				// material changed: reset instance counter
-				if (mat != last_material)
-				{
-					instance_ctr = 0;
-					last_material = mat;
-				}
-
-				mat->setParameters(cmdbuf, mo);
-				mo->draw(cmdbuf);
-				instance_ctr++;
+				mat->usePipeline(cmdbuf);
+				last_pipeline = pipeline;
 			}
+
+			// material changed: reset instance counter
+			if (mat != last_material)
+			{
+				instance_ctr = 0;
+				last_material = mat;
+			}
+
+			mat->setParameters(cmdbuf, mo);
+			mo->draw(cmdbuf);
+			instance_ctr++;
 		}
 
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
@@ -687,55 +701,31 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Lighting pass")
 
-		int point_light_ctr = 0;
-		int directional_light_ctr = 0;
-		for (auto drawable : drawables)
-		{
-			if (auto L = dynamic_cast<PointLight*>(drawable))
-			{
-				if (point_light_ctr >= MAX_LIGHTS_PER_PASS) break;
-				deferredLighting->pointLights.Data[point_light_ctr].position = L->world_position();
-				deferredLighting->pointLights.Data[point_light_ctr].color = L->get_emission() / (4 * PI);
-				point_light_ctr++;
-			}
-			else if (auto L = dynamic_cast<DirectionalLight*>(drawable))
-			{
-				if (directional_light_ctr >= MAX_LIGHTS_PER_PASS) break;
-				deferredLighting->directionalLights.Data[directional_light_ctr].direction = L->get_direction();
-				deferredLighting->directionalLights.Data[directional_light_ctr].color = L->get_emission();
-				directional_light_ctr++;
-			}
-		}
-
-		// update ViewInfo to include num lights
-		ViewInfo.NumPointLights = point_light_ctr;
-		ViewInfo.NumDirectionalLights = directional_light_ctr;
-		viewInfoUbo.writeData(&ViewInfo);
-
-		deferredLighting->numPointLights = point_light_ctr;
-		deferredLighting->numDirectionalLights = directional_light_ctr;
 		deferredLighting->usePipeline(cmdbuf);
 		vk::drawFullscreenTriangle(cmdbuf);
 
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
+
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "EnvMap visualization")
 		bool firstInstance = true;
 		auto mat = Probe::get_material();
-		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
+		for (auto probe : probes) // TODO: material (pipeline) sorting, etc.
 		{
-			if (auto* probe = dynamic_cast<Probe*>(drawable)) {
-				if (firstInstance) {
-					mat->resetInstanceCounter();
-					mat->usePipeline(cmdbuf);
-				}
-				mat->setParameters(cmdbuf, probe);
-				probe->draw(cmdbuf);
-				firstInstance = false;
+			if (firstInstance) {
+				mat->resetInstanceCounter();
+				mat->usePipeline(cmdbuf);
 			}
+			mat->setParameters(cmdbuf, probe);
+			probe->draw(cmdbuf);
+			firstInstance = false;
 		}
 		vkCmdEndRenderPass(cmdbuf);
+	}
+
+	{
+		// TODO: translucency: use the frameglobal descriptor set, do a forward pass on translucent objects with proper blending
 	}
 
 	{

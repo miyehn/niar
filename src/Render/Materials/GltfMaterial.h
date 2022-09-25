@@ -21,6 +21,8 @@ public:
 
 	uint32_t getVersion() const { return cachedMaterialInfo._version; }
 
+	bool isOpaque() const { return cachedMaterialInfo.blendMode == BM_OpaqueOrClip; }
+
 protected:
 	explicit GltfMaterial(const GltfMaterialInfo& info);
 	DescriptorSet dynamicSet;

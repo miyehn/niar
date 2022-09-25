@@ -1,30 +1,8 @@
 #version 450 core
 
-#include "rendertargets.glsl"
-#include "scene_common.glsl"
+#include "scene_common.glsl" // (set 0, binding 0; 5-7) frameglobal
+#include "rendertargets.glsl" // (set 0, bindings 1-4) g buffers
 #include "utils.glsl"
-
-struct PointLight {
-	vec3 position;
-	vec3 color;
-};
-
-struct DirectionalLight {
-	vec3 direction;
-	vec3 color;
-};
-
-const int MaxLights = 128; // 4KB if each light takes { vec4, vec4 }. must match c++
-
-layout (set = 3, binding = 0) uniform PointLightsInfo {
-	PointLight[MaxLights] Data;
-} PointLights;
-
-layout (set = 3, binding = 1) uniform DirectionalLightsInfo {
-	DirectionalLight[MaxLights] Data;
-} DirectionalLights;
-
-layout (set = 3, binding = 2) uniform sampler2D EnvironmentMap;
 
 layout(location = 0) in vec2 vf_uv;
 

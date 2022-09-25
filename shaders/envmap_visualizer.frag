@@ -1,8 +1,7 @@
 #version 450 core
 
+#include "scene_common.glsl"
 #include "utils.glsl"
-
-layout(set = 3, binding = 1) uniform sampler2D EnvironmentMap;
 
 layout(location=0) in vec4 vf_position;
 layout(location=1) in vec2 vf_uv;
