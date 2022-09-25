@@ -241,7 +241,7 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 
 	// create a new one
 
-	auto bsdf = new Diffuse(info->BaseColorFactor);
+	auto bsdf = new Diffuse(info->BaseColorFactor * 0.8f);
 	bsdf->asset_version = info->_version;
 	bsdf->set_emission(info->EmissiveFactor);
 	BSDFs[info->name] = bsdf;

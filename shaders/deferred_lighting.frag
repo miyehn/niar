@@ -89,7 +89,7 @@ void main() {
 
 	FragColor = vec4(0, 0, 0, 1);
 
-	bool hit = visibility > 0;
+	bool hit = visibility > 0.5f;
 	if (hit)
 	{
 		// point lights
@@ -177,5 +177,8 @@ void main() {
 		vec3 viewDirWS = screenSpaceUvToViewDir(
 			vf_uv, viewInfo.ViewMatrix, viewInfo.HalfVFovRadians, viewInfo.AspectRatio);
 		FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS, 0);
+	}
+	else {
+		FragColor.rgb = vec3(0.1, 0.1, 0.1);
 	}
 }

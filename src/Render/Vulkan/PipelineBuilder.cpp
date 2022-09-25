@@ -6,10 +6,7 @@
 PipelineState::PipelineState()
 {
 	// to be set manually
-	uint32_t width = 0;
-	uint32_t height = 0;
-
-	targetExtent = {.width = width, .height = height};
+	targetExtent = {.width = 0, .height = 0};
 
 	useVertexInput = true;
 	{

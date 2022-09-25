@@ -17,14 +17,14 @@ public:
 
 	void resetInstanceCounter() override;
 
-	uint32_t getVersion() { return _version; }
+	uint32_t getVersion() const { return cachedMaterialInfo._version; }
 
 protected:
 	explicit GltfMaterial(const GltfMaterialInfo& info);
 	DescriptorSet dynamicSet;
 
 	// used for checking if this gltf material is obsolete and need to be re-created
-	uint32_t _version = 0;
+	GltfMaterialInfo cachedMaterialInfo;
 
 private:
 

@@ -469,7 +469,7 @@ SceneAsset::SceneAsset(
 			auto normal = normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal";
 
 			int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
-			auto metallic_roughness = mr_idx >= 0 ? texture_names[mr_idx] : "_white";
+			auto orm = mr_idx >= 0 ? texture_names[mr_idx] : "_white";
 
 			int ao_idx = mat.occlusionTexture.index;
 			auto ao = ao_idx >= 0 ? texture_names[ao_idx] : "_white";
@@ -491,14 +491,21 @@ SceneAsset::SceneAsset(
 				.name = mat.name,
 				.albedoTexName = albedo,
 				.normalTexName = normal,
-				.mrTexName = metallic_roughness,
+				.ormTexName = orm,
 				.aoTexName = ao,
 				.BaseColorFactor = baseColorFactor,
 				.EmissiveFactor = emissiveFactor,
 				.OcclusionRoughnessMetallicNormalStrengths = strengths,
 				.volumeColor = glm::vec4(0, 0, 0, 0),
-				.volumeDensity = 0
+				.volumeDensity = 0,
+				.cullBackFace = 1
 			};
+
+			// back face culling?
+			tinygltf::Value cullBackFace;
+			if (findMaterialProperty(mat, "cullBackFace", cullBackFace)) {
+				info.cullBackFace = cullBackFace.GetNumberAsInt();
+			}
 
 			// and in case it's a volume material...
 			tinygltf::Value isVolume;

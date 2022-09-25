@@ -19,13 +19,14 @@ struct GltfMaterialInfo {
 	std::string name;
 	std::string albedoTexName;
 	std::string normalTexName;
-	std::string mrTexName;
+	std::string ormTexName;
 	std::string aoTexName;
 	glm::vec4 BaseColorFactor;
 	glm::vec4 EmissiveFactor;
 	glm::vec4 OcclusionRoughnessMetallicNormalStrengths;
 	glm::vec4 volumeColor;
 	float volumeDensity;
+	int cullBackFace;
 
 	static void add(GltfMaterialInfo& info);
 	static GltfMaterialInfo* get(const std::string& materialName);

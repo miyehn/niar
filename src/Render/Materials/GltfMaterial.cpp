@@ -39,8 +39,9 @@ GltfMaterial::~GltfMaterial()
 
 GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 {
+	cachedMaterialInfo = info;
+
 	this->name = info.name;
-	this->_version = info._version;
 	LOG("loading material '%s'..", name.c_str())
 	VkDeviceSize alignment = Vulkan::Instance->minUniformBufferOffsetAlignment;
 	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
@@ -74,7 +75,7 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 		// assign actual values to them
 		auto albedo = Texture::get<Texture2D>(info.albedoTexName);
 		auto normal = Texture::get<Texture2D>(info.normalTexName);
-		auto orm = Texture::get<Texture2D>(info.mrTexName);
+		auto orm = Texture::get<Texture2D>(info.ormTexName);
 
 		materialParams.BaseColorFactor = info.BaseColorFactor;
 		materialParams.OcclusionRoughnessMetallicNormalStrengths = info.OcclusionRoughnessMetallicNormalStrengths;
@@ -104,6 +105,8 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
 		pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
+			cachedMaterialInfo.cullBackFace ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
 		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
@@ -135,6 +138,8 @@ MaterialPipeline SimpleGltfMaterial::getPipeline()
 		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
 		pipelineBuilder.fragPath = "spirv/simple_gltf.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
+			cachedMaterialInfo.cullBackFace ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
 		pipelineBuilder.compatibleRenderPass = SimpleRenderer::get()->renderPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->descriptorSet.getLayout();
