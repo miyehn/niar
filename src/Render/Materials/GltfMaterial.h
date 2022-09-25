@@ -61,6 +61,17 @@ private:
 	static bool pipelineIsDirty;
 };
 
+class PbrTranslucentGltfMaterial : public GltfMaterial
+{
+public:
+	explicit PbrTranslucentGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
+
+	MaterialPipeline getPipeline() override;
+	void markPipelineDirty() override { pipelineIsDirty = true; }
+private:
+	static bool pipelineIsDirty;
+};
+
 class SimpleGltfMaterial : public GltfMaterial
 {
 public:

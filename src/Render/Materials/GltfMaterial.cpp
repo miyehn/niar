@@ -115,7 +115,7 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
-		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->renderPass;
+		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
@@ -127,6 +127,59 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 		const VkPipelineColorBlendAttachmentState blendInfoArray[4] = {blendInfo, blendInfo, blendInfo, blendInfo};
 		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
 		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
+
+		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+	}
+
+	return materialPipeline;
+}
+
+bool PbrTranslucentGltfMaterial::pipelineIsDirty = false;
+MaterialPipeline PbrTranslucentGltfMaterial::getPipeline()
+{
+	static MaterialPipeline materialPipeline = {};
+
+	if (pipelineIsDirty) {
+		materialPipeline.pipeline = VK_NULL_HANDLE;
+		materialPipeline.layout = VK_NULL_HANDLE;
+		pipelineIsDirty = false;
+	}
+
+	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE) {
+		auto vk = Vulkan::Instance;
+
+		// now build the pipeline
+		GraphicsPipelineBuilder pipelineBuilder{};
+		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
+		pipelineBuilder.fragPath = "spirv/translucency_lit.frag.spv";
+		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
+			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
+		pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
+
+		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+
+		// don't write to depth
+		pipelineBuilder.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
+
+		// blending
+		VkPipelineColorBlendAttachmentState blendInfo = {
+			.blendEnable = VK_TRUE,
+			.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+			.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+			.colorBlendOp = VK_BLEND_OP_ADD,
+			.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+			.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+			.alphaBlendOp = VK_BLEND_OP_ADD,
+			.colorWriteMask = 15
+		};
+
+		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 1;
+		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = &blendInfo;
 
 		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
 	}

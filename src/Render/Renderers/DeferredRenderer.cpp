@@ -95,7 +95,7 @@ public:
 			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			pipelineBuilder.pipelineState.useVertexInput = false;
 			pipelineBuilder.pipelineState.useDepthStencil = false;
-			pipelineBuilder.compatibleRenderPass = renderer->renderPass;
+			pipelineBuilder.compatibleRenderPass = renderer->mainPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_LIGHTING;
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
@@ -186,7 +186,7 @@ DeferredRenderer::DeferredRenderer()
 		postProcessed = new Texture2D(postProcessedCreator);
 	}
 
-	{// main renderpass
+	{// main pass
 		RenderPassBuilder passBuilder;
 
 		// GPosition
@@ -273,13 +273,12 @@ DeferredRenderer::DeferredRenderer()
 			SCENEDEPTH_ATTACHMENT,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		};
-		passBuilder.subpasses.push_back(
-			{
-				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-				.colorAttachmentCount = static_cast<uint32_t>(basePassColorAttachmentRefs.size()),
-				.pColorAttachments = basePassColorAttachmentRefs.data(), // an array, index matches layout (location=X) out vec4 outColor
-				.pDepthStencilAttachment = &depthAttachmentReference
-			});
+		passBuilder.subpasses.push_back({
+			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+			.colorAttachmentCount = static_cast<uint32_t>(basePassColorAttachmentRefs.size()),
+			.pColorAttachments = basePassColorAttachmentRefs.data(), // an array, index matches layout (location=X) out vec4 outColor
+			.pDepthStencilAttachment = &depthAttachmentReference
+		});
 
 		// lighting pass
 		std::vector<VkAttachmentReference> lightingInputAttachmentRefs = {
@@ -291,18 +290,26 @@ DeferredRenderer::DeferredRenderer()
 		std::vector<VkAttachmentReference> lightingColorAttachmentRefs = {
 			{SCENECOLOR_ATTACHMENT,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
-		passBuilder.subpasses.push_back(
-			{
-				.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-				// input attachments
-				.inputAttachmentCount = static_cast<uint32_t>(lightingInputAttachmentRefs.size()),
-				.pInputAttachments = lightingInputAttachmentRefs.data(),
-				// output attachments
-				.colorAttachmentCount = static_cast<uint32_t>(lightingColorAttachmentRefs.size()),
-				.pColorAttachments = lightingColorAttachmentRefs.data(),
-				.pDepthStencilAttachment = nullptr
-			});
+		passBuilder.subpasses.push_back({
+			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+			// input attachments
+			.inputAttachmentCount = static_cast<uint32_t>(lightingInputAttachmentRefs.size()),
+			.pInputAttachments = lightingInputAttachmentRefs.data(),
+			// output attachments
+			.colorAttachmentCount = static_cast<uint32_t>(lightingColorAttachmentRefs.size()),
+			.pColorAttachments = lightingColorAttachmentRefs.data(),
+			.pDepthStencilAttachment = nullptr
+		});
+
 		// probes visualization
+		passBuilder.subpasses.push_back({
+			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = lightingColorAttachmentRefs.data(),
+			.pDepthStencilAttachment = &depthAttachmentReference
+		});
+
+		// translucency
 		passBuilder.subpasses.push_back({
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 			.colorAttachmentCount = 1,
@@ -312,43 +319,93 @@ DeferredRenderer::DeferredRenderer()
 
 		// dependencies
 		// TODO: any dependency w external needed?
-		passBuilder.dependencies.push_back(
-			{// basepass vs. lighting
-				.srcSubpass = DEFERRED_SUBPASS_GEOMETRY,
-				.dstSubpass = DEFERRED_SUBPASS_LIGHTING,
-				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
-				.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
-			});
+		passBuilder.dependencies.push_back({
+			.srcSubpass = DEFERRED_SUBPASS_GEOMETRY,
+			.dstSubpass = DEFERRED_SUBPASS_LIGHTING,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		});
 		passBuilder.dependencies.push_back({
 			.srcSubpass = DEFERRED_SUBPASS_LIGHTING,
 			.dstSubpass = DEFERRED_SUBPASS_PROBES,
 			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		});
+		passBuilder.dependencies.push_back({
+			.srcSubpass = DEFERRED_SUBPASS_PROBES,
+			.dstSubpass = DEFERRED_SUBPASS_TRANSLUCENCY,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 		});
 
 		// build the renderpass
-		renderPass = passBuilder.build(Vulkan::Instance);
+		mainPass = passBuilder.build(Vulkan::Instance);
 	}
+
+	/*
+	{// translucent pass
+		RenderPassBuilder passBuilder;
+
+		// sceneColor
+		passBuilder.colorAttachments.push_back({
+			.format = VK_FORMAT_R16G16B16A16_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		});
+		// sceneDepth
+		passBuilder.useDepthAttachment = true;
+		passBuilder.depthAttachment = {
+			.format = VK_FORMAT_D32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+		// subpass
+		VkAttachmentReference sceneColorAttachmentRef = {SCENECOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+		VkAttachmentReference sceneDepthAttachmentRef = {SCENEDEPTH_ATTACHMENT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+		passBuilder.subpasses.push_back({
+			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &sceneColorAttachmentRef,
+			.pDepthStencilAttachment = &sceneDepthAttachmentRef
+		});
+
+		// dependencies
+
+		translucentPass = passBuilder.build(Vulkan::Instance);
+	}
+	 */
 
 	{// post procesing pass
 		RenderPassBuilder passBuilder;
-		passBuilder.colorAttachments.push_back(
-			{
-				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-			});
+		passBuilder.colorAttachments.push_back({
+			.format = VK_FORMAT_R16G16B16A16_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+		});
 
 		passBuilder.useDepthAttachment = true;
 		passBuilder.depthAttachment = {
@@ -368,7 +425,7 @@ DeferredRenderer::DeferredRenderer()
 			1,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		};
-		// post processing
+		// post-processing
 		passBuilder.subpasses.push_back({
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 			.colorAttachmentCount = 1,
@@ -407,7 +464,7 @@ DeferredRenderer::DeferredRenderer()
 		};
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			.renderPass = renderPass, // the render pass it needs to be compatible with
+			.renderPass = mainPass, // the render pass it needs to be compatible with
 			.attachmentCount = 6,
 			.pAttachments = attachments, // a pointer to an array of VkImageView handles, each of which will be used as the corresponding attachment in a render pass instance.
 			.width = renderExtent.width,
@@ -630,7 +687,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			}
 		}, [](SceneObject *obj){ return obj->enabled(); });
 
-		// sort
+		// opaque objects sorting
 		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
 			auto aMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(a->mesh->materialName));
 			auto bMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(b->mesh->materialName));
@@ -643,7 +700,14 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			}
 		};
 		std::sort(opaqueMeshes.begin(), opaqueMeshes.end(), materialSortFn);
-		std::sort(translucentMeshes.begin(), translucentMeshes.end(), materialSortFn);
+
+		// translucent objects sorting
+		auto distToCameraSortFn = [this](MeshObject* a, MeshObject* b) {
+			auto distToCamA = glm::dot(a->world_position() - ViewInfo.CameraPosition, ViewInfo.ViewDir);
+			auto distToCamB = glm::dot(b->world_position() - ViewInfo.CameraPosition, ViewInfo.ViewDir);
+			return distToCamA >= distToCamB;
+		};
+		std::sort(translucentMeshes.begin(), translucentMeshes.end(), distToCameraSortFn);
 	}
 
 	// TODO: find a better place to put this
@@ -658,7 +722,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
 	VkRenderPassBeginInfo passInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = renderPass,
+		.renderPass = mainPass,
 		.framebuffer = framebuffer,
 		.renderArea = renderArea,
 		.clearValueCount = 6,
@@ -666,40 +730,35 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	};
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "Base pass")
+		SCOPED_DRAW_EVENT(cmdbuf, "Opaque base pass")
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
 		MaterialPipeline last_pipeline = {};
-		uint32_t instance_ctr = 0;
 		for (auto mo : opaqueMeshes)
 		{
 			auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
 			auto pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind; re-set frame globals if necessary
-			if (pipeline != last_pipeline)
-			{
+			if (pipeline != last_pipeline) {
 				mat->usePipeline(cmdbuf);
 				last_pipeline = pipeline;
 			}
 
-			// material changed: reset instance counter
-			if (mat != last_material)
-			{
-				instance_ctr = 0;
+			// material changed
+			if (mat != last_material) {
 				last_material = mat;
 			}
 
 			mat->setParameters(cmdbuf, mo);
 			mo->draw(cmdbuf);
-			instance_ctr++;
 		}
 
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "Lighting pass")
+		SCOPED_DRAW_EVENT(cmdbuf, "Opaque lighting pass")
 
 		deferredLighting->usePipeline(cmdbuf);
 		vk::drawFullscreenTriangle(cmdbuf);
@@ -721,11 +780,32 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			probe->draw(cmdbuf);
 			firstInstance = false;
 		}
-		vkCmdEndRenderPass(cmdbuf);
+		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
-		// TODO: translucency: use the frameglobal descriptor set, do a forward pass on translucent objects with proper blending
+		SCOPED_DRAW_EVENT(cmdbuf, "Translucency")
+		Material* last_material = nullptr;
+		MaterialPipeline last_pipeline = {};
+		for (auto mo : translucentMeshes) {
+			auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
+			auto pipeline = mat->getPipeline();
+
+			// pipeline changed: re-bind; re-set frame globals if necessary
+			if (pipeline != last_pipeline) {
+				mat->usePipeline(cmdbuf);
+				last_pipeline = pipeline;
+			}
+
+			// material changed
+			if (mat != last_material) {
+				last_material = mat;
+			}
+
+			mat->setParameters(cmdbuf, mo);
+			mo->draw(cmdbuf);
+		}
+		vkCmdEndRenderPass(cmdbuf);
 	}
 
 	{
@@ -733,7 +813,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		VkRenderPassBeginInfo passInfo = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			.renderPass = postProcessPass,
-			.framebuffer = postProcessFramebuffer, // TODO
+			.framebuffer = postProcessFramebuffer,
 			.renderArea = renderArea,
 			.clearValueCount = 0,
 			.pClearValues = nullptr
@@ -797,7 +877,12 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 	}
 
 	// create a new one
-	auto newMaterial = new PbrGltfMaterial(*info);
+	GltfMaterial* newMaterial;
+	if (info->blendMode == BM_OpaqueOrClip) {
+		newMaterial = new PbrGltfMaterial(*info);
+	} else {
+		newMaterial = new PbrTranslucentGltfMaterial(*info);
+	}
 	materials[newMaterial->name] = newMaterial;
 
 	return newMaterial;

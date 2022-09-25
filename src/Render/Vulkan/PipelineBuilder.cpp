@@ -103,10 +103,9 @@ PipelineState::PipelineState()
 
 	useColorBlending = true;
 	{
-		// this struct is for per framebuffer
+		// this struct is for per attachment
 		colorBlendAttachmentInfo = {
 			.blendEnable = VK_FALSE,
-#if 1 // blending off
 			.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
 			.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 			.colorBlendOp = VK_BLEND_OP_ADD,
@@ -114,15 +113,6 @@ PipelineState::PipelineState()
 			.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
 			.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
 			.alphaBlendOp = VK_BLEND_OP_ADD,
-#else // alpha blending
-			.blendEnable = VK_TRUE,
-			.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-			.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-			.colorBlendOp = VK_BLEND_OP_ADD,
-			.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-			.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-			.alphaBlendOp = VK_BLEND_OP_ADD
-#endif
 			.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT
 			| VK_COLOR_COMPONENT_G_BIT

@@ -18,10 +18,11 @@ class GltfMaterial;
 #define SCENECOLOR_ATTACHMENT 4
 #define SCENEDEPTH_ATTACHMENT 5
 
-// opaque
+// main
 #define DEFERRED_SUBPASS_GEOMETRY 0
 #define DEFERRED_SUBPASS_LIGHTING 1
 #define DEFERRED_SUBPASS_PROBES 2
+#define DEFERRED_SUBPASS_TRANSLUCENCY 3
 
 // post process
 #define DEFERRED_SUBPASS_POSTPROCESSING 0
@@ -42,7 +43,7 @@ public:
 
 	DescriptorSet frameGlobalDescriptorSet;
 
-	VkRenderPass renderPass;
+	VkRenderPass mainPass;
 	VkRenderPass postProcessPass;
 
 	struct
