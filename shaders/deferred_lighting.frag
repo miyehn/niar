@@ -43,6 +43,50 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
 	return g1 * g2;
 }
 
+struct MaterialLightingInfo {
+	// common
+	vec3 albedo;
+	float metallic;
+	vec3 normal;
+	float roughness;
+	vec3 dirToCam;
+	float NdotV;
+	// light-specific
+	vec3 halfVec;
+	float NdotL;
+};
+
+vec3 lightingContrib(MaterialLightingInfo info)
+{
+	//---- specular ----
+
+	// Fresnel
+	vec3 F0 = vec3(0.04); // base reflectivity for non-metals
+	F0 = mix(F0, info.albedo, info.metallic); // if metal, use what's in albedo map for base reflectivity
+	vec3 F = fresnelSchlick( max(dot(info.halfVec, info.dirToCam), 0), F0 );
+
+	// Distribution
+	float D = distributionFn(info.normal, info.halfVec, info.roughness);
+
+	// Geometry
+	float G = geometrySmith(info.NdotL, info.NdotV, info.roughness);
+
+	// specular (cook tolerance)
+	vec3 num = F * D * G;
+	float denom = 4.0 * info.NdotV * info.NdotL;
+	vec3 specular = num / max(denom, 0.001);
+
+	//---- diffuse ----
+
+	vec3 kSpecular = F;
+	vec3 kDiffuse = vec3(1.0) - kSpecular;
+	kDiffuse *= 1.0 - info.metallic;
+	vec3 diffuse = kDiffuse * info.albedo / PI;
+
+	//---- contribution ----
+	return (diffuse + specular) * info.NdotL;
+}
+
 void main() {
 
 	ViewInfo viewInfo = GetViewInfo();
@@ -65,6 +109,15 @@ void main() {
 	vec3 dirToCam = normalize(viewInfo.CameraPosition - position);
 	float NdotV = max(0, dot(normal, dirToCam));
 
+	// gather lighting information
+	MaterialLightingInfo info;
+	info.albedo = albedo;
+	info.metallic = metallic;
+	info.normal = normal;
+	info.roughness = roughness;
+	info.dirToCam = dirToCam;
+	info.NdotV = NdotV;
+
 	FragColor = vec4(0, 0, 0, 1);
 
 	bool hit = visibility > 0.5f;
@@ -77,39 +130,13 @@ void main() {
 			vec3 dirToLight = PointLights.Data[i].position - position;
 			float atten = 1.0 / dot(dirToLight, dirToLight);
 			dirToLight = normalize(dirToLight);
-			vec3 halfVec = normalize(dirToCam + dirToLight); // TODO: just use normal here??
+			vec3 halfVec = normalize(dirToCam + dirToLight);
 			float NdotL = max(dot(normal, dirToLight), 0);
 			vec3 radiance = PointLights.Data[i].color * atten;
 
-			//---- specular ----
-
-			// Fresnel
-			vec3 F0 = vec3(0.04); // base reflectivity for non-metals
-			F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
-			vec3 F = fresnelSchlick( max(dot(halfVec, dirToCam), 0), F0 );
-
-			// Distribution
-			float D = distributionFn(normal, halfVec, roughness);
-
-			// Geometry
-			float G = geometrySmith(NdotL, NdotV, roughness);
-
-			// specular (cook tolerance)
-			vec3 num = F * D * G;
-			float denom = 4.0 * NdotV * NdotL;
-			vec3 specular = num / max(denom, 0.001);
-
-			//---- diffuse ----
-
-			vec3 kSpecular = F;
-			vec3 kDiffuse = vec3(1.0) - kSpecular;
-			kDiffuse *= 1.0 - metallic;
-			vec3 diffuse = kDiffuse * albedo / PI;
-
-			//---- contribution ----
-			vec3 Lo = (diffuse + specular) * radiance * NdotL;
-
-			FragColor.rgb += Lo;
+			info.halfVec = halfVec;
+			info.NdotL = NdotL;
+			FragColor.rgb += lightingContrib(info) * radiance;
 		}
 
 		// directional lights
@@ -120,33 +147,9 @@ void main() {
 			float NdotL = max(dot(normal, -lightDir), 0);
 			vec3 radiance = DirectionalLights.Data[i].color;
 
-			// Fresnel
-			vec3 F0 = vec3(0.04); // base reflectivity for non-metals
-			F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
-			vec3 F = fresnelSchlick( max(dot(halfVec, dirToCam), 0), F0 ); // TODO: use normal or H here?
-
-			// Distribution
-			float D = distributionFn(normal, halfVec, roughness);
-
-			// Geometry
-			float G = geometrySmith(NdotL, NdotV, roughness);
-
-			// specular
-			vec3 num = F * D * G;
-			float denom = 4.0 * NdotV * NdotL;
-			vec3 specular = num / max(denom, 0.001);
-
-			//---- diffuse ----
-
-			vec3 kSpecular = F;
-			vec3 kDiffuse = vec3(1.0) - kSpecular;
-			kDiffuse *= 1.0 - metallic;
-			vec3 diffuse = kDiffuse * albedo / PI;
-
-			//---- contribution ----
-			vec3 Lo = (diffuse + specular) * radiance * NdotL;
-
-			FragColor.rgb += Lo;
+			info.halfVec = halfVec;
+			info.NdotL = NdotL;
+			FragColor.rgb += lightingContrib(info) * radiance;
 		}
 	}
 	else if (viewInfo.UseEnvironmentMap > 0)
@@ -155,8 +158,5 @@ void main() {
 		vec3 viewDirWS = screenSpaceUvToViewDir(
 			vf_uv, viewInfo.ViewMatrix, viewInfo.HalfVFovRadians, viewInfo.AspectRatio);
 		FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS, 0);
-	}
-	else {
-		FragColor.rgb = vec3(0.1, 0.1, 0.1);
 	}
 }
