@@ -1,12 +1,15 @@
 A playground to test my patience.
 
-![](img/9-19-deferred.png)
+![](img/9-26-deferred.png)
+[model by Sousinho](https://sketchfab.com/3d-models/japanese-style-restaurant-92f3559214e2403ebd84b6d5f8d7ca53)
 
-![](img/9-19-capture.png)
+![](img/9-26-plants.png)
+[model by Mats de Wind](https://sketchfab.com/3d-models/greenhouse-foliage-12379c14d8284592a9c5cdb93d80b03f)
 
-[the capture file is here](img/9-19-capture.rdc)
+![](img/9-26-fan-pathtraced.png)
+[model by futaba@blender](https://sketchfab.com/3d-models/retro-style-desk-fan-79bb384f2ed545a5ae8c2b9cfa06cd8f), environment map downloaded from [Poly Haven](https://polyhaven.com/hdris)
 
-2k environment map downloaded from [Poly Haven](https://polyhaven.com/hdris)
+![](img/9-26-deferred-capture.png)
 
 ---
 
@@ -43,15 +46,12 @@ Compute shaders
 Runs on both PC and Mac
 
 ---
-![](img/9-19-simple-annotated.png)
-
-![](img/9-19-deferred-annotated.png)
-
-![](img/9-19-pathtracer.png)
 
 ![](img/dof.jpg)
 
 ![](https://github.com/miyehn/niar/blob/grass-sim/img/grass2.gif?raw=true)
+
+![](img/9-19-simple-annotated.png)
 
 ![](img/fchouse-export-test.png)
 
