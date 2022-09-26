@@ -27,6 +27,7 @@ struct GltfMaterialInfo {
 	std::string normalTexName;
 	std::string ormTexName;
 	std::string aoTexName;
+	std::string emissiveTexName;
 	glm::vec4 BaseColorFactor;
 	glm::vec3 EmissiveFactor;
 	glm::vec4 OcclusionRoughnessMetallicNormalStrengths;

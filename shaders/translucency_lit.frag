@@ -4,20 +4,7 @@
 #include "scene_common.glsl"
 #include "lighting_common.glsl"
 
-layout(location=0) in vec4 vf_position;
-layout(location=1) in vec2 vf_uv;
-layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
-
-layout(set = 3, binding = 1) uniform MaterialParamsBufferObject {
-    vec4 BaseColorFactor;
-    vec4 OcclusionRoughnessMetallicNormalStrengths;
-    vec4 EmissiveFactorClipThreshold;
-    vec4 _pad0;
-} materialParams;
-
-layout(set = 3, binding = 2) uniform sampler2D AlbedoMap;
-layout(set = 3, binding = 3) uniform sampler2D NormalMap;
-layout(set = 3, binding = 4) uniform sampler2D ORMMap;
+#include "gltf_vertex_out_material_params.glsl"
 
 layout(location=0) out vec4 outColor;
 
@@ -33,7 +20,7 @@ void main() {
 
     vec3 orm = texture(ORMMap, uv).rgb * materialParams.OcclusionRoughnessMetallicNormalStrengths.rgb;
 
-    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb;
+    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb * texture(EmissiveMap, uv).rgb;
 
     vec3 litResult = emission + accumulateLighting(
         vf_position.xyz + GetViewInfo().CameraPosition,

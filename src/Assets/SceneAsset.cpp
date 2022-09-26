@@ -424,15 +424,19 @@ SceneAsset::SceneAsset(
 			auto& img = model.images[i];
 			image_infos[i].format = { img.component, img.bits, 0 };
 		}
-		// mark albedo textures as sRGB
+		// mark albedo and emissive textures as sRGB
 		for (int i = 0; i < model.materials.size(); i++)
 		{
 			auto& mat = model.materials[i];
 			int albedo_tex_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
-			if (albedo_tex_idx >= 0)
-			{
+			if (albedo_tex_idx >= 0) {
 				int albedo_img_idx = model.textures[albedo_tex_idx].source;
 				image_infos[albedo_img_idx].format.SRGB = 1;
+			}
+			int emissive_tex_idx = mat.emissiveTexture.index;
+			if (emissive_tex_idx >= 0) {
+				int emissive_img_idx = model.textures[emissive_tex_idx].source;
+				image_infos[emissive_img_idx].format.SRGB = 1;
 			}
 		}
 		// actually create the textures
@@ -474,6 +478,9 @@ SceneAsset::SceneAsset(
 			int ao_idx = mat.occlusionTexture.index;
 			auto ao = ao_idx >= 0 ? texture_names[ao_idx] : "_white";
 
+			int emissive_idx = mat.emissiveTexture.index;
+			auto emissiveTexName = emissive_idx >= 0 ? texture_names[emissive_idx] : "_black";
+
 			auto bc = mat.pbrMetallicRoughness.baseColorFactor;
 			auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
 			glm::vec4 strengths = {
@@ -502,6 +509,7 @@ SceneAsset::SceneAsset(
 				.normalTexName = normal,
 				.ormTexName = orm,
 				.aoTexName = ao,
+				.emissiveTexName = emissiveTexName,
 				.BaseColorFactor = baseColorFactor,
 				.EmissiveFactor = emissiveFactor,
 				.OcclusionRoughnessMetallicNormalStrengths = strengths,

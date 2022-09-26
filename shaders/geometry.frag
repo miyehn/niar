@@ -1,19 +1,6 @@
 #version 450 core
 
-layout(location=0) in vec4 vf_position;
-layout(location=1) in vec2 vf_uv;
-layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
-
-layout(set = 3, binding = 1) uniform MaterialParamsBufferObject {
-    vec4 BaseColorFactor;
-    vec4 OcclusionRoughnessMetallicNormalStrengths;
-    vec4 EmissiveFactorClipThreshold;
-    vec4 _pad0;
-} materialParams;
-
-layout(set = 3, binding = 2) uniform sampler2D AlbedoMap;
-layout(set = 3, binding = 3) uniform sampler2D NormalMap;
-layout(set = 3, binding = 4) uniform sampler2D ORMMap;
+#include "gltf_vertex_out_material_params.glsl"
 
 layout(location=0) out vec4 Position;
 layout(location=1) out vec4 Normal;
@@ -29,7 +16,7 @@ void main()
 
     Color = vec4(albedoSample.rgb * materialParams.BaseColorFactor.rgb, 1);
 
-    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb; // TODO: emissive map
+    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb * texture(EmissiveMap, uv).rgb;
 
     Position = vec4(vf_position.xyz, emission.r);
 
