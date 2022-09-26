@@ -26,8 +26,9 @@ Loading gLTF scenes and basic scene management
 A variety of rendering paths that can be modified/extended into more variants:
 * Simple forward
 * PBR deferred with many post-processing options 
-  * HDR, tone mapping, gamma correction, exposure compensation
+  * emissive and translucent materials
   * environment maps
+  * HDR, tone mapping, gamma correction, exposure compensation
 * CPU path tracing with optional SIMD acceleration using Intel ISPC
   * basic optimizations (BVH, direct light rays, Russian Roulette, [correlated multi-jittered sampling](https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf) within each pixel, cosine-weighted importance sampling)
   * SIMD-specific optimizations that were part of my CMU-15418 final project, see [pathtracer-standalone branch](https://github.com/miyehn/niar/tree/pathtracer-standalone)
