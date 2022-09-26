@@ -7,8 +7,8 @@ layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
 layout(set = 3, binding = 1) uniform MaterialParamsBufferObject {
     vec4 BaseColorFactor;
     vec4 OcclusionRoughnessMetallicNormalStrengths;
-    vec4 ClipThreshold_pad0;
-    vec4 _pad1;
+    vec4 EmissiveFactorClipThreshold;
+    vec4 _pad0;
 } materialParams;
 
 layout(set = 3, binding = 2) uniform sampler2D AlbedoMap;
@@ -25,15 +25,17 @@ void main()
     vec2 uv = vf_uv;
 
     vec4 albedoSample = texture(AlbedoMap, uv);
-    if (albedoSample.a <= materialParams.ClipThreshold_pad0.r) discard;
+    if (albedoSample.a <= materialParams.EmissiveFactorClipThreshold.a) discard;
 
     Color = vec4(albedoSample.rgb * materialParams.BaseColorFactor.rgb, 1);
 
-    Position = vec4(vf_position.xyz, 0);
+    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb; // TODO: emissive map
+
+    Position = vec4(vf_position.xyz, emission.r);
 
     vec3 sampled_normal = texture(NormalMap, uv).rgb * 2 - 1.0;
     sampled_normal.rg *= materialParams.OcclusionRoughnessMetallicNormalStrengths.a;
-    Normal = vec4(normalize(TANGENT_TO_WORLD_ROT * sampled_normal), 0);
+    Normal = vec4(normalize(TANGENT_TO_WORLD_ROT * sampled_normal), emission.g);
 
-    ORM = vec4(texture(ORMMap, uv).rgb * materialParams.OcclusionRoughnessMetallicNormalStrengths.rgb, 0);
+    ORM = vec4(texture(ORMMap, uv).rgb * materialParams.OcclusionRoughnessMetallicNormalStrengths.rgb, emission.b);
 }

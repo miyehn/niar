@@ -42,8 +42,8 @@ private:
 	struct {
 		glm::vec4 BaseColorFactor;
 		glm::vec4 OcclusionRoughnessMetallicNormalStrengths;
-		glm::vec4 ClipThreshold_pad0;
-		glm::vec4 _pad1;
+		glm::vec4 EmissiveFactorClipThreshold;
+		glm::vec4 _pad0;
 	} materialParams;
 	VmaBuffer materialParamsBuffer;
 

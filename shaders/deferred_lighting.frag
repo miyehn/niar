@@ -24,6 +24,9 @@ void main() {
 
 	float visibility = GColor.a;
 	if (visibility > 0.5f) {
+		// emission
+		FragColor.rgb += vec3(GPosition.a, GNormal.a, GORM.a);
+		// the rest of lighting
 		FragColor.rgb += accumulateLighting(
 			GPosition.xyz + viewInfo.CameraPosition,
 			GNormal.xyz,

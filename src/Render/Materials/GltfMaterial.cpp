@@ -79,7 +79,12 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 
 		materialParams.BaseColorFactor = info.BaseColorFactor;
 		materialParams.OcclusionRoughnessMetallicNormalStrengths = info.OcclusionRoughnessMetallicNormalStrengths;
-		materialParams.ClipThreshold_pad0 = glm::vec4(info.clipThreshold, 0, 0, 0);
+		materialParams.EmissiveFactorClipThreshold = glm::vec4(
+			info.EmissiveFactor.r,
+			info.EmissiveFactor.g,
+			info.EmissiveFactor.b,
+			info.clipThreshold);
+		materialParams._pad0 = glm::vec4();
 
 		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
 		dynamicSet.pointToBuffer(materialParamsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);

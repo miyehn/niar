@@ -482,8 +482,10 @@ SceneAsset::SceneAsset(
 				(float)mat.pbrMetallicRoughness.metallicFactor,
 				(float)mat.normalTexture.scale
 			};
+			// gets multiplied by emissiveStrength, and then clamped to (1, 1, 1)...
+			// basically just don't use emissive strength in blender :/
 			auto em = mat.emissiveFactor;
-			glm::vec4 emissiveFactor = glm::vec4(em[0], em[1], em[2], 1);
+			glm::vec3 emissiveFactor = glm::vec3(em[0], em[1], em[2]);
 
 			// blend mode
 			BlendMode blendMode = BM_OpaqueOrClip;

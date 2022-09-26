@@ -11,8 +11,8 @@ layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
 layout(set = 3, binding = 1) uniform MaterialParamsBufferObject {
     vec4 BaseColorFactor;
     vec4 OcclusionRoughnessMetallicNormalStrengths;
-    vec4 ClipThreshold_pad0;
-    vec4 _pad1;
+    vec4 EmissiveFactorClipThreshold;
+    vec4 _pad0;
 } materialParams;
 
 layout(set = 3, binding = 2) uniform sampler2D AlbedoMap;
@@ -33,7 +33,9 @@ void main() {
 
     vec3 orm = texture(ORMMap, uv).rgb * materialParams.OcclusionRoughnessMetallicNormalStrengths.rgb;
 
-    vec3 litResult = accumulateLighting(
+    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb;
+
+    vec3 litResult = emission + accumulateLighting(
         vf_position.xyz + GetViewInfo().CameraPosition,
         normal,
         baseColor.rgb,

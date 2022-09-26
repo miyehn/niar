@@ -7,8 +7,8 @@ layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
 layout(set = 3, binding = 1) uniform MaterialParamsBufferObject {
     vec4 BaseColorFactor;
     vec4 OcclusionRoughnessMetallicNormalStrengths;
-    vec4 ClipThreshold_pad0;
-    vec4 _pad1;
+    vec4 EmissiveFactorClipThreshold;
+    vec4 _pad0;
 } materialParams;
 
 layout(set = 3, binding = 2) uniform sampler2D AlbedoMap;
@@ -21,7 +21,7 @@ void main() {
     vec2 uv = vf_uv;
 
     vec4 albedoSample = texture(AlbedoMap, uv);
-    if (albedoSample.a <= materialParams.ClipThreshold_pad0.r) discard;
+    if (albedoSample.a <= materialParams.EmissiveFactorClipThreshold.a) discard;
 
     vec3 color = albedoSample.rgb * materialParams.BaseColorFactor.rgb;
 
