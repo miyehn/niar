@@ -351,49 +351,6 @@ DeferredRenderer::DeferredRenderer()
 		mainPass = passBuilder.build(Vulkan::Instance);
 	}
 
-	/*
-	{// translucent pass
-		RenderPassBuilder passBuilder;
-
-		// sceneColor
-		passBuilder.colorAttachments.push_back({
-			.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		});
-		// sceneDepth
-		passBuilder.useDepthAttachment = true;
-		passBuilder.depthAttachment = {
-			.format = VK_FORMAT_D32_SFLOAT,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		};
-		// subpass
-		VkAttachmentReference sceneColorAttachmentRef = {SCENECOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-		VkAttachmentReference sceneDepthAttachmentRef = {SCENEDEPTH_ATTACHMENT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-		passBuilder.subpasses.push_back({
-			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &sceneColorAttachmentRef,
-			.pDepthStencilAttachment = &sceneDepthAttachmentRef
-		});
-
-		// dependencies
-
-		translucentPass = passBuilder.build(Vulkan::Instance);
-	}
-	 */
-
 	{// post procesing pass
 		RenderPassBuilder passBuilder;
 		passBuilder.colorAttachments.push_back({
@@ -499,7 +456,7 @@ DeferredRenderer::DeferredRenderer()
 	{// frame-global descriptor set
 
 		viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								  sizeof(ViewInfo),
+								  sizeof(viewInfo),
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU,
 								  "View info uniform buffer (deferred renderer)"});
@@ -543,9 +500,9 @@ DeferredRenderer::DeferredRenderer()
 	}
 
 	// misc
-	ViewInfo.Exposure = 0.0f;
-	ViewInfo.ToneMappingOption = 1;
-	ViewInfo.UseEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
+	viewInfo.Exposure = 0.0f;
+	viewInfo.ToneMappingOption = 1;
+	viewInfo.UseEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
@@ -561,7 +518,7 @@ DeferredRenderer::DeferredRenderer()
 #endif
 
 		std::vector<PointData> lines;
-		if (!debugLines) debugLines = new DebugLines(viewInfoUbo, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
+		if (!debugLines) debugLines = new DebugLines(frameGlobalDescriptorSet.getLayout(), postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
 		// x axis
 		debugLines->addSegment(
 			PointData(glm::vec3(0, 0, 0), glm::u8vec4(255, 0, 0, 255)),
@@ -607,15 +564,15 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::updateUniformBuffers()
 {
-	ViewInfo.ViewMatrix = camera->world_to_object();
-	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
-	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+	viewInfo.ViewMatrix = camera->world_to_object();
+	viewInfo.ProjectionMatrix = camera->camera_to_clip();
+	viewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
 
-	ViewInfo.CameraPosition = camera->world_position();
-	ViewInfo.ViewDir = camera->forward();
+	viewInfo.CameraPosition = camera->world_position();
+	viewInfo.ViewDir = camera->forward();
 
-	ViewInfo.AspectRatio = camera->aspect_ratio;
-	ViewInfo.HalfVFovRadians = camera->fov * 0.5f;
+	viewInfo.AspectRatio = camera->aspect_ratio;
+	viewInfo.HalfVFovRadians = camera->fov * 0.5f;
 
 	int numPointLights = 0;
 	int numDirectionalLights = 0;
@@ -639,10 +596,10 @@ void DeferredRenderer::updateUniformBuffers()
 			}
 		}
 	});
-	ViewInfo.NumPointLights = numPointLights;
-	ViewInfo.NumDirectionalLights = numDirectionalLights;
+	viewInfo.NumPointLights = numPointLights;
+	viewInfo.NumDirectionalLights = numDirectionalLights;
 
-	viewInfoUbo.writeData(&ViewInfo);
+	viewInfoUbo.writeData(&viewInfo);
 	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
 	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
 }
@@ -703,8 +660,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		// translucent objects sorting
 		auto distToCameraSortFn = [this](MeshObject* a, MeshObject* b) {
-			auto distToCamA = glm::dot(a->world_position() - ViewInfo.CameraPosition, ViewInfo.ViewDir);
-			auto distToCamB = glm::dot(b->world_position() - ViewInfo.CameraPosition, ViewInfo.ViewDir);
+			auto distToCamA = glm::dot(a->world_position() - viewInfo.CameraPosition, viewInfo.ViewDir);
+			auto distToCamB = glm::dot(b->world_position() - viewInfo.CameraPosition, viewInfo.ViewDir);
 			return distToCamA >= distToCamB;
 		};
 		std::sort(translucentMeshes.begin(), translucentMeshes.end(), distToCameraSortFn);
@@ -889,10 +846,10 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 }
 
 void DeferredRenderer::draw_config_ui() {
-	ImGui::SliderFloat("", &ViewInfo.Exposure, -5, 5, "exposure comp: %.3f");
+	ImGui::SliderFloat("", &viewInfo.Exposure, -5, 5, "exposure comp: %.3f");
 	ImGui::Combo(
 		"tone mapping",
-		&ViewInfo.ToneMappingOption,
+		&viewInfo.ToneMappingOption,
 		"Off\0Reinhard2\0ACES\0\0");
 	ImGui::Checkbox("draw debug", &drawDebug);
 }

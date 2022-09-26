@@ -159,7 +159,12 @@ void Pathtracer::initialize() {
 							VMA_MEMORY_USAGE_CPU_TO_GPU,
 							"View info uniform buffer (path tracer)"});
 
-	debugLines = new DebugLines(viewInfoUbo, Vulkan::Instance->getSwapChainRenderPass());
+	DescriptorSetLayout layout{};
+	layout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	descriptorSet = DescriptorSet(layout);
+	descriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+	debugLines = new DebugLines(descriptorSet.getLayout(), Vulkan::Instance->getSwapChainRenderPass());
 #endif
 
 	//-------- load config --------

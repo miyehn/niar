@@ -1,5 +1,5 @@
 #include "Render/Vulkan/DescriptorSet.h"
-#include "Renderer.h"
+#include "DeferredRenderer.h"
 
 class Texture2D;
 class Material;
@@ -28,18 +28,7 @@ private:
 	DebugLines* debugLines = nullptr;
 
 	// uniforms
-	struct
-	{
-		glm::mat4 ViewMatrix;
-		glm::mat4 ProjectionMatrix;
-
-		glm::vec3 CameraPosition;
-		float _pad0 = 2.333f;
-
-		glm::vec3 ViewDir;
-		float _pad1 = 2.333f;
-
-	} ViewInfo;
+	ViewInfo viewInfo;
 
 	VmaBuffer viewInfoUbo;
 

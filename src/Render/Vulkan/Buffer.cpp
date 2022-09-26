@@ -34,7 +34,7 @@ VmaBuffer::VmaBuffer(const CreateInfo &info) :
 			&allocations[i],
 			&allocationInfos[i]), VK_SUCCESS);
 		if (info.debugName.length() > 0) {
-			std::string instanceName = info.debugName + "(" + std::to_string(i) + "/" + std::to_string(numInstances) + ")";
+			std::string instanceName = info.debugName + " (" + std::to_string(i+1) + "/" + std::to_string(numInstances) + ")";
 			NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, buffers[i], instanceName)
 		}
 	}

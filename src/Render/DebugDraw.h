@@ -45,7 +45,7 @@ class DebugPoints
 {
 public:
 
-	explicit DebugPoints(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass=0);
+	explicit DebugPoints(const DescriptorSetLayout& frameGlobalSetLayout, VkRenderPass compatiblePass, int compatibleSubpass=0);
 	~DebugPoints();
 
 	void addPoint(const glm::vec3& position, glm::u8vec4 color);
@@ -62,7 +62,7 @@ private:
 
 	VkPipeline pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	DescriptorSet descriptorSet = {};
+	//DescriptorSet descriptorSet = {};
 
 	std::vector<PointData> points;
 };
@@ -71,7 +71,7 @@ class DebugLines
 {
 public:
 
-	explicit DebugLines(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass=0);
+	explicit DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRenderPass compatiblePass, int compatibleSubpass=0);
 	~DebugLines();
 
 	void clear() { points.clear(); }
@@ -91,7 +91,7 @@ public:
 private:
 	VkPipeline pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	DescriptorSet descriptorSet = {};
+	//DescriptorSet descriptorSet = {};
 
 	std::vector<PointData> points;
 };

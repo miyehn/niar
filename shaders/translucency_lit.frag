@@ -1,6 +1,8 @@
 #version 450 core
 
+#include "utils.glsl"
 #include "scene_common.glsl"
+#include "lighting_common.glsl"
 
 layout(location=0) in vec4 vf_position;
 layout(location=1) in vec2 vf_uv;
@@ -23,7 +25,20 @@ void main() {
     vec2 uv = vf_uv;
 
     vec4 albedoSample = texture(AlbedoMap, uv);
-    vec3 color = albedoSample.rgb * materialParams.BaseColorFactor.rgb;
+    vec4 baseColor = albedoSample * materialParams.BaseColorFactor;
 
-    outColor = vec4(color, 0.5);
+    vec3 normal = texture(NormalMap, uv).rgb * 2 - 1.0f;
+    normal.rg *= materialParams.OcclusionRoughnessMetallicNormalStrengths.a;
+    normal = normalize(TANGENT_TO_WORLD_ROT * normal);
+
+    vec3 orm = texture(ORMMap, uv).rgb * materialParams.OcclusionRoughnessMetallicNormalStrengths.rgb;
+
+    vec3 litResult = accumulateLighting(
+        vf_position.xyz + GetViewInfo().CameraPosition,
+        normal,
+        baseColor.rgb,
+        orm
+    );
+
+    outColor = vec4(litResult, baseColor.a);
 }

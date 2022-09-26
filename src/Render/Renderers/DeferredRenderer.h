@@ -31,6 +31,24 @@ class GltfMaterial;
 // lighting related
 #define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
 
+struct ViewInfo {
+	glm::mat4 ViewMatrix;
+	glm::mat4 ProjectionMatrix;
+
+	glm::vec3 CameraPosition;
+	int NumPointLights;
+
+	glm::vec3 ViewDir;
+	int NumDirectionalLights;
+
+	float Exposure;
+	float AspectRatio;
+	float HalfVFovRadians;
+	int ToneMappingOption;
+	int UseEnvironmentMap;
+
+};
+
 class DeferredRenderer : public Renderer
 {
 public:
@@ -46,24 +64,7 @@ public:
 	VkRenderPass mainPass;
 	VkRenderPass postProcessPass;
 
-	struct
-	{
-		glm::mat4 ViewMatrix;
-		glm::mat4 ProjectionMatrix;
-
-		glm::vec3 CameraPosition;
-		int NumPointLights;
-
-		glm::vec3 ViewDir;
-		int NumDirectionalLights;
-
-		float Exposure;
-		float AspectRatio;
-		float HalfVFovRadians;
-		int ToneMappingOption;
-		int UseEnvironmentMap;
-
-	} ViewInfo;
+	ViewInfo viewInfo;
 
 	void render(VkCommandBuffer cmdbuf) override;
 

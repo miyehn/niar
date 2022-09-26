@@ -98,7 +98,7 @@ SimpleRenderer::SimpleRenderer()
 
 	{// descriptor set (ubo)
 		viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								  sizeof(ViewInfo),
+								  sizeof(viewInfo),
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU,
 								  "View info uniform buffer (simple renderer)"});
@@ -109,7 +109,7 @@ SimpleRenderer::SimpleRenderer()
 	}
 
 	{// debug draw setup
-		debugLines = new DebugLines(viewInfoUbo, renderPass);
+		debugLines = new DebugLines(descriptorSet.getLayout(), renderPass);
 		// x axis
 		debugLines->addSegment(
 			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
@@ -150,14 +150,17 @@ SimpleRenderer *SimpleRenderer::get()
 
 void SimpleRenderer::updateViewInfoUbo()
 {
-	ViewInfo.ViewMatrix = camera->world_to_object();
-	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
-	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+	memset(&viewInfo, 0, sizeof(ViewInfo));
 
-	ViewInfo.CameraPosition = camera->world_position();
-	ViewInfo.ViewDir = camera->forward();
+	// update whatever's needed
+	viewInfo.ViewMatrix = camera->world_to_object();
+	viewInfo.ProjectionMatrix = camera->camera_to_clip();
+	viewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
 
-	viewInfoUbo.writeData(&ViewInfo);
+	viewInfo.CameraPosition = camera->world_position();
+	viewInfo.ViewDir = camera->forward();
+
+	viewInfoUbo.writeData(&viewInfo);
 }
 
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)

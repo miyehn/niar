@@ -153,8 +153,7 @@ MaterialPipeline PbrTranslucentGltfMaterial::getPipeline()
 		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
 		pipelineBuilder.fragPath = "spirv/translucency_lit.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
-			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+		pipelineBuilder.pipelineState.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
 		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 		pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
 

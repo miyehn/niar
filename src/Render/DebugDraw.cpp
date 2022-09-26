@@ -4,7 +4,7 @@
 
 //................... points .......................
 
-DebugPoints::DebugPoints(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass)
+DebugPoints::DebugPoints(const DescriptorSetLayout& frameGlobalSetLayout, VkRenderPass compatiblePass, int compatibleSubpass)
 {
 	if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
 	{
@@ -24,12 +24,7 @@ DebugPoints::DebugPoints(const VmaBuffer& uniformBuffer, VkRenderPass compatible
 		pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
 		pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_POINT;
 
-		// uniform buffer that contains frameglobal info
-		DescriptorSetLayout setLayout = {};
-		setLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		descriptorSet = DescriptorSet(setLayout);
-		descriptorSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		pipelineBuilder.useDescriptorSetLayout(0, setLayout);
+		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 
 		pipelineBuilder.build(pipeline, pipelineLayout);
 	}
@@ -38,11 +33,6 @@ DebugPoints::DebugPoints(const VmaBuffer& uniformBuffer, VkRenderPass compatible
 void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf)
 {
 	if (points.empty()) return;
-	descriptorSet.bind(
-		cmdbuf,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		0,
-		pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };
@@ -83,7 +73,7 @@ void DebugPoints::uploadVertexBuffer()
 
 ///////////////////// lines ///////////////////////
 
-DebugLines::DebugLines(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePass, int compatibleSubpass)
+DebugLines::DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRenderPass compatiblePass, int compatibleSubpass)
 {
 	if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
 	{
@@ -103,12 +93,7 @@ DebugLines::DebugLines(const VmaBuffer& uniformBuffer, VkRenderPass compatiblePa
 		pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
 		pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
 
-		// uniform buffer that contains frameglobal info
-		DescriptorSetLayout setLayout = {};
-		setLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		descriptorSet = DescriptorSet(setLayout);
-		descriptorSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		pipelineBuilder.useDescriptorSetLayout(0, setLayout);
+		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 
 		pipelineBuilder.build(pipeline, pipelineLayout);
 	}
@@ -122,11 +107,6 @@ DebugLines::~DebugLines()
 void DebugLines::bindAndDraw(VkCommandBuffer cmdbuf)
 {
 	if (points.empty()) return;
-	descriptorSet.bind(
-		cmdbuf,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		0,
-		pipelineLayout);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };

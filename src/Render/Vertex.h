@@ -44,7 +44,7 @@ struct Vertex
 		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
 			.location = 2,
 			.binding = 0,
-			.format = VK_FORMAT_R32G32B32_SFLOAT,
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 			.offset = (uint32_t)offsetof(Vertex, tangent)
 		});
 		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
