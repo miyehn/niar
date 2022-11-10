@@ -4,12 +4,15 @@
 #pragma once
 
 #include "SceneObject.hpp"
+#include "Render/Vulkan/Buffer.h"
+
 class Texture2D;
 
 class SkyAtmosphere : public SceneObject {
 public:
 	// TODO: read from config file instead
 	struct Parameters {
+#if 0
 		// directional lights
 		glm::vec3 sunIrradiance;
 		float sunAngularRadius;
@@ -34,18 +37,18 @@ public:
 		// earth
 		float bottomRadius;
 		float topRadius;
+#endif
 
 		// LUT dimensions
 		glm::u32vec2 transmittanceLutSize;
 		glm::u32vec2 multiScatteredLutSize;
 		glm::u32vec2 skyViewLutSize;
 
-		bool operator==(const Parameters &other) {
+		bool equals(const Parameters &other) {
 			return false;
 		}
 	};
 	Parameters parameters = {};
-	Parameters cachedParameters = {};
 
 	SkyAtmosphere();
 	~SkyAtmosphere() override;
@@ -59,6 +62,9 @@ public:
 private:
 	void updateAutoParameters();
 	void updateLuts();
+
+	Parameters cachedParameters = {};
+	VmaBuffer parametersBuffer;
 
 	Texture2D* transmittanceLut = nullptr;
 	Texture2D* multiScatteredLut = nullptr;

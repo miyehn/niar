@@ -12,11 +12,11 @@
 // checklist: https://community.khronos.org/t/drawing-to-image-from-compute-shader-example/7116/2
 class TransmittanceLutCS {
 public:
-	static void dispatch(Texture2D* targetImage) {
+	static void dispatch(const VmaBuffer& paramsBuffer, Texture2D* targetImage) {
 		// singleton instance
 		static TransmittanceLutCS* instance = nullptr;
 		if (!instance) {
-			instance = new TransmittanceLutCS(targetImage);
+			instance = new TransmittanceLutCS();
 			Vulkan::Instance->destructionQueue.emplace_back([](){ delete instance; });
 		}
 		Vulkan::Instance->immediateSubmit(
@@ -36,6 +36,7 @@ public:
 					);
 
 				instance->dynamicSet.pointToRWImageView(targetImage->imageView, 0);
+				instance->dynamicSet.pointToBuffer(paramsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
 				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, instance->pipeline);
 				instance->dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_DYNAMIC, instance->pipelineLayout);
@@ -55,13 +56,14 @@ public:
 			});
 	}
 private:
-	explicit TransmittanceLutCS(Texture2D* targetImage) {
+	explicit TransmittanceLutCS() {
 		ComputePipelineBuilder pipelineBuilder{};
 		// shader
 		pipelineBuilder.shaderPath = "spirv/sky_transmittance_lut.comp.spv";
 		// descriptor sets
 		DescriptorSetLayout dynamicSetLayout{};
 		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSet = DescriptorSet(dynamicSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
@@ -76,10 +78,12 @@ SkyAtmosphere::SkyAtmosphere() {
 	memset(&parameters, 0, sizeof(Parameters));
 	memset(&cachedParameters, 0, sizeof(Parameters));
 
-	parameters.transmittanceLutSize = {256, 64};
-	parameters.multiScatteredLutSize = {32, 32};
-	parameters.skyViewLutSize = {192, 108};
-	// TODO: init other parameters
+	{// initialize parameters
+		parameters.transmittanceLutSize = {256, 64};
+		parameters.multiScatteredLutSize = {32, 32};
+		parameters.skyViewLutSize = {192, 108};
+		// TODO: init other parameters
+	}
 
 	ImageCreator transmittanceLutCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -88,6 +92,15 @@ SkyAtmosphere::SkyAtmosphere() {
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"Transmittance LUT");
 	transmittanceLut = new Texture2D(transmittanceLutCreator);
+
+	// create the buffer
+	parametersBuffer = VmaBuffer({
+		&Vulkan::Instance->memoryAllocator,
+		sizeof(parameters),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VMA_MEMORY_USAGE_CPU_TO_GPU,
+		"Sky atmosphere params buffer"
+	});
 
 	//======== other properties ========
 
@@ -98,7 +111,8 @@ SkyAtmosphere::SkyAtmosphere() {
 // called by the renderer
 void SkyAtmosphere::updateAndComposite(Texture2D *outSceneColor) {
 	updateAutoParameters();
-	if (!(parameters == cachedParameters)) {
+	if (!parameters.equals(cachedParameters)) {
+		parametersBuffer.writeData(&parameters);
 		updateLuts();
 		cachedParameters = parameters;
 	}
@@ -111,14 +125,15 @@ void SkyAtmosphere::updateAutoParameters() {
 
 void SkyAtmosphere::updateLuts() {
 	// TODO
-	//TransmittanceLutCS::dispatch(transmittanceLut);
+	TransmittanceLutCS::dispatch(parametersBuffer, transmittanceLut);
 }
 
 SkyAtmosphere::~SkyAtmosphere() {
 	delete transmittanceLut;
+	parametersBuffer.release();
 }
 
 void SkyAtmosphere::draw_config_ui() {
-	ImGui::SliderFloat("Sun angular radius", &parameters.sunAngularRadius, 0, 1);
+	//ImGui::SliderFloat("Sun angular radius", &parameters.sunAngularRadius, 0, 1);
 	// TODO: the rest
 }

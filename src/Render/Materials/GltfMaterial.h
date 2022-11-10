@@ -7,7 +7,6 @@ class Texture2D;
 namespace tinygltf { struct Material; }
 
 // virtual class; see inherited ones below
-// currently not handling emission because blender gltf 2.0 export seems broken..
 class GltfMaterial : public Material
 {
 public:
