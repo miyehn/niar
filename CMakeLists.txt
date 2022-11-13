@@ -108,7 +108,7 @@ set(ASZELEA_SRC
 
 set(VINCENT_SRC
 	src/Vincent.cpp
-	src/Utils/StbImageImpl.cpp src/Utils/myn/ShaderSimulator.cpp src/Utils/myn/SkyAtmosphereSim.cpp)
+	src/Utils/StbImageImpl.cpp src/Utils/myn/ShaderSimulator.cpp src/Utils/myn/SkyAtmosphereSim.cpp src/Utils/myn/CpuTexture.cpp src/Utils/myn/CpuTexture.h)
 
 if(APPLE)
 	add_definitions(-DMACOS)

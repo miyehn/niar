@@ -28,8 +28,9 @@ int main(int argc, const char * argv[])
 
 	LOG("output path: %s", output_path.c_str())
 
-	myn::sky::SkyAtmosphereSim sim(width, height, output_path);
+	myn::sky::SkyAtmosphereSim sim(width, height);
 	sim.runSim();
+	sim.getOutputTexture().writeFile(output_path, false, true);
 
 	return 0;
 }
