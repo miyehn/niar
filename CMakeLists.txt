@@ -106,6 +106,10 @@ set(ASZELEA_SRC
 	src/Utils/TinyExrImpl.cpp
 	src/Utils/myn/Sample.cpp)
 
+set(VINCENT_SRC
+	src/Vincent.cpp
+	src/Utils/StbImageImpl.cpp src/Utils/myn/ShaderSimulator.cpp src/Utils/myn/SkyAtmosphereSim.cpp)
+
 if(APPLE)
 	add_definitions(-DMACOS)
 
@@ -119,6 +123,9 @@ if(APPLE)
 	)
 
 	add_executable(asz ${ASZELEA_SRC})
+	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.a)
+
+	add_executable(vin ${VINCENT_SRC})
 	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.a)
 endif(APPLE)
 
@@ -136,10 +143,12 @@ if(WIN32)
 	set_target_properties(ellyn PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
 	add_executable(asz WIN32 ${ASZELEA_SRC})
-	target_link_libraries(asz
-		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
-		)
+	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.lib)
 	set_target_properties(asz PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+
+	add_executable(vin ${VINCENT_SRC})
+	target_link_libraries(vin ${CMAKE_SOURCE_DIR}/lib/libconfig++.lib)
+	set_target_properties(vin PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
 	configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} SDL2.dll COPYONLY)
 	configure_file(lib/libconfig++.dll ${ellyn_BINARY_DIR} libconfig++.dll COPYONLY)
@@ -153,6 +162,7 @@ target_include_directories(ellyn PUBLIC include/imgui)
 
 target_compile_definitions(ellyn PRIVATE GRAPHICS_DISPLAY=1)
 target_compile_definitions(asz PRIVATE GRAPHICS_DISPLAY=0)
+target_compile_definitions(vin PRIVATE GRAPHICS_DISPLAY=0)
 
 add_definitions(-DROOT_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
