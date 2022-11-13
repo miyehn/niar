@@ -51,6 +51,46 @@ vec2 viewDirToUv_longlat(vec3 dir) {
 	return uv;
 }
 
+
+vec2 UvToViewHeightCosViewZenith(float bottomRadius, float topRadius, vec2 uv) {
+	//uv = float2(fromSubUvsToUnit(uv.x, TRANSMITTANCE_TEXTURE_WIDTH), fromSubUvsToUnit(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT)); // No real impact so off
+	float x_mu = uv.x;
+	float x_r = uv.y;
+
+	float viewHeight;
+	float viewZenithCosAngle;
+
+	float H = sqrt(topRadius * topRadius - bottomRadius * bottomRadius);
+	float rho = H * x_r;
+	viewHeight = sqrt(rho * rho + bottomRadius * bottomRadius);
+
+	float d_min = topRadius - viewHeight;
+	float d_max = rho + H;
+	float d = d_min + x_mu * (d_max - d_min);
+
+	// well ok. makes geometric sense now. made a tiny change to show I understood the code..
+	viewZenithCosAngle = d == 0.0 ? 1.0f : (topRadius * topRadius - viewHeight * viewHeight - d * d) / (2.0 * viewHeight * d);
+	viewZenithCosAngle = clamp(viewZenithCosAngle, -1.0f, 1.0f);
+
+	return vec2(viewHeight, viewZenithCosAngle);
+}
+
+vec2 ViewHeightCosViewZenithToUv(float bottomRadius, float topRadius, float viewHeight, float viewZenithCosAngle) {
+	float discriminant = viewHeight * viewHeight * (viewZenithCosAngle * viewZenithCosAngle - 1.0) + topRadius * topRadius;
+	float d = max(0.0f, (-viewHeight * viewZenithCosAngle + sqrt(discriminant))); // Distance to atmosphere boundary
+
+	float H = sqrt(max(0.0f, topRadius * topRadius - bottomRadius * bottomRadius));
+	float rho = sqrt(max(0.0f, viewHeight * viewHeight - bottomRadius * bottomRadius));
+
+	float d_min = topRadius - viewHeight;
+	float d_max = rho + H;
+	float x_mu = (d - d_min) / (d_max - d_min);
+	float x_r = rho / H;
+
+	return vec2(x_mu, x_r);
+	//uv = float2(fromUnitToSubUvs(uv.x, TRANSMITTANCE_TEXTURE_WIDTH), fromUnitToSubUvs(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT)); // No real impact so off
+}
+
 // took this straight from sample code because I'm too lazy to write my own
 // - r0: ray origin
 // - rd: normalized ray direction
@@ -212,8 +252,19 @@ vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 ea
 	return vec2(tMin, tMax);
 }
 
+void TransmittanceLutSim::runSim() {
+	auto texdim = uvec2(output->getWidth(), output->getHeight());
+	dispatchShader([&](uint32_t x, uint32_t y) {
+		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
+		vec2 transmittanceLutParams = UvToViewHeightCosViewZenith(6360, 6460, uv);
+		vec2 uvBack = ViewHeightCosViewZenithToUv(6360, 6460, transmittanceLutParams.x, transmittanceLutParams.y);
+		vec2 diff = vec2(abs(uvBack.x - uv.x), abs(uvBack.y - uv.y));
+		return vec4(diff.x, diff.y, 0.0f, 1);
+	});
+}
+
 void SkyAtmosphereSim::runSim() {
-	auto texdim = uvec2(outputTexture.getWidth(), outputTexture.getHeight());
+	auto texdim = uvec2(output->getWidth(), output->getHeight());
 
 	// parameters
 	// the paper labeled extinction as absorption which is wrong, fuck
@@ -249,8 +300,9 @@ void SkyAtmosphereSim::runSim() {
 
 	// earth space: origin at center of planet
 	vec3 cameraPosWS = {0, 0, 500};
-	vec3 dir2sun = normalize(vec3(1, 0, -0.01f));
+	vec3 dir2sun = normalize(vec3(1, 0, 0.03f));
 	vec3 sunL = vec3(1);
+	vec2 numSamplesMinMax = vec2(32, 128);
 
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
@@ -280,23 +332,29 @@ void SkyAtmosphereSim::runSim() {
 			vec3 L = vec3(0);
 			vec3 sunContribThroughput = vec3(1);
 
-			float numSamplesF = 64.0f; // todo: variable sample count
+#if 0 // fixed samples count
+			float numSamplesF = 64.0f;
+#else
+			float upness = 1.0f - clamp(dot(normalize(cameraPosES), viewDir), 0.0f, 1.0f);
+			float numSamplesF = floor(mix(numSamplesMinMax.x, numSamplesMinMax.y, upness));
+#endif
 			const float sampleSegmentT = 0.3f;
 			float t = 0;
 
-			int numSamplesI = floor(numSamplesF);
-			for (int i = 0; i < numSamplesI; i++) {
+			for (float i = 0; i < numSamplesF; i += 1.0f) {
 				// loop variables
-				float newT = tMax * ((float(i) + sampleSegmentT) / numSamplesF);
+				float newT01 = (i + sampleSegmentT) / numSamplesF;
+				float newT = tMax * newT01;
 				float dt = newT - t;
 				t = newT;
 				vec3 samplePosES = cameraPosES + t * viewDir;
 
-				AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere,
-																	 length(samplePosES) - atmosphere.bottomRadius);
+				// atmosphere sample
+				AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
+
 				vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, samplePosES, dir2sun);
-				vec3 phaseTimesScattering =
-					atmosphereSample.mieScattering * miePhase + atmosphereSample.rayleighScattering * rayleighPhase;
+
+				vec3 phaseTimesScattering = atmosphereSample.mieScattering * miePhase + atmosphereSample.rayleighScattering * rayleighPhase;
 
 				// earth shadow
 				float tEarth = raySphereIntersectNearest(samplePosES, dir2sun, earthCenterES, atmosphere.bottomRadius);
@@ -316,12 +374,7 @@ void SkyAtmosphereSim::runSim() {
 
 			} // end for (raymarch along view ray)
 
-			vec3 white_point = vec3(1.08241, 0.96756, 0.95003);
-			float exposure = 10.0;
-			vec3 base = 1.0f - exp(-L / white_point * exposure);
-			vec3 exponent = vec3(1.0f / 2.2f);
-			vec3 res = pow(base, exponent);
-			return vec4(res, 1.0f);
+			return vec4(L, 1.0f);
 
 		} // end if (shouldRaymarch)
 
@@ -329,5 +382,21 @@ void SkyAtmosphereSim::runSim() {
 
 	});
 }
+
+void sky::SkyAtmospherePostProcess::runSim() {
+	ASSERT(input != nullptr && output != nullptr)
+	ASSERT(input != output)
+	auto texdim = uvec2(output->getWidth(), output->getHeight());
+	dispatchShader([&](uint32_t x, uint32_t y) {
+		auto raw = input->loadTexel(x, y);
+		vec3 white_point = vec3(1.08241, 0.96756, 0.95003);
+		float exposure = 10.0;
+		vec3 base = 1.0f - exp(-vec3(raw.x, raw.y, raw.z) / white_point * exposure);
+		vec3 exponent = vec3(1.0f / 2.2f);
+		vec3 res = pow(base, exponent);
+		return vec4(res, 1.0f);
+	});
 }
+
+} // namespace myn::sky
 

@@ -16,7 +16,7 @@ public:
 
 	void storeTexel(int x, int y, const glm::vec4 &col);
 
-	glm::vec4 loadTexel(int x, int y);
+	glm::vec4 loadTexel(int x, int y) const;
 
 	void writeFile(const std::string &filename, bool gammaCorrect, bool openFile) const;
 

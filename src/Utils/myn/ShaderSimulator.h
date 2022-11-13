@@ -13,27 +13,44 @@ namespace myn
 {
 class ShaderSimulator {
 public:
-	ShaderSimulator(int width, int height);
+	explicit ShaderSimulator(CpuTexture* outputTexture);
 
 	virtual void runSim();
-
-	const CpuTexture& getOutputTexture() { return outputTexture; }
 
 protected:
 
 	void dispatchShader(const std::function<glm::vec4(uint32_t, uint32_t)> &kernel);
 
-	CpuTexture outputTexture;
+	// note: shader does not own the output.
+	CpuTexture* output = nullptr;
 };
 
 namespace sky {
 
-class SkyAtmosphereSim : public ShaderSimulator {
+class TransmittanceLutSim : public ShaderSimulator {
 public:
-	SkyAtmosphereSim(int width, int height)
-		: ShaderSimulator(width, height) {}
+	explicit TransmittanceLutSim(CpuTexture* outputTexture)
+	: ShaderSimulator(outputTexture) {}
 
 	void runSim() override;
+};
+
+class SkyAtmosphereSim : public ShaderSimulator {
+public:
+	explicit SkyAtmosphereSim(CpuTexture* outputTexture)
+		: ShaderSimulator(outputTexture) {}
+
+	void runSim() override;
+};
+
+class SkyAtmospherePostProcess : public ShaderSimulator {
+public:
+	explicit SkyAtmospherePostProcess(CpuTexture* outputTexture)
+	: ShaderSimulator(outputTexture) {}
+
+	void runSim() override;
+
+	const CpuTexture* input = nullptr;
 };
 
 } // namespace sky

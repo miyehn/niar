@@ -16,7 +16,7 @@ void CpuTexture::storeTexel(int x, int y, const glm::vec4 &col) {
 	buffer[y * width + x] = col;
 }
 
-glm::vec4 CpuTexture::loadTexel(int x, int y) {
+glm::vec4 CpuTexture::loadTexel(int x, int y) const {
 	return buffer[y * width + x];
 }
 

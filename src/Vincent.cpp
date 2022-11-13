@@ -4,6 +4,7 @@
 
 #include "Utils/myn/Log.h"
 #include "Utils/myn/ShaderSimulator.h"
+#include "Utils/myn/CpuTexture.h"
 #include <cxxopts/cxxopts.hpp>
 
 int main(int argc, const char * argv[])
@@ -28,9 +29,22 @@ int main(int argc, const char * argv[])
 
 	LOG("output path: %s", output_path.c_str())
 
-	myn::sky::SkyAtmosphereSim sim(width, height);
+	myn::CpuTexture tex(width, height);
+	myn::sky::TransmittanceLutSim sim(&tex);
 	sim.runSim();
-	sim.getOutputTexture().writeFile(output_path, false, true);
+	tex.writeFile(output_path, false, true);
+
+	/*
+	myn::sky::SkyAtmosphereSim sim(&tex);
+	sim.runSim();
+
+	myn::CpuTexture texCopy(tex);
+	myn::sky::SkyAtmospherePostProcess post(&texCopy);
+	post.input = &tex; // as read-only shader resource
+	post.runSim();
+
+	texCopy.writeFile(output_path, false, true);
+	 */
 
 	return 0;
 }
