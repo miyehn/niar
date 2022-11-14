@@ -30,51 +30,71 @@ int main(int argc, const char * argv[])
 
 	LOG("output path: %s", output_path.c_str())
 
-#if 1
+	/////////////////////////////////////////////////////////////////////////////
+
+	myn::sky::SkyAtmosphereRenderingParams params = {
+		.cameraPosWS = glm::vec3(200, 300, 500),
+		.dir2sun = glm::normalize(glm::vec3(1, 1, 0.2f)),
+		.sunLuminance = {1, 1, 1},
+		.skyViewNumSamplesMinMax = {32, 128},
+		.exposure = 10
+	};
+
+	auto& atmosphere = params.atmosphere;
+	float mieScattering = 0.003996f;
+	float mieExtinction = 0.00440f;
+	float mieAbsorption = mieExtinction - mieScattering;
+	atmosphere = {
+		.bottomRadius = 6360,
+		.topRadius = 6460,
+		.rayleighScattering = {
+			5.802f * 1e-3,
+			13.558f * 1e-3,
+			33.1f * 1e-3
+		},
+		// rayleigh absorption = 0
+		.mieScattering = {
+			mieScattering, mieScattering, mieScattering
+		},
+		.mieAbsorption = {
+			mieAbsorption, mieAbsorption, mieAbsorption
+		},
+		.miePhaseG = 0.8f,
+		// ozone scattering = 0
+		.ozoneAbsorption = {
+			0.650f * 1e-3,
+			1.881f * 1e-3,
+			0.085f * 1e-3
+		},
+		.ozoneMeanHeight = 25,
+		.ozoneLayerWidth = 30,
+		.groundAlbedo = {0.3f, 0.3f, 0.3f}
+	};
+
 	// transmittance lut
-	myn::CpuTexture transmittanceLut(192, 108);
+	myn::CpuTexture transmittanceLut(256, 64);
 	myn::sky::TransmittanceLutSim transmittanceSim(&transmittanceLut);
+	transmittanceSim.atmosphere = &atmosphere;
 	transmittanceSim.runSim();
 
-	myn::CpuTexture tex(256, 128);
-	myn::sky::DebugTestSim sim(&tex);
-	sim.input = &transmittanceLut;
-	sim.runSim();
+	// sky view lut
+	myn::CpuTexture skyViewLut(192, 108);
+	myn::sky::SkyViewLutSim skyViewSim(&skyViewLut);
+	skyViewSim.transmittanceLut = &transmittanceLut;
+	skyViewSim.renderingParams = &params;
+	skyViewSim.runSim();
 
 	// post-processed sky texture
-	myn::CpuTexture skyTexCopy(tex);
-	myn::sky::SkyAtmospherePostProcess post(&skyTexCopy);
-	post.input = &tex; // as read-only shader resource
+	//myn::CpuTexture skyTextureRaw(width, height);
+	// todo: transform sky view lut into a long-lat map
+
+	myn::CpuTexture skyTexturePostProcessed(width, height);
+	myn::sky::SkyAtmospherePostProcess post(&skyTexturePostProcessed);
+	post.skyTextureRaw = &skyViewLut; // as read-only shader resource
+	post.renderingParams = &params;
 	post.runSim();
 
-	skyTexCopy.writeFile("debug.png", false, true);
-#else
-
-	TIMER_BEGIN
-
-	// transmittance lut
-	myn::CpuTexture transmittanceLut(192, 108);
-	myn::sky::TransmittanceLutSim transmittanceSim(&transmittanceLut);
-	transmittanceSim.runSim();
-
-	// sky texture
-	myn::CpuTexture skyTex(width, height);
-	myn::sky::SkyAtmosphereSim skySim(&skyTex);
-	skySim.transmittanceLut = &transmittanceLut;
-	skySim.runSim();
-
-	// post-processed sky texture
-	myn::CpuTexture skyTexCopy(skyTex);
-	myn::sky::SkyAtmospherePostProcess post(&skyTexCopy);
-	post.input = &skyTex; // as read-only shader resource
-	post.runSim();
-
-	TIMER_END(simTime)
-
-	LOG("done. took %.3f secs", simTime)
-
-	skyTexCopy.writeFile(output_path, false, true);
-#endif
+	skyTexturePostProcessed.writeFile("debug.png", false, true);
 
 	return 0;
 }

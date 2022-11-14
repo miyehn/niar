@@ -6,28 +6,6 @@ using namespace glm;
 
 namespace myn::sky {
 
-struct AtmosphereParams {
-	float bottomRadius;
-	float topRadius;
-
-	vec3 rayleighScattering;
-	// rayleigh absorption = 0
-
-	vec3 mieScattering;
-	vec3 mieAbsorption;
-
-	float miePhaseG;
-
-	// ozone scattering = 0
-	vec3 ozoneAbsorption;
-
-	// ozone distribution
-	float ozoneMeanHeight;
-	float ozoneLayerWidth;
-
-	vec3 groundAlbedo;
-};
-
 struct AtmosphereSample {
 	vec3 rayleighScattering;
 	vec3 mieScattering;
@@ -99,35 +77,53 @@ vec2 TransmittanceLutParamsToUv(float bottomRadius, float topRadius, float viewH
 	return vec2(x_mu, x_r);
 }
 
-vec2 SkyViewLutParamsToUv(vec3 dir2zenith, vec3 dir2sun, vec3 viewDir) {
-	vec2 uv;
+vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir) {
+	vec3 dir2zenith = normalize(cameraPosES);
 
 	vec3 dir2sunHorizontal = projectToPerpendicularPlane(dir2sun, dir2zenith);
 	if (dir2sunHorizontal.x == 0 && dir2sunHorizontal.y == 0 && dir2sunHorizontal.z == 0) {
+		// sun is straight above head
 		dir2sunHorizontal.x = 1;
+		DEBUG_BREAK
 	} else {
 		dir2sunHorizontal = normalize(dir2sunHorizontal);
 	}
 
 	vec3 viewDirHorizontal = projectToPerpendicularPlane(viewDir, dir2zenith);
 	if (viewDirHorizontal.x == 0 && viewDirHorizontal.y == 0 && viewDirHorizontal.z == 0) {
+		// looking straight above head
 		viewDirHorizontal.x = 1;
+		DEBUG_BREAK
 	} else {
 		viewDirHorizontal = normalize(viewDirHorizontal);
 	}
 
-	uv.x = dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
+	// want: viewSunCosine (horizontal), viewZenithCosine
 
+	vec2 uv;
+	uv.x = dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
 	uv.y = dot(viewDir, dir2zenith) * 0.5f + 0.5f;
 	return uv;
 }
 
-vec2 UvToSkyViewLutParams(vec2 uv) {
+void UvToSkyViewLutParams(
+	vec2 uv, vec3 cameraPosES, vec3 dir2sun,
+	vec3& cameraPosESProxy, vec3& viewDirProxy, vec3& dir2sunProxy){
 
-	float viewSunCosine = uv.x * 2.0f - 1.0f;
-	float viewZenithCosine = uv.y * 2.0f - 1.0f;
+	float viewSunCosine = 1.0f - uv.x * 2.0f; // horizontal, [1, -1]
+	float viewZenithCosine = 1.0f - uv.y * 2.0f; // vertical, [1, -1]
+	float sunZenithCosine = dot(dir2sun, normalize(cameraPosES));
 
-	return vec2(viewSunCosine, viewZenithCosine);
+	// use these proxy params (instead of the true ones) to compute the lut
+	dir2sunProxy = normalize(vec3(sqrt(1.0f - sunZenithCosine * sunZenithCosine), 0, sunZenithCosine));
+	cameraPosESProxy = vec3(0.0f, 0.0f, length(cameraPosES));
+
+	float viewZenithSine = sqrt(1.0f - viewZenithCosine * viewZenithCosine);
+	float viewSunSine = sqrt(1.0f - viewSunCosine * viewSunCosine);
+	viewDirProxy = normalize(vec3(
+		viewZenithSine * viewSunCosine,
+		viewZenithSine * viewSunSine,
+		viewZenithCosine));
 }
 
 // took this straight from sample code because I'm too lazy to write my own
@@ -178,7 +174,7 @@ float computeHgPhase(float g, float cosTheta) {
 #endif
 }
 
-AtmosphereSample sampleAtmosphere(AtmosphereParams atmosphere, float heightFromGroundKM) {
+AtmosphereSample sampleAtmosphere(AtmosphereProfile atmosphere, float heightFromGroundKM) {
 	heightFromGroundKM = max(0.0f, heightFromGroundKM); // if underground, clamp to ground.
 
 	float rayleighDensity = exp(-heightFromGroundKM * 0.125f);
@@ -200,7 +196,7 @@ AtmosphereSample sampleAtmosphere(AtmosphereParams atmosphere, float heightFromG
 }
 
 // assume sample pos is within the atmosphere already
-vec3 computeTransmittanceToSun(AtmosphereParams atmosphere, float viewHeight, float viewZenithCosine) {
+vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, float viewZenithCosine) {
 
 	float discriminant = viewHeight * viewHeight * (viewZenithCosine * viewZenithCosine - 1.0) + atmosphere.topRadius * atmosphere.topRadius;
 	float distToAtmosphereTop = max(0.0f, (-viewHeight * viewZenithCosine + sqrt(discriminant))); // Distance to atmosphere boundary
@@ -286,7 +282,7 @@ vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 ea
 }
 
 vec3 computeSkyAtmosphere(
-	AtmosphereParams atmosphere,
+	AtmosphereProfile atmosphere,
 	const CpuTexture* transmittanceLut,
 	vec3 cameraPosES,
 	vec3 viewDir,
@@ -378,39 +374,10 @@ vec3 computeSkyAtmosphere(
 
 void TransmittanceLutSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
-	float mieScattering = 0.003996f;
-	float mieExtinction = 0.00440f;
-	float mieAbsorption = mieExtinction - mieScattering;
-	AtmosphereParams atmosphere = {
-		.bottomRadius = 6360,
-		.topRadius = 6460,
-		.rayleighScattering = {
-			5.802f * 1e-3,
-			13.558f * 1e-3,
-			33.1f * 1e-3
-		},
-		// rayleigh absorption = 0
-		.mieScattering = {
-			mieScattering, mieScattering, mieScattering
-		},
-		.mieAbsorption = {
-			mieAbsorption, mieAbsorption, mieAbsorption
-		},
-		.miePhaseG = 0.8f,
-		// ozone scattering = 0
-		.ozoneAbsorption = {
-			0.650f * 1e-3,
-			1.881f * 1e-3,
-			0.085f * 1e-3
-		},
-		.ozoneMeanHeight = 25,
-		.ozoneLayerWidth = 30,
-		.groundAlbedo = {0.3f, 0.3f, 0.3f}
-	};
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
-		vec2 transmittanceLutParams = UvToTransmittanceLutParams(atmosphere.bottomRadius, atmosphere.topRadius, uv);
-		vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, transmittanceLutParams.x, transmittanceLutParams.y);
+		vec2 transmittanceLutParams = UvToTransmittanceLutParams(atmosphere->bottomRadius, atmosphere->topRadius, uv);
+		vec3 transmittanceToSun = computeTransmittanceToSun(*atmosphere, transmittanceLutParams.x, transmittanceLutParams.y);
 		return vec4(transmittanceToSun, 1);
 	});
 }
@@ -418,44 +385,7 @@ void TransmittanceLutSim::runSim() {
 void SkyAtmosphereSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
 
-	// parameters
-	// the paper labeled extinction as absorption which is wrong, fuck
-	float mieScattering = 0.003996f;
-	float mieExtinction = 0.00440f;
-	float mieAbsorption = mieExtinction - mieScattering;
-	AtmosphereParams atmosphere = {
-		.bottomRadius = 6360,
-		.topRadius = 6460,
-		.rayleighScattering = {
-			5.802f * 1e-3,
-			13.558f * 1e-3,
-			33.1f * 1e-3
-		},
-		// rayleigh absorption = 0
-		.mieScattering = {
-			mieScattering, mieScattering, mieScattering
-		},
-		.mieAbsorption = {
-			mieAbsorption, mieAbsorption, mieAbsorption
-		},
-		.miePhaseG = 0.8f,
-		// ozone scattering = 0
-		.ozoneAbsorption = {
-			0.650f * 1e-3,
-			1.881f * 1e-3,
-			0.085f * 1e-3
-		},
-		.ozoneMeanHeight = 25,
-		.ozoneLayerWidth = 30,
-		.groundAlbedo = {0.3f, 0.3f, 0.3f}
-	};
-
-	// earth space: origin at center of planet
-	vec3 cameraPosWS = {0, 0, 500};
-	vec3 dir2sun = normalize(vec3(1, 0, 0.03f));
-	vec3 sunLuminance = vec3(1);
-	vec2 numSamplesMinMax = vec2(32, 128);
-
+	/*
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
 		vec3 viewDir = uvToViewDir_longlat(uv);
@@ -467,88 +397,43 @@ void SkyAtmosphereSim::runSim() {
 
 		return vec4(result, 1.0f);
 	});
+	 */
 }
 
 void sky::SkyAtmospherePostProcess::runSim() {
-	ASSERT(input != nullptr && output != nullptr)
-	ASSERT(input != output)
+	ASSERT(skyTextureRaw != nullptr && output != nullptr)
+	ASSERT(skyTextureRaw != output)
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
 	dispatchShader([&](uint32_t x, uint32_t y) {
-		auto raw = input->loadTexel(x, y);
+		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
+		auto raw = skyTextureRaw->sampleBilinear(uv, CpuTexture::WM_Clamp);
 		vec3 white_point = vec3(1.08241, 0.96756, 0.95003);
-		float exposure = 10.0;
-		vec3 base = 1.0f - exp(-vec3(raw.x, raw.y, raw.z) / white_point * exposure);
+		vec3 base = 1.0f - exp(-vec3(raw.x, raw.y, raw.z) / white_point * renderingParams->exposure);
 		vec3 exponent = vec3(1.0f / 2.2f);
 		vec3 res = pow(base, exponent);
 		return vec4(res, 1.0f);
 	});
 }
 
-void sky::DebugTestSim::runSim() {
-	vec3 cameraPosWS = vec3(100.0f, 300.0f, 40000.0f);
-	vec3 dir2sun = normalize(vec3(1.0f, 1.0f, 1.0f));
+void sky::SkyViewLutSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
-	float bottomRadius = 6360.0f;
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
-		vec3 cameraPosES = ws2es(cameraPosWS, bottomRadius);
+		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
 
-		float viewSunCosine = 1.0f - uv.x * 2.0f; // horizontal, [1, -1]
-		float viewZenithCosine = 1.0f - uv.y * 2.0f; // vertical, [1, -1]
-		float sunZenithCosine = dot(dir2sun, normalize(cameraPosES));
-
-		// use these proxy params (instead of the true ones) to compute the lut
-		vec3 dir2sunProxy = normalize(vec3(sqrt(1.0f - sunZenithCosine * sunZenithCosine), 0, sunZenithCosine));
-		vec3 cameraPosESProxy = vec3(0.0f, 0.0f, length(cameraPosES));
-
-		float viewZenithSine = sqrt(1.0f - viewZenithCosine * viewZenithCosine);
-		float viewSunSine = sqrt(1.0f - viewSunCosine * viewSunCosine);
-		vec3 viewDirProxy = normalize(vec3(
-			viewZenithSine * viewSunCosine,
-			viewZenithSine * viewSunSine,
-			viewZenithCosine));
-
-		float mieScattering = 0.003996f;
-		float mieExtinction = 0.00440f;
-		float mieAbsorption = mieExtinction - mieScattering;
-		AtmosphereParams atmosphere = {
-			.bottomRadius = 6360,
-			.topRadius = 6460,
-			.rayleighScattering = {
-				5.802f * 1e-3,
-				13.558f * 1e-3,
-				33.1f * 1e-3
-			},
-			// rayleigh absorption = 0
-			.mieScattering = {
-				mieScattering, mieScattering, mieScattering
-			},
-			.mieAbsorption = {
-				mieAbsorption, mieAbsorption, mieAbsorption
-			},
-			.miePhaseG = 0.8f,
-			// ozone scattering = 0
-			.ozoneAbsorption = {
-				0.650f * 1e-3,
-				1.881f * 1e-3,
-				0.085f * 1e-3
-			},
-			.ozoneMeanHeight = 25,
-			.ozoneLayerWidth = 30,
-			.groundAlbedo = {0.3f, 0.3f, 0.3f}
-		};
-
-		// earth space: origin at center of planet
-		vec3 sunLuminance = vec3(1);
-		vec2 numSamplesMinMax = vec2(32, 128);
+		vec3 cameraPosESProxy, viewDirProxy, dir2sunProxy;
+		UvToSkyViewLutParams(uv, cameraPosES, renderingParams->dir2sun, cameraPosESProxy, viewDirProxy, dir2sunProxy);
 
 		vec3 L = computeSkyAtmosphere(
-			atmosphere, input,
-			cameraPosESProxy, viewDirProxy, dir2sunProxy, vec3(1.0f), vec2(32, 128));
+			renderingParams->atmosphere, transmittanceLut,
+			cameraPosESProxy,
+			viewDirProxy,
+			dir2sunProxy,
+			renderingParams->sunLuminance,
+			renderingParams->skyViewNumSamplesMinMax);
 
 		return vec4(L, 1);
 	});
 }
 
 } // namespace myn::sky
-
