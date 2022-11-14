@@ -35,6 +35,17 @@ struct AtmosphereSample {
 	vec3 absorption;
 };
 
+vec3 ws2es(vec3 pos, float bottomRadius) {
+	vec3 res = pos * 0.001f;
+	res.z += bottomRadius;
+	return res;
+}
+
+vec3 projectToPerpendicularPlane(vec3 v, vec3 n) {
+	vec3 parallelComponent = dot(v, n) * n;
+	return v - parallelComponent;
+}
+
 vec3 uvToViewDir_longlat(vec2 uv) {
 	float theta = (uv.x - 0.5f) * TWO_PI;
 	float phi = (uv.y - 0.5f) * PI;
@@ -88,6 +99,37 @@ vec2 TransmittanceLutParamsToUv(float bottomRadius, float topRadius, float viewH
 	return vec2(x_mu, x_r);
 }
 
+vec2 SkyViewLutParamsToUv(vec3 dir2zenith, vec3 dir2sun, vec3 viewDir) {
+	vec2 uv;
+
+	vec3 dir2sunHorizontal = projectToPerpendicularPlane(dir2sun, dir2zenith);
+	if (dir2sunHorizontal.x == 0 && dir2sunHorizontal.y == 0 && dir2sunHorizontal.z == 0) {
+		dir2sunHorizontal.x = 1;
+	} else {
+		dir2sunHorizontal = normalize(dir2sunHorizontal);
+	}
+
+	vec3 viewDirHorizontal = projectToPerpendicularPlane(viewDir, dir2zenith);
+	if (viewDirHorizontal.x == 0 && viewDirHorizontal.y == 0 && viewDirHorizontal.z == 0) {
+		viewDirHorizontal.x = 1;
+	} else {
+		viewDirHorizontal = normalize(viewDirHorizontal);
+	}
+
+	uv.x = dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
+
+	uv.y = dot(viewDir, dir2zenith) * 0.5f + 0.5f;
+	return uv;
+}
+
+vec2 UvToSkyViewLutParams(vec2 uv) {
+
+	float viewSunCosine = uv.x * 2.0f - 1.0f;
+	float viewZenithCosine = uv.y * 2.0f - 1.0f;
+
+	return vec2(viewSunCosine, viewZenithCosine);
+}
+
 // took this straight from sample code because I'm too lazy to write my own
 // - r0: ray origin
 // - rd: normalized ray direction
@@ -115,19 +157,6 @@ float raySphereIntersectNearest(vec3 r0, vec3 rd, vec3 s0, float sR) {
 		return max(0.0f, sol0);
 	}
 	return max(0.0f, min(sol0, sol1));
-}
-
-vec3 ws2es(vec3 pos, float bottomRadius) {
-	vec3 res = pos * 0.001f;
-	res.z += bottomRadius;
-	return res;
-}
-
-vec3 es2ws(vec3 pos, float bottomRadius) {
-	vec3 res = pos;
-	res.z -= bottomRadius;
-	res *= 1000.0f;
-	return res;
 }
 
 float computeRayleighPhase(float cosTheta) {
@@ -204,8 +233,7 @@ vec3 sampleTransmittanceToSun(const CpuTexture *transmittanceLut, float bottomRa
 	return vec3(texel.r, texel.g, texel.b);
 }
 
-vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 earthCenterES, float bottomRadius,
-									  float topRadius) {
+vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 earthCenterES, float bottomRadius, float topRadius) {
 	// get the range to raymarch through
 	const float tBottom = raySphereIntersectNearest(startPosES, raymarchDir, earthCenterES, bottomRadius);
 	const float tTop = raySphereIntersectNearest(startPosES, raymarchDir, earthCenterES, topRadius);
@@ -255,6 +283,97 @@ vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 ea
 		}
 	}
 	return vec2(tMin, tMax);
+}
+
+vec3 computeSkyAtmosphere(
+	AtmosphereParams atmosphere,
+	const CpuTexture* transmittanceLut,
+	vec3 cameraPosES,
+	vec3 viewDir,
+	vec3 dir2sun,
+	vec3 sunLuminance,
+	vec2 numSamplesMinMax)
+{
+	vec3 earthCenterES = vec3(0);
+
+	vec2 tMinMax = computeRaymarchAtmosphereMinMaxT(cameraPosES, viewDir, earthCenterES, atmosphere.bottomRadius,
+													atmosphere.topRadius);
+	bool shouldRaymarch = tMinMax.x >= 0 && tMinMax.y >= 0;
+
+	if (shouldRaymarch) {
+
+		// prepare to actually raymarch: let [tmin, tmax] be [0, length of entire raymarch segment]
+		vec3 raymarchStartPosES = cameraPosES + tMinMax.x * viewDir;
+		float tMax = tMinMax.y - tMinMax.x;
+
+		// phase functions
+		float cosTheta_viewDir_dir2sun = dot(viewDir, dir2sun);
+		float rayleighPhase = computeRayleighPhase(cosTheta_viewDir_dir2sun);
+		float miePhase = computeHgPhase(atmosphere.miePhaseG, -cosTheta_viewDir_dir2sun);
+
+		// todo: wtf is this
+		//tMax = min(tMax, 200.0f);
+
+		vec3 L = vec3(0);
+		vec3 sunContribThroughput = vec3(1);
+
+#if 0 // fixed samples count
+		float numSamplesF = 64.0f;
+#else
+		float upness = 1.0f - clamp(dot(normalize(cameraPosES), viewDir), 0.0f, 1.0f);
+		float numSamplesF = floor(mix(numSamplesMinMax.x, numSamplesMinMax.y, upness));
+#endif
+		const float sampleSegmentT = 0.3f;
+		float t = 0;
+
+		for (float i = 0; i < numSamplesF; i += 1.0f) {
+			// loop variables
+			float newT01 = (i + sampleSegmentT) / numSamplesF;
+			float newT = tMax * newT01;
+			float dt = newT - t;
+			t = newT;
+			vec3 samplePosES = cameraPosES + t * viewDir;
+
+			// atmosphere sample
+			AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
+
+			float viewHeight = length(samplePosES);
+#if 1
+			vec3 transmittanceToSun = sampleTransmittanceToSun(
+				transmittanceLut,
+				atmosphere.bottomRadius,
+				atmosphere.topRadius,
+				viewHeight,
+				dot(samplePosES, dir2sun) / viewHeight);
+#else
+			vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, viewHeight, dot(samplePosES, dir2sun) / viewHeight);
+#endif
+
+			vec3 phaseTimesScattering = atmosphereSample.mieScattering * miePhase + atmosphereSample.rayleighScattering * rayleighPhase;
+
+			// earth shadow
+			float tEarth = raySphereIntersectNearest(samplePosES, dir2sun, earthCenterES, atmosphere.bottomRadius);
+			float sunVisibility = tEarth >= 0 ? 0 : 1;
+
+			// todo: add multiscattered light contribution here
+			vec3 sunContrib = sunLuminance * sunVisibility * transmittanceToSun * phaseTimesScattering;
+
+			vec3 segmentOpticalDepth = (atmosphereSample.scattering + atmosphereSample.absorption) * dt;
+			vec3 segmentTransmittance = exp(-segmentOpticalDepth);
+
+			// analytical solution to the integral along view ray segment (see sample code)
+			L += sunContribThroughput * (sunContrib - sunContrib * segmentTransmittance) /
+				 (atmosphereSample.scattering + atmosphereSample.absorption);
+
+			sunContribThroughput *= segmentTransmittance;
+
+		} // end for (raymarch along view ray)
+
+		return L;
+
+	} // end if (shouldRaymarch)
+
+	return vec3(0);
 }
 
 void TransmittanceLutSim::runSim() {
@@ -334,7 +453,7 @@ void SkyAtmosphereSim::runSim() {
 	// earth space: origin at center of planet
 	vec3 cameraPosWS = {0, 0, 500};
 	vec3 dir2sun = normalize(vec3(1, 0, 0.03f));
-	vec3 sunL = vec3(1);
+	vec3 sunLuminance = vec3(1);
 	vec2 numSamplesMinMax = vec2(32, 128);
 
 	dispatchShader([&](uint32_t x, uint32_t y) {
@@ -342,87 +461,11 @@ void SkyAtmosphereSim::runSim() {
 		vec3 viewDir = uvToViewDir_longlat(uv);
 
 		vec3 cameraPosES = ws2es(cameraPosWS, atmosphere.bottomRadius);
-		vec3 earthCenterES = vec3(0);
 
-		vec2 tMinMax = computeRaymarchAtmosphereMinMaxT(cameraPosES, viewDir, earthCenterES, atmosphere.bottomRadius,
-														atmosphere.topRadius);
-		bool shouldRaymarch = tMinMax.x >= 0 && tMinMax.y >= 0;
+		vec3 result = computeSkyAtmosphere(
+			atmosphere, transmittanceLut, cameraPosES, viewDir, dir2sun, sunLuminance, numSamplesMinMax);
 
-		if (shouldRaymarch) {
-
-			// prepare to actually raymarch: let [tmin, tmax] be [0, length of entire raymarch segment]
-			vec3 raymarchStartPosES = cameraPosES + tMinMax.x * viewDir;
-			float tMax = tMinMax.y - tMinMax.x;
-
-			// phase functions
-			float cosTheta_viewDir_dir2sun = dot(viewDir, dir2sun);
-			float rayleighPhase = computeRayleighPhase(cosTheta_viewDir_dir2sun);
-			float miePhase = computeHgPhase(atmosphere.miePhaseG, -cosTheta_viewDir_dir2sun);
-
-			// todo: wtf is this
-			//tMax = min(tMax, 200.0f);
-
-			vec3 L = vec3(0);
-			vec3 sunContribThroughput = vec3(1);
-
-#if 0 // fixed samples count
-			float numSamplesF = 64.0f;
-#else
-			float upness = 1.0f - clamp(dot(normalize(cameraPosES), viewDir), 0.0f, 1.0f);
-			float numSamplesF = floor(mix(numSamplesMinMax.x, numSamplesMinMax.y, upness));
-#endif
-			const float sampleSegmentT = 0.3f;
-			float t = 0;
-
-			for (float i = 0; i < numSamplesF; i += 1.0f) {
-				// loop variables
-				float newT01 = (i + sampleSegmentT) / numSamplesF;
-				float newT = tMax * newT01;
-				float dt = newT - t;
-				t = newT;
-				vec3 samplePosES = cameraPosES + t * viewDir;
-
-				// atmosphere sample
-				AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
-
-				float viewHeight = length(samplePosES);
-#if 1
-				vec3 transmittanceToSun = sampleTransmittanceToSun(
-					transmittanceLut,
-					atmosphere.bottomRadius,
-					atmosphere.topRadius,
-					viewHeight,
-					dot(samplePosES, dir2sun) / viewHeight);
-#else
-				vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, viewHeight, dot(samplePosES, dir2sun) / viewHeight);
-#endif
-
-				vec3 phaseTimesScattering = atmosphereSample.mieScattering * miePhase + atmosphereSample.rayleighScattering * rayleighPhase;
-
-				// earth shadow
-				float tEarth = raySphereIntersectNearest(samplePosES, dir2sun, earthCenterES, atmosphere.bottomRadius);
-				float sunVisibility = tEarth >= 0 ? 0 : 1;
-
-				// todo: add multiscattered light contribution here
-				vec3 sunContrib = sunL * sunVisibility * transmittanceToSun * phaseTimesScattering;
-
-				vec3 segmentOpticalDepth = (atmosphereSample.scattering + atmosphereSample.absorption) * dt;
-				vec3 segmentTransmittance = exp(-segmentOpticalDepth);
-
-				// analytical solution to the integral along view ray segment (see sample code)
-				L += sunContribThroughput * (sunContrib - sunContrib * segmentTransmittance) /
-					 (atmosphereSample.scattering + atmosphereSample.absorption);
-
-				sunContribThroughput *= segmentTransmittance;
-
-			} // end for (raymarch along view ray)
-
-			return vec4(L, 1.0f);
-
-		} // end if (shouldRaymarch)
-
-		return vec4(0, 0, 0, 1);
-
+		return vec4(result, 1.0f);
 	});
 }
 
@@ -438,6 +481,72 @@ void sky::SkyAtmospherePostProcess::runSim() {
 		vec3 exponent = vec3(1.0f / 2.2f);
 		vec3 res = pow(base, exponent);
 		return vec4(res, 1.0f);
+	});
+}
+
+void sky::DebugTestSim::runSim() {
+	vec3 cameraPosWS = vec3(100.0f, 300.0f, 40000.0f);
+	vec3 dir2sun = normalize(vec3(1.0f, 1.0f, 1.0f));
+	auto texdim = uvec2(output->getWidth(), output->getHeight());
+	float bottomRadius = 6360.0f;
+	dispatchShader([&](uint32_t x, uint32_t y) {
+		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
+		vec3 cameraPosES = ws2es(cameraPosWS, bottomRadius);
+
+		float viewSunCosine = 1.0f - uv.x * 2.0f; // horizontal, [1, -1]
+		float viewZenithCosine = 1.0f - uv.y * 2.0f; // vertical, [1, -1]
+		float sunZenithCosine = dot(dir2sun, normalize(cameraPosES));
+
+		// use these proxy params (instead of the true ones) to compute the lut
+		vec3 dir2sunProxy = normalize(vec3(sqrt(1.0f - sunZenithCosine * sunZenithCosine), 0, sunZenithCosine));
+		vec3 cameraPosESProxy = vec3(0.0f, 0.0f, length(cameraPosES));
+
+		float viewZenithSine = sqrt(1.0f - viewZenithCosine * viewZenithCosine);
+		float viewSunSine = sqrt(1.0f - viewSunCosine * viewSunCosine);
+		vec3 viewDirProxy = normalize(vec3(
+			viewZenithSine * viewSunCosine,
+			viewZenithSine * viewSunSine,
+			viewZenithCosine));
+
+		float mieScattering = 0.003996f;
+		float mieExtinction = 0.00440f;
+		float mieAbsorption = mieExtinction - mieScattering;
+		AtmosphereParams atmosphere = {
+			.bottomRadius = 6360,
+			.topRadius = 6460,
+			.rayleighScattering = {
+				5.802f * 1e-3,
+				13.558f * 1e-3,
+				33.1f * 1e-3
+			},
+			// rayleigh absorption = 0
+			.mieScattering = {
+				mieScattering, mieScattering, mieScattering
+			},
+			.mieAbsorption = {
+				mieAbsorption, mieAbsorption, mieAbsorption
+			},
+			.miePhaseG = 0.8f,
+			// ozone scattering = 0
+			.ozoneAbsorption = {
+				0.650f * 1e-3,
+				1.881f * 1e-3,
+				0.085f * 1e-3
+			},
+			.ozoneMeanHeight = 25,
+			.ozoneLayerWidth = 30,
+			.groundAlbedo = {0.3f, 0.3f, 0.3f}
+		};
+
+		// earth space: origin at center of planet
+		vec3 sunLuminance = vec3(1);
+		vec2 numSamplesMinMax = vec2(32, 128);
+
+		vec3 L = computeSkyAtmosphere(
+			atmosphere, input,
+			cameraPosESProxy, viewDirProxy, dir2sunProxy, vec3(1.0f), vec2(32, 128));
+
+		return vec4(L, 1);
 	});
 }
 

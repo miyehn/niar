@@ -30,17 +30,24 @@ int main(int argc, const char * argv[])
 
 	LOG("output path: %s", output_path.c_str())
 
-#if 0
-	myn::CpuTexture tex(width, height);
-	myn::sky::TransmittanceLutSim sim(&tex);
+#if 1
+	// transmittance lut
+	myn::CpuTexture transmittanceLut(192, 108);
+	myn::sky::TransmittanceLutSim transmittanceSim(&transmittanceLut);
+	transmittanceSim.runSim();
+
+	myn::CpuTexture tex(256, 128);
+	myn::sky::DebugTestSim sim(&tex);
+	sim.input = &transmittanceLut;
 	sim.runSim();
 
-	myn::CpuTexture sampled(64, 64);
-	myn::sky::SamplingTestSim sampleTest(&sampled);
-	sampleTest.input = &tex;
-	sampleTest.runSim();
+	// post-processed sky texture
+	myn::CpuTexture skyTexCopy(tex);
+	myn::sky::SkyAtmospherePostProcess post(&skyTexCopy);
+	post.input = &tex; // as read-only shader resource
+	post.runSim();
 
-	sampled.writeFile("sampled_transmittance.png", false, true);
+	skyTexCopy.writeFile("debug.png", false, true);
 #else
 
 	TIMER_BEGIN

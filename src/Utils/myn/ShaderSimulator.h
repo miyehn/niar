@@ -27,9 +27,9 @@ protected:
 
 namespace sky {
 
-class SamplingTestSim : public ShaderSimulator {
+class DebugTestSim : public ShaderSimulator {
 public:
-	explicit SamplingTestSim(CpuTexture* outputTexture)
+	explicit DebugTestSim(CpuTexture* outputTexture)
 	: ShaderSimulator(outputTexture) {}
 
 	void runSim() override;
