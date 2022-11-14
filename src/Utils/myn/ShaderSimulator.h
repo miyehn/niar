@@ -56,6 +56,7 @@ struct SkyAtmosphereRenderingParams {
 	glm::vec3 sunLuminance;
 	glm::vec2 skyViewNumSamplesMinMax;
 	float exposure;
+	float sunAngularRadius;
 };
 
 class SkyViewLutSim : public ShaderSimulator {
@@ -83,6 +84,7 @@ public:
 		: ShaderSimulator(outputTexture) {}
 	void runSim() override;
 
+	const CpuTexture* transmittanceLut = nullptr;
 	const CpuTexture* skyViewLut = nullptr;
 	const SkyAtmosphereRenderingParams* renderingParams = nullptr;
 };

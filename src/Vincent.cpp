@@ -33,11 +33,12 @@ int main(int argc, const char * argv[])
 	/////////////////////////////////////////////////////////////////////////////
 
 	myn::sky::SkyAtmosphereRenderingParams params = {
-		.cameraPosWS = glm::vec3(200, 300, 1000),
-		.dir2sun = glm::normalize(glm::vec3(0, 0, 1)),
+		.cameraPosWS = glm::vec3(200, 300, 200),
+		.dir2sun = glm::normalize(glm::vec3(1, 2, -0.1)),
 		.sunLuminance = {1, 1, 1},
 		.skyViewNumSamplesMinMax = {32, 128},
-		.exposure = 10
+		.exposure = 10,
+		.sunAngularRadius = 0.004675f
 	};
 
 	auto& atmosphere = params.atmosphere;
@@ -104,6 +105,7 @@ int main(int argc, const char * argv[])
 		TIMER_BEGIN
 		myn::sky::SkyAtmosphereSim mainSim(&skyTextureRaw);
 		mainSim.renderingParams = &params;
+		mainSim.transmittanceLut = &transmittanceLut;
 		mainSim.skyViewLut = &skyViewLut;
 		mainSim.runSim();
 		TIMER_END(tComposite)

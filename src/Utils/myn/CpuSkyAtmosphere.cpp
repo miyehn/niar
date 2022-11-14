@@ -96,6 +96,9 @@ vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir) {
 		viewDirHorizontal = normalize(viewDirHorizontal);
 	}
 
+	// non-linear mapping: can transform uv here depending on the sign of dot(viewDir, dir2zenith),
+	// but when decoding uv there would be no way to know where the division happens...
+	// in other words there's no single transform function that applies, because the horizon could appear anywhere
 	vec2 uv;
 	uv.x = -dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
 	uv.y = -dot(viewDir, dir2zenith) * 0.5f + 0.5f;
@@ -387,9 +390,22 @@ void SkyAtmosphereSim::runSim() {
 		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
 
 		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams->dir2sun, viewDir);
-		vec3 result = skyViewLut->sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
+		vec3 L = skyViewLut->sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
 
-		return vec4(result, 1.0f);
+		// sun
+		if (dot(viewDir, renderingParams->dir2sun) > cos(renderingParams->sunAngularRadius)) {
+			vec3 transmittanceToSun = sampleTransmittanceToSun(
+				transmittanceLut,
+				renderingParams->atmosphere.bottomRadius,
+				renderingParams->atmosphere.topRadius,
+				length(cameraPosES),
+				dot(viewDir, normalize(cameraPosES)));
+			float sunVisibility = raySphereIntersectNearest(
+				cameraPosES, viewDir, vec3(0), renderingParams->atmosphere.bottomRadius) >= 0 ? 0 : 1;
+			L += transmittanceToSun * sunVisibility * renderingParams->sunLuminance;
+		}
+
+		return vec4(L, 1.0f);
 	});
 }
 
