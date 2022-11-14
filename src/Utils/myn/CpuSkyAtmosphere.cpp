@@ -77,8 +77,12 @@ vec2 TransmittanceLutParamsToUv(float bottomRadius, float topRadius, float viewH
 	return vec2(x_mu, x_r);
 }
 
-vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir) {
+#define SKYVIEWLUT_LINEAR_MAPPING 0
+
+vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir, float bottomRadius, bool intersectGround) {
+	vec2 uv;
 	vec3 dir2zenith = normalize(cameraPosES);
+#if SKYVIEWLUT_LINEAR_MAPPING
 
 	vec3 dir2sunHorizontal = projectToPerpendicularPlane(dir2sun, dir2zenith);
 	if (dir2sunHorizontal.x == 0 && dir2sunHorizontal.y == 0 && dir2sunHorizontal.z == 0) {
@@ -96,29 +100,87 @@ vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir) {
 		viewDirHorizontal = normalize(viewDirHorizontal);
 	}
 
-	// non-linear mapping: can transform uv here depending on the sign of dot(viewDir, dir2zenith),
+	// non-linear mapping can transform uv here depending on the sign of dot(viewDir, dir2zenith),
 	// but when decoding uv there would be no way to know where the division happens...
 	// in other words there's no single transform function that applies, because the horizon could appear anywhere
-	vec2 uv;
 	uv.x = -dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
 	uv.y = -dot(viewDir, dir2zenith) * 0.5f + 0.5f;
+#else
+	float viewHeight = length(cameraPosES);
+	float viewZenithCosine = dot(dir2zenith, viewDir);
+
+	float Vhorizon = sqrt(viewHeight * viewHeight - bottomRadius * bottomRadius);
+	float CosBeta = Vhorizon / viewHeight;				// GroundToHorizonCos
+	float Beta = acos(CosBeta);
+	float ZenithHorizonAngle = PI - Beta;
+
+	if (!intersectGround) {
+		float coord = acos(viewZenithCosine) / ZenithHorizonAngle;
+		coord = 1.0f - coord;
+		coord = sqrt(coord);
+		coord = 1.0f - coord;
+		uv.y = coord * 0.5f;
+	} else {
+		float coord = (acos(viewZenithCosine) - ZenithHorizonAngle) / Beta;
+		coord = sqrt(coord);
+		uv.y = coord * 0.5f + 0.5f;
+	}
+
+	{
+		float coord = -(dot(dir2sun, viewDir)) * 0.5f + 0.5f;
+		coord = sqrt(coord);
+		uv.x = coord;
+	}
+
+	// Constrain uvs to valid sub texel range (avoid zenith derivative issue making LUT usage visible)
+	//uv = float2(fromUnitToSubUvs(uv.x, 192.0f), fromUnitToSubUvs(uv.y, 108.0f));
+#endif
 	return uv;
 }
 
 void UvToSkyViewLutParams(
-	vec2 uv, vec3 cameraPosES, vec3 dir2sun,
-	vec3& cameraPosESProxy, vec3& viewDirProxy, vec3& dir2sunProxy){
+	vec2 uv, float bottomRadius, vec3 cameraPosES, vec3 dir2sun,
+	vec3& cameraPosESProxy, vec3& viewDirProxy, vec3& dir2sunProxy) {
 
+#if SKYVIEWLUT_LINEAR_MAPPING // straight-forward linear mapping
 	float viewSunCosine = 1.0f - uv.x * 2.0f; // horizontal, [1, -1]
 	float viewZenithCosine = 1.0f - uv.y * 2.0f; // vertical, [1, -1]
-	float sunZenithCosine = dot(dir2sun, normalize(cameraPosES));
 
-	// use these proxy params (instead of the true ones) to compute the lut
-	dir2sunProxy = normalize(vec3(sqrt(1.0f - sunZenithCosine * sunZenithCosine), 0, sunZenithCosine));
-	cameraPosESProxy = vec3(0.0f, 0.0f, length(cameraPosES));
+#else // non-linear mapping from the sample, which keeps horizon in the middle
+	// Constrain uvs to valid sub texel range (avoid zenith derivative issue making LUT usage visible)
+	//uv = float2(fromSubUvsToUnit(uv.x, 192.0f), fromSubUvsToUnit(uv.y, 108.0f));
+
+	float viewHeight = length(cameraPosES);
+
+	float Vhorizon = sqrt(viewHeight * viewHeight - bottomRadius * bottomRadius);
+	float CosBeta = Vhorizon / viewHeight;				// GroundToHorizonCos
+	float Beta = acos(CosBeta);
+	float ZenithHorizonAngle = PI - Beta;
+
+	float viewZenithCosine;
+	if (uv.y < 0.5f) {
+		float coord = 2.0*uv.y;
+		coord = 1.0 - coord;
+		coord *= coord;
+		coord = 1.0 - coord;
+		viewZenithCosine = cos(ZenithHorizonAngle * coord);
+	} else {
+		float coord = uv.y * 2.0f - 1.0f;
+		coord *= coord;
+		viewZenithCosine = cos(ZenithHorizonAngle + Beta * coord);
+	}
+
+	float coord = uv.x;
+	coord *= coord;
+	float viewSunCosine = -(coord * 2.0f - 1.0f);
+#endif
+	float sunZenithCosine = dot(dir2sun, normalize(cameraPosES));
 
 	float viewZenithSine = sqrt(1.0f - viewZenithCosine * viewZenithCosine);
 	float viewSunSine = sqrt(1.0f - viewSunCosine * viewSunCosine);
+
+	dir2sunProxy = normalize(vec3(sqrt(1.0f - sunZenithCosine * sunZenithCosine), 0, sunZenithCosine));
+	cameraPosESProxy = vec3(0.0f, 0.0f, length(cameraPosES));
 	viewDirProxy = normalize(vec3(
 		viewZenithSine * viewSunCosine,
 		viewZenithSine * viewSunSine,
@@ -389,7 +451,9 @@ void SkyAtmosphereSim::runSim() {
 		vec3 viewDir = uvToViewDir_longlat(uv);
 		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
 
-		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams->dir2sun, viewDir);
+		float bottomRadius = renderingParams->atmosphere.bottomRadius;
+		bool intersectGround = raySphereIntersectNearest(cameraPosES, viewDir, vec3(0), bottomRadius) >= 0;
+		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams->dir2sun, viewDir, bottomRadius, intersectGround);
 		vec3 L = skyViewLut->sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
 
 		// sun
@@ -431,7 +495,9 @@ void sky::SkyViewLutSim::runSim() {
 		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
 
 		vec3 cameraPosESProxy, viewDirProxy, dir2sunProxy;
-		UvToSkyViewLutParams(uv, cameraPosES, renderingParams->dir2sun, cameraPosESProxy, viewDirProxy, dir2sunProxy);
+		UvToSkyViewLutParams(
+			uv, renderingParams->atmosphere.bottomRadius, cameraPosES, renderingParams->dir2sun,
+			cameraPosESProxy, viewDirProxy, dir2sunProxy);
 
 		vec3 L = computeSkyAtmosphere(
 			renderingParams->atmosphere, transmittanceLut,
