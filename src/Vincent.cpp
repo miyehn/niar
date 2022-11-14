@@ -34,9 +34,9 @@ int main(int argc, const char * argv[])
 
 	myn::sky::SkyAtmosphereRenderingParams params = {
 		.cameraPosWS = glm::vec3(200, 300, 200),
-		.dir2sun = glm::normalize(glm::vec3(1, 2, -0.1)),
+		.dir2sun = glm::normalize(glm::vec3(1, 2, 0.2f)),
 		.sunLuminance = {1, 1, 1},
-		.skyViewNumSamplesMinMax = {32, 128},
+		.skyViewNumSamplesMinMax = {16, 128},
 		.exposure = 10,
 		.sunAngularRadius = 0.004675f
 	};
@@ -82,7 +82,7 @@ int main(int argc, const char * argv[])
 		transmittanceSim.atmosphere = &atmosphere;
 		transmittanceSim.runSim();
 		TIMER_END(tTransmittance)
-		LOG("transmittance lut: %.3f", tTransmittance)
+		LOG("transmittance lut: %.3fs", tTransmittance)
 		totalTime += tTransmittance;
 	}
 
@@ -95,7 +95,7 @@ int main(int argc, const char * argv[])
 		skyViewSim.renderingParams = &params;
 		skyViewSim.runSim();
 		TIMER_END(tSkyView)
-		LOG("sky view lut: %.3f", tSkyView)
+		LOG("sky view lut: %.3fs", tSkyView)
 		totalTime += tSkyView;
 	}
 
@@ -109,7 +109,7 @@ int main(int argc, const char * argv[])
 		mainSim.skyViewLut = &skyViewLut;
 		mainSim.runSim();
 		TIMER_END(tComposite)
-		LOG("compositing: %.3f", tComposite)
+		LOG("compositing: %.3fs", tComposite)
 		totalTime += tComposite;
 	}
 
@@ -122,13 +122,13 @@ int main(int argc, const char * argv[])
 		post.renderingParams = &params;
 		post.runSim();
 		TIMER_END(tPostProcess)
-		LOG("post processing: %.3f", tPostProcess)
+		LOG("post processing: %.3fs", tPostProcess)
 		totalTime += tPostProcess;
 	}
 
-	LOG("total: %.3f", totalTime)
+	LOG("total: %.3fs", totalTime)
 
-	skyTexturePostProcessed.writeFile("debug.png", false, true);
+	skyTexturePostProcessed.writeFile(output_path, false, true);
 
 	return 0;
 }

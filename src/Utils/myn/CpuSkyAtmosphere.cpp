@@ -385,17 +385,31 @@ vec3 computeSkyAtmosphere(
 
 		for (float i = 0; i < numSamplesF; i += 1.0f) {
 			// loop variables
+#if 0
 			float newT01 = (i + sampleSegmentT) / numSamplesF;
 			float newT = tMax * newT01;
 			float dt = newT - t;
 			t = newT;
+#else // non-linear distribution of samples along the raymarching path (not seeing any difference.. yet)
+			// normalized segment range
+			float t0 = i / numSamplesF;
+			float t1 = (i + 1) / numSamplesF;
+			// make them non-linear
+			t0 = t0 * t0;
+			t1 = t1 * t1;
+			// make them world-scale
+			t0 *= tMax;
+			t1 = min(tMax, t1 * tMax);
+			t = t0 + (t1 - t0) * sampleSegmentT;
+			float dt = t1 - t0;
+#endif
 			vec3 samplePosES = cameraPosES + t * viewDir;
 
 			// atmosphere sample
 			AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
 
 			float viewHeight = length(samplePosES);
-#if 1
+#if 1 // use transmittance lut
 			vec3 transmittanceToSun = sampleTransmittanceToSun(
 				transmittanceLut,
 				atmosphere.bottomRadius,
