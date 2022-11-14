@@ -5,6 +5,7 @@
 #include "Utils/myn/Log.h"
 #include "Utils/myn/ShaderSimulator.h"
 #include "Utils/myn/CpuTexture.h"
+#include "Utils/myn/Timer.h"
 #include <cxxopts/cxxopts.hpp>
 
 int main(int argc, const char * argv[])
@@ -29,22 +30,44 @@ int main(int argc, const char * argv[])
 
 	LOG("output path: %s", output_path.c_str())
 
+#if 0
 	myn::CpuTexture tex(width, height);
 	myn::sky::TransmittanceLutSim sim(&tex);
 	sim.runSim();
-	tex.writeFile(output_path, false, true);
 
-	/*
-	myn::sky::SkyAtmosphereSim sim(&tex);
-	sim.runSim();
+	myn::CpuTexture sampled(64, 64);
+	myn::sky::SamplingTestSim sampleTest(&sampled);
+	sampleTest.input = &tex;
+	sampleTest.runSim();
 
-	myn::CpuTexture texCopy(tex);
-	myn::sky::SkyAtmospherePostProcess post(&texCopy);
-	post.input = &tex; // as read-only shader resource
+	sampled.writeFile("sampled_transmittance.png", false, true);
+#else
+
+	TIMER_BEGIN
+
+	// transmittance lut
+	myn::CpuTexture transmittanceLut(192, 108);
+	myn::sky::TransmittanceLutSim transmittanceSim(&transmittanceLut);
+	transmittanceSim.runSim();
+
+	// sky texture
+	myn::CpuTexture skyTex(width, height);
+	myn::sky::SkyAtmosphereSim skySim(&skyTex);
+	skySim.transmittanceLut = &transmittanceLut;
+	skySim.runSim();
+
+	// post-processed sky texture
+	myn::CpuTexture skyTexCopy(skyTex);
+	myn::sky::SkyAtmospherePostProcess post(&skyTexCopy);
+	post.input = &skyTex; // as read-only shader resource
 	post.runSim();
 
-	texCopy.writeFile(output_path, false, true);
-	 */
+	TIMER_END(simTime)
+
+	LOG("done. took %.3f secs", simTime)
+
+	skyTexCopy.writeFile(output_path, false, true);
+#endif
 
 	return 0;
 }

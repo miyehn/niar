@@ -50,5 +50,14 @@ void ShaderSimulator::dispatchShader(const std::function<vec4(uint32_t, uint32_t
 #endif
 }
 
+void sky::SamplingTestSim::runSim() {
+	ASSERT(output != nullptr && input != nullptr && input != output)
+	auto texdim = uvec2(output->getWidth(), output->getHeight());
+	dispatchShader([&](uint32_t x, uint32_t y) {
+		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
+		uv = uv - vec2(-0.2f);
+		return input->sampleBilinear(uv, CpuTexture::WM_Wrap);
+	});
+}
 } // namespace myn
 

@@ -27,6 +27,16 @@ protected:
 
 namespace sky {
 
+class SamplingTestSim : public ShaderSimulator {
+public:
+	explicit SamplingTestSim(CpuTexture* outputTexture)
+	: ShaderSimulator(outputTexture) {}
+
+	void runSim() override;
+
+	const CpuTexture* input = nullptr;
+};
+
 class TransmittanceLutSim : public ShaderSimulator {
 public:
 	explicit TransmittanceLutSim(CpuTexture* outputTexture)
@@ -41,6 +51,8 @@ public:
 		: ShaderSimulator(outputTexture) {}
 
 	void runSim() override;
+
+	const CpuTexture* transmittanceLut = nullptr;
 };
 
 class SkyAtmospherePostProcess : public ShaderSimulator {

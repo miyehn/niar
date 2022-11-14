@@ -51,9 +51,7 @@ vec2 viewDirToUv_longlat(vec3 dir) {
 	return uv;
 }
 
-
-vec2 UvToViewHeightCosViewZenith(float bottomRadius, float topRadius, vec2 uv) {
-	//uv = float2(fromSubUvsToUnit(uv.x, TRANSMITTANCE_TEXTURE_WIDTH), fromSubUvsToUnit(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT)); // No real impact so off
+vec2 UvToTransmittanceLutParams(float bottomRadius, float topRadius, vec2 uv) {
 	float x_mu = uv.x;
 	float x_r = uv.y;
 
@@ -75,7 +73,7 @@ vec2 UvToViewHeightCosViewZenith(float bottomRadius, float topRadius, vec2 uv) {
 	return vec2(viewHeight, viewZenithCosAngle);
 }
 
-vec2 ViewHeightCosViewZenithToUv(float bottomRadius, float topRadius, float viewHeight, float viewZenithCosAngle) {
+vec2 TransmittanceLutParamsToUv(float bottomRadius, float topRadius, float viewHeight, float viewZenithCosAngle) {
 	float discriminant = viewHeight * viewHeight * (viewZenithCosAngle * viewZenithCosAngle - 1.0) + topRadius * topRadius;
 	float d = max(0.0f, (-viewHeight * viewZenithCosAngle + sqrt(discriminant))); // Distance to atmosphere boundary
 
@@ -88,7 +86,6 @@ vec2 ViewHeightCosViewZenithToUv(float bottomRadius, float topRadius, float view
 	float x_r = rho / H;
 
 	return vec2(x_mu, x_r);
-	//uv = float2(fromUnitToSubUvs(uv.x, TRANSMITTANCE_TEXTURE_WIDTH), fromUnitToSubUvs(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT)); // No real impact so off
 }
 
 // took this straight from sample code because I'm too lazy to write my own
@@ -174,11 +171,13 @@ AtmosphereSample sampleAtmosphere(AtmosphereParams atmosphere, float heightFromG
 }
 
 // assume sample pos is within the atmosphere already
-// todo: replace this with an lut lookup
-vec3 computeTransmittanceToSun(AtmosphereParams atmosphere, vec3 startPosES, vec3 dir2sun) {
+vec3 computeTransmittanceToSun(AtmosphereParams atmosphere, float viewHeight, float viewZenithCosine) {
 
-	// todo: do the regular call to helper to figure out tmin and tmax?
-	float tMax = raySphereIntersectNearest(startPosES, dir2sun, vec3(0), atmosphere.topRadius);
+	float discriminant = viewHeight * viewHeight * (viewZenithCosine * viewZenithCosine - 1.0) + atmosphere.topRadius * atmosphere.topRadius;
+	float distToAtmosphereTop = max(0.0f, (-viewHeight * viewZenithCosine + sqrt(discriminant))); // Distance to atmosphere boundary
+
+	vec3 traceStartPosES = vec3(0, 0, viewHeight);
+	vec3 traceDir = vec3(sqrt(1.0f - viewZenithCosine * viewZenithCosine), 0, viewZenithCosine);
 
 	vec3 cumOpticalDepth = vec3(0);
 
@@ -187,16 +186,22 @@ vec3 computeTransmittanceToSun(AtmosphereParams atmosphere, vec3 startPosES, vec
 	float t = 0;
 
 	for (float i = 0; i < numSamplesF; i += 1.0f) {
-		float newT = tMax * ((i + sampleSegmentT) / numSamplesF);
+		float newT = distToAtmosphereTop * ((i + sampleSegmentT) / numSamplesF);
 		float dt = newT - t;
 		t = newT;
-		vec3 samplePosES = startPosES + t * dir2sun;
+		vec3 samplePosES = traceStartPosES + t * traceDir;
 		AtmosphereSample sample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
 		vec3 segmentOpticalDepth = dt * (sample.scattering + sample.absorption);
 		cumOpticalDepth += segmentOpticalDepth;
 	}
 
 	return exp(-cumOpticalDepth);
+}
+
+vec3 sampleTransmittanceToSun(const CpuTexture *transmittanceLut, float bottomRadius, float topRadius, float viewHeight, float viewZenithCosine) {
+	vec2 uv = TransmittanceLutParamsToUv(bottomRadius, topRadius, viewHeight, viewZenithCosine);
+	vec4 texel = transmittanceLut->sampleBilinear(uv, CpuTexture::WM_Clamp);
+	return vec3(texel.r, texel.g, texel.b);
 }
 
 vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 earthCenterES, float bottomRadius,
@@ -254,12 +259,40 @@ vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 ea
 
 void TransmittanceLutSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
+	float mieScattering = 0.003996f;
+	float mieExtinction = 0.00440f;
+	float mieAbsorption = mieExtinction - mieScattering;
+	AtmosphereParams atmosphere = {
+		.bottomRadius = 6360,
+		.topRadius = 6460,
+		.rayleighScattering = {
+			5.802f * 1e-3,
+			13.558f * 1e-3,
+			33.1f * 1e-3
+		},
+		// rayleigh absorption = 0
+		.mieScattering = {
+			mieScattering, mieScattering, mieScattering
+		},
+		.mieAbsorption = {
+			mieAbsorption, mieAbsorption, mieAbsorption
+		},
+		.miePhaseG = 0.8f,
+		// ozone scattering = 0
+		.ozoneAbsorption = {
+			0.650f * 1e-3,
+			1.881f * 1e-3,
+			0.085f * 1e-3
+		},
+		.ozoneMeanHeight = 25,
+		.ozoneLayerWidth = 30,
+		.groundAlbedo = {0.3f, 0.3f, 0.3f}
+	};
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
-		vec2 transmittanceLutParams = UvToViewHeightCosViewZenith(6360, 6460, uv);
-		vec2 uvBack = ViewHeightCosViewZenithToUv(6360, 6460, transmittanceLutParams.x, transmittanceLutParams.y);
-		vec2 diff = vec2(abs(uvBack.x - uv.x), abs(uvBack.y - uv.y));
-		return vec4(diff.x, diff.y, 0.0f, 1);
+		vec2 transmittanceLutParams = UvToTransmittanceLutParams(atmosphere.bottomRadius, atmosphere.topRadius, uv);
+		vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, transmittanceLutParams.x, transmittanceLutParams.y);
+		return vec4(transmittanceToSun, 1);
 	});
 }
 
@@ -352,7 +385,17 @@ void SkyAtmosphereSim::runSim() {
 				// atmosphere sample
 				AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
 
-				vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, samplePosES, dir2sun);
+				float viewHeight = length(samplePosES);
+#if 1
+				vec3 transmittanceToSun = sampleTransmittanceToSun(
+					transmittanceLut,
+					atmosphere.bottomRadius,
+					atmosphere.topRadius,
+					viewHeight,
+					dot(samplePosES, dir2sun) / viewHeight);
+#else
+				vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, viewHeight, dot(samplePosES, dir2sun) / viewHeight);
+#endif
 
 				vec3 phaseTimesScattering = atmosphereSample.mieScattering * miePhase + atmosphereSample.rayleighScattering * rayleighPhase;
 
