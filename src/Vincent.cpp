@@ -33,8 +33,8 @@ int main(int argc, const char * argv[])
 	/////////////////////////////////////////////////////////////////////////////
 
 	myn::sky::SkyAtmosphereRenderingParams params = {
-		.cameraPosWS = glm::vec3(200, 300, 500),
-		.dir2sun = glm::normalize(glm::vec3(1, 1, 0.2f)),
+		.cameraPosWS = glm::vec3(200, 300, 1000),
+		.dir2sun = glm::normalize(glm::vec3(0, 0, 1)),
 		.sunLuminance = {1, 1, 1},
 		.skyViewNumSamplesMinMax = {32, 128},
 		.exposure = 10
@@ -71,28 +71,60 @@ int main(int argc, const char * argv[])
 		.groundAlbedo = {0.3f, 0.3f, 0.3f}
 	};
 
+	double totalTime = 0;
+
 	// transmittance lut
 	myn::CpuTexture transmittanceLut(256, 64);
-	myn::sky::TransmittanceLutSim transmittanceSim(&transmittanceLut);
-	transmittanceSim.atmosphere = &atmosphere;
-	transmittanceSim.runSim();
+	{
+		TIMER_BEGIN
+		myn::sky::TransmittanceLutSim transmittanceSim(&transmittanceLut);
+		transmittanceSim.atmosphere = &atmosphere;
+		transmittanceSim.runSim();
+		TIMER_END(tTransmittance)
+		LOG("transmittance lut: %.3f", tTransmittance)
+		totalTime += tTransmittance;
+	}
 
 	// sky view lut
 	myn::CpuTexture skyViewLut(192, 108);
-	myn::sky::SkyViewLutSim skyViewSim(&skyViewLut);
-	skyViewSim.transmittanceLut = &transmittanceLut;
-	skyViewSim.renderingParams = &params;
-	skyViewSim.runSim();
+	{
+		TIMER_BEGIN
+		myn::sky::SkyViewLutSim skyViewSim(&skyViewLut);
+		skyViewSim.transmittanceLut = &transmittanceLut;
+		skyViewSim.renderingParams = &params;
+		skyViewSim.runSim();
+		TIMER_END(tSkyView)
+		LOG("sky view lut: %.3f", tSkyView)
+		totalTime += tSkyView;
+	}
+
+	// compositing
+	myn::CpuTexture skyTextureRaw(width, height);
+	{
+		TIMER_BEGIN
+		myn::sky::SkyAtmosphereSim mainSim(&skyTextureRaw);
+		mainSim.renderingParams = &params;
+		mainSim.skyViewLut = &skyViewLut;
+		mainSim.runSim();
+		TIMER_END(tComposite)
+		LOG("compositing: %.3f", tComposite)
+		totalTime += tComposite;
+	}
 
 	// post-processed sky texture
-	//myn::CpuTexture skyTextureRaw(width, height);
-	// todo: transform sky view lut into a long-lat map
-
 	myn::CpuTexture skyTexturePostProcessed(width, height);
-	myn::sky::SkyAtmospherePostProcess post(&skyTexturePostProcessed);
-	post.skyTextureRaw = &skyViewLut; // as read-only shader resource
-	post.renderingParams = &params;
-	post.runSim();
+	{
+		TIMER_BEGIN
+		myn::sky::SkyAtmospherePostProcess post(&skyTexturePostProcessed);
+		post.skyTextureRaw = &skyTextureRaw; // as read-only shader resource
+		post.renderingParams = &params;
+		post.runSim();
+		TIMER_END(tPostProcess)
+		LOG("post processing: %.3f", tPostProcess)
+		totalTime += tPostProcess;
+	}
+
+	LOG("total: %.3f", totalTime)
 
 	skyTexturePostProcessed.writeFile("debug.png", false, true);
 

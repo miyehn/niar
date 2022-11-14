@@ -83,7 +83,8 @@ public:
 		: ShaderSimulator(outputTexture) {}
 	void runSim() override;
 
-	const CpuTexture* transmittanceLut = nullptr;
+	const CpuTexture* skyViewLut = nullptr;
+	const SkyAtmosphereRenderingParams* renderingParams = nullptr;
 };
 
 class SkyAtmospherePostProcess : public ShaderSimulator {

@@ -82,27 +82,23 @@ vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir) {
 
 	vec3 dir2sunHorizontal = projectToPerpendicularPlane(dir2sun, dir2zenith);
 	if (dir2sunHorizontal.x == 0 && dir2sunHorizontal.y == 0 && dir2sunHorizontal.z == 0) {
-		// sun is straight above head
+		// sun is straight above head (hack)
 		dir2sunHorizontal.x = 1;
-		DEBUG_BREAK
 	} else {
 		dir2sunHorizontal = normalize(dir2sunHorizontal);
 	}
 
 	vec3 viewDirHorizontal = projectToPerpendicularPlane(viewDir, dir2zenith);
 	if (viewDirHorizontal.x == 0 && viewDirHorizontal.y == 0 && viewDirHorizontal.z == 0) {
-		// looking straight above head
+		// looking straight above head (hack)
 		viewDirHorizontal.x = 1;
-		DEBUG_BREAK
 	} else {
 		viewDirHorizontal = normalize(viewDirHorizontal);
 	}
 
-	// want: viewSunCosine (horizontal), viewZenithCosine
-
 	vec2 uv;
-	uv.x = dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
-	uv.y = dot(viewDir, dir2zenith) * 0.5f + 0.5f;
+	uv.x = -dot(viewDirHorizontal, dir2sunHorizontal) * 0.5f + 0.5f;
+	uv.y = -dot(viewDir, dir2zenith) * 0.5f + 0.5f;
 	return uv;
 }
 
@@ -385,19 +381,16 @@ void TransmittanceLutSim::runSim() {
 void SkyAtmosphereSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
 
-	/*
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
 		vec3 viewDir = uvToViewDir_longlat(uv);
+		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
 
-		vec3 cameraPosES = ws2es(cameraPosWS, atmosphere.bottomRadius);
-
-		vec3 result = computeSkyAtmosphere(
-			atmosphere, transmittanceLut, cameraPosES, viewDir, dir2sun, sunLuminance, numSamplesMinMax);
+		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams->dir2sun, viewDir);
+		vec3 result = skyViewLut->sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
 
 		return vec4(result, 1.0f);
 	});
-	 */
 }
 
 void sky::SkyAtmospherePostProcess::runSim() {
