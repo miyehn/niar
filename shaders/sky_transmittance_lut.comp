@@ -1,14 +1,16 @@
 #version 450
 
-layout(set = 3, binding = 0, rgba16f) uniform writeonly image2D outImage;
-layout(set = 3, binding = 1) uniform SkyAtmosphereParamsBufferObject {
-    uvec2 transmittanceLutSize;
-    uvec2 multiScatteredLutSize;
-    uvec2 skyViewLutSize;
-} skyAtmosphereParams;
+#include "sky_common.glsl"
+
+layout(set = 3, binding = 1, rgba16f) uniform writeonly image2D outImage;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
 {
-    imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(0.2, 0.3, 0.4, 1));
+    uvec2 dtid = gl_GlobalInvocationID.xy;
+    uvec2 texdim = params.transmittanceLutTextureDimensions;
+    vec2 uv = vec2(float(dtid.x + 0.5f) / texdim.x, float(dtid.y + 0.5f) / texdim.y);
+    vec2 transmittanceLutParams = UvToTransmittanceLutParams(params.atmosphere.bottomRadius, params.atmosphere.topRadius, uv);
+    vec3 transmittanceToSun = computeTransmittanceToSun(params.atmosphere, transmittanceLutParams.x, transmittanceLutParams.y);
+    imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(transmittanceToSun, 1));
 }

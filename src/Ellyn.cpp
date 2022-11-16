@@ -96,33 +96,9 @@ static void init()
 	{// scene
 		auto gltf = new Scene("SceneSource");
 
-		// glb
+		// glb scene
 		new SceneAsset(gltf, Config->lookup<std::string>("SceneSource"));
 		gltf->add_child(new PathtracerController());
-
-		// environment map
-		if (Config->lookup<int>("LoadEnvironmentMap")) {
-			new EnvironmentMapAsset(Config->lookup<std::string>("EnvironmentMap"));
-		}
-
-		// probe (debug)
-		auto probe = new EnvMapVisualizer;
-		probe->name = "Probe";
-		gltf->add_child(probe);
-
-		// sky atmosphere
-		auto sky = new SkyAtmosphere;
-		sky->name = "Sky Atmosphere";
-		gltf->add_child(sky);
-
-#ifdef WINOS
-		// rtx
-		if (Config->lookup<int>("Debug.RTX")) {
-			auto tri = new RtxTriangle();
-			gltf->add_child(tri);
-			RayTracingRenderer::get()->outImage = tri->outImage;
-		}
-#endif
 
 		Scene::Active = gltf;
 
@@ -134,6 +110,30 @@ static void init()
 		if (!Camera::Active) {
 			WARN("there's no active camera!")
 		}
+
+		// environment map
+		if (Config->lookup<int>("LoadEnvironmentMap")) {
+			new EnvironmentMapAsset(Config->lookup<std::string>("EnvironmentMap"));
+		}
+
+#ifdef WINOS
+		// rtx
+		if (Config->lookup<int>("Debug.RTX")) {
+			auto tri = new RtxTriangle();
+			gltf->add_child(tri);
+			RayTracingRenderer::get()->outImage = tri->outImage;
+		}
+#endif
+
+		// probe (debug)
+		auto probe = new EnvMapVisualizer;
+		probe->name = "Probe";
+		gltf->add_child(probe);
+
+		// sky atmosphere
+		auto sky = new SkyAtmosphere;
+		sky->name = "Sky Atmosphere";
+		gltf->add_child(sky);
 	}
 
 	ui::usePurpleStyle();

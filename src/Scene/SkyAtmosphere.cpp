@@ -4,10 +4,12 @@
 
 #include <imgui.h>
 #include "SkyAtmosphere.h"
+#include "Assets/ConfigAsset.hpp"
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Texture.h"
 #include "Render/Vulkan/PipelineBuilder.h"
 #include "Render/Vulkan/VulkanUtils.h"
+#include "Camera.hpp"
 
 // checklist: https://community.khronos.org/t/drawing-to-image-from-compute-shader-example/7116/2
 class TransmittanceLutCS {
@@ -35,8 +37,8 @@ public:
 					VK_IMAGE_LAYOUT_GENERAL
 					);
 
-				instance->dynamicSet.pointToRWImageView(targetImage->imageView, 0);
-				instance->dynamicSet.pointToBuffer(paramsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+				instance->dynamicSet.pointToBuffer(paramsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+				instance->dynamicSet.pointToRWImageView(targetImage->imageView, 1);
 
 				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, instance->pipeline);
 				instance->dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_DYNAMIC, instance->pipelineLayout);
@@ -62,8 +64,8 @@ private:
 		pipelineBuilder.shaderPath = "spirv/sky_transmittance_lut.comp.spv";
 		// descriptor sets
 		DescriptorSetLayout dynamicSetLayout{};
-		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 		dynamicSet = DescriptorSet(dynamicSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
@@ -75,19 +77,14 @@ private:
 };
 
 SkyAtmosphere::SkyAtmosphere() {
-	memset(&parameters, 0, sizeof(Parameters));
+	config = new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg){});
 	memset(&cachedParameters, 0, sizeof(Parameters));
 
-	{// initialize parameters
-		parameters.transmittanceLutSize = {256, 64};
-		parameters.multiScatteredLutSize = {32, 32};
-		parameters.skyViewLutSize = {192, 108};
-		// TODO: init other parameters
-	}
+	Parameters initialParams = getParameters();
 
 	ImageCreator transmittanceLutCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
-		{parameters.transmittanceLutSize.x, parameters.transmittanceLutSize.y, 1},
+		{initialParams.transmittanceLutTextureDimensions.x, initialParams.transmittanceLutTextureDimensions.y, 1},
 		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"Transmittance LUT");
@@ -96,7 +93,7 @@ SkyAtmosphere::SkyAtmosphere() {
 	// create the buffer
 	parametersBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
-		sizeof(parameters),
+		sizeof(Parameters),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VMA_MEMORY_USAGE_CPU_TO_GPU,
 		"Sky atmosphere params buffer"
@@ -108,19 +105,56 @@ SkyAtmosphere::SkyAtmosphere() {
 	ui_default_open = true;
 }
 
+SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
+	Parameters params{};
+
+	float bottomRadius = config->lookup<float>("atmosphere.bottomRadius");
+
+	glm::vec3 cameraPosWS = {0, 0, 0};
+	if (Camera::Active) {
+		cameraPosWS = Camera::Active->world_position();
+	}
+	cameraPosWS.z += config->lookup<float>("viewHeightOffset");
+	params.cameraPosES = cameraPosWS * 0.001f + glm::vec3(0, 0, bottomRadius);
+	params.exposure = config->lookup<float>("exposure");
+
+	params.dir2sun = glm::normalize(glm::vec3(1, 0, 0.5f)); // todo
+	params.sunAngularRadius = config->lookup<float>("sunAngularRadius");
+
+	config->lookupVector<float, 2>("skyViewNumSamplesMinMax", (float*)&params.skyViewNumSamplesMinMax);
+	config->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&params.transmittanceLutTextureDimensions);
+	config->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&params.skyViewLutTextureDimensions);
+
+	AtmosphereProfile& atmosphere = params.atmosphere;
+	{
+		config->lookupVector<float, 3>("atmosphere.rayleighScattering", (float*)&atmosphere.rayleighScattering);
+		atmosphere.bottomRadius = bottomRadius;
+
+		atmosphere.mieScattering = glm::vec3(config->lookup<float>("atmosphere.mieScattering"));
+		atmosphere.topRadius = config->lookup<float>("atmosphere.topRadius");
+
+		atmosphere.mieAbsorption = glm::vec3(config->lookup<float>("atmosphere.mieAbsorption"));
+		atmosphere.miePhaseG = config->lookup<float>("atmosphere.miePhaseG");
+
+		config->lookupVector<float, 3>("atmosphere.ozoneAbsorption", (float*)&atmosphere.ozoneAbsorption);
+		atmosphere.ozoneMeanHeight = config->lookup<float>("atmosphere.ozoneMeanHeight");
+
+		config->lookupVector<float, 3>("atmosphere.groundAlbedo", (float*)&atmosphere.groundAlbedo);
+		atmosphere.ozoneLayerWidth = config->lookup<float>("atmosphere.ozoneLayerWidth");
+	}
+
+	return params;
+}
+
 // called by the renderer
 void SkyAtmosphere::updateAndComposite(Texture2D *outSceneColor) {
-	updateAutoParameters();
+	auto parameters = getParameters();
 	if (!parameters.equals(cachedParameters)) {
 		parametersBuffer.writeData(&parameters);
 		updateLuts();
 		cachedParameters = parameters;
 	}
 	// TODO: composite onto outSceneColor
-}
-
-void SkyAtmosphere::updateAutoParameters() {
-	// TODO
 }
 
 void SkyAtmosphere::updateLuts() {

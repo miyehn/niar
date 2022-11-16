@@ -252,16 +252,16 @@ AtmosphereSample sampleAtmosphere(AtmosphereProfile atmosphere, float heightFrom
 	float halfOzoneLayerWidth = atmosphere.ozoneLayerWidth * 0.5f;
 	float ozoneDensity = max(0.0f, halfOzoneLayerWidth - distToMeanOzoneHeight) / halfOzoneLayerWidth;
 
-	AtmosphereSample sample;
-	sample.rayleighScattering = rayleighDensity * atmosphere.rayleighScattering;
-	sample.mieScattering = mieDensity * atmosphere.mieScattering;
-	sample.scattering = sample.rayleighScattering + sample.mieScattering; // ozone does not scatter
-	sample.absorption =
+	AtmosphereSample s;
+	s.rayleighScattering = rayleighDensity * atmosphere.rayleighScattering;
+	s.mieScattering = mieDensity * atmosphere.mieScattering;
+	s.scattering = s.rayleighScattering + s.mieScattering; // ozone does not scatter
+	s.absorption =
 		// rayleigh does not absorb
 		mieDensity * atmosphere.mieAbsorption +
 		ozoneDensity * atmosphere.ozoneAbsorption;
 
-	return sample;
+	return s;
 }
 
 // assume sample pos is within the atmosphere already
@@ -284,8 +284,8 @@ vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, f
 		float dt = newT - t;
 		t = newT;
 		vec3 samplePosES = traceStartPosES + t * traceDir;
-		AtmosphereSample sample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
-		vec3 segmentOpticalDepth = dt * (sample.scattering + sample.absorption);
+		AtmosphereSample s = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
+		vec3 segmentOpticalDepth = dt * (s.scattering + s.absorption);
 		cumOpticalDepth += segmentOpticalDepth;
 	}
 

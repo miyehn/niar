@@ -132,26 +132,28 @@ endif(APPLE)
 if(WIN32)
 	add_definitions(-DWINOS)
 
+	#if
+
 	add_executable(ellyn WIN32 ${ELLYN_SRC} ${RTX_SRC})
 	target_link_libraries(ellyn
 		${CMAKE_THREAD_LIBS_INIT}
 		${Vulkan_LIBRARY}
 		${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
 		${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
-		${CMAKE_SOURCE_DIR}/lib/libconfig++.lib
+		${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib
 	)
 	set_target_properties(ellyn PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
 	add_executable(asz WIN32 ${ASZELEA_SRC})
-	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.lib)
+	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib)
 	set_target_properties(asz PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
 	add_executable(vin ${VINCENT_SRC})
-	target_link_libraries(vin ${CMAKE_SOURCE_DIR}/lib/libconfig++.lib)
+	target_link_libraries(vin ${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib)
 	set_target_properties(vin PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
 	configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} SDL2.dll COPYONLY)
-	configure_file(lib/libconfig++.dll ${ellyn_BINARY_DIR} libconfig++.dll COPYONLY)
+	configure_file(lib/libconfig++d.dll ${ellyn_BINARY_DIR} libconfig++d.dll COPYONLY)
 endif(WIN32)
 
 # include_directories(include src)
@@ -169,7 +171,7 @@ add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 
 add_definitions(-DDEBUG=1)
 
-message(STATUS "${CMAKE_SOURCE_DIR}/lib/libconfig++.lib")
+message(STATUS "${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib")
 
 # pathtracer_kernel.o
 set(KERNEL_SRC ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel.ispc)

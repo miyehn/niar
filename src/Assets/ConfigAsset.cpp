@@ -17,20 +17,20 @@ void create_config_src(const std::string &absolute_path, libconfig::Config& out_
 }
 
 ConfigAsset::ConfigAsset(
-	const std::string& relative_path,
+	const std::string& relative_file_path,
 	bool allow_reload,
-	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_path, nullptr)
+	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_file_path, nullptr)
 {
 	reload_condition = [allow_reload](){ return allow_reload; };
-	load_action_internal = [this, relative_path, loadAction]() {
-		create_config_src(ROOT_DIR"/" + relative_path, config);
+	load_action_internal = [this, relative_file_path, loadAction]() {
+		create_config_src(ROOT_DIR"/" + relative_file_path, config);
 		if (loadAction) {
 			try {
 				loadAction(this);
 			} catch (const libconfig::SettingNotFoundException &nfex) {
-				ERR("Some setting(s) not found in '%s'", relative_path.c_str());
+				ERR("Some setting(s) not found in '%s'", relative_file_path.c_str());
 			} catch (const libconfig::SettingTypeException &tpex) {
-				ERR("Some setting(s) in '%s' assigned to wrong type", relative_path.c_str());
+				ERR("Some setting(s) in '%s' assigned to wrong type", relative_file_path.c_str());
 			}
 		}
 	};
