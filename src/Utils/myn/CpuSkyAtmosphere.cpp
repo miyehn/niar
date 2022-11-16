@@ -34,7 +34,7 @@ vec3 uvToViewDir_longlat(vec2 uv) {
 }
 
 vec2 viewDirToUv_longlat(vec3 dir) {
-	float phi = atan(dir.y, dir.x);
+	float phi = atan2(dir.y, dir.x); // todo: atan or atan2?
 	float theta = asin(dir.z);
 	vec2 uv = vec2(-phi * ONE_OVER_TWO_PI + 0.5f, -theta * ONE_OVER_PI + 0.5f);
 	return uv;
@@ -75,6 +75,14 @@ vec2 TransmittanceLutParamsToUv(float bottomRadius, float topRadius, float viewH
 	float x_r = rho / H;
 
 	return vec2(x_mu, x_r);
+}
+
+float toSubUv(float u, float resolution) {
+	return u - u / resolution + 0.5f / resolution;
+}
+
+float fromSubUv(float x, float resolution) {
+	return (x * resolution - 0.5f) / (resolution - 1.0f);
 }
 
 #define SKYVIEWLUT_LINEAR_MAPPING 0
@@ -265,7 +273,7 @@ vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, f
 	vec3 traceStartPosES = vec3(0, 0, viewHeight);
 	vec3 traceDir = vec3(sqrt(1.0f - viewZenithCosine * viewZenithCosine), 0, viewZenithCosine);
 
-	vec3 cumOpticalDepth = vec3(0);
+	vec3 cumOpticalDepth = vec3(0, 0, 0);
 
 	float numSamplesF = 40;
 	const float sampleSegmentT = 0.3f;
@@ -351,7 +359,7 @@ vec3 computeSkyAtmosphere(
 	vec3 sunLuminance,
 	vec2 numSamplesMinMax)
 {
-	vec3 earthCenterES = vec3(0);
+	vec3 earthCenterES = vec3(0, 0, 0);
 
 	vec2 tMinMax = computeRaymarchAtmosphereMinMaxT(cameraPosES, viewDir, earthCenterES, atmosphere.bottomRadius,
 													atmosphere.topRadius);
@@ -371,8 +379,8 @@ vec3 computeSkyAtmosphere(
 		// todo: wtf is this
 		//tMax = min(tMax, 200.0f);
 
-		vec3 L = vec3(0);
-		vec3 sunContribThroughput = vec3(1);
+		vec3 L = vec3(0, 0, 0);
+		vec3 sunContribThroughput = vec3(1, 1, 1);
 
 #if 0 // fixed samples count
 		float numSamplesF = 64.0f;
@@ -444,7 +452,7 @@ vec3 computeSkyAtmosphere(
 
 	} // end if (shouldRaymarch)
 
-	return vec3(0);
+	return vec3(0, 0, 0);
 }
 
 void TransmittanceLutSim::runSim() {
@@ -468,6 +476,7 @@ void SkyAtmosphereSim::runSim() {
 		float bottomRadius = renderingParams->atmosphere.bottomRadius;
 		bool intersectGround = raySphereIntersectNearest(cameraPosES, viewDir, vec3(0), bottomRadius) >= 0;
 		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams->dir2sun, viewDir, bottomRadius, intersectGround);
+		skyViewUv = vec2(toSubUv(skyViewUv.x, texdim.x), toSubUv(skyViewUv.y, texdim.y));
 		vec3 L = skyViewLut->sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
 
 		// sun
@@ -478,8 +487,7 @@ void SkyAtmosphereSim::runSim() {
 				renderingParams->atmosphere.topRadius,
 				length(cameraPosES),
 				dot(viewDir, normalize(cameraPosES)));
-			float sunVisibility = raySphereIntersectNearest(
-				cameraPosES, viewDir, vec3(0), renderingParams->atmosphere.bottomRadius) >= 0 ? 0 : 1;
+			float sunVisibility = intersectGround ? 0 : 1;
 			L += transmittanceToSun * sunVisibility * renderingParams->sunLuminance;
 		}
 
@@ -506,6 +514,8 @@ void sky::SkyViewLutSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
+		uv = vec2(fromSubUv(uv.x, texdim.x), fromSubUv(uv.y, texdim.y));
+
 		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
 
 		vec3 cameraPosESProxy, viewDirProxy, dir2sunProxy;
