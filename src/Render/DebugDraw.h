@@ -91,7 +91,7 @@ public:
 private:
 	VkPipeline pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	//DescriptorSet descriptorSet = {};
+	//DescriptorSet descriptorSetPtr = {};
 
 	std::vector<PointData> points;
 };

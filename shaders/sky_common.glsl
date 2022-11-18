@@ -1,5 +1,13 @@
 #include "utils.glsl"
 
+const int Slot_Parameters = 0;
+const int Slot_TransmittanceLutRW = 1;
+const int Slot_SkyViewLutRW = 2;
+//...
+const int Slot_TransmittanceLutR = 8;
+const int Slot_SkyViewLutR = 9;
+
+
 struct AtmosphereProfile {
 
     vec3 rayleighScattering;
@@ -18,7 +26,7 @@ struct AtmosphereProfile {
     float ozoneLayerWidth;
 };
 
-layout(set = 3, binding = 0) uniform SkyAtmosphereParamsBufferObject {
+layout(set = 3, binding = Slot_Parameters) uniform SkyAtmosphereParamsBufferObject {
 
     AtmosphereProfile atmosphere;
 
@@ -35,7 +43,12 @@ layout(set = 3, binding = 0) uniform SkyAtmosphereParamsBufferObject {
 
 } params;
 
-//////////////////////////////////////////////////////////////////////////
+layout(set = 3, binding = Slot_TransmittanceLutR) uniform sampler2D transmittanceLut;
+
+/////////////////////////////////// Call these ////////////////////////////////////////
+
+
+/////////////////////////////////// Internal fn ///////////////////////////////////////
 
 struct AtmosphereSample {
     vec3 rayleighScattering;
@@ -299,6 +312,12 @@ vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, f
 
     return exp(-cumOpticalDepth);
 }
+vec3 sampleTransmittanceToSun(float bottomRadius, float topRadius, float viewHeight, float viewZenithCosine) {
+    vec2 uv = TransmittanceLutParamsToUv(bottomRadius, topRadius, viewHeight, viewZenithCosine);
+    vec4 texel = texture(transmittanceLut, uv);
+    return vec3(texel.r, texel.g, texel.b);
+}
+
 vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 earthCenterES, float bottomRadius, float topRadius) {
     // get the range to raymarch through
     const float tBottom = raySphereIntersectNearest(startPosES, raymarchDir, earthCenterES, bottomRadius);
@@ -348,4 +367,105 @@ vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 ea
         }
     }
     return vec2(tMin, tMax);
+}
+vec3 computeSkyAtmosphere(
+    AtmosphereProfile atmosphere,
+    vec3 cameraPosES,
+    vec3 viewDir,
+    vec3 dir2sun,
+    vec3 sunLuminance,
+    vec2 numSamplesMinMax)
+{
+    vec3 earthCenterES = vec3(0, 0, 0);
+
+    vec2 tMinMax = computeRaymarchAtmosphereMinMaxT(cameraPosES, viewDir, earthCenterES, atmosphere.bottomRadius, atmosphere.topRadius);
+    bool shouldRaymarch = tMinMax.x >= 0 && tMinMax.y >= 0;
+
+    if (shouldRaymarch) {
+
+        // prepare to actually raymarch: let [tmin, tmax] be [0, length of entire raymarch segment]
+        vec3 raymarchStartPosES = cameraPosES + tMinMax.x * viewDir;
+        float tMax = tMinMax.y - tMinMax.x;
+
+        // phase functions
+        float cosTheta_viewDir_dir2sun = dot(viewDir, dir2sun);
+        float rayleighPhase = computeRayleighPhase(cosTheta_viewDir_dir2sun);
+        float miePhase = computeHgPhase(atmosphere.miePhaseG, -cosTheta_viewDir_dir2sun);
+
+        // todo: wtf is this
+        //tMax = min(tMax, 200.0f);
+
+        vec3 L = vec3(0, 0, 0);
+        vec3 sunContribThroughput = vec3(1, 1, 1);
+
+        #if 0// fixed samples count
+        float numSamplesF = 64.0f;
+        #else
+        float upness = 1.0f - clamp(dot(normalize(cameraPosES), viewDir), 0.0f, 1.0f);
+        float numSamplesF = floor(mix(numSamplesMinMax.x, numSamplesMinMax.y, upness));
+        #endif
+        const float sampleSegmentT = 0.3f;
+        float t = 0;
+
+        for (float i = 0; i < numSamplesF; i += 1.0f) {
+            // loop variables
+            #if 0
+            float newT01 = (i + sampleSegmentT) / numSamplesF;
+            float newT = tMax * newT01;
+            float dt = newT - t;
+            t = newT;
+            #else// non-linear distribution of samples along the raymarching path (not seeing any difference.. yet)
+            // normalized segment range
+            float t0 = i / numSamplesF;
+            float t1 = (i + 1) / numSamplesF;
+            // make them non-linear
+            t0 = t0 * t0;
+            t1 = t1 * t1;
+            // make them world-scale
+            t0 *= tMax;
+            t1 = min(tMax, t1 * tMax);
+            t = t0 + (t1 - t0) * sampleSegmentT;
+            float dt = t1 - t0;
+            #endif
+            vec3 samplePosES = cameraPosES + t * viewDir;
+
+            // atmosphere sample
+            AtmosphereSample atmosphereSample = sampleAtmosphere(atmosphere, length(samplePosES) - atmosphere.bottomRadius);
+
+            float viewHeight = length(samplePosES);
+            #if 1// use transmittance lut
+            vec3 transmittanceToSun = sampleTransmittanceToSun(
+                atmosphere.bottomRadius,
+                atmosphere.topRadius,
+                viewHeight,
+                dot(samplePosES, dir2sun) / viewHeight);
+            #else
+            vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, viewHeight, dot(samplePosES, dir2sun) / viewHeight);
+            #endif
+
+            vec3 phaseTimesScattering = atmosphereSample.mieScattering * miePhase + atmosphereSample.rayleighScattering * rayleighPhase;
+
+            // earth shadow
+            float tEarth = raySphereIntersectNearest(samplePosES, dir2sun, earthCenterES, atmosphere.bottomRadius);
+            float sunVisibility = tEarth >= 0 ? 0 : 1;
+
+            // todo: add multiscattered light contribution here
+            vec3 sunContrib = sunLuminance * sunVisibility * transmittanceToSun * phaseTimesScattering;
+
+            vec3 segmentOpticalDepth = (atmosphereSample.scattering + atmosphereSample.absorption) * dt;
+            vec3 segmentTransmittance = exp(-segmentOpticalDepth);
+
+            // analytical solution to the integral along view ray segment (see sample code)
+            L += sunContribThroughput * (sunContrib - sunContrib * segmentTransmittance) /
+                (atmosphereSample.scattering + atmosphereSample.absorption);
+
+            sunContribThroughput *= segmentTransmittance;
+
+        }// end for (raymarch along view ray)
+
+        return L;
+
+    }// end if (shouldRaymarch)
+
+    return vec3(0, 0, 0);
 }

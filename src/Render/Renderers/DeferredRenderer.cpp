@@ -10,7 +10,7 @@
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/EnvironmentMapAsset.h"
-#include "Scene/SkyAtmosphere.h"
+#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
 #include <imgui.h>
 #include <algorithm>
 

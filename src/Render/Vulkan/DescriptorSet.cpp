@@ -95,14 +95,13 @@ VkDescriptorSetLayout DescriptorSetLayoutCache::get(VkDescriptorSetLayoutCreateI
 void DescriptorSetLayout::addBinding(uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type)
 {
 	EXPECT_M(layout, VK_NULL_HANDLE, "Should only add bindings before layout is committed")
-	if (bindings.size() <= bindingIndex) bindings.resize(bindingIndex + 1);
-	bindings[bindingIndex] = {
+	bindings.push_back({
 		.binding = bindingIndex,
 		.descriptorType = type,
 		.descriptorCount = 1,
 		.stageFlags = shaderStages,
 		.pImmutableSamplers = nullptr,
-	};
+	});
 }
 
 VkDescriptorSetLayout DescriptorSetLayout::getLayout()

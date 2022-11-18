@@ -59,6 +59,9 @@ public:
 	// allocate programmatically (NOT POOLED)
 	explicit Texture2D(ImageCreator &imageCreator);
 
+	uint32_t getWidth() const { return width; }
+	uint32_t getHeight() const { return height; }
+
 	~Texture2D() override;
 
 	static void createDefaultTextures(); // (POOLED)

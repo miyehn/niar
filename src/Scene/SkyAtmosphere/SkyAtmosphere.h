@@ -3,13 +3,27 @@
 //
 #pragma once
 
-#include "SceneObject.hpp"
+#include "Scene/SceneObject.hpp"
 #include "Render/Vulkan/Buffer.h"
+#include "Render/Vulkan/DescriptorSet.h"
 
 class Texture2D;
 class ConfigAsset;
 
 class SkyAtmosphere : public SceneObject {
+
+	enum BindingSlot {
+		// 0: uniform buffer
+		Slot_Parameters = 0,
+		// 1-7: rw images
+		Slot_TransmittanceLutRW = 1,
+		Slot_SkyViewLutRW = 2,
+		// ...
+		// 8- : sampled textures
+		Slot_TransmittanceLutR = 8,
+		Slot_SkyViewLutR = 9,
+	};
+
 public:
 
 	SkyAtmosphere();
@@ -65,13 +79,17 @@ private:
 	Parameters getParameters();
 
 	Parameters cachedParameters = {};
+
+	ConfigAsset* config = nullptr;
+
+	// gpu resources
+	DescriptorSet dynamicSet;
+
 	VmaBuffer parametersBuffer;
 
 	Texture2D* transmittanceLut = nullptr;
-	Texture2D* multiScatteredLut = nullptr;
 	Texture2D* skyViewLut = nullptr;
+	Texture2D* multiScatteredLut = nullptr;
 	// TODO: camera volume
-
-	ConfigAsset* config = nullptr;
 };
 

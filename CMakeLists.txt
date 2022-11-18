@@ -63,8 +63,7 @@ set(ELLYN_SRC
 	src/Utils/DebugUI.cpp
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/DebugDraw.cpp
-	src/Render/Materials/Rise.cpp
-	src/Render/Renderers/SimpleRenderer.cpp
+		src/Render/Renderers/SimpleRenderer.cpp
 	src/Scene/PathtracerController.cpp
 	src/Assets/Asset.cpp
 	src/Assets/SceneAsset.cpp
@@ -74,12 +73,12 @@ set(ELLYN_SRC
 	src/Utils/myn/Sample.cpp
 	src/Scene/MeshObject.cpp
 	src/Scene/Probe.cpp
-	src/Scene/SkyAtmosphere.cpp)
+		src/Scene/SkyAtmosphere/SkyAtmosphere.cpp)
 
 set(RTX_SRC
 	src/Render/Vulkan/ShaderBindingTable.cpp
 	src/Scene/RtxTriangle.cpp
-	src/Render/Renderers/RayTracingRenderer.cpp)
+	src/Render/Renderers/RayTracingRenderer.cpp src/Render/Materials/ComputeShader.cpp src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp src/Scene/SkyAtmosphere/SkyAtmosphereShaders.h)
 
 set(ASZELEA_SRC
 	src/Aszelea.cpp
