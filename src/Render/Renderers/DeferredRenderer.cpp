@@ -100,6 +100,7 @@ public:
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, SkyAtmosphere::getInstance()->descriptorSet.getLayout());
 
 			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
 		}
@@ -107,8 +108,7 @@ public:
 		return materialPipeline;
 	}
 
-	void usePipeline(VkCommandBuffer cmdbuf) override
-	{
+	void usePipeline(VkCommandBuffer cmdbuf) override {
 		MaterialPipeline materialPipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, materialPipeline.pipeline);
 	}
@@ -490,8 +490,8 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
 		frameGlobalDescriptorSet.pointToBuffer(pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalDescriptorSet.pointToBuffer(directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		bool useEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
-		if (useEnvironmentMap) {
+		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
+		if (loadedEnvironmentMap) {
 			auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
 			frameGlobalDescriptorSet.pointToImageView(envmap->texture2D->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		} else {
@@ -502,7 +502,6 @@ DeferredRenderer::DeferredRenderer()
 	// misc
 	viewInfo.Exposure = 0.0f;
 	viewInfo.ToneMappingOption = 1;
-	viewInfo.UseEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
@@ -589,7 +588,7 @@ void DeferredRenderer::updateUniformBuffers()
 			else if (auto L = dynamic_cast<DirectionalLight*>(child))
 			{
 				if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
-					directionalLights.Data[numDirectionalLights].direction = L->get_direction();
+					directionalLights.Data[numDirectionalLights].direction = L->get_light_direction();
 					directionalLights.Data[numDirectionalLights].color = L->get_emission();
 					numDirectionalLights++;
 				}
@@ -598,6 +597,15 @@ void DeferredRenderer::updateUniformBuffers()
 	});
 	viewInfo.NumPointLights = numPointLights;
 	viewInfo.NumDirectionalLights = numDirectionalLights;
+
+	// background option
+	if (SkyAtmosphere::getInstance()->enabled()) {
+		viewInfo.BackgroundOption = BG_SkyAtmosphere;
+	} else if (Config->lookup<int>("LoadEnvironmentMap")) {
+		viewInfo.BackgroundOption = BG_EnvironmentMap;
+	} else {
+		viewInfo.BackgroundOption = BG_None;
+	}
 
 	viewInfoUbo.writeData(&viewInfo);
 	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
@@ -669,7 +677,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	// TODO: find a better place to put this
 	if (sky) {
-		sky->updateAndComposite(nullptr);
+		sky->updateAndComposite();
 	}
 
 	VkClearValue clearColor = {0, 0, 0, 0};
@@ -711,20 +719,22 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			mo->draw(cmdbuf);
 		}
 
-		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Opaque lighting pass")
+		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 
 		deferredLighting->usePipeline(cmdbuf);
+		auto pipelineLayout = deferredLighting->getPipeline().layout;
+		SkyAtmosphere::getInstance()->descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
 		vk::drawFullscreenTriangle(cmdbuf);
 
-		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "EnvMap visualization")
+		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		bool firstInstance = true;
 		auto mat = Probe::get_material();
 		for (auto probe : probes) // TODO: material (pipeline) sorting, etc.
@@ -737,11 +747,11 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			probe->draw(cmdbuf);
 			firstInstance = false;
 		}
-		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Translucency")
+		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		Material* last_material = nullptr;
 		MaterialPipeline last_pipeline = {};
 		for (auto mo : translucentMeshes) {
@@ -762,8 +772,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			mat->setParameters(cmdbuf, mo);
 			mo->draw(cmdbuf);
 		}
-		vkCmdEndRenderPass(cmdbuf);
 	}
+	vkCmdEndRenderPass(cmdbuf);
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Post Processing & Present")

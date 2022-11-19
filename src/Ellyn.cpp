@@ -131,9 +131,12 @@ static void init()
 		gltf->add_child(probe);
 
 		// sky atmosphere
-		auto sky = new SkyAtmosphere;
+		auto sky = SkyAtmosphere::getInstance();
 		sky->name = "Sky Atmosphere";
 		gltf->add_child(sky);
+		if (!Config->lookup<int>("SkyAtmosphereDefaultEnabled")) {
+			sky->toggle_enabled();
+		}
 	}
 
 	ui::usePurpleStyle();

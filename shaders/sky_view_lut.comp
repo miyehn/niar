@@ -2,13 +2,17 @@
 
 #include "sky_common.glsl"
 
-layout(set = 3, binding = Slot_SkyViewLutRW, rgba16f) uniform writeonly image2D outSkyViewLut;
+layout(set = 1, binding = Slot_SkyViewLutRW, rgba16f) uniform writeonly image2D outSkyViewLut;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
 {
     uvec2 dtid = gl_GlobalInvocationID.xy;
     uvec2 texdim = params.skyViewLutTextureDimensions;
+    if (dtid.x >= texdim.x || dtid.y >= texdim.y) {
+        return;
+    }
+
     vec2 uv = vec2(float(dtid.x + 0.5f) / texdim.x, float(dtid.y + 0.5f) / texdim.y);
     uv = vec2(fromSubUv(uv.x, texdim.x), fromSubUv(uv.y, texdim.y));
 
@@ -17,7 +21,6 @@ void main()
         uv, params.atmosphere.bottomRadius, params.cameraPosES, params.dir2sun,
         cameraPosESProxy, viewDirProxy, dir2sunProxy);
 
-    //vec3 sampled = texture(transmittanceLut, uv).rgb;
     vec3 L = computeSkyAtmosphere(
         params.atmosphere,
         cameraPosESProxy,

@@ -1,3 +1,8 @@
+#ifndef _SHADER_INCLUDE_UTILS
+#define _SHADER_INCLUDE_UTILS
+
+precision highp float;
+
 #define EPSILON 0.001f
 #define PI 3.14159265359f
 #define HALF_PI 1.57079632679f
@@ -13,6 +18,16 @@ vec3 sampleLongLatMap(sampler2D map, vec3 dir, float mipLevel)
     return textureLod(map, uv, mipLevel).rgb;
 }
 
+vec3 uvToViewDir_ws(mat3 viewMatrixRot, float halfVerticalFov, float aspectRatio, vec2 uv) {
+    vec2 ndc = vec2(uv.x * 2 - 1, (1.0-uv.y) * 2 - 1);
+    float tanHalfFov = tan(halfVerticalFov);
+    float ky = ndc.y * tanHalfFov;
+    float kx = ndc.x * tanHalfFov * aspectRatio;
+    vec3 dir = normalize(vec3(kx, ky, -1));
+    mat3 c2w = transpose(viewMatrixRot);
+    return c2w * dir;
+}
+
 vec3 screenSpaceUvToViewDir(vec2 uv, mat4 ViewMatrix, float halfVFovRadians, float aspectRatio)
 {
     float yHalf = tan(halfVFovRadians);
@@ -26,3 +41,5 @@ vec3 screenSpaceUvToViewDir(vec2 uv, mat4 ViewMatrix, float halfVFovRadians, flo
     mat3 camToWorldRot = transpose(mat3(ViewMatrix));
     return camToWorldRot * camSpaceDir;
 }
+
+#endif

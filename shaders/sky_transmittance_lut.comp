@@ -2,7 +2,7 @@
 
 #include "sky_common.glsl"
 
-layout(set = 3, binding = Slot_TransmittanceLutRW, rgba16f) uniform writeonly image2D outTransmittanceLut;
+layout(set = 1, binding = Slot_TransmittanceLutRW, rgba16f) uniform writeonly image2D outTransmittanceLut;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()

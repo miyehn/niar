@@ -4,8 +4,9 @@
 #include <unordered_map>
 #include "Buffer.h"
 
-#define DSET_FRAMEGLOBAL 0
-#define DSET_DYNAMIC 3
+#define DSET_FRAMEGLOBAL 0 // shared throughout the main rendering pipeline
+#define DSET_INDEPENDENT 1 // independent features (sky)
+#define DSET_DYNAMIC 3 // mostly per-drawcall
 
 class DescriptorSetLayout
 {
@@ -29,7 +30,11 @@ public:
 
 	void pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType);
 
-	void pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType);
+	void pointToImageView(
+		VkImageView imageView,
+		uint32_t binding,
+		VkDescriptorType descriptorType,
+		const VkSamplerCreateInfo* samplerInfoPtr = nullptr);
 
 	void pointToRWImageView(VkImageView imageView, uint32_t binding);
 

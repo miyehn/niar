@@ -26,7 +26,7 @@ struct AtmosphereProfile {
     float ozoneLayerWidth;
 };
 
-layout(set = 3, binding = Slot_Parameters) uniform SkyAtmosphereParamsBufferObject {
+layout(set = 1, binding = Slot_Parameters) uniform SkyAtmosphereParamsBufferObject {
 
     AtmosphereProfile atmosphere;
 
@@ -43,10 +43,8 @@ layout(set = 3, binding = Slot_Parameters) uniform SkyAtmosphereParamsBufferObje
 
 } params;
 
-layout(set = 3, binding = Slot_TransmittanceLutR) uniform sampler2D transmittanceLut;
-
-/////////////////////////////////// Call these ////////////////////////////////////////
-
+layout(set = 1, binding = Slot_TransmittanceLutR) uniform sampler2D transmittanceLut;
+layout(set = 1, binding = Slot_SkyViewLutR) uniform sampler2D skyViewLut;
 
 /////////////////////////////////// Internal fn ///////////////////////////////////////
 
@@ -138,28 +136,28 @@ vec2 SkyViewLutParamsToUv(vec3 cameraPosES, vec3 dir2sun, vec3 viewDir, float bo
     uv.y = -dot(viewDir, dir2zenith) * 0.5f + 0.5f;
 #else
     float viewHeight = length(cameraPosES);
-    float viewZenithCosine = dot(dir2zenith, viewDir);
+    float viewZenithCosine = min(1.0f, dot(dir2zenith, viewDir));
 
-    float Vhorizon = sqrt(viewHeight * viewHeight - bottomRadius * bottomRadius);
-    float CosBeta = Vhorizon / viewHeight;				// GroundToHorizonCos
+    float Vhorizon = sqrt(max(0, viewHeight * viewHeight - bottomRadius * bottomRadius));
+    float CosBeta = min(1.0f, Vhorizon / viewHeight);				// GroundToHorizonCos
     float Beta = acos(CosBeta);
     float ZenithHorizonAngle = PI - Beta;
 
     if (!intersectGround) {
         float coord = acos(viewZenithCosine) / ZenithHorizonAngle;
         coord = 1.0f - coord;
-        coord = sqrt(coord);
+        coord = sqrt(max(0, coord));
         coord = 1.0f - coord;
         uv.y = coord * 0.5f;
     } else {
         float coord = (acos(viewZenithCosine) - ZenithHorizonAngle) / Beta;
-        coord = sqrt(coord);
+        coord = sqrt(max(0, coord));
         uv.y = coord * 0.5f + 0.5f;
     }
 
     {
         float coord = -(dot(dir2sun, viewDir)) * 0.5f + 0.5f;
-        coord = sqrt(coord);
+        coord = sqrt(max(0, coord));
         uv.x = coord;
     }
 
@@ -314,7 +312,7 @@ vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, f
 }
 vec3 sampleTransmittanceToSun(float bottomRadius, float topRadius, float viewHeight, float viewZenithCosine) {
     vec2 uv = TransmittanceLutParamsToUv(bottomRadius, topRadius, viewHeight, viewZenithCosine);
-    vec4 texel = texture(transmittanceLut, uv);
+    vec4 texel = textureLod(transmittanceLut, uv, 0);
     return vec3(texel.r, texel.g, texel.b);
 }
 
@@ -468,4 +466,33 @@ vec3 computeSkyAtmosphere(
     }// end if (shouldRaymarch)
 
     return vec3(0, 0, 0);
+}
+
+/////////////////////////////////// Call this ////////////////////////////////////////
+
+vec3 sampleSkyAtmosphere(vec3 viewDir) {
+    float bottomRadius = params.atmosphere.bottomRadius;
+    vec3 cameraPosES = params.cameraPosES;
+    bool intersectGround = raySphereIntersectNearest(cameraPosES, viewDir, vec3(0, 0, 0), bottomRadius) >= 0;
+    vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, params.dir2sun, viewDir, bottomRadius, intersectGround);
+    skyViewUv = vec2(toSubUv(skyViewUv.x, params.skyViewLutTextureDimensions.x), toSubUv(skyViewUv.y, params.skyViewLutTextureDimensions.y));
+
+    vec3 L = textureLod(skyViewLut, skyViewUv, 0).rgb;
+
+    // sun disc
+    if (dot(viewDir, params.dir2sun) >= cos(params.sunAngularRadius)) {
+        vec3 transmittanceToSun = sampleTransmittanceToSun(
+            params.atmosphere.bottomRadius,
+            params.atmosphere.topRadius,
+            length(cameraPosES),
+            dot(viewDir, normalize(cameraPosES)));
+        float sunVisibility = intersectGround ? 0.0f : 1.0f;
+        L += transmittanceToSun * sunVisibility; // assumes sun luminance is 1
+    }
+
+    // post process it
+    vec3 white_point = vec3(1.08241, 0.96756, 0.95003);
+    L = 1.0f - exp(-vec3(L.x, L.y, L.z) / white_point * params.exposure);
+
+    return L;
 }

@@ -11,6 +11,7 @@
 #include "Utils/myn/Log.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Renderers/DeferredRenderer.h"
+#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
 
 #define MAX_NUM_PROBES 128
 
@@ -59,8 +60,10 @@ public:
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
 
 			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout independentSetLayout = SkyAtmosphere::getInstance()->descriptorSet.getLayout();
 			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, independentSetLayout);
 			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
 			auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
@@ -80,6 +83,7 @@ public:
 		uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
 
 		uint32_t offset = uniformBuffer.strideSize * instanceCounter;
+		SkyAtmosphere::getInstance()->descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);
 		dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout, 0, 1, &offset);
 
 		instanceCounter++;

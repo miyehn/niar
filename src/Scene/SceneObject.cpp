@@ -113,7 +113,7 @@ mat4 SceneObject::parent_to_object() const {
 		vec4(0, 1.0f / sc.y, 0, 0),
 		vec4(0, 0, 1.0f / sc.z, 0),
 		vec4(0, 0, 0, 1)
-	) * mat4_cast(inverse(rotation())) // inv rotate
+	) * transpose(mat4_cast(rotation())) // inv rotate
 		* mat4( // un-translate
 		vec4(1, 0, 0, 0),
 		vec4(0, 1, 0, 0),
@@ -206,5 +206,5 @@ void SceneObject::rotate_around_axis(glm::vec3 ws_axis_unitvec, float theta) {
 		ws_axis_unitvec.x * sin_half_theta,
 		ws_axis_unitvec.y * sin_half_theta,
 		ws_axis_unitvec.z * sin_half_theta);
-	_rotation = qrot * _rotation;
+	_rotation = normalize(qrot * _rotation);
 }

@@ -11,6 +11,8 @@
 #include "Scene/Camera.hpp"
 #include "Render/Materials/ComputeShader.h"
 #include "SkyAtmosphereShaders.h"
+#include "Render/Vulkan/SamplerCache.h"
+#include "Scene/Light.hpp"
 
 SkyAtmosphere::SkyAtmosphere() {
 	config = new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg){});
@@ -45,20 +47,40 @@ SkyAtmosphere::SkyAtmosphere() {
 		"Sky atmosphere params buffer"
 	});
 
-	// create shared descriptor set
+	// create shared descriptor set(s)
 	DescriptorSetLayout setLayout{};
 	setLayout.addBinding(Slot_Parameters, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	setLayout.addBinding(Slot_TransmittanceLutRW, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	setLayout.addBinding(Slot_SkyViewLutRW, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	setLayout.addBinding(Slot_TransmittanceLutR, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	setLayout.addBinding(Slot_SkyViewLutR, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	descriptorSet = DescriptorSet(setLayout);
 
-	dynamicSet = DescriptorSet(setLayout);
+	descriptorSet.pointToBuffer(parametersBuffer, Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	descriptorSet.pointToRWImageView(transmittanceLut->imageView, Slot_TransmittanceLutRW);
+	descriptorSet.pointToRWImageView(skyViewLut->imageView, Slot_SkyViewLutRW);
+	auto samplerInfo = SamplerCache::defaultInfo();
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	descriptorSet.pointToImageView(transmittanceLut->imageView, Slot_TransmittanceLutR,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+	descriptorSet.pointToImageView(skyViewLut->imageView, Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 	//======== other properties ========
 
 	ui_show_transform = false;
 	ui_default_open = true;
+
+	SkyAtmosphere::on_enable();
+}
+
+// created here, but managed and destroyed by the scene tree
+SkyAtmosphere *SkyAtmosphere::getInstance() {
+	static SkyAtmosphere* instance = nullptr;
+	if (!instance) {
+		instance = new SkyAtmosphere();
+	}
+	return instance;
 }
 
 SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
@@ -74,7 +96,13 @@ SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
 	params.cameraPosES = cameraPosWS * 0.001f + glm::vec3(0, 0, bottomRadius);
 	params.exposure = config->lookup<float>("exposure");
 
-	params.dir2sun = glm::normalize(glm::vec3(1, 0, 0.5f)); // todo
+	// sun
+	foundSun = DirectionalLight::get_sun();
+	if (foundSun) {
+		params.dir2sun = -foundSun->get_light_direction();
+	} else {
+		params.dir2sun = glm::vec3(0, 0, -1);
+	}
 	params.sunAngularRadius = config->lookup<float>("sunAngularRadius");
 
 	config->lookupVector<float, 2>("skyViewNumSamplesMinMax", (float*)&params.skyViewNumSamplesMinMax);
@@ -103,33 +131,26 @@ SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
 }
 
 // called by the renderer
-void SkyAtmosphere::updateAndComposite(Texture2D *outSceneColor) {
+void SkyAtmosphere::updateAndComposite() {
 	auto parameters = getParameters();
 	if (!parameters.equals(cachedParameters)) {
 		parametersBuffer.writeData(&parameters);
 		updateLuts();
 		cachedParameters = parameters;
 	}
-	// TODO: composite onto outSceneColor
 }
 
 void SkyAtmosphere::updateLuts() {
 
-	dynamicSet.pointToBuffer(parametersBuffer, Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	dynamicSet.pointToRWImageView(transmittanceLut->imageView, Slot_TransmittanceLutRW);
-	dynamicSet.pointToRWImageView(skyViewLut->imageView, Slot_SkyViewLutRW);
-
 	auto transmittanceCS = ComputeShader::getInstance<TransmittanceLutCS>();
-	transmittanceCS->descriptorSetPtr = &dynamicSet;
+	transmittanceCS->descriptorSetPtr = &descriptorSet;
 	transmittanceCS->targetImage = transmittanceLut->resource.image;
 	transmittanceCS->dispatch(
 		(transmittanceLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
 		(transmittanceLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
 
-	dynamicSet.pointToImageView(transmittanceLut->imageView, Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
 	auto skyViewCS = ComputeShader::getInstance<SkyViewLutCS>();
-	skyViewCS->descriptorSetPtr = &dynamicSet;
+	skyViewCS->descriptorSetPtr = &descriptorSet;
 	skyViewCS->targetImage = skyViewLut->resource.image;
 	skyViewCS->dispatch(
 		(skyViewLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
@@ -145,4 +166,13 @@ SkyAtmosphere::~SkyAtmosphere() {
 void SkyAtmosphere::draw_config_ui() {
 	//ImGui::SliderFloat("Sun angular radius", &parameters.sunAngularRadius, 0, 1);
 	// TODO: the rest
+	if (enabled()) {
+		auto yellow = ImVec4(1.0f, 0.7f, 0.1f, 1.0f);
+		auto green = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);
+		if (foundSun) {
+			ImGui::TextColored(green, "Hooked up to sun '%s'", foundSun->name.c_str());
+		} else {
+			ImGui::TextColored(yellow, "There's no sun in the scene.");
+		}
+	}
 }

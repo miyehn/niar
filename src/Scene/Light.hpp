@@ -25,14 +25,31 @@ struct DirectionalLight : public Light {
 	explicit DirectionalLight(
 			glm::vec3 _color = glm::vec3(1),
 			float _intensity = 1.0f,
-			glm::vec3 dir = glm::vec3(0, 0, -1));
+			glm::vec3 dir = glm::vec3(0, 0, -1),
+			const std::string& _name = "[anonymous directional light]");
 
 	explicit DirectionalLight(const std::string& node_name, const tinygltf::Light* in_light);
 
 	void set_direction(glm::vec3 dir) { set_rotation(myn::quat_from_dir(normalize(dir))); }
 
-	glm::vec3 get_direction() { return object_to_world_rotation() * glm::vec3(0, 0, -1); }
+	glm::vec3 get_light_direction() { return object_to_world_rotation() * glm::vec3(0, 0, -1); }
 
+	static DirectionalLight* get_sun() { return sun; }
+
+	// scene object functions
+
+	void update(float elapsed) override;
+
+	void set_rotation(glm::quat newRot) override;
+
+	void draw_config_ui() override;
+
+private:
+
+	float angleTheta = 0.0f;
+	float anglePhi = 90.0f;
+
+	static DirectionalLight* sun;
 };
 
 struct PointLight: public Light {

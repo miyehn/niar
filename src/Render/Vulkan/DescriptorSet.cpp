@@ -185,27 +185,33 @@ void DescriptorSet::pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkD
 	}
 }
 
-void DescriptorSet::pointToImageView(VkImageView imageView, uint32_t binding, VkDescriptorType descriptorType)
+void DescriptorSet::pointToImageView(
+	VkImageView imageView,
+	uint32_t binding,
+	VkDescriptorType descriptorType,
+	const VkSamplerCreateInfo* samplerInfoPtr)
 {
+	// sampling method; pass in something else if default (here) is not desired
+	VkSamplerCreateInfo samplerInfo;
+	if (samplerInfoPtr) samplerInfo = *samplerInfoPtr;
+	else samplerInfo = {
+		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+		.magFilter = VK_FILTER_LINEAR,
+		.minFilter = VK_FILTER_LINEAR,
+		.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+		.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		.mipLodBias = 0,
+		.minLod = 0,
+		.maxLod = VK_LOD_CLAMP_NONE,
+	};
+	VkSampler sampler = SamplerCache::get(samplerInfo);
+
 	uint32_t numInstances = descriptorSets.size();
 	EXPECT(numInstances != 0, true)
-
 	for (auto i = 0; i < numInstances; i++)
 	{
-		VkSamplerCreateInfo samplerInfo = {
-			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-			.magFilter = VK_FILTER_LINEAR,
-			.minFilter = VK_FILTER_LINEAR,
-			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			.mipLodBias = 0,
-			.minLod = 0,
-			.maxLod = VK_LOD_CLAMP_NONE,
-		};
-		VkSampler sampler = SamplerCache::get(samplerInfo);
-
 		VkDescriptorImageInfo imageInfo = {
 			.sampler = sampler,
 			.imageView = imageView,

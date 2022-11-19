@@ -8,6 +8,6 @@ void ComputeShader::initializePipeline() {
 
 	ComputePipelineBuilder pipelineBuilder{};
 	pipelineBuilder.shaderPath = shaderPath;
-	pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, descriptorSetPtr->getLayout());
+	pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
 	pipelineBuilder.build(pipeline, pipelineLayout);
 }

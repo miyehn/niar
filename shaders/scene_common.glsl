@@ -14,7 +14,7 @@ struct ViewInfo
     float AspectRatio;
     float HalfVFovRadians;
     int ToneMappingOption;
-    int UseEnvironmentMap;
+    int BackgroundOption;
 };
 
 layout (set = 0, binding = 0) uniform _ViewInfoUBO

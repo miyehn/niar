@@ -26,7 +26,7 @@ void TransmittanceLutCS::dispatch(int groupCountX, int groupCountY, int groupCou
 			);
 
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_DYNAMIC, pipelineLayout);
+			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipelineLayout);
 			vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 
 			vk::insertImageBarrier(
@@ -62,7 +62,7 @@ void SkyViewLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
 			);
 
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_DYNAMIC, pipelineLayout);
+			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipelineLayout);
 			vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 
 			vk::insertImageBarrier(

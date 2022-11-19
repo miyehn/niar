@@ -9,6 +9,7 @@
 
 class Texture2D;
 class ConfigAsset;
+class DirectionalLight;
 
 class SkyAtmosphere : public SceneObject {
 
@@ -29,11 +30,16 @@ public:
 	SkyAtmosphere();
 	~SkyAtmosphere() override;
 
-	void updateAndComposite(Texture2D* outSceneColor);
+	static SkyAtmosphere* getInstance();
+
+	void updateAndComposite();
 
 	//==== scene object overrides ====
 
 	void draw_config_ui() override;
+
+	// public gpu resources
+	DescriptorSet descriptorSet;
 
 private:
 	void updateLuts();
@@ -74,16 +80,15 @@ private:
 		bool equals(const Parameters& other) const { return false; }
 	};
 
-	//Parameters parameters = {};
-
 	Parameters getParameters();
 
 	Parameters cachedParameters = {};
 
 	ConfigAsset* config = nullptr;
 
+	DirectionalLight* foundSun = nullptr;
+
 	// gpu resources
-	DescriptorSet dynamicSet;
 
 	VmaBuffer parametersBuffer;
 

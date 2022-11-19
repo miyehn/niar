@@ -5,6 +5,8 @@
 #include "lighting_common.glsl" // pbr lighting functions
 #include "rendertargets.glsl" // (set 0, bindings 1-4) g buffers
 
+#include "sky_common.glsl" // set 1, bindings 0-2; 8-9
+
 layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
 
 layout(location = 0) in vec2 vf_uv;
@@ -34,11 +36,14 @@ void main() {
 			GORM.rgb
 		);
 	}
-	else if (viewInfo.UseEnvironmentMap > 0)
+	else if (viewInfo.BackgroundOption > 0)
 	{
 		// environment map
-		vec3 viewDirWS = screenSpaceUvToViewDir(
-			vf_uv, viewInfo.ViewMatrix, viewInfo.HalfVFovRadians, viewInfo.AspectRatio);
-		FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS, 0);
+		vec3 viewDirWS = screenSpaceUvToViewDir(vf_uv, viewInfo.ViewMatrix, viewInfo.HalfVFovRadians, viewInfo.AspectRatio);
+		if (viewInfo.BackgroundOption == 1) {
+			FragColor.rgb += sampleLongLatMap(EnvironmentMap, viewDirWS, 0);
+		} else if (viewInfo.BackgroundOption == 2) {
+			FragColor.rgb += sampleSkyAtmosphere(viewDirWS);
+		}
 	}
 }

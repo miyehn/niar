@@ -9,4 +9,5 @@ protected:
 
 public:
 	static VkSampler get(VkSamplerCreateInfo& createInfo);
+	static VkSamplerCreateInfo defaultInfo();
 };

@@ -31,6 +31,12 @@ class GltfMaterial;
 // lighting related
 #define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
 
+enum BackgroundOption {
+	BG_None,
+	BG_EnvironmentMap,
+	BG_SkyAtmosphere
+};
+
 struct ViewInfo {
 	glm::mat4 ViewMatrix;
 	glm::mat4 ProjectionMatrix;
@@ -45,7 +51,7 @@ struct ViewInfo {
 	float AspectRatio;
 	float HalfVFovRadians;
 	int ToneMappingOption;
-	int UseEnvironmentMap;
+	int BackgroundOption;
 
 };
 
