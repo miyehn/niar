@@ -69,7 +69,6 @@ public:
 protected:
 	uint32_t width;
 	uint32_t height;
-	uint32_t num_slices;
 
 	Texture2D() = default;
 

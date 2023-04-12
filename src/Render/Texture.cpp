@@ -103,7 +103,6 @@ Texture2D::Texture2D(const std::string &name, const std::string &path, ImageForm
 
 	width = iwidth;
 	height = iheight;
-	num_slices = 1;
 
 	uint32_t pixelSize = textureFormat.numChannels * (textureFormat.channelDepth / 8);
 	createTexture2DFromPixelData(pixels, width, height, imageFormat, pixelSize, true, resource, imageView);
@@ -130,7 +129,6 @@ void Texture2D::createDefaultTextures()
 
 	auto* whiteTexture = new Texture2D();
 	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	whiteTexture->num_slices = 1;
 	whiteTexture->width = 1;
 	whiteTexture->height = 1;
 	uint8_t whitePixel[] = {255, 255, 255, 255};
@@ -147,7 +145,6 @@ void Texture2D::createDefaultTextures()
 
 	auto* blackTexture = new Texture2D();
 	blackTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	blackTexture->num_slices = 1;
 	blackTexture->width = 1;
 	blackTexture->height = 1;
 	uint8_t blackPixel[] = {0, 0, 0, 0};
@@ -164,7 +161,6 @@ void Texture2D::createDefaultTextures()
 
 	auto* defaultNormal = new Texture2D();
 	defaultNormal->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	defaultNormal->num_slices = 1;
 	defaultNormal->width = 1;
 	defaultNormal->height = 1;
 	uint8_t defaultNormalPixel[] = {127, 127, 255, 0};
@@ -190,7 +186,6 @@ Texture2D::Texture2D(ImageCreator &imageCreator)
 	imageFormat = imageCreator.imageInfo.format;
 	width = imageCreator.imageInfo.extent.width;
 	height = imageCreator.imageInfo.extent.height;
-	num_slices = imageCreator.imageInfo.extent.depth;
 
 	imageCreator.create(resource, imageView);
 	if (imageCreator.debugName.length() > 0)
@@ -207,7 +202,6 @@ Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uin
 	imageFormat = getFormatFromMap(format);
 	this->width = width;
 	this->height = height;
-	this->num_slices = 1;
 
 	createTexture2DFromPixelData(
 		data, width, height,

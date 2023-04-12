@@ -500,7 +500,7 @@ DeferredRenderer::DeferredRenderer()
 	}
 
 	// misc
-	viewInfo.Exposure = 0.0f;
+	viewInfo.Exposure = 3.0f;
 	viewInfo.ToneMappingOption = 1;
 
 	deferredLighting = new DeferredLighting(this);
@@ -856,7 +856,7 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 }
 
 void DeferredRenderer::draw_config_ui() {
-	ImGui::SliderFloat("", &viewInfo.Exposure, -5, 5, "exposure comp: %.3f");
+	ImGui::SliderFloat("", &viewInfo.Exposure, -25, 25, "exposure comp: %.3f");
 	ImGui::Combo(
 		"tone mapping",
 		&viewInfo.ToneMappingOption,
