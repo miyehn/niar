@@ -38,11 +38,13 @@ struct DirectionalLight : public Light {
 
 	// scene object functions
 
-	void update(float elapsed) override;
-
 	void set_rotation(glm::quat newRot) override;
 
+#if GRAPHICS_DISPLAY
+	void update(float elapsed) override;
+
 	void draw_config_ui() override;
+#endif
 
 private:
 

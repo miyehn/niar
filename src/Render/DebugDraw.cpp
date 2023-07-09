@@ -96,6 +96,9 @@ DebugLines::DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRender
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 
 		pipelineBuilder.build(pipeline, pipelineLayout);
+
+		NAME_OBJECT(VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipelineLayout, "Debug Lines pipeline layout")
+		NAME_OBJECT(VK_OBJECT_TYPE_PIPELINE, pipeline, "Debug Lines pipeline")
 	}
 }
 

@@ -58,6 +58,8 @@ public:
 
 	uint32_t numPoints() { return points.size(); }
 
+	VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
+
 private:
 
 	VkPipeline pipeline = VK_NULL_HANDLE;
@@ -87,6 +89,8 @@ public:
 	VmaBuffer pointsBuffer; // a vertex buffer potentially modified by compute shaders
 
 	uint32_t numSegments() { return points.size() / 2; }
+
+	VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
 
 private:
 	VkPipeline pipeline = VK_NULL_HANDLE;

@@ -1,6 +1,8 @@
 #include "Light.hpp"
 #include "Assets/ConfigAsset.hpp"
+#if GRAPHICS_DISPLAY
 #include "imgui.h"
+#endif
 
 #include <tinygltf/tiny_gltf.h>
 
@@ -17,7 +19,9 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir, cons
 	set_direction(dir);
 
 	name = _name;
+#if GRAPHICS_DISPLAY
 	ui_show_transform = false;
+#endif
 
 	if (myn::lower(name) == "sun") {
 		if (!sun) {
@@ -35,7 +39,9 @@ DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf:
 	color = vec3(c[0], c[1], c[2]);
 	intensity = in_light->intensity;
 
+#if GRAPHICS_DISPLAY
 	ui_show_transform = false;
+#endif
 
 	if (myn::lower(in_light->name) == "sun") {
 		if (!sun) {
@@ -46,6 +52,7 @@ DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf:
 	}
 }
 
+#if GRAPHICS_DISPLAY
 void DirectionalLight::update(float elapsed) {
 	//vec3
 	const float deg2rad = 3.14159265f / 180;
@@ -58,6 +65,7 @@ void DirectionalLight::update(float elapsed) {
 
 	SceneObject::update(elapsed);
 }
+#endif
 
 // SceneObject interface
 void DirectionalLight::set_rotation(glm::quat newRot) {
@@ -74,10 +82,12 @@ void DirectionalLight::set_rotation(glm::quat newRot) {
 
 }
 
+#if GRAPHICS_DISPLAY
 void DirectionalLight::draw_config_ui() {
 	ImGui::SliderFloat("angle theta", &angleTheta, -180.0f, 180.0f);
 	ImGui::SliderFloat("angle phi", &anglePhi, 0.0f, 180.0f);
 }
+#endif
 
 //-------- point light --------
 

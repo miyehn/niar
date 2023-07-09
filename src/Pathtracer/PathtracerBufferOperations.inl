@@ -398,8 +398,12 @@ void Pathtracer::render_to_file(const std::string& output_path_rel_to_bin)
 		+ "RR threshold " + std::to_string((int)(cached_config.RussianRouletteThreshold * 100) * 0.01);
 
 	uint32_t num_camera_rays_per_task = cached_config.TileSize * cached_config.TileSize * pixel_offsets.size();
-	std::string threading = std::to_string(num_camera_rays_per_task) + " camera rays per tile, "
-		+ std::to_string(cached_config.NumThreads) + " threads";
+	std::string threading = std::to_string(num_camera_rays_per_task) + " camera rays per tile, ";
+	if (cached_config.Multithreaded) {
+		threading += std::to_string(cached_config.NumThreads) + " threads";
+	} else {
+		threading += "single threaded";
+	}
 
 	TRACE("initialization complete. starting...\n\t%s\n\t%s", workload.c_str(), threading.c_str())
 	TIMER_BEGIN

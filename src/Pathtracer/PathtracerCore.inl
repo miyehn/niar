@@ -86,10 +86,12 @@ vec3 Pathtracer::raytrace_pixel(uint32_t index) {
 	vec3 result = vec3(0);
 	for (auto & task : tasks) {
 		trace_ray(task, 0, false);
-		result += clamp(task.output, vec3(0), vec3(1));
+		result += task.output;
+		//result += clamp(task.output, vec3(0), vec3(1));
 	}
 
 	result *= 1.0f / float(tasks.size());
+	result = clamp(result, vec3(0), vec3(1));
 	return result;
 }
 

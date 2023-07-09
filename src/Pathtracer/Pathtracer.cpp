@@ -531,7 +531,7 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 
 	///////////////////// DISPLAY ////////////////////////
 
-	// barrier source into trasfer source
+	// barrier source into transfer source
 	vk::insertImageBarrier(cmdbuf, window_surface->resource.image,
 						   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
 						   VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -556,6 +556,7 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 
 	if (debugLines && debugLines->numSegments() > 0) {
 		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
+		descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, debugLines->getPipelineLayout());
 		debugLines->bindAndDraw(cmdbuf);
 		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
 	}
