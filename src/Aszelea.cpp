@@ -7,6 +7,9 @@
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
 #include <cxxopts/cxxopts.hpp>
+#if WINOS
+#include <windows.h>
+#endif
 
 int main(int argc, const char * argv[])
 {
@@ -65,6 +68,10 @@ int main(int argc, const char * argv[])
 
 	LOG("rendering pathtracer scene to file: %s", output_path.c_str());
 	pathtracer->render_to_file(output_path);
+
+#if WINOS
+	ShellExecute(0, "open", output_path.c_str(), 0, 0, SW_SHOW);
+#endif
 
 	// cleanup
 
