@@ -79,7 +79,7 @@ static void cleanup();
 
 static void init()
 {
-	vk::init_window("niar", width, height, &window);
+	vk::init_window("niar - main window", width, height, &window);
 
 	{// shared resources
 		LOG("loading resources (vulkan)...");

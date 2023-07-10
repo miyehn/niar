@@ -500,7 +500,7 @@ DeferredRenderer::DeferredRenderer()
 	}
 
 	// misc
-	viewInfo.Exposure = 3.0f;
+	viewInfo.Exposure = 0.0f;
 	viewInfo.ToneMappingOption = 1;
 
 	deferredLighting = new DeferredLighting(this);

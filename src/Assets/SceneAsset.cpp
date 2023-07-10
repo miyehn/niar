@@ -644,7 +644,7 @@ SceneAsset::SceneAsset(
 			glm::decompose(node->transformation, scale, rotation, position, skew, perspective);
 
 			object->set_local_position(object->local_position() + position);
-			object->set_rotation(rotation * object->rotation());
+			object->set_rotation(rotation * object->rotation()); // todo: directional light at exactly 90 deg gives nan
 			object->set_scale(object->scale() * scale);
 
 			if (node->parent)

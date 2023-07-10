@@ -12,3 +12,4 @@ out
 nsight/
 **blend1
 **__pycache__/
+*.swp

@@ -1,55 +1,5 @@
-bl_info = {
-    "name": "myn",
-    "blender": (2, 80, 0),
-    "category": "Object",
-}
-
 import bpy
 import bmesh
-
-#---------------------------------------------------------------------
-
-class MYN_OT_origin_to_selected(bpy.types.Operator):
-    bl_idname = "myn.origin_to_selected"
-    bl_label = "Origin To Selected"
-    bl_options = {'REGISTER', 'UNDO'}
-    def execute(self, context):
-        bpy.ops.view3d.snap_cursor_to_selected()
-        bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
-        return {'FINISHED'}
-
-
-
-
-class MYN_OT_triangulate_selected(bpy.types.Operator):
-    bl_idname = "myn.triangulate_selected"
-    bl_label = "Triangulate Selected"
-    bl_options = {'REGISTER', 'UNDO'}
-    
-    @staticmethod
-    def triangulate_mesh(data):
-        bm = bmesh.new()
-        bm.from_mesh(data)
-        bmesh.ops.triangulate(bm, faces=bm.faces[:])
-        bm.to_mesh(data)
-        bm.free()
-    
-    def execute(self, context):
-        bpy.ops.object.mode_set(mode='OBJECT')
-        meshes_to_triangulate = set()
-        for obj in bpy.context.selected_objects:
-            if obj.type == 'MESH':
-                meshes_to_triangulate.add(obj.data)
-        for m in meshes_to_triangulate:
-            #self.report({'INFO'}, m.name)
-            MYN_OT_triangulate_selected.triangulate_mesh(m)
-            m.update()
-            
-        self.report({'INFO'}, "trianglated all selected meshes")
-        return {'FINISHED'}
-
-
 
 class MYN_OT_export_glb(bpy.types.Operator):
     bl_idname = "myn.export_glb"
@@ -75,6 +25,10 @@ class MYN_OT_export_glb(bpy.types.Operator):
         return
     
     def execute(self, context):
+        
+        if (not bpy.data.is_saved):
+            self.report({'INFO'}, "export failed: file is not saved to disk!")
+            return {'FINISHED'}
 
         bpy.ops.object.mode_set(mode='OBJECT')
         
@@ -102,7 +56,7 @@ class MYN_OT_export_glb(bpy.types.Operator):
         
         # export
         # see: https://docs.blender.org/api/current/bpy.ops.export_scene.html
-        path=bpy.path.abspath("//" + bpy.context.scene.out_filename)
+        path=bpy.path.abspath("//" + bpy.context.scene.myn_props.export_path)
         bpy.ops.export_scene.gltf(
             filepath=path,
             check_existing=False,
@@ -123,7 +77,9 @@ class MYN_OT_export_glb(bpy.types.Operator):
             export_yup=False,
             export_apply=False,
             export_animations=False,
-            export_lights=True
+            export_lights=True,
+            # TODO: take this out when work on niar physical light units in the future
+            export_import_convert_lighting_mode='RAW' 
             )
         
         # restore originals
@@ -136,58 +92,15 @@ class MYN_OT_export_glb(bpy.types.Operator):
         
         # report and exit
         self.report({'INFO'}, path)
+
+        # potentially bring niar to front:
+        try:
+            import pygetwindow as gw
+            windows = gw.getWindowsWithTitle('niar - main window')
+            if (len(windows) > 0):
+                windows[0].activate()
+        except ModuleNotFoundError:
+            pass
         
         return {'FINISHED'}
 
-
-    
-#------------------------------ PANEL --------------------------------
-
-class MYN_PT_tools_panel(bpy.types.Panel):
-    bl_label = "miyehn"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "miyehn"
-
-    def draw(self, context):
-        layout = self.layout
-
-        obj = context.object
-
-        row = layout.row()
-        row.label(text="yo sup!", icon='GHOST_ENABLED')
-        
-        row = layout.row()
-        row.operator("myn.origin_to_selected")
-        
-        row = layout.row()
-        row.operator("myn.triangulate_selected")
-        
-        layout.row().separator()
-        row = layout.row()
-        row.prop(context.scene, "out_filename")
-        
-        row = layout.row()
-        row.operator("myn.export_glb")
-        
-#------------------------------ REGISTRATION --------------------------------
-
-classes = (
-    MYN_OT_origin_to_selected,
-    MYN_OT_triangulate_selected,
-    MYN_OT_export_glb,
-    MYN_PT_tools_panel
-    )
-
-def register():
-    bpy.types.Scene.out_filename = bpy.props.StringProperty(
-        name="output", default="auto_export.glb")
-    for cls in classes: bpy.utils.register_class(cls)
-
-
-def unregister():
-    for cls in classes: bpy.utils.unregister_class(cls)
-
-
-if __name__ == "__main__":
-    register()
