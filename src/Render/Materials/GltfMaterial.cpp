@@ -12,7 +12,7 @@
 void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	// per-material-instance params (static)
-	materialParamsBuffer.writeData(&materialParams);
+	materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
 
 	// per-object params (dynamic)
 	uniforms = {

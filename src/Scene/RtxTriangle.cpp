@@ -27,7 +27,7 @@ void RtxTriangle::create_vertex_buffer()
 							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy vertex buffer memory over to staging buffer
-	stagingBuffer.writeData((void *) vertices);
+	stagingBuffer.writeData((void *) vertices, bufferSize);
 
 	// now create the actual vertex buffer
 	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
@@ -57,7 +57,7 @@ void RtxTriangle::create_index_buffer()
 							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy data to staging buffer
-	stagingBuffer.writeData((void*)indices);
+	stagingBuffer.writeData((void*)indices, bufferSize);
 
 	// create the actual index buffer
 	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT |

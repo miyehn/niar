@@ -160,7 +160,7 @@ void SimpleRenderer::updateViewInfoUbo()
 	viewInfo.CameraPosition = camera->world_position();
 	viewInfo.ViewDir = camera->forward();
 
-	viewInfoUbo.writeData(&viewInfo);
+	viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 }
 
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)

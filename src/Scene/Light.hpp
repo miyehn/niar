@@ -30,6 +30,8 @@ struct DirectionalLight : public Light {
 
 	explicit DirectionalLight(const std::string& node_name, const tinygltf::Light* in_light);
 
+	~DirectionalLight() override;
+
 	void set_direction(glm::vec3 dir) { set_rotation(myn::quat_from_dir(normalize(dir))); }
 
 	glm::vec3 get_light_direction() { return object_to_world_rotation() * glm::vec3(0, 0, -1); }

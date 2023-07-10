@@ -140,7 +140,7 @@ SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
 void SkyAtmosphere::updateAndComposite() {
 	auto parameters = getParameters();
 	if (!parameters.equals(cachedParameters)) {
-		parametersBuffer.writeData(&parameters);
+		parametersBuffer.writeData(&parameters, sizeof(parameters));
 		updateLuts();
 		cachedParameters = parameters;
 	}

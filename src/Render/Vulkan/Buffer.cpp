@@ -5,9 +5,12 @@
 VmaBuffer::VmaBuffer(const CreateInfo &info) :
 	allocator(info.allocator),
 	numInstances(info.numInstances),
-	strideSize(info.strideSize),
 	numStrides(info.numStrides)
 {
+	VkDeviceSize alignmentReq = Vulkan::Instance->minUniformBufferOffsetAlignment;
+	uint32_t numBlocks = (info.strideSize + alignmentReq - 1) / alignmentReq;
+	strideSize = numBlocks * alignmentReq;
+
 	VkBufferCreateInfo bufferCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = strideSize * numStrides,

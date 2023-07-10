@@ -20,7 +20,7 @@ public:
 	VmaBuffer() = default;
 	VmaBuffer(const CreateInfo &createInfo);
 
-	void writeData(void* inData, size_t writeSize = 0, size_t bufferIndex = 0, uint32_t strideIndex = 0);
+	void writeData(void* inData, size_t writeSize, size_t bufferIndex = 0, uint32_t strideIndex = 0);
 
 	VkBuffer getBufferInstance(uint32_t index = 0) const;
 

@@ -60,7 +60,7 @@ void DebugPoints::uploadVertexBuffer()
 		VmaBuffer stagingBuffer({
 			&Vulkan::Instance->memoryAllocator, bufferSize,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
-		stagingBuffer.writeData((void*)points.data());
+		stagingBuffer.writeData((void*)points.data(), sizeof(PointData) * points.size());
 
 		VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		pointsBuffer = VmaBuffer({
@@ -161,7 +161,7 @@ void DebugLines::uploadVertexBuffer()
 		bufferSize,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VMA_MEMORY_USAGE_CPU_TO_GPU});
-	stagingBuffer.writeData((void*)points.data());
+	stagingBuffer.writeData((void*)points.data(), sizeof(PointData) * points.size());
 
 	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	pointsBuffer = VmaBuffer({

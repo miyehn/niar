@@ -607,7 +607,7 @@ void DeferredRenderer::updateUniformBuffers()
 		viewInfo.BackgroundOption = BG_None;
 	}
 
-	viewInfoUbo.writeData(&viewInfo);
+	viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
 	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
 }

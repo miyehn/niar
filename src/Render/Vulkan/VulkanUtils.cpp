@@ -173,7 +173,7 @@ void vk::uploadPixelsToImage(
 	VkDeviceSize copyRegionSize = extentX * extentY * pixelSize;
 	VmaBuffer stagingBuffer({&Vulkan::Instance->memoryAllocator, copyRegionSize,
 							VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
-	stagingBuffer.writeData(pixels);
+	stagingBuffer.writeData(pixels, copyRegionSize);
 	Vulkan::Instance->immediateSubmit(
 		[&](VkCommandBuffer cmdbuf)
 		{
@@ -243,7 +243,7 @@ void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex
 		VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy vertex buffer memory over to staging buffer
-	stagingBuffer.writeData(data);
+	stagingBuffer.writeData(data, bufferSize);
 
 	// now create the actual vertex buffer
 	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -268,7 +268,7 @@ void vk::create_index_buffer(void *data, uint32_t num_indices, uint32_t index_si
 							 VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU});
 
 	// copy data to staging buffer
-	stagingBuffer.writeData(data);
+	stagingBuffer.writeData(data, bufferSize);
 
 	// create the actual index buffer
 	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;

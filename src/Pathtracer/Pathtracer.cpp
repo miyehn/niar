@@ -412,7 +412,7 @@ void Pathtracer::on_selected() {
 	ViewInfo.CameraPosition = camera->world_position();
 	ViewInfo.ViewDir = camera->forward();
 
-	viewInfoUbo.writeData(&ViewInfo);
+	viewInfoUbo.writeData(&ViewInfo, sizeof(ViewInfo));
 }
 
 void Pathtracer::on_unselected() {

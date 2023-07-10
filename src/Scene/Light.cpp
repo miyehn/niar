@@ -52,6 +52,10 @@ DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf:
 	}
 }
 
+DirectionalLight::~DirectionalLight() noexcept {
+	if (sun == this) sun = nullptr;
+}
+
 #if GRAPHICS_DISPLAY
 void DirectionalLight::update(float elapsed) {
 	//vec3
