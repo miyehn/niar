@@ -100,7 +100,7 @@ public:
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, SkyAtmosphere::getInstance()->descriptorSet.getLayout());
+			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, SkyAtmosphere::getInstance()->getDescriptorSet().getLayout());
 
 			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
 		}
@@ -727,7 +727,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		deferredLighting->usePipeline(cmdbuf);
 		auto pipelineLayout = deferredLighting->getPipeline().layout;
-		SkyAtmosphere::getInstance()->descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
+		SkyAtmosphere::getInstance()->getDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
 		vk::drawFullscreenTriangle(cmdbuf);
 
 	}

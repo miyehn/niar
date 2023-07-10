@@ -38,10 +38,16 @@ public:
 
 	void draw_config_ui() override;
 
-	// public gpu resources
-	DescriptorSet descriptorSet;
+	DescriptorSet& getDescriptorSet() { return this->enabled() ? descriptorSet : dummyDescriptorSet; }
 
 private:
+
+	// actual resources
+	DescriptorSet descriptorSet;
+
+	// dummy descriptor set for when sky is disabled
+	DescriptorSet dummyDescriptorSet;
+
 	void updateLuts();
 
 	struct AtmosphereProfile {

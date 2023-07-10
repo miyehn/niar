@@ -60,7 +60,7 @@ public:
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
 
 			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
-			DescriptorSetLayout independentSetLayout = SkyAtmosphere::getInstance()->descriptorSet.getLayout();
+			DescriptorSetLayout independentSetLayout = SkyAtmosphere::getInstance()->getDescriptorSet().getLayout();
 			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, independentSetLayout);
@@ -83,7 +83,7 @@ public:
 		uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
 
 		uint32_t offset = uniformBuffer.strideSize * instanceCounter;
-		SkyAtmosphere::getInstance()->descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);
+		SkyAtmosphere::getInstance()->getDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);
 		dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout, 0, 1, &offset);
 
 		instanceCounter++;

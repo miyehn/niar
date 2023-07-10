@@ -66,12 +66,18 @@ SkyAtmosphere::SkyAtmosphere() {
 	descriptorSet.pointToImageView(transmittanceLut->imageView, Slot_TransmittanceLutR,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
 	descriptorSet.pointToImageView(skyViewLut->imageView, Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
+	// and the dummy version
+	dummyDescriptorSet = DescriptorSet(setLayout);
+	dummyDescriptorSet.pointToBuffer(parametersBuffer, Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+	dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+
 	//======== other properties ========
 
 	ui_show_transform = false;
 	ui_default_open = true;
 
-	SkyAtmosphere::on_enable();
+	SkyAtmosphere::on_enable(); // point to resources to be ready for use
 }
 
 // created here, but managed and destroyed by the scene tree
