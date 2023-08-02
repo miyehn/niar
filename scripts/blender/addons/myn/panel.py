@@ -27,3 +27,7 @@ class MYN_PT_tools_panel(bpy.types.Panel):
         
         row = layout.row()
         row.operator("myn.export_glb")
+
+        layout.row().separator()
+        row = layout.row()
+        row.operator("myn.open_scripts_dir")
