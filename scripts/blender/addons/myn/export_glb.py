@@ -79,7 +79,7 @@ class MYN_OT_export_glb(bpy.types.Operator):
             export_animations=False,
             export_lights=True,
             # TODO: take this out when work on niar physical light units in the future
-            export_import_convert_lighting_mode='RAW' 
+            #export_import_convert_lighting_mode='RAW'
             )
         
         # restore originals

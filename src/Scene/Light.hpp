@@ -16,7 +16,7 @@ struct Light : public SceneObject {
 
 protected:
 	glm::vec3 color;
-	float intensity; // power (Watts)
+	float intensity; // power (Watts) updated in blender 3.6 onward: (cd, lx, nt)
 
 };
 
