@@ -103,11 +103,11 @@ set(ASZELEA_SRC
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
-	src/Utils/myn/Sample.cpp)
+	src/Utils/myn/Sample.cpp src/CpuSkyAtmosphere/CpuSkyAtmosphere.h)
 
 set(VINCENT_SRC
 	src/Vincent.cpp
-	src/Utils/StbImageImpl.cpp src/Utils/myn/ShaderSimulator.cpp src/Utils/myn/CpuSkyAtmosphere.cpp src/Utils/myn/CpuTexture.cpp src/Utils/myn/CpuTexture.h)
+	src/Utils/StbImageImpl.cpp src/Utils/myn/ShaderSimulator.cpp src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp src/Utils/myn/CpuTexture.cpp src/Utils/myn/CpuTexture.h src/CpuSkyAtmosphere/CpuSkyAtmosphere.h)
 
 if(APPLE)
 	add_definitions(-DMACOS)

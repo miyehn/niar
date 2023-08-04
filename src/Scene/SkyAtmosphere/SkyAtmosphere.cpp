@@ -44,7 +44,7 @@ SkyAtmosphere::SkyAtmosphere() {
 		sizeof(Parameters),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VMA_MEMORY_USAGE_CPU_TO_GPU,
-		"Sky atmosphere params buffer"
+		"Sky atmosphere renderingParams buffer"
 	});
 
 	// create shared descriptor set(s)
@@ -103,9 +103,9 @@ SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
 	params.exposure = config->lookup<float>("exposure");
 
 	// sun
-	foundSun = DirectionalLight::get_sun();
+	foundSun = DirectionalLight::getSun();
 	if (foundSun) {
-		params.dir2sun = -foundSun->get_light_direction();
+		params.dir2sun = -foundSun->getLightDirection();
 	} else {
 		params.dir2sun = glm::vec3(0, 0, -1);
 	}
@@ -169,7 +169,7 @@ SkyAtmosphere::~SkyAtmosphere() {
 	parametersBuffer.release();
 }
 
-void SkyAtmosphere::draw_config_ui() {
+void SkyAtmosphere::drawConfigUI() {
 	//ImGui::SliderFloat("Sun angular radius", &parameters.sunAngularRadius, 0, 1);
 	// TODO: the rest
 	if (enabled()) {

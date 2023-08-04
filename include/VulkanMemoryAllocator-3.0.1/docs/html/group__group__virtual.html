@@ -443,8 +443,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates new <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a> object. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Parameters for creation. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pVirtualBlock</td><td>Returned virtual block object or <code>VMA_NULL</code> if creation failed. </td></tr>
   </table>
@@ -638,8 +638,8 @@ Functions</h2></td></tr>
 
 <p>Allocates new virtual allocation inside given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
 <p >If the allocation fails due to not enough free space available, <code>VK_ERROR_OUT_OF_DEVICE_MEMORY</code> is returned (despite the function doesn't ever allocate actual GPU memory). <code>pAllocation</code> is then set to <code>VK_NULL_HANDLE</code> and <code>pOffset</code>, if not null, it set to <code>UINT64_MAX</code>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">virtualBlock</td><td>Virtual block </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Parameters for the allocation </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pAllocation</td><td>Returned handle of the new allocation </td></tr>

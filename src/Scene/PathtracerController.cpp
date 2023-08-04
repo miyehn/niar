@@ -20,7 +20,7 @@ bool PathtracerController::handle_event(SDL_Event event) {
 	return pathtracer->handle_event(event) | SceneObject::handle_event(event);
 }
 
-void PathtracerController::draw_config_ui() {
+void PathtracerController::drawConfigUI() {
 	ImGui::Text("This is just a proxy object that forwards \nKB+M control to the pathtracer.");
 	if (enabled()) {
 

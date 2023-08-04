@@ -28,7 +28,7 @@ void GrassField::set_local_position(vec3 local_position) {
 	*/
 }
 
-void GrassField::set_rotation(quat rotation) {
+void GrassField::setRotation(quat rotation) {
 	_rotation = rotation;
 	/*
 	generate_aabb();

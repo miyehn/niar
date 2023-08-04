@@ -238,8 +238,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Builds and returns statistics as a null-terminated string in JSON format. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">ppStatsString</td><td>Must be freed using <a class="el" href="group__group__stats.html#ga3104eb30d8122c84dd8541063f145288">vmaFreeStatsString()</a> function. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td></td></tr>
@@ -282,8 +282,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Builds and returns a null-terminated string in JSON format with information about given <a class="el" href="struct_vma_virtual_block.html" title="Handle to a virtual block object that allows to use core allocation algorithm without allocating any ...">VmaVirtualBlock</a>. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">virtualBlock</td><td>Virtual block. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">ppStatsString</td><td>Returned string. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">detailedMap</td><td>Pass <code>VK_FALSE</code> to only obtain statistics as returned by <a class="el" href="group__group__virtual.html#ga93c5741bca44b43e5b849cacbd616098" title="Calculates and returns detailed statistics about virtual allocations and memory usage in given VmaVir...">vmaCalculateVirtualBlockStatistics()</a>. Pass <code>VK_TRUE</code> to also obtain full list of allocations and free spaces.</td></tr>
@@ -327,8 +327,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Retrieves detailed statistics of existing <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pool</td><td>Pool object. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pPoolStats</td><td>Statistics of specified pool. </td></tr>
@@ -455,8 +455,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Retrieves information about current memory usage and budget for all memory heaps. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pBudgets</td><td>Must point to array with number of elements at least equal to number of memory heaps in physical device used.</td></tr>
   </table>
@@ -500,8 +500,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Retrieves statistics of existing <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pool</td><td>Pool object. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pPoolStats</td><td>Statistics of specified pool. </td></tr>

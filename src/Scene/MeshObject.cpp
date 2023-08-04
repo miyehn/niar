@@ -38,7 +38,7 @@ void MeshObject::set_local_position(glm::vec3 in_local_position)
 	}
 }
 
-void MeshObject::set_rotation(glm::quat in_rotation)
+void MeshObject::setRotation(glm::quat in_rotation)
 {
 	if (!locked) {
 		_rotation = in_rotation;

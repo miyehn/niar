@@ -22,7 +22,7 @@ public:
 #endif
 
 	void set_local_position(glm::vec3 in_local_position) override;
-	void set_rotation(glm::quat in_rotation) override;
+	void setRotation(glm::quat in_rotation) override;
 	void set_scale(glm::vec3 in_scale) override;
 
 	Mesh* mesh = nullptr;

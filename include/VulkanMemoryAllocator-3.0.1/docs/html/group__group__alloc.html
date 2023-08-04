@@ -845,8 +845,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>General purpose memory allocation. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
@@ -905,8 +905,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Allocates memory suitable for given <code>VkBuffer</code>. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">buffer</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
@@ -966,8 +966,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Allocates memory suitable for given <code>VkImage</code>. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">image</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td></td></tr>
@@ -1033,8 +1033,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>General purpose memory allocation for multiple allocation objects at once. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pVkMemoryRequirements</td><td>Memory requirements for each allocation. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Creation parameters for each allocation. </td></tr>
@@ -1083,8 +1083,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Begins defragmentation process. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pInfo</td><td>Structure filled with parameters of defragmentation. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pContext</td><td>Context object that must be passed to <a class="el" href="group__group__alloc.html#ga59f01ca3d53d50b7cca9b442b77a3e87" title="Ends defragmentation process.">vmaEndDefragmentation()</a> to finish defragmentation. </td></tr>
@@ -1133,8 +1133,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Starts single defragmentation pass. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">context</td><td>Context object that has been created by <a class="el" href="group__group__alloc.html#gac3335566858b45541fa9c0d7a6bbb57e" title="Begins defragmentation process.">vmaBeginDefragmentation()</a>. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pPassInfo</td><td>Computed informations for current pass. </td></tr>
@@ -1232,8 +1232,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Binds buffer to allocation with additional parameters. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramname">allocation</td><td></td></tr>
     <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginning of the <code>allocation</code>. Normally it should be 0. </td></tr>
@@ -1330,8 +1330,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Binds image to allocation with additional parameters. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramname">allocation</td><td></td></tr>
     <tr><td class="paramname">allocationLocalOffset</td><td>Additional offset to be added while binding, relative to the beginning of the <code>allocation</code>. Normally it should be 0. </td></tr>
@@ -1372,8 +1372,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramname">memoryTypeBits</td><td>Bit mask, where each bit set means that a memory type with that index should be checked.</td></tr>
   </table>
@@ -1467,8 +1467,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates a new <code>VkBuffer</code>, binds already created memory for it. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">allocation</td><td>Allocation that provides memory to be used for binding new buffer to it. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pBufferCreateInfo</td><td></td></tr>
@@ -1579,8 +1579,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates a new <code>VkBuffer</code>, allocates and binds memory for it. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pBufferCreateInfo</td><td></td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pAllocationCreateInfo</td><td></td></tr>
@@ -1751,8 +1751,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Allocates Vulkan device memory and creates <a class="el" href="struct_vma_pool.html" title="Represents custom memory pool.">VmaPool</a> object. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">pCreateInfo</td><td>Parameters of pool to create. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pPool</td><td>Handle to created pool. </td></tr>
@@ -1906,8 +1906,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Ends defragmentation process. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramdir"></td><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramdir"></td><td class="paramname">context</td><td>Context object that has been created by <a class="el" href="group__group__alloc.html#gac3335566858b45541fa9c0d7a6bbb57e" title="Begins defragmentation process.">vmaBeginDefragmentation()</a>. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">pStats</td><td>Optional stats for the defragmentation. Can be null.</td></tr>
@@ -1951,8 +1951,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Ends single defragmentation pass. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramname">allocator</td><td>Allocator object. </td></tr>
     <tr><td class="paramname">context</td><td>Context object that has been created by <a class="el" href="group__group__alloc.html#gac3335566858b45541fa9c0d7a6bbb57e" title="Begins defragmentation process.">vmaBeginDefragmentation()</a>. </td></tr>
     <tr><td class="paramname">pPassInfo</td><td>Computed informations for current pass filled by <a class="el" href="group__group__alloc.html#ga980d7da2ce3b1fd5c8b8476bc362cc00" title="Starts single defragmentation pass.">vmaBeginDefragmentationPass()</a> and possibly modified by you.</td></tr>
@@ -2203,8 +2203,8 @@ Functions</h2></td></tr>
 
 <p>Flushes memory of given set of allocations. </p>
 <p >Calls <code>vkFlushMappedMemoryRanges()</code> for memory associated with given ranges of given allocations. For more information, see documentation of <a class="el" href="group__group__alloc.html#ga30c37c1eec6025f397be41644f48490f" title="Flushes memory of given allocation.">vmaFlushAllocation()</a>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramname">allocationCount</td><td></td></tr>
     <tr><td class="paramname">allocations</td><td></td></tr>
@@ -2496,8 +2496,8 @@ Functions</h2></td></tr>
 
 <p>Invalidates memory of given set of allocations. </p>
 <p >Calls <code>vkInvalidateMappedMemoryRanges()</code> for memory associated with given ranges of given allocations. For more information, see documentation of <a class="el" href="group__group__alloc.html#gaaa8412919139ef413a4215ac6a290fae" title="Invalidates memory of given allocation.">vmaInvalidateAllocation()</a>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
+<dl class="renderingParams"><dt>Parameters</dt><dd>
+  <table class="renderingParams">
     <tr><td class="paramname">allocator</td><td></td></tr>
     <tr><td class="paramname">allocationCount</td><td></td></tr>
     <tr><td class="paramname">allocations</td><td></td></tr>

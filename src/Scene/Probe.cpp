@@ -76,7 +76,7 @@ public:
 		return materialPipeline;
 	}
 	void setParameters(VkCommandBuffer cmdbuf, SceneObject* obj) override {
-		// per-object params (dynamic)
+		// per-object renderingParams (dynamic)
 		uniforms = {
 			.ModelMatrix = obj->object_to_world(),
 		};

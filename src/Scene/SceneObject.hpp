@@ -42,7 +42,7 @@ public:
 	// other operations
 
 	virtual void set_local_position(glm::vec3 local_position) { _local_position = local_position; }
-	virtual void set_rotation(glm::quat rotation) { _rotation = rotation; }
+	virtual void setRotation(glm::quat rotation) { _rotation = rotation; }
 	virtual void set_scale(glm::vec3 scale) { _scale = scale; }
 
 	void rotate_around_axis(glm::vec3 ws_axis_unitvec, float radians);
@@ -51,7 +51,7 @@ public:
 	bool ui_default_open = false;
 	bool ui_show_transform = true;
 	void draw_transform_ui(bool global) const;
-	virtual void draw_config_ui() {};
+	virtual void drawConfigUI() {};
 #endif
 
 	// transformation

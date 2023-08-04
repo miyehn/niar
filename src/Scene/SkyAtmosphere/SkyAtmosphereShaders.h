@@ -22,7 +22,7 @@ private:
 
 class SkyViewLutCS : public ComputeShader {
 public:
-	// params
+	// renderingParams
 	VkImage targetImage = VK_NULL_HANDLE;
 	// dispatch fn
 	void dispatch(int groupCountX, int groupCountY, int groupCountZ) override;

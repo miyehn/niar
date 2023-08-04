@@ -36,7 +36,7 @@ public:
 
 	//==== scene object overrides ====
 
-	void draw_config_ui() override;
+	void drawConfigUI() override;
 
 	DescriptorSet& getDescriptorSet() { return this->enabled() ? descriptorSet : dummyDescriptorSet; }
 

@@ -11,6 +11,11 @@ namespace myn {
 
 using namespace glm;
 
+// default to a 1x1 black texture
+CpuTexture::CpuTexture() : width(1), height(1), buffer(1) {
+	buffer[0] = vec4(0, 0, 0, 0);
+}
+
 CpuTexture::CpuTexture(int width, int height) : width(width), height(height), buffer(width * height) {}
 
 void CpuTexture::storeTexel(int x, int y, const glm::vec4 &col) {

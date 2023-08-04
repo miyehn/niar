@@ -195,7 +195,7 @@ static void init()
 						node->toggle_enabled();
 					}
 					if (node->ui_show_transform) node->draw_transform_ui(show_global_transform);
-					node->draw_config_ui();
+					node->drawConfigUI();
 					for (auto child : node->children) make_tree(child);
 					ImGui::TreePop();
 				}

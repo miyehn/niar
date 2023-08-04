@@ -7,16 +7,18 @@ struct Camera;
 struct Mesh;
 namespace tinygltf { struct Light; }
 
+#define PBR_WATTS_TO_LUMENS 683.0f
+
 struct Light : public SceneObject {
 
 	enum Type { Point, Directional };
 	Type type;
 	~Light() override = default;
-	glm::vec3 get_emission() { return color * intensity; }
+	glm::vec3 getLumen() { return color * strength; }
 
 protected:
 	glm::vec3 color;
-	float intensity; // power (Watts) updated in blender 3.6 onward: (cd, lx, nt)
+	float strength; // power (Watts) updated in blender 3.6 onward: (cd, lx, nt)
 
 };
 
@@ -32,20 +34,22 @@ struct DirectionalLight : public Light {
 
 	~DirectionalLight() override;
 
-	void set_direction(glm::vec3 dir) { set_rotation(myn::quat_from_dir(normalize(dir))); }
+	void setDirection(glm::vec3 dir) { setRotation(myn::quat_from_dir(normalize(dir))); }
 
-	glm::vec3 get_light_direction() { return object_to_world_rotation() * glm::vec3(0, 0, -1); }
+	glm::vec3 getLightDirection() { return object_to_world_rotation() * glm::vec3(0, 0, -1); }
 
-	static DirectionalLight* get_sun() { return sun; }
+	glm::vec3 getIrradianceLx() { return getLumen() / (2 * PI) / PBR_WATTS_TO_LUMENS; }
+
+	static DirectionalLight* getSun() { return sun; }
 
 	// scene object functions
 
-	void set_rotation(glm::quat newRot) override;
+	void setRotation(glm::quat newRot) override;
 
 #if GRAPHICS_DISPLAY
 	void update(float elapsed) override;
 
-	void draw_config_ui() override;
+	void drawConfigUI() override;
 #endif
 
 private:
@@ -64,5 +68,7 @@ struct PointLight: public Light {
 			glm::vec3 _local_pos = glm::vec3(0));
 
 	explicit PointLight(const std::string& node_name, const tinygltf::Light* in_light);
+
+	glm::vec3 getLuminousIntensityCd() { return getLumen() / (4 * PI) / PBR_WATTS_TO_LUMENS; }
 
 };

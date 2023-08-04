@@ -12,5 +12,5 @@ class PathtracerController : public SceneObject {
 public:
 	PathtracerController();
 	bool handle_event(SDL_Event event) override;
-	void draw_config_ui() override;
+	void drawConfigUI() override;
 };

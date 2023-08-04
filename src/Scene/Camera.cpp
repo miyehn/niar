@@ -11,7 +11,7 @@ void Camera::set_local_position(vec3 local_position) {
 	_local_position = local_position;
 }
 
-void Camera::set_rotation(quat rotation) {
+void Camera::setRotation(quat rotation) {
 	_rotation = rotation;
 }
 
@@ -198,12 +198,12 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 }
 
 #if GRAPHICS_DISPLAY
-void Camera::draw_config_ui()
+void Camera::drawConfigUI()
 {
 	if (ImGui::Button("look at origin"))
 	{
 		glm::quat rot = glm::quatLookAt(-glm::normalize(local_position()), glm::vec3(0, 1, 0));
-		set_rotation(rot);
+		setRotation(rot);
 	}
 	if (_locked) {
 		auto yellow = ImVec4(1.0f, 0.7f, 0.1f, 1.0f);

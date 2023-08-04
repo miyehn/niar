@@ -16,6 +16,9 @@ public:
 		WM_Wrap,
 		WM_Clamp
 	} WrapMode;
+
+	CpuTexture();
+
 	CpuTexture(int width, int height);
 
 	void storeTexel(int x, int y, const glm::vec4 &col);
@@ -31,8 +34,8 @@ public:
 	void writeFile(const std::string &filename, bool gammaCorrect, bool openFile) const;
 
 private:
-	int width;
-	int height;
+	int width = 0;
+	int height = 0;
 	std::vector<glm::vec4> buffer;
 };
 

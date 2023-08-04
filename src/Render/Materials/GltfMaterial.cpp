@@ -11,10 +11,10 @@
 
 void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
-	// per-material-instance params (static)
+	// per-material-instance renderingParams (static)
 	materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
 
-	// per-object params (dynamic)
+	// per-object renderingParams (dynamic)
 	uniforms = {
 		.ModelMatrix = drawable->object_to_world(),
 	};
@@ -54,7 +54,7 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
 							  bufferName,
 							  1, MAX_MATERIAL_INSTANCES});
-	bufferName = "Material params buffer (" + info.name + ")";
+	bufferName = "Material renderingParams buffer (" + info.name + ")";
 	materialParamsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 									 sizeof(materialParams),
 									 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,

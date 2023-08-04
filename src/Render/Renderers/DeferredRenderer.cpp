@@ -577,24 +577,23 @@ void DeferredRenderer::updateUniformBuffers()
 	int numDirectionalLights = 0;
 	drawable->foreach_descendent_bfs([this, &numPointLights, &numDirectionalLights](SceneObject* child){
 		// convert whatever unit (cd, lx, nt) to watt:
-#define PBR_WATTS_TO_LUMENS 683.0f
 		// from blender, PBR_WATTS_TO_LUMENS = 683 // so lumen to watt is 1.0f/683
 		// the last div by 2*PI is converting irradiance to radiance (???)
-		// todo: rename the "get_emission" interface altogether
+		// todo: rename the "getLumen" interface altogether
 		if (child->enabled()) {
 			if (auto L = dynamic_cast<PointLight*>(child))
 			{
 				if (numPointLights < MAX_LIGHTS_PER_PASS) {
 					pointLights.Data[numPointLights].position = L->world_position();
-					pointLights.Data[numPointLights].color = L->get_emission() / (4 * PI) / PBR_WATTS_TO_LUMENS;
+					pointLights.Data[numPointLights].color = L->getLuminousIntensityCd();
 					numPointLights++;
 				}
 			}
 			else if (auto L = dynamic_cast<DirectionalLight*>(child))
 			{
 				if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
-					directionalLights.Data[numDirectionalLights].direction = L->get_light_direction();
-					directionalLights.Data[numDirectionalLights].color = L->get_emission() / PBR_WATTS_TO_LUMENS / (2 * PI);
+					directionalLights.Data[numDirectionalLights].direction = L->getLightDirection();
+					directionalLights.Data[numDirectionalLights].color = L->getIrradianceLx();
 					numDirectionalLights++;
 				}
 			}

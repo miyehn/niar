@@ -1,6 +1,7 @@
-#include "ShaderSimulator.h"
-#include "Misc.h"
-#include "Log.h"
+#include "CpuSkyAtmosphere.h"
+#include "Utils/myn/Misc.h"
+#include "Utils/myn/Log.h"
+#include "Utils/myn/Timer.h"
 
 using namespace glm;
 
@@ -459,8 +460,8 @@ void TransmittanceLutSim::runSim() {
 	auto texdim = uvec2(output->getWidth(), output->getHeight());
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
-		vec2 transmittanceLutParams = UvToTransmittanceLutParams(atmosphere->bottomRadius, atmosphere->topRadius, uv);
-		vec3 transmittanceToSun = computeTransmittanceToSun(*atmosphere, transmittanceLutParams.x, transmittanceLutParams.y);
+		vec2 transmittanceLutParams = UvToTransmittanceLutParams(atmosphere.bottomRadius, atmosphere.topRadius, uv);
+		vec3 transmittanceToSun = computeTransmittanceToSun(atmosphere, transmittanceLutParams.x, transmittanceLutParams.y);
 		return vec4(transmittanceToSun, 1);
 	});
 }
@@ -471,24 +472,24 @@ void SkyAtmosphereSim::runSim() {
 	dispatchShader([&](uint32_t x, uint32_t y) {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
 		vec3 viewDir = uvToViewDir_longlat(uv);
-		vec3 cameraPosES = ws2es(renderingParams->cameraPosWS, renderingParams->atmosphere.bottomRadius);
+		vec3 cameraPosES = ws2es(renderingParams.cameraPosWS, renderingParams.atmosphere.bottomRadius);
 
-		float bottomRadius = renderingParams->atmosphere.bottomRadius;
+		float bottomRadius = renderingParams.atmosphere.bottomRadius;
 		bool intersectGround = raySphereIntersectNearest(cameraPosES, viewDir, vec3(0), bottomRadius) >= 0;
-		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams->dir2sun, viewDir, bottomRadius, intersectGround);
+		vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams.dir2sun, viewDir, bottomRadius, intersectGround);
 		skyViewUv = vec2(toSubUv(skyViewUv.x, texdim.x), toSubUv(skyViewUv.y, texdim.y));
 		vec3 L = skyViewLut->sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
 
 		// sun
-		if (dot(viewDir, renderingParams->dir2sun) > cos(renderingParams->sunAngularRadius)) {
+		if (dot(viewDir, renderingParams.dir2sun) > cos(renderingParams.sunAngularRadius)) {
 			vec3 transmittanceToSun = sampleTransmittanceToSun(
 				transmittanceLut,
-				renderingParams->atmosphere.bottomRadius,
-				renderingParams->atmosphere.topRadius,
+				renderingParams.atmosphere.bottomRadius,
+				renderingParams.atmosphere.topRadius,
 				length(cameraPosES),
 				dot(viewDir, normalize(cameraPosES)));
 			float sunVisibility = intersectGround ? 0 : 1;
-			L += transmittanceToSun * sunVisibility * renderingParams->sunLuminance;
+			L += transmittanceToSun * sunVisibility * renderingParams.sunLuminance;
 		}
 
 		return vec4(L, 1.0f);
@@ -503,7 +504,7 @@ void sky::SkyAtmospherePostProcess::runSim() {
 		vec2 uv = vec2(float(x + 0.5f) / texdim.x, float(y + 0.5f) / texdim.y);
 		auto raw = skyTextureRaw->sampleBilinear(uv, CpuTexture::WM_Clamp);
 		vec3 white_point = vec3(1.08241, 0.96756, 0.95003);
-		vec3 base = 1.0f - exp(-vec3(raw.x, raw.y, raw.z) / white_point * renderingParams->exposure);
+		vec3 base = 1.0f - exp(-vec3(raw.x, raw.y, raw.z) / white_point * renderingParams.exposure);
 		vec3 exponent = vec3(1.0f / 2.2f);
 		vec3 res = pow(base, exponent);
 		return vec4(res, 1.0f);
@@ -533,6 +534,123 @@ void sky::SkyViewLutSim::runSim() {
 
 		return vec4(L, 1);
 	});
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+CpuSkyAtmosphere::CpuSkyAtmosphere() {
+	renderingParams = {
+		.cameraPosWS = glm::vec3(200, 300, 200),
+		.dir2sun = glm::normalize(glm::vec3(1, 2, 0.2f)),
+		.sunLuminance = {1, 1, 1},
+		.skyViewNumSamplesMinMax = {16, 128},
+		.exposure = 10,
+		.sunAngularRadius = 0.004675f
+	};
+	auto& atmosphere = renderingParams.atmosphere;
+	float mieScattering = 0.003996f;
+	float mieExtinction = 0.00440f;
+	float mieAbsorption = mieExtinction - mieScattering;
+	atmosphere = {
+		.bottomRadius = 6360,
+		.topRadius = 6460,
+		.rayleighScattering = {
+			5.802f * 1e-3,
+			13.558f * 1e-3,
+			33.1f * 1e-3
+		},
+		// rayleigh absorption = 0
+		.mieScattering = {
+			mieScattering, mieScattering, mieScattering
+		},
+		.mieAbsorption = {
+			mieAbsorption, mieAbsorption, mieAbsorption
+		},
+		.miePhaseG = 0.8f,
+		// ozone scattering = 0
+		.ozoneAbsorption = {
+			0.650f * 1e-3,
+			1.881f * 1e-3,
+			0.085f * 1e-3
+		},
+		.ozoneMeanHeight = 25,
+		.ozoneLayerWidth = 30,
+		.groundAlbedo = {0.3f, 0.3f, 0.3f}
+	};
+
+	transmittanceLut = CpuTexture(256, 64);
+	{
+		TIMER_BEGIN
+		TransmittanceLutSim transmittanceSim(&transmittanceLut);
+		transmittanceSim.atmosphere = atmosphere;
+		transmittanceSim.runSim();
+		TIMER_END(tTransmittance)
+		LOG("transmittance lut: %.3fs", tTransmittance)
+	}
+
+	// sky view lut
+	skyViewLut = CpuTexture(192, 108);
+	{
+		TIMER_BEGIN
+		myn::sky::SkyViewLutSim skyViewSim(&skyViewLut);
+		skyViewSim.transmittanceLut = &transmittanceLut;
+		skyViewSim.renderingParams = &renderingParams;
+		skyViewSim.runSim();
+		TIMER_END(tSkyView)
+		LOG("sky view lut: %.3fs", tSkyView)
+	}
+}
+
+CpuTexture CpuSkyAtmosphere::createSkyTexture(int width, int height) {
+	// compositing
+	CpuTexture skyTextureRaw(width, height);
+	{
+		TIMER_BEGIN
+		myn::sky::SkyAtmosphereSim mainSim(&skyTextureRaw);
+		mainSim.renderingParams = renderingParams;
+		mainSim.transmittanceLut = &transmittanceLut;
+		mainSim.skyViewLut = &skyViewLut;
+		mainSim.runSim();
+		TIMER_END(tComposite)
+		LOG("compositing: %.3fs", tComposite)
+	}
+
+	// post-processed sky texture
+	CpuTexture outSkyTexture = CpuTexture(width, height);
+	{
+		TIMER_BEGIN
+		myn::sky::SkyAtmospherePostProcess post(&outSkyTexture);
+		post.skyTextureRaw = &skyTextureRaw; // as read-only shader resource
+		post.renderingParams = renderingParams;
+		post.runSim();
+		TIMER_END(tPostProcess)
+		LOG("post processing: %.3fs", tPostProcess)
+	}
+	return outSkyTexture;
+}
+
+glm::vec3 CpuSkyAtmosphere::sampleDirection(const glm::vec3 &viewDir) {
+	vec3 cameraPosES = ws2es(renderingParams.cameraPosWS, renderingParams.atmosphere.bottomRadius);
+
+	float bottomRadius = renderingParams.atmosphere.bottomRadius;
+	bool intersectGround = raySphereIntersectNearest(cameraPosES, viewDir, vec3(0), bottomRadius) >= 0;
+	vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams.dir2sun, viewDir, bottomRadius, intersectGround);
+	//skyViewUv = vec2(toSubUv(skyViewUv.x, texdim.x), toSubUv(skyViewUv.y, texdim.y));
+	vec3 L = skyViewLut.sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
+
+	// sun
+	if (dot(viewDir, renderingParams.dir2sun) > cos(renderingParams.sunAngularRadius)) {
+		vec3 transmittanceToSun = sampleTransmittanceToSun(
+			&transmittanceLut,
+			renderingParams.atmosphere.bottomRadius,
+			renderingParams.atmosphere.topRadius,
+			length(cameraPosES),
+			dot(viewDir, normalize(cameraPosES)));
+		float sunVisibility = intersectGround ? 0 : 1;
+		L += transmittanceToSun * sunVisibility * renderingParams.sunLuminance;
+	}
+
+	return vec4(L, 1.0f);
 }
 
 } // namespace myn::sky

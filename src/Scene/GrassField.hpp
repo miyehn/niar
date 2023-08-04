@@ -23,7 +23,7 @@ struct GrassField : public SceneObject {
 	bool handle_event(SDL_Event event) override;
 
 	void set_local_position(glm::vec3 _local_position) override;
-	void set_rotation(glm::quat _rotation) override;
+	void setRotation(glm::quat _rotation) override;
 	void set_scale(glm::vec3 _scale) override;
 
 	// properties and methods

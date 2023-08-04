@@ -300,13 +300,13 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 			}
 		}
 		else if (auto* plight = dynamic_cast<PointLight*>(drawable)) {
-			auto L = new PathtracerPointLight(plight->world_position(), plight->get_emission());
+			auto L = new PathtracerPointLight(plight->world_position(), plight->getLumen() / (4 * PI));
 			float w = L->get_weight();
 			light_power_sum += w;
 			lights.push_back( {static_cast<PathtracerLight*>(L), w} );
 		}
 		else if (auto* dlight = dynamic_cast<DirectionalLight*>(drawable)) {
-			auto L = new PathtracerDirectionalLight(dlight->get_light_direction(), dlight->get_emission());
+			auto L = new PathtracerDirectionalLight(dlight->getLightDirection(), dlight->getLumen());
 			float w = L->get_weight();
 			light_power_sum += w;
 			lights.push_back( {static_cast<PathtracerLight*>(L), w} );

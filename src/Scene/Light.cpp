@@ -15,8 +15,8 @@ DirectionalLight::DirectionalLight(vec3 _color, float _intensity, vec3 dir, cons
 	type = Directional;
 
 	color = _color;
-	intensity = _intensity;
-	set_direction(dir);
+	strength = _intensity;
+	setDirection(dir);
 
 	name = _name;
 #if GRAPHICS_DISPLAY
@@ -37,7 +37,7 @@ DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf:
 	name = node_name + " | " + in_light->name;
 	auto c = in_light->color;
 	color = vec3(c[0], c[1], c[2]);
-	intensity = in_light->intensity;
+	strength = in_light->intensity;
 
 #if GRAPHICS_DISPLAY
 	ui_show_transform = false;
@@ -65,19 +65,19 @@ void DirectionalLight::update(float elapsed) {
 	vec3 newDir2sun = vec3(sin(phi) * cos(theta), sin(phi) * sin(theta), cos(phi));
 
 	// not modifying phi and theta
-	SceneObject::set_rotation(myn::quat_from_dir(-newDir2sun));
+	SceneObject::setRotation(myn::quat_from_dir(-newDir2sun));
 
 	SceneObject::update(elapsed);
 }
 #endif
 
 // SceneObject interface
-void DirectionalLight::set_rotation(glm::quat newRot) {
-	Light::set_rotation(newRot);
+void DirectionalLight::setRotation(glm::quat newRot) {
+	Light::setRotation(newRot);
 
 	// update theta and phi here, since for most of the time they're the rotation ground truth
 	const float rad2deg = 180.0f / 3.14159265f;
-	vec3 dir2sun = -get_light_direction();
+	vec3 dir2sun = -getLightDirection();
 	anglePhi = 180.0f - glm::acos(-dir2sun.z) * rad2deg;
 
 	dir2sun.z = 0;
@@ -87,7 +87,7 @@ void DirectionalLight::set_rotation(glm::quat newRot) {
 }
 
 #if GRAPHICS_DISPLAY
-void DirectionalLight::draw_config_ui() {
+void DirectionalLight::drawConfigUI() {
 	ImGui::SliderFloat("angle theta", &angleTheta, -180.0f, 180.0f);
 	ImGui::SliderFloat("angle phi", &anglePhi, 0.0f, 180.0f);
 }
@@ -100,12 +100,12 @@ PointLight::PointLight(vec3 _color, float _intensity, vec3 _local_pos)
 	type = Point;
 
 	color = _color;
-	intensity = _intensity;
+	strength = _intensity;
 
 	if (color.r > 1 || color.g > 1 || color.b > 1) {
 		float factor = max(color.r, max(color.g, color.b));
 		color *= (1.0f / factor);
-		intensity = factor;
+		strength = factor;
 	}
 
 	_local_position = _local_pos;
@@ -118,6 +118,6 @@ PointLight::PointLight(const std::string& node_name, const tinygltf::Light *in_l
 	name = node_name + " | " + in_light->name;
 	auto c = in_light->color;
 	color = vec3(c[0], c[1], c[2]);
-	intensity = in_light->intensity;
+	strength = in_light->intensity;
 }
 
