@@ -331,9 +331,14 @@ void Pathtracer::trace_ray(RayTask& task, int ray_depth, bool debug) {
 		if (debug) LOG("level %d returns: (%f %f %f)", ray_depth, L.x, L.y, L.z);
 #endif
 	}
-	else if (Config->lookup<int>("LoadEnvironmentMap")) {// ray missed
-		auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
-		task.output += task.contribution * myn::sample::tex::longlatmap_float3(
-			(float*)(envmap->texels3x32.data()), envmap->width, envmap->height, ray.d);
+	else {// ray missed
+		if (cpuSky) {
+			task.output += task.contribution * cpuSky->sampleSkyColor(ray.d);
+		}
+		else if (Config->lookup<int>("LoadEnvironmentMap")) {
+			auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
+			task.output += task.contribution * myn::sample::tex::longlatmap_float3(
+				(float*)(envmap->texels3x32.data()), envmap->width, envmap->height, ray.d);
+		}
 	}
 }

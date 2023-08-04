@@ -33,6 +33,7 @@ int main(int argc, const char * argv[])
 	/////////////////////////////////////////////////////////////////////////////
 
 	myn::sky::CpuSkyAtmosphere sky;
+	sky.updateLuts();
 	myn::CpuTexture skyTexture = sky.createSkyTexture(width, height);
 	skyTexture.writeFile(output_path, false, true);
 

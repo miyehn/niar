@@ -1,6 +1,7 @@
 #include "PathtracerLight.hpp"
 #include "Primitive.hpp"
 #include "BSDF.hpp"
+#include "CpuSkyAtmosphere/CpuSkyAtmosphere.h"
 
 using namespace glm;
 
@@ -79,4 +80,8 @@ void PathtracerDirectionalLight::ray_to_light_and_attenuation(Ray &ray, float &a
 
 float PathtracerDirectionalLight::get_weight() {
 	return luminance(get_emission());
+}
+
+void PathtracerDirectionalLight::apply_sky(const myn::sky::CpuSkyAtmosphere *cpuSky) {
+	emission *= cpuSky->sampleSunTransmittance(-direction);
 }

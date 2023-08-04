@@ -88,12 +88,17 @@ class CpuSkyAtmosphere {
 public:
 	CpuSkyAtmosphere();
 
-	glm::vec3 sampleDirection(const glm::vec3& viewDir);
+	glm::vec3 sampleSkyColor(const glm::vec3& viewDir);
+
+	glm::vec3 sampleSunTransmittance(const glm::vec3& viewDir) const;
+
+	void updateLuts();
 
 	CpuTexture createSkyTexture(int width, int height);
 
-private:
 	SkyAtmosphereRenderingParams renderingParams;
+
+private:
 
 	CpuTexture transmittanceLut;
 	CpuTexture skyViewLut;

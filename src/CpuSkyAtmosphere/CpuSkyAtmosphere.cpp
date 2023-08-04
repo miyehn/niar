@@ -578,11 +578,14 @@ CpuSkyAtmosphere::CpuSkyAtmosphere() {
 		.groundAlbedo = {0.3f, 0.3f, 0.3f}
 	};
 
+}
+
+void CpuSkyAtmosphere::updateLuts() {
 	transmittanceLut = CpuTexture(256, 64);
 	{
 		TIMER_BEGIN
 		TransmittanceLutSim transmittanceSim(&transmittanceLut);
-		transmittanceSim.atmosphere = atmosphere;
+		transmittanceSim.atmosphere = renderingParams.atmosphere;
 		transmittanceSim.runSim();
 		TIMER_END(tTransmittance)
 		LOG("transmittance lut: %.3fs", tTransmittance)
@@ -629,7 +632,7 @@ CpuTexture CpuSkyAtmosphere::createSkyTexture(int width, int height) {
 	return outSkyTexture;
 }
 
-glm::vec3 CpuSkyAtmosphere::sampleDirection(const glm::vec3 &viewDir) {
+glm::vec3 CpuSkyAtmosphere::sampleSkyColor(const glm::vec3 &viewDir) {
 	vec3 cameraPosES = ws2es(renderingParams.cameraPosWS, renderingParams.atmosphere.bottomRadius);
 
 	float bottomRadius = renderingParams.atmosphere.bottomRadius;
@@ -651,6 +654,18 @@ glm::vec3 CpuSkyAtmosphere::sampleDirection(const glm::vec3 &viewDir) {
 	}
 
 	return vec4(L, 1.0f);
+}
+
+vec3 CpuSkyAtmosphere::sampleSunTransmittance(const glm::vec3 &viewDir) const {
+	vec3 cameraPosES = ws2es(renderingParams.cameraPosWS, renderingParams.atmosphere.bottomRadius);
+	float viewHeight = length(cameraPosES);
+	vec3 transmittanceToSun = sampleTransmittanceToSun(
+		&transmittanceLut,
+		renderingParams.atmosphere.bottomRadius,
+		renderingParams.atmosphere.topRadius,
+		viewHeight,
+		dot(cameraPosES, renderingParams.dir2sun) / viewHeight);
+	return transmittanceToSun;
 }
 
 } // namespace myn::sky

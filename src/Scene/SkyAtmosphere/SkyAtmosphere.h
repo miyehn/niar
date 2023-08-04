@@ -40,6 +40,8 @@ public:
 
 	DescriptorSet& getDescriptorSet() { return this->enabled() ? descriptorSet : dummyDescriptorSet; }
 
+	[[nodiscard]] DirectionalLight *const getSun() const { return foundSun; }
+
 private:
 
 	// actual resources

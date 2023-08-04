@@ -14,7 +14,7 @@ struct Light : public SceneObject {
 	enum Type { Point, Directional };
 	Type type;
 	~Light() override = default;
-	glm::vec3 getLumen() { return color * strength; }
+	glm::vec3 getMultipliedColor() { return color * strength; }
 
 protected:
 	glm::vec3 color;
@@ -38,7 +38,7 @@ struct DirectionalLight : public Light {
 
 	glm::vec3 getLightDirection() { return object_to_world_rotation() * glm::vec3(0, 0, -1); }
 
-	glm::vec3 getIrradianceLx() { return getLumen() / (2 * PI) / PBR_WATTS_TO_LUMENS; }
+	glm::vec3 getIrradianceLx() { return getMultipliedColor() / (2 * PI) / PBR_WATTS_TO_LUMENS; }
 
 	static DirectionalLight* getSun() { return sun; }
 
@@ -69,6 +69,6 @@ struct PointLight: public Light {
 
 	explicit PointLight(const std::string& node_name, const tinygltf::Light* in_light);
 
-	glm::vec3 getLuminousIntensityCd() { return getLumen() / (4 * PI) / PBR_WATTS_TO_LUMENS; }
+	glm::vec3 getLuminousIntensityCd() { return getMultipliedColor() / (4 * PI) / PBR_WATTS_TO_LUMENS; }
 
 };

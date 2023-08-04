@@ -63,7 +63,7 @@ set(ELLYN_SRC
 	src/Utils/DebugUI.cpp
 	src/Render/Materials/GltfMaterial.cpp
 	src/Render/DebugDraw.cpp
-		src/Render/Renderers/SimpleRenderer.cpp
+	src/Render/Renderers/SimpleRenderer.cpp
 	src/Scene/PathtracerController.cpp
 	src/Assets/Asset.cpp
 	src/Assets/SceneAsset.cpp
@@ -73,12 +73,17 @@ set(ELLYN_SRC
 	src/Utils/myn/Sample.cpp
 	src/Scene/MeshObject.cpp
 	src/Scene/Probe.cpp
-		src/Scene/SkyAtmosphere/SkyAtmosphere.cpp)
+	src/Scene/SkyAtmosphere/SkyAtmosphere.cpp
+	src/Utils/myn/ShaderSimulator.cpp
+	src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp
+	src/Utils/myn/CpuTexture.cpp)
 
 set(RTX_SRC
 	src/Render/Vulkan/ShaderBindingTable.cpp
 	src/Scene/RtxTriangle.cpp
-	src/Render/Renderers/RayTracingRenderer.cpp src/Render/Materials/ComputeShader.cpp src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp src/Scene/SkyAtmosphere/SkyAtmosphereShaders.h)
+	src/Render/Renderers/RayTracingRenderer.cpp
+	src/Render/Materials/ComputeShader.cpp
+	src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp)
 
 set(ASZELEA_SRC
 	src/Aszelea.cpp
@@ -103,11 +108,14 @@ set(ASZELEA_SRC
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
-	src/Utils/myn/Sample.cpp src/CpuSkyAtmosphere/CpuSkyAtmosphere.h)
+	src/Utils/myn/Sample.cpp)
 
 set(VINCENT_SRC
 	src/Vincent.cpp
-	src/Utils/StbImageImpl.cpp src/Utils/myn/ShaderSimulator.cpp src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp src/Utils/myn/CpuTexture.cpp src/Utils/myn/CpuTexture.h src/CpuSkyAtmosphere/CpuSkyAtmosphere.h)
+	src/Utils/StbImageImpl.cpp
+	src/Utils/myn/ShaderSimulator.cpp
+	src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp
+	src/Utils/myn/CpuTexture.cpp)
 
 if(APPLE)
 	add_definitions(-DMACOS)

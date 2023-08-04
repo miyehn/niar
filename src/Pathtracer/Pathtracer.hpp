@@ -21,6 +21,9 @@ class Texture2D;
 class DebugLines;
 class ConfigAsset;
 class Asset;
+namespace myn::sky {
+class CpuSkyAtmosphere;
+}
 
 struct ISPC_Data;
 
@@ -102,6 +105,7 @@ private:
 	};
 	std::vector<LightAndWeight> lights;
 	void select_random_light(PathtracerLight* &light, float& one_over_pdf);
+	myn::sky::CpuSkyAtmosphere* cpuSky = nullptr;
 	BVH* bvh = nullptr;
 	void reload_scene(SceneObject *scene);
 	uint32_t scene_version = 0;

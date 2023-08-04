@@ -7,6 +7,7 @@
 #include "Assets/ConfigAsset.hpp"
 #include "Render/Materials/GltfMaterialInfo.h"
 #include "Utils/myn/Sample.h"
+#include "CpuSkyAtmosphere/CpuSkyAtmosphere.h"
 #include <stack>
 #include <unordered_map>
 #include <chrono>
@@ -29,6 +30,7 @@
 // include this generated header to be able to use the kernels
 #include "pathtracer_kernel_ispc.h"
 #include "Assets/SceneAsset.h"
+#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
 
 struct RaytraceThread {
 
@@ -82,6 +84,8 @@ Pathtracer::~Pathtracer() {
 	for (auto t : primitives) delete t;
 
 	delete bvh;
+
+	delete cpuSky;
 
 	// delete BSDF library
 	for (auto& pair : BSDFs) {
@@ -272,6 +276,7 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 
 	int meshes_count = 0;
 	float light_power_sum = 0;
+	PathtracerDirectionalLight* foundSun = nullptr;
 	scene->foreach_descendent_bfs([&](SceneObject* drawable)
 	{
 		if (auto* mo = dynamic_cast<MeshObject*>(drawable)) {
@@ -300,18 +305,38 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 			}
 		}
 		else if (auto* plight = dynamic_cast<PointLight*>(drawable)) {
-			auto L = new PathtracerPointLight(plight->world_position(), plight->getLumen() / (4 * PI));
+			auto L = new PathtracerPointLight(plight->world_position(),
+											  plight->getMultipliedColor() * 4.0f * PI / PBR_WATTS_TO_LUMENS);
 			float w = L->get_weight();
 			light_power_sum += w;
 			lights.push_back( {static_cast<PathtracerLight*>(L), w} );
 		}
 		else if (auto* dlight = dynamic_cast<DirectionalLight*>(drawable)) {
-			auto L = new PathtracerDirectionalLight(dlight->getLightDirection(), dlight->getLumen());
+			auto L = new PathtracerDirectionalLight(dlight->getLightDirection(),
+													dlight->getMultipliedColor() / PBR_WATTS_TO_LUMENS);
 			float w = L->get_weight();
 			light_power_sum += w;
 			lights.push_back( {static_cast<PathtracerLight*>(L), w} );
+			if (dlight == SkyAtmosphere::getInstance()->getSun()) {
+				foundSun = L;
+			}
+		}
+		else if (auto* sky = dynamic_cast<SkyAtmosphere*>(drawable)) {
+			if (sky->enabled() && sky->getSun()) {
+				cpuSky = new myn::sky::CpuSkyAtmosphere();
+				cpuSky->renderingParams.dir2sun = -sky->getSun()->getLightDirection();
+				cpuSky->renderingParams.cameraPosWS = camera->world_position();
+				cpuSky->updateLuts();
+				TRACE("created CPU sky")
+			}
 		}
 	});
+
+	// if sky atmosphere is created, modify sun somewhat:
+	if (cpuSky) {
+		EXPECT(foundSun != nullptr, true)
+		foundSun->apply_sky(cpuSky);
+	}
 
 	// post-process light weights (normalize them)
 	for (int i = 0; i < lights.size(); i++) {

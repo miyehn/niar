@@ -4,6 +4,8 @@
 struct Ray;
 struct Triangle;
 
+namespace myn::sky{ class CpuSkyAtmosphere; }
+
 class PathtracerLight {
 public:
 
@@ -56,6 +58,8 @@ public:
 	glm::vec3 get_emission() override { return emission; }
 
 	void ray_to_light_and_attenuation(Ray& ray, float &attenuation) override;
+
+	void apply_sky(const myn::sky::CpuSkyAtmosphere* cpuSky);
 
 private:
 	glm::vec3 direction;

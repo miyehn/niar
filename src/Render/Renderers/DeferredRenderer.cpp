@@ -579,7 +579,7 @@ void DeferredRenderer::updateUniformBuffers()
 		// convert whatever unit (cd, lx, nt) to watt:
 		// from blender, PBR_WATTS_TO_LUMENS = 683 // so lumen to watt is 1.0f/683
 		// the last div by 2*PI is converting irradiance to radiance (???)
-		// todo: rename the "getLumen" interface altogether
+		// todo: rename the "getMultipliedColor" interface altogether
 		if (child->enabled()) {
 			if (auto L = dynamic_cast<PointLight*>(child))
 			{
