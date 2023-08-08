@@ -1,6 +1,6 @@
 A playground to test my patience.
 
-![](img/9-26-deferred.png)
+![](img/8-07-deferred.png)
 [model by Sousinho](https://sketchfab.com/3d-models/japanese-style-restaurant-92f3559214e2403ebd84b6d5f8d7ca53)
 
 ![](img/9-26-plants.png)
@@ -20,11 +20,13 @@ Common Vulkan utilities to save my sanity: abstraction classes, validation layer
 Dear ImGui and RenderDoc integration
 
 Loading gLTF scenes and basic scene management
-* With a Blender addon to make my workflow easier 
+* With a [Blender addon](scripts/blender/addons/myn) to make my workflow easier 
 * Automatic hot reload when asset files change
 
+A CPU shader simulator that helps myself prototype and debug GLSL shaders. It was first created to help develop the sky atmosphere. See example usage in [Vincent.cpp](src/Vincent.cpp).
+
 A variety of rendering paths that can be modified/extended into more variants:
-* Simple forward
+* Simple unlit forward
 * PBR deferred with many post-processing options 
   * emissive and translucent materials
   * environment maps
@@ -38,15 +40,18 @@ A variety of rendering paths that can be modified/extended into more variants:
 * Render to file using the path tracer
 * RTX pipeline using the `VK_KHR_ray_tracing_pipeline` extension, even though it now just draws a single triangle
 
-Compute shaders
+Physically-based sky atmosphere for both deferred rendering path and path tracer
+* It's an implementation of [Unreal's sky atmosphere](https://sebh.github.io/publications/egsr2020.pdf)
 
 (OpenGL legacy feature, not integrated yet) Procedural grass generation and animation. See [grass-sim branch](https://github.com/miyehn/niar/tree/grass-sim).
 
 (OpenGL legacy feature, now deleted) shadow mapping for point and directional lights
 
-Runs on both PC and Mac
+It used to run on both PC and Mac, but now it's probably broken on Mac.
 
 ---
+
+![](img/asz-sky.png)
 
 ![](img/dof.jpg)
 
@@ -85,3 +90,15 @@ Something like:
 See `config/global.ini` for properties that get loaded on program start. It gets loaded once and stays effective for the duration of the program.
 
 There's also `config/pathtracer.ini` that gets loaded when the path tracer initializes. It automatically hot reloads, so I use it for tweaking path tracer settings.
+
+### By the way, I named the CMake targets after my OCs (original characters)
+
+This is Ellyn:
+
+![](img/ellyn.png)
+
+And this is Asz (short for Aszelea):
+
+![](img/asz.jpg)
+
+There is also Vin (short for Vincent), but I still need to make them a portrait.

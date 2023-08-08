@@ -250,12 +250,22 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 
 	// create a new one
 
-	auto bsdf = new Diffuse(info->BaseColorFactor * 0.8f);
+	BSDF* bsdf;
+
+	if (myn::lower(materialName) == "glass") {
+		bsdf = new Glass();
+		TRACE("created GLASS material")
+	} else if (myn::lower(materialName) == "mirror") {
+		bsdf = new Mirror();
+		TRACE("created MIRROR material")
+	} else {
+		bsdf = new Diffuse(info->BaseColorFactor * 0.8f);
+		TRACE("created new BSDF (%f, %f, %f)%s",
+			  bsdf->albedo.r, bsdf->albedo.g, bsdf->albedo.b, bsdf->is_emissive ? " (emissive)" : "")
+	}
 	bsdf->asset_version = info->_version;
 	bsdf->set_emission(info->EmissiveFactor);
 	BSDFs[info->name] = bsdf;
-	TRACE("created new BSDF (%f, %f, %f)%s",
-		  bsdf->albedo.r, bsdf->albedo.g, bsdf->albedo.b, bsdf->is_emissive ? " (emissive)" : "")
 
 	return bsdf;
 }

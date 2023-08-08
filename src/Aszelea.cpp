@@ -6,6 +6,7 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
+#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
 #include <cxxopts/cxxopts.hpp>
 #if WINOS
 #include <windows.h>
@@ -60,6 +61,13 @@ int main(int argc, const char * argv[])
 		ERR("there's no camera in the scene")
 		cleanup();
 		return 0;
+	}
+
+	// sky atmosphere
+	auto sky = SkyAtmosphere::getInstance(camera);
+	scene_asset->get_root()->add_child(sky);
+	if (!Config->lookup<int>("SkyAtmosphereDefaultEnabled")) {
+		sky->toggle_enabled();
 	}
 
 	auto pathtracer = Pathtracer::get(width, height);

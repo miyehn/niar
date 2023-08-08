@@ -639,6 +639,8 @@ glm::vec3 CpuSkyAtmosphere::sampleSkyColor(const glm::vec3 &viewDir) {
 	bool intersectGround = raySphereIntersectNearest(cameraPosES, viewDir, vec3(0), bottomRadius) >= 0;
 	vec2 skyViewUv = SkyViewLutParamsToUv(cameraPosES, renderingParams.dir2sun, viewDir, bottomRadius, intersectGround);
 	//skyViewUv = vec2(toSubUv(skyViewUv.x, texdim.x), toSubUv(skyViewUv.y, texdim.y));
+	// HACK:
+	if (std::isnan(skyViewUv.x)) skyViewUv.x = 0;
 	vec3 L = skyViewLut.sampleBilinear(skyViewUv, CpuTexture::WM_Clamp);
 
 	// sun

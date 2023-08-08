@@ -108,7 +108,11 @@ set(ASZELEA_SRC
 	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
-	src/Utils/myn/Sample.cpp)
+	src/Utils/myn/Sample.cpp
+	src/Scene/SkyAtmosphere/SkyAtmosphere.cpp
+	src/Utils/myn/ShaderSimulator.cpp
+	src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp
+	src/Utils/myn/CpuTexture.cpp)
 
 set(VINCENT_SRC
 	src/Vincent.cpp

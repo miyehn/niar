@@ -4,15 +4,19 @@
 #pragma once
 
 #include "Scene/SceneObject.hpp"
+#if GRAPHICS_DISPLAY
 #include "Render/Vulkan/Buffer.h"
 #include "Render/Vulkan/DescriptorSet.h"
+#endif
 
 class Texture2D;
 class ConfigAsset;
 class DirectionalLight;
+class Camera;
 
 class SkyAtmosphere : public SceneObject {
 
+#if GRAPHICS_DISPLAY
 	enum BindingSlot {
 		// 0: uniform buffer
 		Slot_Parameters = 0,
@@ -24,14 +28,15 @@ class SkyAtmosphere : public SceneObject {
 		Slot_TransmittanceLutR = 8,
 		Slot_SkyViewLutR = 9,
 	};
+#endif
 
 public:
 
-	SkyAtmosphere();
 	~SkyAtmosphere() override;
 
-	static SkyAtmosphere* getInstance();
+	static SkyAtmosphere* getInstance(Camera* camera = nullptr);
 
+#if GRAPHICS_DISPLAY
 	void updateAndComposite();
 
 	//==== scene object overrides ====
@@ -39,11 +44,15 @@ public:
 	void drawConfigUI() override;
 
 	DescriptorSet& getDescriptorSet() { return this->enabled() ? descriptorSet : dummyDescriptorSet; }
+#endif
 
 	[[nodiscard]] DirectionalLight *const getSun() const { return foundSun; }
 
 private:
 
+	SkyAtmosphere(Camera* camera = nullptr);
+
+#if GRAPHICS_DISPLAY
 	// actual resources
 	DescriptorSet descriptorSet;
 
@@ -51,6 +60,7 @@ private:
 	DescriptorSet dummyDescriptorSet;
 
 	void updateLuts();
+#endif
 
 	struct AtmosphereProfile {
 
@@ -88,7 +98,7 @@ private:
 		bool equals(const Parameters& other) const { return false; }
 	};
 
-	Parameters getParameters();
+	Parameters getParameters(Camera* camera = nullptr);
 
 	Parameters cachedParameters = {};
 
@@ -98,11 +108,13 @@ private:
 
 	// gpu resources
 
+#if GRAPHICS_DISPLAY
 	VmaBuffer parametersBuffer;
 
 	Texture2D* transmittanceLut = nullptr;
 	Texture2D* skyViewLut = nullptr;
 	Texture2D* multiScatteredLut = nullptr;
 	// TODO: camera volume
+#endif
 };
 

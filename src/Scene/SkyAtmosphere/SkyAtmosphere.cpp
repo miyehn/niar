@@ -2,24 +2,27 @@
 // Created by miyehn on 9/9/2022.
 //
 
-#include "imgui/imgui.h"
 #include "SkyAtmosphere.h"
 #include "Assets/ConfigAsset.hpp"
+#include "Scene/Light.hpp"
+#include "Scene/Camera.hpp"
+#if GRAPHICS_DISPLAY
+#include "imgui/imgui.h"
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Texture.h"
 #include "Render/Vulkan/PipelineBuilder.h"
-#include "Scene/Camera.hpp"
 #include "Render/Materials/ComputeShader.h"
 #include "SkyAtmosphereShaders.h"
 #include "Render/Vulkan/SamplerCache.h"
-#include "Scene/Light.hpp"
+#endif
 
-SkyAtmosphere::SkyAtmosphere() {
+SkyAtmosphere::SkyAtmosphere(Camera* camera) {
 	config = new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg){});
 	memset(&cachedParameters, 0, sizeof(Parameters));
 
-	Parameters initialParams = getParameters();
+	Parameters initialParams = getParameters(camera);
 
+#if GRAPHICS_DISPLAY
 	// create transmittance lut
 	ImageCreator transmittanceLutCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -76,27 +79,28 @@ SkyAtmosphere::SkyAtmosphere() {
 
 	ui_show_transform = false;
 	ui_default_open = true;
+#endif
 
 	SkyAtmosphere::on_enable(); // point to resources to be ready for use
 }
 
 // created here, but managed and destroyed by the scene tree
-SkyAtmosphere *SkyAtmosphere::getInstance() {
+SkyAtmosphere *SkyAtmosphere::getInstance(Camera* camera) {
 	static SkyAtmosphere* instance = nullptr;
 	if (!instance) {
-		instance = new SkyAtmosphere();
+		instance = new SkyAtmosphere(camera);
 	}
 	return instance;
 }
 
-SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
+SkyAtmosphere::Parameters SkyAtmosphere::getParameters(Camera* camera) {
 	Parameters params{};
 
 	float bottomRadius = config->lookup<float>("atmosphere.bottomRadius");
 
 	glm::vec3 cameraPosWS = {0, 0, 0};
-	if (Camera::Active) {
-		cameraPosWS = Camera::Active->world_position();
+	if (camera) {
+		cameraPosWS = camera->world_position();
 	}
 	cameraPosWS.z += config->lookup<float>("viewHeightOffset");
 	params.cameraPosES = cameraPosWS * 0.001f + glm::vec3(0, 0, bottomRadius);
@@ -136,9 +140,10 @@ SkyAtmosphere::Parameters SkyAtmosphere::getParameters() {
 	return params;
 }
 
+#if GRAPHICS_DISPLAY
 // called by the renderer
 void SkyAtmosphere::updateAndComposite() {
-	auto parameters = getParameters();
+	auto parameters = getParameters(Camera::Active);
 	if (!parameters.equals(cachedParameters)) {
 		parametersBuffer.writeData(&parameters, sizeof(parameters));
 		updateLuts();
@@ -163,12 +168,6 @@ void SkyAtmosphere::updateLuts() {
 		(skyViewLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
 }
 
-SkyAtmosphere::~SkyAtmosphere() {
-	delete transmittanceLut;
-	delete skyViewLut;
-	parametersBuffer.release();
-}
-
 void SkyAtmosphere::drawConfigUI() {
 	//ImGui::SliderFloat("Sun angular radius", &parameters.sunAngularRadius, 0, 1);
 	// TODO: the rest
@@ -181,4 +180,13 @@ void SkyAtmosphere::drawConfigUI() {
 			ImGui::TextColored(yellow, "There's no sun in the scene.");
 		}
 	}
+}
+#endif
+
+SkyAtmosphere::~SkyAtmosphere() {
+#if GRAPHICS_DISPLAY
+	delete transmittanceLut;
+	delete skyViewLut;
+	parametersBuffer.release();
+#endif
 }

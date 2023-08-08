@@ -19,7 +19,6 @@
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_vulkan.h>
 
-#include "Render/Materials/ComputeShader.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Assets/EnvironmentMapAsset.h"
 #include "Scene/Probe.h"
