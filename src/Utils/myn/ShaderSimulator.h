@@ -19,15 +19,11 @@ public:
 
 protected:
 
-	void dispatchShader(const std::function<glm::vec4(uint32_t, uint32_t)> &kernel);
+	void dispatchShader(const std::function<glm::vec4(uint32_t, uint32_t)> &kernel, bool multithreaded = true);
 
 	// note: shader does not own the texture(s).
 	CpuTexture* output = nullptr;
 };
 
-namespace sky {
-
-
-} // namespace sky
 } // namespace myn
 
