@@ -4,7 +4,7 @@
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Texture.h"
 
-#include <tinygltf/tiny_gltf.h>
+#include <tiny_gltf.h>
 #include "Render/Renderers/SimpleRenderer.h"
 
 #define MAX_MATERIAL_INSTANCES 128

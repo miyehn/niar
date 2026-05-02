@@ -2,8 +2,8 @@
 .ccls-cache/
 build/
 cmake-build-debug/
+vcpkg_installed/
 src/tags
-src/Pathtracer/pathtracer_kernel_ispc.h
 dist/
 objs/
 .vs

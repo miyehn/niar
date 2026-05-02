@@ -2,7 +2,7 @@
 #include "Asset.h"
 #include <functional>
 #include <utility>
-#include <libconfig/libconfig.h++>
+#include <libconfig.h++>
 
 class ConfigAsset : Asset
 {

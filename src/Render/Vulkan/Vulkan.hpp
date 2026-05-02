@@ -5,7 +5,7 @@
 #include <fstream>
 #include <set>
 #include <optional>
-#include <VulkanMemoryAllocator-3.0.1/include/vk_mem_alloc.h>
+#include <vma/vk_mem_alloc.h>
 #include <functional>
 #include "Buffer.h"
 #include "Utils/myn/Color.h"

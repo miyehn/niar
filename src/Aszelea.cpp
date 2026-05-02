@@ -7,7 +7,7 @@
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
 #include "Scene/SkyAtmosphere/SkyAtmosphere.h"
-#include <cxxopts/cxxopts.hpp>
+#include <cxxopts.hpp>
 #include <windows.h>
 
 int main(int argc, const char * argv[])

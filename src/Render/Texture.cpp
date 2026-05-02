@@ -1,5 +1,5 @@
 #include "Texture.h"
-#include <stb_image/stb_image.h>
+#include <stb_image.h>
 #include "Render/Vulkan/VulkanUtils.h"
 
 std::unordered_map<std::string, Texture *> Texture::texturePool;

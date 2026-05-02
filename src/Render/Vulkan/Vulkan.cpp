@@ -3,8 +3,8 @@
 #include "RenderPassBuilder.h"
 #include "Assets/ConfigAsset.hpp"
 #include <imgui.h>
-#include <backends/imgui_impl_sdl.h>
-#include <backends/imgui_impl_vulkan.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_vulkan.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
@@ -52,8 +52,8 @@ Vulkan::~Vulkan() {
 	}
 
 	if (imguiPool != VK_NULL_HANDLE) {
-		vkDestroyDescriptorPool(device, imguiPool, nullptr);
 		ImGui_ImplVulkan_Shutdown();
+		vkDestroyDescriptorPool(device, imguiPool, nullptr);
 	}
 
 	vmaDestroyAllocator(memoryAllocator);
@@ -273,22 +273,24 @@ void Vulkan::initImGui()
 	ImGui_ImplSDL2_InitForVulkan(window);
 
 	ImGui_ImplVulkan_InitInfo initInfo = {
+		.ApiVersion = VK_API_VERSION_1_2,
 		.Instance = instance,
 		.PhysicalDevice = physicalDevice,
 		.Device = device,
+		.QueueFamily = findQueueFamilies(physicalDevice).graphicsFamily.value(),
 		.Queue = graphicsQueue,
 		.DescriptorPool = imguiPool,
 		.MinImageCount = getNumSwapChainImages(),
 		.ImageCount = getNumSwapChainImages(),
-		.MSAASamples = VK_SAMPLE_COUNT_1_BIT
+		.PipelineInfoMain = {
+			.RenderPass = swapChainRenderPass,
+			.MSAASamples = VK_SAMPLE_COUNT_1_BIT
+		}
 	};
 
-	EXPECT(ImGui_ImplVulkan_Init(&initInfo, swapChainRenderPass), true)
+	EXPECT(ImGui_ImplVulkan_Init(&initInfo), true)
 
-	immediateSubmit(
-		[&](VkCommandBuffer cmdbuf){
-			EXPECT(ImGui_ImplVulkan_CreateFontsTexture(cmdbuf), true)
-		});
+	// Font texture upload is handled automatically by the backend in imgui 1.90+
 }
 
 //=============================================================================

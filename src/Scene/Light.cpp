@@ -4,7 +4,7 @@
 #include "imgui.h"
 #endif
 
-#include <tinygltf/tiny_gltf.h>
+#include <tiny_gltf.h>
 
 using namespace glm;
 

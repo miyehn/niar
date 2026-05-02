@@ -4,7 +4,7 @@
 
 #include "EnvironmentMapAsset.h"
 #include "Utils/myn/Log.h"
-#include <tinyexr/tinyexr.h>
+#include <tinyexr.h>
 #if GRAPHICS_DISPLAY
 #include "Render/Texture.h"
 #include "Render/Vulkan/VulkanUtils.h"

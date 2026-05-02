@@ -21,7 +21,7 @@
 #include "Render/DebugDraw.h"
 #include "Render/Texture.h"
 #else
-#include <stb_image/stb_image_write.h>
+#include <stb_image_write.h>
 #endif
 
 #define NUM_CHANNELS 4

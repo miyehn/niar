@@ -1,0 +1,26 @@
+{
+  "name": "niar",
+  "version-string": "0.1.0",
+  "dependencies": [
+    {
+      "name": "sdl2",
+      "features": [
+        "vulkan"
+      ]
+    },
+    "glm",
+    {
+      "name": "imgui",
+      "features": [
+        "vulkan-binding"
+      ]
+    },
+    "libconfig",
+    "vulkan-memory-allocator",
+    "stb",
+    "tinyexr",
+    "tinygltf",
+    "nlohmann-json",
+    "cxxopts"
+  ]
+}

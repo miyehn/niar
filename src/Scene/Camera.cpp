@@ -1,6 +1,6 @@
 #include "Camera.hpp"
 #include "Utils/myn/Log.h"
-#include <tinygltf/tiny_gltf.h>
+#include <tiny_gltf.h>
 #if GRAPHICS_DISPLAY
 #include <imgui.h>
 #endif

@@ -6,5 +6,5 @@
 #define TINYEXR_USE_STB_ZLIB 1
 #define TINYEXR_IMPLEMENTATION
 
-#include <stb_image/stb_image.h>
-#include <tinyexr/tinyexr.h>
+#include <stb_image.h>
+#include <tinyexr.h>

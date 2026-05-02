@@ -2,7 +2,7 @@
 // Created by miyehn on 11/13/2022.
 //
 
-#include <stb_image/stb_image_write.h>
+#include <stb_image_write.h>
 #include <windows.h>
 #include "CpuTexture.h"
 #include "Log.h"

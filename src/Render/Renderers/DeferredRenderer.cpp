@@ -860,7 +860,7 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 }
 
 void DeferredRenderer::draw_config_ui() {
-	ImGui::SliderFloat("", &viewInfo.Exposure, -25, 25, "exposure comp: %.3f");
+	ImGui::SliderFloat("##exposure", &viewInfo.Exposure, -25, 25, "exposure comp: %.3f");
 	ImGui::Combo(
 		"tone mapping",
 		&viewInfo.ToneMappingOption,

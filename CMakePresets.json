@@ -1,0 +1,80 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "debug-dynamic",
+      "displayName": "Debug (Dynamic Linking)",
+      "description": "Debug build with dynamically linked dependencies. Faster to link, DLLs copied next to executable.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/debug-dynamic",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "release-dynamic",
+      "displayName": "Release (Dynamic Linking)",
+      "description": "Release build with dynamically linked dependencies.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/release-dynamic",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "debug-static",
+      "displayName": "Debug (Static Linking)",
+      "description": "Debug build with statically linked dependencies. Larger binary, no DLL management.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/debug-static",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      }
+    },
+    {
+      "name": "release-static",
+      "displayName": "Release (Static Linking)",
+      "description": "Release build with statically linked dependencies.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/release-static",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug-dynamic",
+      "displayName": "Debug (Dynamic)",
+      "configurePreset": "debug-dynamic"
+    },
+    {
+      "name": "release-dynamic",
+      "displayName": "Release (Dynamic)",
+      "configurePreset": "release-dynamic"
+    },
+    {
+      "name": "debug-static",
+      "displayName": "Debug (Static)",
+      "configurePreset": "debug-static"
+    },
+    {
+      "name": "release-static",
+      "displayName": "Release (Static)",
+      "configurePreset": "release-static"
+    }
+  ]
+}

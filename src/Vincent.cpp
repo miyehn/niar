@@ -7,7 +7,7 @@
 #include "Utils/myn/CpuTexture.h"
 #include "Utils/myn/Timer.h"
 #include "Utils/myn/ShaderSimulator.h"
-#include <cxxopts/cxxopts.hpp>
+#include <cxxopts.hpp>
 #include <random>
 
 class ShaderTemp : public myn::ShaderSimulator {

@@ -7,7 +7,7 @@
 #include "Scene/Light.hpp"
 #include "Scene/Camera.hpp"
 #if GRAPHICS_DISPLAY
-#include "imgui/imgui.h"
+#include <imgui.h>
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Texture.h"
 #include "Render/Vulkan/PipelineBuilder.h"

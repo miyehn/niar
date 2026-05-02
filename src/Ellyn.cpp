@@ -16,8 +16,8 @@
 
 #include <SDL2/SDL.h>
 #include <imgui.h>
-#include <backends/imgui_impl_sdl.h>
-#include <backends/imgui_impl_vulkan.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_vulkan.h>
 
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Assets/EnvironmentMapAsset.h"
@@ -252,7 +252,7 @@ static void draw()
 {
 #if IMGUI
 	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplSDL2_NewFrame(window);
+	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
 
 	if (show_imgui_demo) ImGui::ShowDemoWindow();
