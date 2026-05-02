@@ -234,7 +234,7 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 {
 	auto iter = BSDFs.find(materialName);
 	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
-	EXPECT(info != nullptr, true)
+	ASSERT(info != nullptr)
 
 	if (iter != BSDFs.end()) {
 		auto pooled_bsdf = iter->second;
@@ -341,7 +341,7 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 
 	// if sky atmosphere is created, modify sun somewhat:
 	if (cpuSky) {
-		EXPECT(foundSun != nullptr, true)
+		ASSERT(foundSun != nullptr)
 		foundSun->apply_sky(cpuSky);
 	}
 
@@ -631,7 +631,7 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h)
 Asset* Pathtracer::get_scene_asset() {
 	auto scene_source = Config->lookup<std::string>("SceneSource");
 	auto scene_asset = Asset::find<SceneAsset>(scene_source);
-	EXPECT(scene_asset==nullptr, false)
+	ASSERT(!(scene_asset==nullptr))
 	return scene_asset;
 }
 

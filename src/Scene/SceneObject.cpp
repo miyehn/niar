@@ -66,11 +66,11 @@ bool SceneObject::add_child(SceneObject* child) {
 
 void SceneObject::set_parent(SceneObject *in_parent)
 {
-	EXPECT(in_parent == nullptr, false)
+	ASSERT(!(in_parent == nullptr))
 	if (parent) {
 		parent->try_remove_child(this);
 	}
-	EXPECT(parent == nullptr, true)
+	ASSERT(parent == nullptr)
 	parent->add_child(this);
 }
 

@@ -46,13 +46,13 @@ struct Vulkan {
 
 	VkCommandBuffer getCurrentCommandBuffer() const
 	{
-		EXPECT(isFrameStarted, true)
+		ASSERT(isFrameStarted)
 		return commandBuffers[currentFrame]; // as opposed to currentImageIndex, so cmdbuf is not tied to other resource?
 	}
 
 	VkImage getCurrentSwapChainImage() const
 	{
-		EXPECT(isFrameStarted, true)
+		ASSERT(isFrameStarted)
 		return swapChainImages[currentImageIndex];
 	}
 
@@ -63,7 +63,7 @@ struct Vulkan {
 
 	uint32_t getCurrentFrameIndex() const
 	{
-		EXPECT(isFrameStarted, true)
+		ASSERT(isFrameStarted)
 		return currentFrame;
 	}
 

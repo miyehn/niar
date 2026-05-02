@@ -259,7 +259,7 @@ Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialNam
 {
 	auto iter = materials.find(materialName);
 	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
-	EXPECT(info != nullptr, true)
+	ASSERT(info != nullptr)
 
 	if (iter != materials.end()) {
 		auto pooled_mat = iter->second;

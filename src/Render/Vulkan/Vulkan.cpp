@@ -84,7 +84,7 @@ Vulkan::~Vulkan() {
 
 VkCommandBuffer Vulkan::beginFrame()
 {
-	EXPECT(isFrameStarted, false)
+	ASSERT(!isFrameStarted)
 	isFrameStarted = true;
 
 	// inFlightFences: no other access when commands are being submitted for operations on this image.
@@ -115,7 +115,7 @@ VkCommandBuffer Vulkan::beginFrame()
 
 void Vulkan::endFrame()
 {
-	EXPECT(isFrameStarted, true)
+	ASSERT(isFrameStarted)
 
 	auto cmdbuf = getCurrentCommandBuffer();
 	EXPECT(vkEndCommandBuffer(cmdbuf), VK_SUCCESS)
@@ -157,8 +157,8 @@ void Vulkan::endFrame()
 
 void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf)
 {
-	EXPECT(isFrameStarted, true)
-	EXPECT(cmdbuf, getCurrentCommandBuffer())
+	ASSERT(isFrameStarted)
+	ASSERT(cmdbuf == getCurrentCommandBuffer())
 
 	// render pass
 	VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -180,8 +180,8 @@ void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf)
 
 void Vulkan::endSwapChainRenderPass(VkCommandBuffer cmdbuf)
 {
-	EXPECT(isFrameStarted, true)
-	EXPECT(cmdbuf, getCurrentCommandBuffer())
+	ASSERT(isFrameStarted)
+	ASSERT(cmdbuf == getCurrentCommandBuffer())
 	vkCmdEndRenderPass(cmdbuf);
 }
 
@@ -288,7 +288,7 @@ void Vulkan::initImGui()
 		}
 	};
 
-	EXPECT(ImGui_ImplVulkan_Init(&initInfo), true)
+	ASSERT(ImGui_ImplVulkan_Init(&initInfo))
 
 	// Font texture upload is handled automatically by the backend in imgui 1.90+
 }
@@ -369,7 +369,7 @@ void Vulkan::createInstance() {
 
 void Vulkan::createSurface() {
     surface = VK_NULL_HANDLE;
-    EXPECT(SDL_Vulkan_CreateSurface(window, instance, &surface), SDL_TRUE)
+    ASSERT(SDL_Vulkan_CreateSurface(window, instance, &surface))
 }
 
 void Vulkan::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -932,7 +932,7 @@ void Vulkan::findProxyFunctionPointers()
 {
 #define FIND_FN_PTR(FN) \
 	fn_##FN = (PFN_##FN) vkGetInstanceProcAddr(instance, #FN); \
-	EXPECT(fn_##FN != nullptr, true)
+	ASSERT(fn_##FN != nullptr)
 
 	FIND_FN_PTR(vkCmdBeginDebugUtilsLabelEXT)
 	FIND_FN_PTR(vkCmdEndDebugUtilsLabelEXT)

@@ -833,7 +833,7 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 {
 	auto iter = materials.find(materialName);
 	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
-	EXPECT(info != nullptr, true)
+	ASSERT(info != nullptr)
 
 	if (iter != materials.end()) {
 		auto pooled_mat = iter->second;

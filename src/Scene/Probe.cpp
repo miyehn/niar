@@ -119,7 +119,7 @@ Probe::Probe()
 #if GRAPHICS_DISPLAY
 void Probe::draw(VkCommandBuffer cmdbuf) {
 	Mesh* m = MeshAsset::find("sphere");
-	EXPECT(m != nullptr, true)
+	ASSERT(m != nullptr)
 	m->draw(cmdbuf);
 }
 

@@ -151,15 +151,14 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 		.pSetLayouts = layouts.data()
 	};
 	descriptorSets.resize(layouts.size());
-	auto allocResult = vkAllocateDescriptorSets(Vulkan::Instance->device, &allocInfo, descriptorSets.data());
-	EXPECT(allocResult, VK_SUCCESS)
+	EXPECT(vkAllocateDescriptorSets(Vulkan::Instance->device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
 }
 
 void DescriptorSet::pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType)
 {
 	uint32_t numInstances = descriptorSets.size();
-	EXPECT(numInstances != 0, true)
-	EXPECT(buffer.numInstances, numInstances)
+	ASSERT(numInstances != 0)
+	ASSERT(buffer.numInstances == numInstances)
 
 	for (auto i = 0; i < numInstances; i++)
 	{
@@ -209,7 +208,7 @@ void DescriptorSet::pointToImageView(
 	VkSampler sampler = SamplerCache::get(samplerInfo);
 
 	uint32_t numInstances = descriptorSets.size();
-	EXPECT(numInstances != 0, true)
+	ASSERT(numInstances != 0)
 	for (auto i = 0; i < numInstances; i++)
 	{
 		VkDescriptorImageInfo imageInfo = {
@@ -238,7 +237,7 @@ void DescriptorSet::pointToImageView(
 void DescriptorSet::pointToRWImageView(VkImageView imageView, uint32_t binding)
 {
 	uint32_t numInstances = descriptorSets.size();
-	EXPECT(numInstances != 0, true)
+	ASSERT(numInstances != 0)
 
 	for (auto i = 0; i < numInstances; i++)
 	{
@@ -266,7 +265,7 @@ void DescriptorSet::pointToRWImageView(VkImageView imageView, uint32_t binding)
 void DescriptorSet::pointToAccelerationStructure(VkAccelerationStructureKHR accelerationStructure, uint32_t binding)
 {
 	uint32_t numInstances = descriptorSets.size();
-	EXPECT(numInstances != 0, true)
+	ASSERT(numInstances != 0)
 
 	for (auto i = 0; i < numInstances; i++)
 	{

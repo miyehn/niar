@@ -76,7 +76,7 @@ struct SceneNodeIntermediate
 	}
 	void attach_to(SceneNodeIntermediate* in_parent)
 	{
-		EXPECT(parent == nullptr, true)
+		ASSERT(parent == nullptr)
 		parent = in_parent;
 		parent->children.push_back(this);
 	}
