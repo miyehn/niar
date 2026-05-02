@@ -250,6 +250,11 @@ static void update(float elapsed)
 
 static void draw()
 {
+	// Skip rendering while the window is minimized (no valid swapchain extent)
+	if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
+		return;
+	}
+
 #if IMGUI
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
