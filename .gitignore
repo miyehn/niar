@@ -13,3 +13,4 @@ nsight/
 **blend1
 **__pycache__/
 *.swp
+.github/task.md

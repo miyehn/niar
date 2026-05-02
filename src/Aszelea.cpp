@@ -17,7 +17,10 @@ int main(int argc, const char * argv[])
 	options.add_options()
 		("w,width", "window width", cxxopts::value<int>())
 		("h,height", "window height", cxxopts::value<int>())
-		("o,output", "output relative_path", cxxopts::value<std::string>());
+		("o,output", "output relative_path", cxxopts::value<std::string>())
+		("scene", "path to scene file (overrides SceneSource in global.ini)", cxxopts::value<std::string>())
+		("spp", "samples per pixel (overrides MinRaysPerPixel in pathtracer.ini)", cxxopts::value<int>())
+		("popup", "automatically open the result image when render finishes");
 
 	auto optargs = options.parse(argc, argv);
 
@@ -34,9 +37,10 @@ int main(int argc, const char * argv[])
 	Config = new ConfigAsset("config/global.ini", false);
 
 	// load scene
-	auto scene_asset = new SceneAsset(
-		nullptr,
-		Config->lookup<std::string>("SceneSource"));
+	std::string scene_source = optargs.count("scene")
+		? optargs["scene"].as<std::string>()
+		: Config->lookup<std::string>("SceneSource");
+	auto scene_asset = new SceneAsset(nullptr, scene_source);
 
 	// environment map
 	if (Config->lookup<int>("LoadEnvironmentMap")) {
@@ -69,13 +73,17 @@ int main(int argc, const char * argv[])
 	}
 
 	auto pathtracer = Pathtracer::get(width, height);
+	auto pathtracerConfig = pathtracer->get_config_ref();
+	if (optargs.count("spp"))
+		pathtracerConfig.MinRaysPerPixel = optargs["spp"].as<int>();
 	pathtracer->drawable = scene_asset->get_root();
 	pathtracer->camera = camera;
 
 	LOG("rendering pathtracer scene to file: %s", output_path.c_str());
 	pathtracer->render_to_file(output_path);
 
-	ShellExecute(0, "open", output_path.c_str(), 0, 0, SW_SHOW);
+	if (optargs.count("popup"))
+		ShellExecute(0, "open", output_path.c_str(), 0, 0, SW_SHOW);
 
 	// cleanup
 

@@ -31,33 +31,8 @@ public:
 
 	~Pathtracer() override;
 
-#if GRAPHICS_DISPLAY
-	bool handle_event(SDL_Event event);
-	void draw_config_ui() override;
-	void render(VkCommandBuffer cmdbuf) override;
-
-	void on_selected() override;
-	void on_unselected() override;
-
-	bool is_enabled() const { return enabled; }
-
-#else
-	void render_to_file(const std::string& output_path_rel_to_bin) override;
-
-#endif
-
-	void initialize();
-
-private:
-
-	Pathtracer(uint32_t _width, uint32_t _height);
-
-	// size for the pathtraced image - could be different from display window.
-	uint32_t width, height;
-	uint32_t tiles_X, tiles_Y;
-
-	// store some frequently-accessed configs here to alleviate config lookup cost
-	struct {
+	// store some frequently-accessed configs this way to alleviate config lookup cost
+	struct CachedConfig {
 		int UseBVH = 1;
 		int Multithreaded = 0; // initially 0 so if set to >0 by config file, will create the threads
 		int NumThreads = 0;
@@ -71,8 +46,38 @@ private:
 		int MaxRayDepth = 16;
 		float RussianRouletteThreshold = 0.05f;
 		int MinRaysPerPixel = 4;
-	} cached_config;
+	};
+
+#if GRAPHICS_DISPLAY
+	bool handle_event(SDL_Event event);
+	void draw_config_ui() override;
+	void render(VkCommandBuffer cmdbuf) override;
+
+	void on_selected() override;
+	void on_unselected() override;
+
+	bool is_enabled() const { return enabled; }
+
+#else
+	void render_to_file(const std::string& output_path_rel_to_bin) override;
+
+	// specifically for Asz, so it can override stuff from command line
+	CachedConfig& get_config_ref() { return cached_config; }
+
+#endif
+
+	void initialize();
+
+private:
+
+	Pathtracer(uint32_t _width, uint32_t _height);
+
+	// size for the pathtraced image - could be different from display window.
+	uint32_t width, height;
+	uint32_t tiles_X, tiles_Y;
+
 	ConfigAsset* config = nullptr;
+	CachedConfig cached_config;
 
 #if GRAPHICS_DISPLAY
 	// ray tracing state and control
