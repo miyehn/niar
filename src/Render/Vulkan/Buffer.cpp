@@ -4,7 +4,6 @@
 
 VmaBuffer::VmaBuffer(const CreateInfo &info) :
 	allocator(info.allocator),
-	numInstances(info.numInstances),
 	numStrides(info.numStrides)
 {
 	VkDeviceSize alignmentReq = Vulkan::Instance->minUniformBufferOffsetAlignment;
@@ -24,49 +23,41 @@ VmaBuffer::VmaBuffer(const CreateInfo &info) :
 		.flags = createFlags,
 		.usage = info.memoryUsage,
 	};
-	buffers.resize(numInstances);
-	allocations.resize(numInstances);
-	allocationInfos.resize(numInstances);
-	for (auto i = 0; i < numInstances; i++)
-	{
-		EXPECT(vmaCreateBuffer(
-			*allocator,
-			&bufferCreateInfo,
-			&vmaAllocCreateInfo,
-			&buffers[i],
-			&allocations[i],
-			&allocationInfos[i]), VK_SUCCESS);
-		if (info.debugName.length() > 0) {
-			std::string instanceName = info.debugName + " (" + std::to_string(i+1) + "/" + std::to_string(numInstances) + ")";
-			NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, buffers[i], instanceName)
-		}
+	EXPECT(vmaCreateBuffer(
+		*allocator,
+		&bufferCreateInfo,
+		&vmaAllocCreateInfo,
+		&buffer,
+		&allocation,
+		&allocationInfo), VK_SUCCESS);
+	if (info.debugName.length() > 0) {
+		NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, buffer, info.debugName)
 	}
 }
 
 void VmaBuffer::release()
 {
-	for (auto i = 0; i < numInstances; i++)
-	{
-		vmaDestroyBuffer(*allocator, buffers[i], allocations[i]);
+	if (buffer != nullptr || allocator != nullptr) {
+		vmaDestroyBuffer(*allocator, buffer, allocation);
 	}
 	allocator = nullptr;
 }
 
-VkBuffer VmaBuffer::getBufferInstance(uint32_t index) const {
+VkBuffer VmaBuffer::getBufferInstance() const {
 	ASSERT(allocator != nullptr)
-	return buffers[index];
+	return buffer;
 }
 
-VmaAllocationInfo VmaBuffer::getAllocationInfo(uint32_t index) const {
+VmaAllocationInfo VmaBuffer::getAllocationInfo() const {
 	ASSERT(allocator != nullptr)
-	return allocationInfos[index];
+	return allocationInfo;
 }
 
-void VmaBuffer::writeData(void *inData, size_t writeSize, size_t bufferIndex, uint32_t strideIndex)
+void VmaBuffer::writeData(void *inData, size_t writeSize, uint32_t strideIndex)
 {
 	ASSERT(allocator != nullptr)
 	if (writeSize == 0) writeSize = (size_t)strideSize;
-	auto dstAddress = (uint8_t*) getAllocationInfo(bufferIndex).pMappedData + (strideIndex * strideSize);
+	auto dstAddress = (uint8_t*) getAllocationInfo().pMappedData + (strideIndex * strideSize);
 	ASSERT(dstAddress != nullptr)
 	memcpy(dstAddress, inData, writeSize);
 }

@@ -29,7 +29,7 @@ public:
 								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								  VMA_MEMORY_USAGE_CPU_TO_GPU,
 								  "Probes uniform buffer",
-								  1, MAX_NUM_PROBES});
+								  MAX_NUM_PROBES});
 
 		{// pipeline and layouts
 
@@ -80,7 +80,7 @@ public:
 		uniforms = {
 			.ModelMatrix = obj->object_to_world(),
 		};
-		uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
+		uniformBuffer.writeData(&uniforms, 0, instanceCounter);
 
 		uint32_t offset = uniformBuffer.strideSize * instanceCounter;
 		SkyAtmosphere::getInstance()->getDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);

@@ -1,7 +1,6 @@
 #pragma once
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
-#include <vector>
 #include <string>
 
 class VmaBuffer
@@ -14,27 +13,25 @@ public:
 		VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_UNKNOWN;
 		// below: optional
 		std::string debugName;
-		uint32_t numInstances = 1;
 		uint32_t numStrides = 1;
 	};
 	VmaBuffer() = default;
 	VmaBuffer(const CreateInfo &createInfo);
 
-	void writeData(void* inData, size_t writeSize, size_t bufferIndex = 0, uint32_t strideIndex = 0);
+	void writeData(void* inData, size_t writeSize, uint32_t strideIndex = 0);
 
-	VkBuffer getBufferInstance(uint32_t index = 0) const;
+	VkBuffer getBufferInstance() const;
 
 	void release();
 
 	VkDeviceSize strideSize = 0;
-	uint32_t numInstances = 0;
 	uint32_t numStrides = 0;
 
 private:
 	VmaAllocator* allocator = nullptr;
-	std::vector<VkBuffer> buffers;
-	std::vector<VmaAllocation> allocations;
-	std::vector<VmaAllocationInfo> allocationInfos;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation allocation = VK_NULL_HANDLE;
+	VmaAllocationInfo allocationInfo = {};
 
-	VmaAllocationInfo getAllocationInfo(uint32_t index = 0) const;
+	VmaAllocationInfo getAllocationInfo() const;
 };

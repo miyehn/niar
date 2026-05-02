@@ -18,7 +18,7 @@ void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 	uniforms = {
 		.ModelMatrix = drawable->object_to_world(),
 	};
-	uniformBuffer.writeData(&uniforms, 0, 0, instanceCounter);
+	uniformBuffer.writeData(&uniforms, 0, instanceCounter);
 
 	uint32_t offset = uniformBuffer.strideSize * instanceCounter;
 	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout, 0, 1, &offset);
@@ -53,7 +53,7 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 							  VMA_MEMORY_USAGE_CPU_TO_GPU,
 							  bufferName,
-							  1, MAX_MATERIAL_INSTANCES});
+							  MAX_MATERIAL_INSTANCES});
 	bufferName = "Material renderingParams buffer (" + info.name + ")";
 	materialParamsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 									 sizeof(materialParams),

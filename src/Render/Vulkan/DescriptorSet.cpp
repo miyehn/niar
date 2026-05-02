@@ -158,12 +158,11 @@ void DescriptorSet::pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkD
 {
 	uint32_t numInstances = descriptorSets.size();
 	ASSERT(numInstances != 0)
-	ASSERT(buffer.numInstances == numInstances)
 
 	for (auto i = 0; i < numInstances; i++)
 	{
 		VkDescriptorBufferInfo bufferInfo = {
-			.buffer = buffer.getBufferInstance(i),
+			.buffer = buffer.getBufferInstance(),
 			.offset = 0,
 			.range = buffer.strideSize
 		};
