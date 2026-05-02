@@ -113,14 +113,12 @@ static void init()
 			new EnvironmentMapAsset(Config->lookup<std::string>("EnvironmentMap"));
 		}
 
-#ifdef WINOS
 		// rtx
 		if (Config->lookup<int>("Debug.RTX")) {
 			auto tri = new RtxTriangle();
 			gltf->add_child(tri);
 			RayTracingRenderer::get()->outImage = tri->outImage;
 		}
-#endif
 
 		// probe (debug)
 		auto probe = new EnvMapVisualizer;
@@ -153,24 +151,18 @@ static void init()
 		renderers.push_back(SimpleRenderer::get());
 		renderers.push_back(DeferredRenderer::get());
 		renderers.push_back(Pathtracer::get(width, height));
-#ifdef WINOS
 		if (rtx_enabled) {
 			renderers.push_back(RayTracingRenderer::get());
 		}
-#endif
 
 		auto rendererIndexRef = (int*)&renderer_index;
 		ui::elem([rendererIndexRef, rtx_enabled]()
 		{
-#ifdef WINOS
 			if (rtx_enabled) {
 				ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0RTX\0\0");
 			} else {
-#endif
 				ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0\0");
-#ifdef WINOS
 			}
-#endif
 			ImGui::Separator();
 
 			renderers[renderer_index]->draw_config_ui();

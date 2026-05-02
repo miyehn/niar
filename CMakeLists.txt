@@ -115,8 +115,6 @@ set(VINCENT_SRC
 	src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp
 	src/Utils/myn/CpuTexture.cpp)
 
-add_definitions(-DWINOS)
-
 add_executable(ellyn WIN32 ${ELLYN_SRC} ${RTX_SRC})
 target_link_libraries(ellyn
 	${CMAKE_THREAD_LIBS_INIT}

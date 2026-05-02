@@ -1,8 +1,6 @@
-#ifdef WINOS
 #include <windows.h>
 #include <renderdoc/renderdoc_app.h>
 #include <libloaderapi.h>
-#endif
 
 #include "RenderDoc.h"
 #include "Log.h"
@@ -15,7 +13,6 @@ bool RenderDoc::shouldCaptureFrame = false;
 
 bool RenderDoc::load(const std::string &appName)
 {
-#ifdef WINOS
 	//if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
 	if (HMODULE mod = LoadLibrary("C:\\Program Files\\RenderDoc\\renderdoc.dll"))
 	{
@@ -39,34 +36,25 @@ bool RenderDoc::load(const std::string &appName)
 		return true;
 	}
 	return false;
-#else
-    LOG("RenderDoc is only supported on windows.")
-    return false;
-#endif
 }
 
 void RenderDoc::captureNextFrame()
 {
-#ifdef WINOS
 	showOverlay();
 	shouldCaptureFrame = true;
-#endif
 }
 
 void RenderDoc::potentiallyStartCapture()
 {
-#ifdef WINOS
 	if (api && shouldCaptureFrame)
 	{
 		api->StartFrameCapture(nullptr, nullptr);
 		shouldCaptureFrame = false;
 	}
-#endif
 }
 
 void RenderDoc::potentiallyEndCapture()
 {
-#ifdef WINOS
 	if (api && api->IsFrameCapturing())
 	{
 		api->EndFrameCapture(nullptr, nullptr);
@@ -76,12 +64,10 @@ void RenderDoc::potentiallyEndCapture()
 			api->LaunchReplayUI(1, nullptr);
 		}
 	}
-#endif
 }
 
 void RenderDoc::showOverlay()
 {
-#ifdef WINOS
 	if (api)
 	{
 		api->MaskOverlayBits(
@@ -89,22 +75,18 @@ void RenderDoc::showOverlay()
 			RENDERDOC_OverlayBits::eRENDERDOC_Overlay_Enabled |
 			RENDERDOC_OverlayBits::eRENDERDOC_Overlay_CaptureList);
 	}
-#endif
 }
 
 void RenderDoc::hideOverlay()
 {
-#ifdef WINOS
 	if (api)
 	{
 		api->MaskOverlayBits(0, 0);
 	}
-#endif
 }
 
 void RenderDoc::toggleOverlay()
 {
-#ifdef WINOS
 	if (api)
 	{
 		if (api->GetOverlayBits() & RENDERDOC_OverlayBits::eRENDERDOC_Overlay_Enabled)
@@ -112,7 +94,5 @@ void RenderDoc::toggleOverlay()
 		else
 			showOverlay();
 	}
-#endif
 }
 }
-
