@@ -9,35 +9,17 @@
 #include <filesystem>
 #include <unordered_map>
 
-#ifdef MACOS
-#define to_time_t(diff) std::chrono::duration<time_t, std::ratio<86400>>(diff).count()
-#endif
-
 time_t get_file_clock_now() {
-#ifdef MACOS
-	auto epoch = std::chrono::file_clock::time_point();
-	auto now = std::chrono::file_clock::now();
-	return to_time_t(now - epoch);
-#else
 	auto tp = std::chrono::system_clock::now();
 	return std::chrono::system_clock::to_time_t(tp);
-#endif
 }
 
 time_t get_last_write_time(const std::string& path)
 {
 	auto file_time = std::filesystem::last_write_time(path);
-#ifdef MACOS
-	auto epoch = std::chrono::file_clock::time_point();
-	return to_time_t(file_time - epoch);
-#else
 	auto system_time = std::chrono::clock_cast<std::chrono::system_clock>(file_time);
 	return std::chrono::system_clock::to_time_t(system_time);
-#endif
 }
-#ifdef MACOS
-#undef to_time_t
-#endif
 
 std::unordered_map<std::string, Asset*> Asset::assets_pool;
 

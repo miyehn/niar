@@ -4,15 +4,9 @@ project("niar")
 set(CMAKE_CXX_STANDARD 20)
 # set(CMAKE_CXX_FLAGS "-O3")
 
-if(WIN32)
-	set(VULKAN_SDK C:/VulkanSDK/1.3.216.0)
-	set(Vulkan_LIBRARY ${VULKAN_SDK}/Lib/vulkan-1.lib)
-	set(ISPC_CXX_COMPILER cl)
-endif(WIN32)
-
-if(APPLE)
-	set(ISPC_CXX_COMPILER g++)
-endif(APPLE)
+set(VULKAN_SDK C:/VulkanSDK/1.3.216.0)
+set(Vulkan_LIBRARY ${VULKAN_SDK}/Lib/vulkan-1.lib)
+set(ISPC_CXX_COMPILER cl)
 
 find_package(Threads)
 find_package(Vulkan REQUIRED)
@@ -121,51 +115,28 @@ set(VINCENT_SRC
 	src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp
 	src/Utils/myn/CpuTexture.cpp)
 
-if(APPLE)
-	add_definitions(-DMACOS)
+add_definitions(-DWINOS)
 
-	add_executable(ellyn ${ELLYN_SRC})
-	target_link_libraries(ellyn
-		${CMAKE_THREAD_LIBS_INIT}
-		${CMAKE_SOURCE_DIR}/lib/libMoltenVK.dylib
-		${CMAKE_SOURCE_DIR}/lib/libGLEW.a 
-		${CMAKE_SOURCE_DIR}/lib/SDL2.framework 
-		${CMAKE_SOURCE_DIR}/lib/libconfig++.a
-	)
+add_executable(ellyn WIN32 ${ELLYN_SRC} ${RTX_SRC})
+target_link_libraries(ellyn
+	${CMAKE_THREAD_LIBS_INIT}
+	${Vulkan_LIBRARY}
+	${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
+	${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
+	${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib
+)
+set_target_properties(ellyn PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
-	add_executable(asz ${ASZELEA_SRC})
-	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.a)
+add_executable(asz WIN32 ${ASZELEA_SRC})
+target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib)
+set_target_properties(asz PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
-	add_executable(vin ${VINCENT_SRC})
-	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++.a)
-endif(APPLE)
+add_executable(vin ${VINCENT_SRC})
+target_link_libraries(vin ${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib)
+set_target_properties(vin PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
 
-if(WIN32)
-	add_definitions(-DWINOS)
-
-	#if
-
-	add_executable(ellyn WIN32 ${ELLYN_SRC} ${RTX_SRC})
-	target_link_libraries(ellyn
-		${CMAKE_THREAD_LIBS_INIT}
-		${Vulkan_LIBRARY}
-		${CMAKE_SOURCE_DIR}/lib/glew32s.lib 
-		${CMAKE_SOURCE_DIR}/lib/SDL2x64.lib
-		${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib
-	)
-	set_target_properties(ellyn PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
-
-	add_executable(asz WIN32 ${ASZELEA_SRC})
-	target_link_libraries(asz ${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib)
-	set_target_properties(asz PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
-
-	add_executable(vin ${VINCENT_SRC})
-	target_link_libraries(vin ${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib)
-	set_target_properties(vin PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
-
-	configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} SDL2.dll COPYONLY)
-	configure_file(lib/libconfig++d.dll ${ellyn_BINARY_DIR} libconfig++d.dll COPYONLY)
-endif(WIN32)
+configure_file(lib/SDL2.dll ${ellyn_BINARY_DIR} SDL2.dll COPYONLY)
+configure_file(lib/libconfig++d.dll ${ellyn_BINARY_DIR} libconfig++d.dll COPYONLY)
 
 # include_directories(include src)
 include_directories(PUBLIC src include)

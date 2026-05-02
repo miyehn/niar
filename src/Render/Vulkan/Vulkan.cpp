@@ -309,7 +309,7 @@ void Vulkan::createInstance() {
     // get required extensions count
     uint32_t numSDLRequiredExtensions;
     EXPECT_M(SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, nullptr), SDL_TRUE, "%s", SDL_GetError())
-    // get the extensions' names: "VK_KHR_surface", "VK_MVK_macos_surface"
+    // get the extensions' names (e.g. "VK_KHR_surface", "VK_KHR_win32_surface")
     std::vector<const char*>enabledExtensions(numSDLRequiredExtensions);
     EXPECT_M(
         SDL_Vulkan_GetInstanceExtensions(window, &numSDLRequiredExtensions, enabledExtensions.data()),

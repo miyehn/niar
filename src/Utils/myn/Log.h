@@ -3,12 +3,7 @@
 #include <iostream>
 
 // for showing last relative_path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
-#ifdef WINOS
 #define PATH_ELIM_SLASH '\\'
-#endif
-#ifdef MACOS
-#define PATH_ELIM_SLASH '/'
-#endif
 #define __FILENAME__ (strrchr(__FILE__, PATH_ELIM_SLASH) ? strrchr(__FILE__, PATH_ELIM_SLASH) + 1 : __FILE__)
 
 // colors
@@ -26,22 +21,12 @@
 #define LOCATION printf("%s: %d", __FILENAME__, __LINE__)
 
 // break (if using sdl)
-#ifdef WINOS
 #include <SDL2/SDL_assert.h>
 #define DEBUG_BREAK __debugbreak();
-#else
-#define DEBUG_BREAK ;
-#endif
 
 // logging
 
-#ifdef WINOS
 #define NEWLINE { printf("\n"); fflush(stdout); }
-#endif
-
-#ifdef MACOS
-#define NEWLINE printf("\n");
-#endif
 
 #define LOG(...) { \
 	COLOR_GREEN \

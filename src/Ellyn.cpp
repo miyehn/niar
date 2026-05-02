@@ -26,10 +26,8 @@
 
 using namespace myn;
 
-#ifdef _WIN32
 #ifdef main
 #undef main
-#endif
 #endif
 
 //////////////////////////////////////////////////////////////////

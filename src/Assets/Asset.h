@@ -8,10 +8,6 @@
 
 #pragma once
 
-#ifdef MACOS
-#define time_t double
-#endif
-
 class Asset
 {
 public:

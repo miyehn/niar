@@ -143,12 +143,7 @@ private:
 
 	#ifdef DEBUG
 	const std::vector<const char*> validationLayers = {
-		// NOTE: things that this layer reports seems different from the ones on windows?
-	#ifdef WINOS
 		"VK_LAYER_KHRONOS_validation"
-	#else
-		"MoltenVK"
-	#endif
 	};
 	#endif
 	std::vector<const char*> deviceExtensions = {

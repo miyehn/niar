@@ -1,9 +1,6 @@
 #pragma once
 
 #include <chrono>
-#ifdef MACOS
-#include <ctime>
-#endif
 
 namespace myn
 {
