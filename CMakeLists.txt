@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(VULKAN_SDK C:/VulkanSDK/1.3.216.0)
 set(Vulkan_LIBRARY ${VULKAN_SDK}/Lib/vulkan-1.lib)
-set(ISPC_CXX_COMPILER cl)
 
 find_package(Threads)
 find_package(Vulkan REQUIRED)
@@ -30,7 +29,6 @@ set(ELLYN_SRC
 	src/Pathtracer/BSDF.cpp
 	src/Pathtracer/PathtracerLight.cpp
 	src/Pathtracer/BVH.cpp
-	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui.h
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui.cpp
 	${CMAKE_SOURCE_DIR}/include/imgui/imgui_demo.cpp
@@ -99,7 +97,6 @@ set(ASZELEA_SRC
 	src/Utils/myn/Misc.cpp
 	src/Utils/TinyGLTFImpl.cpp
 	src/Utils/StbImageImpl.cpp
-	${CMAKE_BINARY_DIR}/pathtracer_kernel.o
 	src/Assets/EnvironmentMapAsset.cpp
 	src/Utils/TinyExrImpl.cpp
 	src/Utils/myn/Sample.cpp
@@ -152,24 +149,6 @@ add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 add_definitions(-DDEBUG=1)
 
 message(STATUS "${CMAKE_SOURCE_DIR}/lib/libconfig++d.lib")
-
-# pathtracer_kernel.o
-set(KERNEL_SRC ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel.ispc)
-set(KERNEL_INCLUDE ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel_utilities.h)
-set(KERNEL_H ${CMAKE_SOURCE_DIR}/src/Pathtracer/pathtracer_kernel_ispc.h)
-set(KERNEL_O ${CMAKE_BINARY_DIR}/pathtracer_kernel.o)
-add_custom_command(
-	OUTPUT ${KERNEL_H} ${KERNEL_O}
-	COMMAND ispc -O2 --target=avx2-i32x8 --arch=x86-64 ${KERNEL_SRC} -h ${KERNEL_H} -o ${KERNEL_O}
-	DEPENDS ${KERNEL_SRC}#${KERNEL_INCLUDE}
-	COMMENT "generating pathtracer_kernel.o"
-)
-# build
-add_custom_target(ispc
-	DEPENDS ${KERNEL_H} ${KERNEL_O}
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-add_dependencies(ellyn ispc)
 
 #-------- vulkan shaders --------
 set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders)

@@ -25,8 +25,6 @@ namespace myn::sky {
 class CpuSkyAtmosphere;
 }
 
-struct ISPC_Data;
-
 class Pathtracer : public Renderer {
 public:
 	static Pathtracer* get(uint32_t w = 0, uint32_t h = 0);
@@ -60,7 +58,6 @@ private:
 
 	// store some frequently-accessed configs here to alleviate config lookup cost
 	struct {
-		int ISPC = 0;
 		int UseBVH = 1;
 		int Multithreaded = 0; // initially 0 so if set to >0 by config file, will create the threads
 		int NumThreads = 0;
@@ -109,9 +106,6 @@ private:
 	BVH* bvh = nullptr;
 	void reload_scene(SceneObject *scene);
 	uint32_t scene_version = 0;
-
-	ISPC_Data* ispc_data = nullptr;
-	void load_ispc_data();
 
 	// materials (bsdf)
 	std::unordered_map<std::string, BSDF*> BSDFs;
