@@ -1,7 +1,6 @@
 #include "Utils/myn/Log.h"
 #include "Asset.h"
 #include <functional>
-#include <utility>
 #include <libconfig.h++>
 
 class ConfigAsset : Asset

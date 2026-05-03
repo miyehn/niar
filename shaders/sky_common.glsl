@@ -283,6 +283,7 @@ AtmosphereSample sampleAtmosphere(AtmosphereProfile atmosphere, float heightFrom
 
     return s;
 }
+
 // assume sample pos is within the atmosphere already
 vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, float viewZenithCosine) {
 
@@ -310,6 +311,7 @@ vec3 computeTransmittanceToSun(AtmosphereProfile atmosphere, float viewHeight, f
 
     return exp(-cumOpticalDepth);
 }
+
 vec3 sampleTransmittanceToSun(float bottomRadius, float topRadius, float viewHeight, float viewZenithCosine) {
     vec2 uv = TransmittanceLutParamsToUv(bottomRadius, topRadius, viewHeight, viewZenithCosine);
     vec4 texel = textureLod(transmittanceLut, uv, 0);
@@ -366,6 +368,7 @@ vec2 computeRaymarchAtmosphereMinMaxT(vec3 startPosES, vec3 raymarchDir, vec3 ea
     }
     return vec2(tMin, tMax);
 }
+
 vec3 computeSkyAtmosphere(
     AtmosphereProfile atmosphere,
     vec3 cameraPosES,

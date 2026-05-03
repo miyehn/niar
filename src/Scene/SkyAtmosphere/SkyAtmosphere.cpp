@@ -10,98 +10,48 @@
 #include <imgui.h>
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Texture.h"
-#include "Render/Vulkan/PipelineBuilder.h"
 #include "Render/Materials/ComputeShader.h"
 #include "SkyAtmosphereShaders.h"
-#include "Render/Vulkan/SamplerCache.h"
 #endif
 
-SkyAtmosphere::SkyAtmosphere(Camera* camera) {
-	config = new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg){});
-	memset(&cachedParameters, 0, sizeof(Parameters));
-
-	Parameters initialParams = getParameters(camera);
-
-#if GRAPHICS_DISPLAY
-	// create transmittance lut
-	ImageCreator transmittanceLutCreator(
-		VK_FORMAT_R16G16B16A16_SFLOAT,
-		{initialParams.transmittanceLutTextureDimensions.x, initialParams.transmittanceLutTextureDimensions.y, 1},
-		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		"Transmittance LUT");
-	transmittanceLut = new Texture2D(transmittanceLutCreator);
-
-	// create sky view lut
-	ImageCreator skyViewLutCreator(
-		VK_FORMAT_R16G16B16A16_SFLOAT,
-		{initialParams.skyViewLutTextureDimensions.x, initialParams.skyViewLutTextureDimensions.y, 1},
-		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		"Sky View LUT");
-	skyViewLut = new Texture2D(skyViewLutCreator);
-
-	// create uniform buffer
-	parametersBuffer = VmaBuffer({
-		&Vulkan::Instance->memoryAllocator,
-		sizeof(Parameters),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VMA_MEMORY_USAGE_CPU_TO_GPU,
-		"Sky atmosphere renderingParams buffer"
+SkyAtmosphere::SkyAtmosphere() {
+	config = new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg) {
+		// todo [myn]: move the rest of config lookup to here? Test hot reload first
 	});
 
-	// create shared descriptor set(s)
-	DescriptorSetLayout setLayout{};
-	setLayout.addBinding(Slot_Parameters, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	setLayout.addBinding(Slot_TransmittanceLutRW, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-	setLayout.addBinding(Slot_SkyViewLutRW, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-	setLayout.addBinding(Slot_TransmittanceLutR, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	setLayout.addBinding(Slot_SkyViewLutR, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	descriptorSet = DescriptorSet(setLayout);
+#if GRAPHICS_DISPLAY
 
-	descriptorSet.pointToBuffer(parametersBuffer, Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	descriptorSet.pointToRWImageView(transmittanceLut->imageView, Slot_TransmittanceLutRW);
-	descriptorSet.pointToRWImageView(skyViewLut->imageView, Slot_SkyViewLutRW);
-	auto samplerInfo = SamplerCache::defaultInfo();
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	descriptorSet.pointToImageView(transmittanceLut->imageView, Slot_TransmittanceLutR,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
-	descriptorSet.pointToImageView(skyViewLut->imageView, Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-	// and the dummy version
-	dummyDescriptorSet = DescriptorSet(setLayout);
-	dummyDescriptorSet.pointToBuffer(parametersBuffer, Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
-	dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+	// so the getters give correct values from the start (these are needed before deferred render creates the luts)
+	config->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&parameters.transmittanceLutTextureDimensions);
+	config->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&parameters.skyViewLutTextureDimensions);
 
 	//======== other properties ========
 
 	ui_show_transform = false;
 	ui_default_open = true;
 #endif
-
-	SkyAtmosphere::on_enable(); // point to resources to be ready for use
 }
 
 // created here, but managed and destroyed by the scene tree
-SkyAtmosphere *SkyAtmosphere::getInstance(Camera* camera) {
+SkyAtmosphere *SkyAtmosphere::getInstance() {
 	static SkyAtmosphere* instance = nullptr;
 	if (!instance) {
-		instance = new SkyAtmosphere(camera);
+		instance = new SkyAtmosphere();
 	}
 	return instance;
 }
 
-SkyAtmosphere::Parameters SkyAtmosphere::getParameters(Camera* camera) {
-	Parameters params{};
+#if GRAPHICS_DISPLAY
+
+void SkyAtmosphere::update(float elapsed) {
+	SceneObject::update(elapsed);
+
+	auto& params = parameters;
 
 	float bottomRadius = config->lookup<float>("atmosphere.bottomRadius");
 
 	glm::vec3 cameraPosWS = {0, 0, 0};
-	if (camera) {
-		cameraPosWS = camera->world_position();
-	}
+	cameraPosWS = Camera::Active->world_position();
 	cameraPosWS.z += config->lookup<float>("viewHeightOffset");
 	params.cameraPosES = cameraPosWS * 0.001f + glm::vec3(0, 0, bottomRadius);
 	params.exposure = config->lookup<float>("exposure");
@@ -136,36 +86,33 @@ SkyAtmosphere::Parameters SkyAtmosphere::getParameters(Camera* camera) {
 		config->lookupVector<float, 3>("atmosphere.groundAlbedo", (float*)&atmosphere.groundAlbedo);
 		atmosphere.ozoneLayerWidth = config->lookup<float>("atmosphere.ozoneLayerWidth");
 	}
-
-	return params;
 }
 
-#if GRAPHICS_DISPLAY
 // called by the renderer
-void SkyAtmosphere::updateAndComposite() {
-	auto parameters = getParameters(Camera::Active);
-	if (!parameters.equals(cachedParameters)) {
-		parametersBuffer.writeData(&parameters, sizeof(parameters));
-		updateLuts();
-		cachedParameters = parameters;
+void SkyAtmosphere::composite(
+	VmaBuffer& parametersBuffer,
+	DescriptorSet& descriptorSet,
+	const Texture2D* transmittanceLut,
+	const Texture2D* skyViewLut)
+{
+	// upload parameters
+	parametersBuffer.writeData(&parameters, sizeof(parameters));
+
+	{// update luts
+		auto transmittanceCS = ComputeShader::getInstance<TransmittanceLutCS>();
+		transmittanceCS->descriptorSetPtr = &descriptorSet;
+		transmittanceCS->targetImage = transmittanceLut->resource.image;
+		transmittanceCS->dispatch(
+			(transmittanceLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
+			(transmittanceLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
+
+		auto skyViewCS = ComputeShader::getInstance<SkyViewLutCS>();
+		skyViewCS->descriptorSetPtr = &descriptorSet;
+		skyViewCS->targetImage = skyViewLut->resource.image;
+		skyViewCS->dispatch(
+			(skyViewLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
+			(skyViewLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
 	}
-}
-
-void SkyAtmosphere::updateLuts() {
-
-	auto transmittanceCS = ComputeShader::getInstance<TransmittanceLutCS>();
-	transmittanceCS->descriptorSetPtr = &descriptorSet;
-	transmittanceCS->targetImage = transmittanceLut->resource.image;
-	transmittanceCS->dispatch(
-		(transmittanceLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
-		(transmittanceLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
-
-	auto skyViewCS = ComputeShader::getInstance<SkyViewLutCS>();
-	skyViewCS->descriptorSetPtr = &descriptorSet;
-	skyViewCS->targetImage = skyViewLut->resource.image;
-	skyViewCS->dispatch(
-		(skyViewLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
-		(skyViewLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
 }
 
 void SkyAtmosphere::drawConfigUI() {
@@ -184,9 +131,4 @@ void SkyAtmosphere::drawConfigUI() {
 #endif
 
 SkyAtmosphere::~SkyAtmosphere() {
-#if GRAPHICS_DISPLAY
-	delete transmittanceLut;
-	delete skyViewLut;
-	parametersBuffer.release();
-#endif
 }

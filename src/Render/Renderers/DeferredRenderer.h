@@ -60,6 +60,8 @@ class DeferredRenderer : public Renderer
 public:
 
 	DescriptorSetLayout getFrameGlobalLayout();
+	DescriptorSetLayout getSkyDescriptorSetLayout();
+	DescriptorSet& getSkyDescriptorSet();
 
 	VkRenderPass mainPass;
 	VkRenderPass postProcessPass;
@@ -89,6 +91,9 @@ private:
 		DescriptorSet frameGlobalDescriptorSet;
 		DebugPoints* debugPoints = nullptr;
 		DebugLines* debugLines = nullptr;
+		VmaBuffer skyParametersBuffer;
+		DescriptorSet skyDescriptorSet;
+		DescriptorSet skyDummyDescriptorSet;
 	};
 	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 
@@ -107,6 +112,9 @@ private:
 	Texture2D* sceneDepth;
 
 	Texture2D* postProcessed;
+
+	Texture2D* skyTransmittanceLut;
+	Texture2D* skyViewLut;
 
 	// specific to this renderer
 

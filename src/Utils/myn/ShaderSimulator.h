@@ -3,9 +3,7 @@
 //
 
 #pragma once
-#include <string>
 #include <glm/glm.hpp>
-#include <vector>
 #include <functional>
 #include "CpuTexture.h"
 

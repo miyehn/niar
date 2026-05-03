@@ -11,6 +11,7 @@
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/EnvironmentMapAsset.h"
 #include "Scene/SkyAtmosphere/SkyAtmosphere.h"
+#include "Render/Vulkan/SamplerCache.h"
 #include <imgui.h>
 #include <algorithm>
 
@@ -100,7 +101,7 @@ public:
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, SkyAtmosphere::getInstance()->getDescriptorSet().getLayout());
+			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, renderer->getSkyDescriptorSetLayout());
 
 			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
 		}
@@ -500,6 +501,65 @@ DeferredRenderer::DeferredRenderer()
 		}
 	}
 
+	{// sky atmosphere resources (per-frame ring buffer)
+		auto sky = SkyAtmosphere::getInstance();
+
+		// create LUT textures (managed by renderer, not per-frame since only written by GPU)
+		auto transmittanceDims = sky->getTransmittanceLutDimensions();
+		ImageCreator transmittanceLutCreator(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			{transmittanceDims.x, transmittanceDims.y, 1},
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"Transmittance LUT");
+		skyTransmittanceLut = new Texture2D(transmittanceLutCreator);
+
+		auto skyViewDims = sky->getSkyViewLutDimensions();
+		ImageCreator skyViewLutCreator(
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			{skyViewDims.x, skyViewDims.y, 1},
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"Sky View LUT");
+		skyViewLut = new Texture2D(skyViewLutCreator);
+
+		DescriptorSetLayout skySetLayout{};
+		skySetLayout.addBinding(SkyAtmosphere::Slot_Parameters, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		skySetLayout.addBinding(SkyAtmosphere::Slot_TransmittanceLutRW, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+		skySetLayout.addBinding(SkyAtmosphere::Slot_SkyViewLutRW, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+		skySetLayout.addBinding(SkyAtmosphere::Slot_TransmittanceLutR, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		skySetLayout.addBinding(SkyAtmosphere::Slot_SkyViewLutR, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+		auto samplerInfo = SamplerCache::defaultInfo();
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			auto& fd = gpuFrameData[i];
+
+			fd.skyParametersBuffer = VmaBuffer({
+				&Vulkan::Instance->memoryAllocator,
+				sizeof(SkyAtmosphere::Parameters),
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VMA_MEMORY_USAGE_CPU_TO_GPU,
+				"Sky atmosphere parameters buffer"
+			});
+
+			fd.skyDescriptorSet = DescriptorSet(skySetLayout);
+			fd.skyDescriptorSet.pointToBuffer(fd.skyParametersBuffer, SkyAtmosphere::Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			fd.skyDescriptorSet.pointToRWImageView(skyTransmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutRW);
+			fd.skyDescriptorSet.pointToRWImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutRW);
+			fd.skyDescriptorSet.pointToImageView(skyTransmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+			fd.skyDescriptorSet.pointToImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+			fd.skyDummyDescriptorSet = DescriptorSet(skySetLayout);
+			fd.skyDummyDescriptorSet.pointToBuffer(fd.skyParametersBuffer, SkyAtmosphere::Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			fd.skyDummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+			fd.skyDummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+		}
+	}
+
 	// misc
 	viewInfo.Exposure = 3.0f;
 	viewInfo.ToneMappingOption = 1;
@@ -548,6 +608,7 @@ DeferredRenderer::~DeferredRenderer()
 		fd.viewInfoUbo.release();
 		fd.pointLightsBuffer.release();
 		fd.directionalLightsBuffer.release();
+		fd.skyParametersBuffer.release();
 		delete fd.debugPoints;
 		delete fd.debugLines;
 	}
@@ -556,7 +617,8 @@ DeferredRenderer::~DeferredRenderer()
 	delete postProcessing;
 
 	std::vector<Texture2D*> images = {
-		GPosition, GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
+		GPosition, GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed,
+		skyTransmittanceLut, skyViewLut
 	};
 	for (auto image : images) delete image;
 
@@ -684,7 +746,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	// TODO: find a better place to put this
 	if (sky) {
-		sky->updateAndComposite();
+		auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+		sky->composite(fd.skyParametersBuffer, fd.skyDescriptorSet, skyTransmittanceLut, skyViewLut);
 	}
 
 	VkClearValue clearColor = {0, 0, 0, 0};
@@ -734,7 +797,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		deferredLighting->usePipeline(cmdbuf);
 		auto pipelineLayout = deferredLighting->getPipeline().layout;
-		SkyAtmosphere::getInstance()->getDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
+		getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
 		vk::drawFullscreenTriangle(cmdbuf);
 
 	}
@@ -829,6 +892,17 @@ DeferredRenderer *DeferredRenderer::get()
 DescriptorSetLayout DeferredRenderer::getFrameGlobalLayout()
 {
 	return gpuFrameData[0].frameGlobalDescriptorSet.getLayout();
+}
+
+DescriptorSetLayout DeferredRenderer::getSkyDescriptorSetLayout()
+{
+	return gpuFrameData[0].skyDescriptorSet.getLayout();
+}
+
+DescriptorSet& DeferredRenderer::getSkyDescriptorSet()
+{
+	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+	return SkyAtmosphere::getInstance()->enabled() ? fd.skyDescriptorSet : fd.skyDummyDescriptorSet;
 }
 
 /*

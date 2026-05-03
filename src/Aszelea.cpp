@@ -66,7 +66,7 @@ int main(int argc, const char * argv[])
 	}
 
 	// sky atmosphere
-	auto sky = SkyAtmosphere::getInstance(camera);
+	auto sky = SkyAtmosphere::getInstance();
 	scene_asset->get_root()->add_child(sky);
 	if (!Config->lookup<int>("SkyAtmosphereDefaultEnabled")) {
 		sky->toggle_enabled();
