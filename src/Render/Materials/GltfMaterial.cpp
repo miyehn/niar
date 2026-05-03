@@ -125,7 +125,7 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
 		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
@@ -165,7 +165,7 @@ MaterialPipeline PbrTranslucentGltfMaterial::getPipeline()
 		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 		pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
 
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
@@ -218,7 +218,7 @@ MaterialPipeline SimpleGltfMaterial::getPipeline()
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
 		pipelineBuilder.compatibleRenderPass = SimpleRenderer::get()->renderPass;
 
-		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->descriptorSet.getLayout();
+		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);

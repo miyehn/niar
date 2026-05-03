@@ -33,7 +33,7 @@ public:
 			pipelineBuilder.compatibleRenderPass = postProcessPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_POSTPROCESSING;
 
-			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
 			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
@@ -59,7 +59,7 @@ private:
 		postProcessPass = renderer->postProcessPass;
 
 		// set layouts and allocation
-		DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
+		DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout{};
 		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -98,7 +98,7 @@ public:
 			pipelineBuilder.compatibleRenderPass = renderer->mainPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_LIGHTING;
 
-			DescriptorSetLayout frameGlobalSetLayout = renderer->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, SkyAtmosphere::getInstance()->getDescriptorSet().getLayout());
 
@@ -453,25 +453,7 @@ DeferredRenderer::DeferredRenderer()
 			&postProcessFramebuffer), VK_SUCCESS)
 	}
 
-	{// frame-global descriptor set
-
-		viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								  sizeof(viewInfo),
-								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-								  VMA_MEMORY_USAGE_CPU_TO_GPU,
-								  "View info uniform buffer (deferred renderer)"});
-
-		pointLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-									   sizeof(pointLights),
-									   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-									   VMA_MEMORY_USAGE_CPU_TO_GPU,
-									   "Point lights buffer"});
-		directionalLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-											 sizeof(directionalLights),
-											 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-											 VMA_MEMORY_USAGE_CPU_TO_GPU,
-											 "Directional lights buffer"});
-
+	{// frame-global descriptor set (per-frame ring buffer)
 		DescriptorSetLayout frameGlobalSetLayout{};
 		frameGlobalSetLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
@@ -481,21 +463,40 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalSetLayout.addBinding(5, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(6, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(7, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 
-		frameGlobalDescriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalDescriptorSet.pointToBuffer(pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		frameGlobalDescriptorSet.pointToBuffer(directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
-		if (loadedEnvironmentMap) {
-			auto envmap = Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"));
-			frameGlobalDescriptorSet.pointToImageView(envmap->texture2D->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		} else {
-			frameGlobalDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		VkImageView envMapView = loadedEnvironmentMap
+			? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D->imageView
+			: Texture::get<Texture2D>("_black")->imageView;
+
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			auto& fd = gpuFrameData[i];
+
+			fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+								   sizeof(viewInfo),
+								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								   VMA_MEMORY_USAGE_CPU_TO_GPU,
+								   "View info uniform buffer (deferred renderer)"});
+			fd.pointLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+										 sizeof(pointLights),
+										 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+										 VMA_MEMORY_USAGE_CPU_TO_GPU,
+										 "Point lights buffer"});
+			fd.directionalLightsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+												 sizeof(directionalLights),
+												 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+												 VMA_MEMORY_USAGE_CPU_TO_GPU,
+												 "Directional lights buffer"});
+
+			fd.frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
+			fd.frameGlobalDescriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			fd.frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+			fd.frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+			fd.frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+			fd.frameGlobalDescriptorSet.pointToBuffer(fd.pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			fd.frameGlobalDescriptorSet.pointToImageView(envMapView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		}
 	}
 
@@ -506,34 +507,34 @@ DeferredRenderer::DeferredRenderer()
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
 
-	{// debug draw stuff
+	{// debug draw stuff (per-frame ring buffer)
+		auto layout = getFrameGlobalLayout();
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			auto& fd = gpuFrameData[i];
 #if 0 // example debug points
-		if (!debugPoints) debugPoints = new DebugPoints(viewInfoUbo, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
-		debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
-		debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
-		debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
-		debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
-		debugPoints->uploadVertexBuffer();
+			fd.debugPoints = new DebugPoints(layout, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
+			fd.debugPoints->addPoint(glm::vec3(0, 1, 0), glm::u8vec4(255, 0, 0, 255));
+			fd.debugPoints->addPoint(glm::vec3(1, 1, 0), glm::u8vec4(255, 0, 0, 255));
+			fd.debugPoints->addPoint(glm::vec3(2, 1, 0), glm::u8vec4(255, 0, 0, 255));
+			fd.debugPoints->addPoint(glm::vec3(3, 1, 0), glm::u8vec4(255, 0, 0, 255));
+			fd.debugPoints->uploadVertexBuffer();
 #endif
-
-		std::vector<PointData> lines;
-		if (!debugLines) debugLines = new DebugLines(frameGlobalDescriptorSet.getLayout(), postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
-		// x axis
-		debugLines->addSegment(
-			PointData(glm::vec3(0, 0, 0), glm::u8vec4(255, 0, 0, 255)),
-			PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
-		// y axis
-		debugLines->addSegment(
-			PointData(glm::vec3(0, 0, 0), glm::u8vec4(0, 255, 0, 255)),
-			PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
-		// z axis
-		debugLines->addSegment(
-			PointData(glm::vec3(0, 0, 0), glm::u8vec4(0, 0, 255, 255)),
-			PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
-
-		//debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
-		debugLines->uploadVertexBuffer();
-
+			fd.debugLines = new DebugLines(layout, postProcessPass, DEFERRED_SUBPASS_DEBUGDRAW);
+			// x axis
+			fd.debugLines->addSegment(
+				PointData(glm::vec3(0, 0, 0), glm::u8vec4(255, 0, 0, 255)),
+				PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
+			// y axis
+			fd.debugLines->addSegment(
+				PointData(glm::vec3(0, 0, 0), glm::u8vec4(0, 255, 0, 255)),
+				PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
+			// z axis
+			fd.debugLines->addSegment(
+				PointData(glm::vec3(0, 0, 0), glm::u8vec4(0, 0, 255, 255)),
+				PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
+			//fd.debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
+			fd.debugLines->uploadVertexBuffer();
+		}
 	}
 }
 
@@ -542,10 +543,14 @@ DeferredRenderer::~DeferredRenderer()
 	auto vk = Vulkan::Instance;
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
-	viewInfoUbo.release();
-
-	pointLightsBuffer.release();
-	directionalLightsBuffer.release();
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		auto& fd = gpuFrameData[i];
+		fd.viewInfoUbo.release();
+		fd.pointLightsBuffer.release();
+		fd.directionalLightsBuffer.release();
+		delete fd.debugPoints;
+		delete fd.debugLines;
+	}
 
 	delete deferredLighting;
 	delete postProcessing;
@@ -554,9 +559,6 @@ DeferredRenderer::~DeferredRenderer()
 		GPosition, GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
-
-	delete debugPoints;
-	delete debugLines;
 
 	for (const auto& p : materials) delete p.second;
 }
@@ -611,9 +613,10 @@ void DeferredRenderer::updateUniformBuffers()
 		viewInfo.BackgroundOption = BG_None;
 	}
 
-	viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
-	pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
-	directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
+	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+	fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
+	fd.pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
+	fd.directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
 }
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
@@ -626,8 +629,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	updateUniformBuffers();
 
 	// here the layout is for just so it gets ANY compatible layout
-	frameGlobalDescriptorSet.bind(
-		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
+	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].frameGlobalDescriptorSet.bind(
+		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
 
 	// objects gathering and sorting
 	std::vector<MeshObject*> opaqueMeshes;
@@ -799,8 +802,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			if (drawDebug) {
 				SCOPED_DRAW_EVENT(cmdbuf, "Debug draw")
-				if (debugLines) debugLines->bindAndDraw(cmdbuf);
-				if (debugPoints) debugPoints->bindAndDraw(cmdbuf);
+				auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+				if (fd.debugLines) fd.debugLines->bindAndDraw(cmdbuf);
+				if (fd.debugPoints) fd.debugPoints->bindAndDraw(cmdbuf);
 			}
 			vkCmdEndRenderPass(cmdbuf);
 		}
@@ -820,6 +824,11 @@ DeferredRenderer *DeferredRenderer::get()
 	if (deferredRenderer == nullptr) deferredRenderer = new DeferredRenderer();
 
 	return deferredRenderer;
+}
+
+DescriptorSetLayout DeferredRenderer::getFrameGlobalLayout()
+{
+	return gpuFrameData[0].frameGlobalDescriptorSet.getLayout();
 }
 
 /*

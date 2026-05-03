@@ -68,8 +68,10 @@ Pathtracer::~Pathtracer() {
 	clear_tasks_and_threads_wait();
 
 	delete window_surface;
-	viewInfoUbo.release();
-	delete debugLines;
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		gpuFrameData[i].viewInfoUbo.release();
+		delete gpuFrameData[i].debugLines;
+	}
 #endif
 
 	delete image_buffer;
@@ -155,18 +157,22 @@ void Pathtracer::initialize() {
 		"Pathtracer window surface image");
 	window_surface = new Texture2D(windowSurfaceCreator);
 
-	viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-							sizeof(ViewInfo),
-							VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							VMA_MEMORY_USAGE_CPU_TO_GPU,
-							"View info uniform buffer (path tracer)"});
-
 	DescriptorSetLayout layout{};
 	layout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	descriptorSet = DescriptorSet(layout);
-	descriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-	debugLines = new DebugLines(descriptorSet.getLayout(), Vulkan::Instance->getSwapChainRenderPass());
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		auto& fd = gpuFrameData[i];
+
+		fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+								   sizeof(ViewInfo),
+								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								   VMA_MEMORY_USAGE_CPU_TO_GPU,
+								   "View info uniform buffer (path tracer)"});
+		fd.descriptorSet = DescriptorSet(layout);
+		fd.descriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+		fd.debugLines = new DebugLines(fd.descriptorSet.getLayout(), Vulkan::Instance->getSwapChainRenderPass());
+	}
 #endif
 
 	//-------- load config --------
@@ -436,7 +442,7 @@ void Pathtracer::on_selected() {
 	TRACE("pathtracer enabled");
 	camera->lock();
 
-	// update view info to buffer
+	// update view info to buffer (write all frame copies so any next frame has up-to-date data)
 	ViewInfo.ViewMatrix = camera->world_to_object();
 	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
 	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
@@ -444,7 +450,9 @@ void Pathtracer::on_selected() {
 	ViewInfo.CameraPosition = camera->world_position();
 	ViewInfo.ViewDir = camera->forward();
 
-	viewInfoUbo.writeData(&ViewInfo, sizeof(ViewInfo));
+	for (auto& fd : gpuFrameData) {
+		fd.viewInfoUbo.writeData(&ViewInfo, sizeof(ViewInfo));
+	}
 }
 
 void Pathtracer::on_unselected() {
@@ -583,10 +591,11 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 						   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	if (debugLines && debugLines->numSegments() > 0) {
+	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+	if (fd.debugLines && fd.debugLines->numSegments() > 0) {
 		Vulkan::Instance->beginSwapChainRenderPass(cmdbuf);
-		descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, debugLines->getPipelineLayout());
-		debugLines->bindAndDraw(cmdbuf);
+		fd.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, fd.debugLines->getPipelineLayout());
+		fd.debugLines->bindAndDraw(cmdbuf);
 		Vulkan::Instance->endSwapChainRenderPass(cmdbuf);
 	}
 }

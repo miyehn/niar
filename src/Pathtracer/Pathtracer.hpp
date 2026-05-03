@@ -175,7 +175,6 @@ private:
 
 	// vulkan
 	Texture2D* window_surface = nullptr;
-	DebugLines* debugLines = nullptr;
 
 	struct {
 		glm::mat4 ViewMatrix;
@@ -189,8 +188,12 @@ private:
 
 	} ViewInfo;
 
-	VmaBuffer viewInfoUbo;
-	DescriptorSet descriptorSet;
+	struct GpuFrameData {
+		VmaBuffer viewInfoUbo;
+		DescriptorSet descriptorSet;
+		DebugLines* debugLines = nullptr;
+	};
+	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 #endif
 
 };

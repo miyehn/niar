@@ -59,7 +59,7 @@ public:
 			pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
 
-			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->frameGlobalDescriptorSet.getLayout();
+			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 			DescriptorSetLayout independentSetLayout = SkyAtmosphere::getInstance()->getDescriptorSet().getLayout();
 			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);

@@ -96,46 +96,51 @@ SimpleRenderer::SimpleRenderer()
 			&frameBuffer), VK_SUCCESS)
 	}
 
-	{// descriptor set (ubo)
-		viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								  sizeof(viewInfo),
-								  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-								  VMA_MEMORY_USAGE_CPU_TO_GPU,
-								  "View info uniform buffer (simple renderer)"});
+	{// per-frame descriptor set and debug draw (ring buffer)
 		DescriptorSetLayout layout{};
 		layout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		descriptorSet = DescriptorSet(layout);
-		descriptorSet.pointToBuffer(viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			auto& fd = gpuFrameData[i];
+
+			fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
+								   sizeof(viewInfo),
+								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+								   VMA_MEMORY_USAGE_CPU_TO_GPU,
+								   "View info uniform buffer (simple renderer)"});
+			fd.descriptorSet = DescriptorSet(layout);
+			fd.descriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+			fd.debugLines = new DebugLines(fd.descriptorSet.getLayout(), renderPass);
+			// x axis
+			fd.debugLines->addSegment(
+				PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
+				PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
+			// y axis
+			fd.debugLines->addSegment(
+				PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
+				PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
+			// z axis
+			fd.debugLines->addSegment(
+				PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
+				PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
+			fd.debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
+			fd.debugLines->uploadVertexBuffer();
+		}
 	}
 
-	{// debug draw setup
-		debugLines = new DebugLines(descriptorSet.getLayout(), renderPass);
-		// x axis
-		debugLines->addSegment(
-			PointData(glm::vec3(-10, 0, 0), glm::u8vec4(255, 0, 0, 255)),
-			PointData(glm::vec3(10, 0, 0), glm::u8vec4(255, 0, 0, 255)));
-		// y axis
-		debugLines->addSegment(
-			PointData(glm::vec3(0, -10, 0), glm::u8vec4(0, 255, 0, 255)),
-			PointData(glm::vec3(0, 10, 0), glm::u8vec4(0, 255, 0, 255)));
-		// z axis
-		debugLines->addSegment(
-			PointData(glm::vec3(0, 0, -10), glm::u8vec4(0, 0, 255, 255)),
-			PointData(glm::vec3(0, 0, 10), glm::u8vec4(0, 0, 255, 255)));
-
-		debugLines->addBox(glm::vec3(-0.5f), glm::vec3(0.5f), glm::u8vec4(255, 255, 255, 255));
-		debugLines->uploadVertexBuffer();
-	}
 }
 
 SimpleRenderer::~SimpleRenderer()
 {
 	auto vk = Vulkan::Instance;
 	vkDestroyFramebuffer(vk->device, frameBuffer, nullptr);
-	viewInfoUbo.release();
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		gpuFrameData[i].viewInfoUbo.release();
+		delete gpuFrameData[i].debugLines;
+	}
 	delete sceneColor;
 	delete sceneDepth;
-	delete debugLines;
 	for (const auto& p : materials) delete p.second;
 }
 
@@ -146,6 +151,11 @@ SimpleRenderer *SimpleRenderer::get()
 	if (renderer == nullptr) renderer = new SimpleRenderer();
 
 	return renderer;
+}
+
+DescriptorSetLayout SimpleRenderer::getFrameGlobalLayout()
+{
+	return gpuFrameData[0].descriptorSet.getLayout();
 }
 
 void SimpleRenderer::updateViewInfoUbo()
@@ -160,7 +170,7 @@ void SimpleRenderer::updateViewInfoUbo()
 	viewInfo.CameraPosition = camera->world_position();
 	viewInfo.ViewDir = camera->forward();
 
-	viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
+	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 }
 
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
@@ -195,6 +205,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "SimpleRenderer draw")
+		auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
 		//VkPipeline last_pipeline = VK_NULL_HANDLE;
@@ -213,7 +224,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 					mat->usePipeline(cmdbuf);
 					if (pipeline.layout != last_pipeline.layout)
 					{
-						descriptorSet.bind(
+						fd.descriptorSet.bind(
 							cmdbuf,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							DSET_FRAMEGLOBAL,
@@ -236,7 +247,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		}
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "debug draw")
-			debugLines->bindAndDraw(cmdbuf);
+			fd.debugLines->bindAndDraw(cmdbuf);
 		}
 	}
 	vkCmdEndRenderPass(cmdbuf);

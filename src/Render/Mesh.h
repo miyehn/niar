@@ -1,6 +1,5 @@
 #pragma once
 #include "Scene/SceneObject.hpp"
-#include "Scene/AABB.hpp"
 #include "Render/Vertex.h"
 #include <unordered_map>
 #if GRAPHICS_DISPLAY

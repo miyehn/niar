@@ -25,6 +25,8 @@ struct VmaAllocatedImage
 	VmaAllocation allocation;
 };
 
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
 struct Vulkan {
 
 	static Vulkan* Instance;
@@ -93,7 +95,6 @@ private:
 	uint32_t currentImageIndex;
 	bool isFrameStarted = false;
 
-	const int MAX_FRAME_IN_FLIGHT = 2;
 	size_t currentFrame = 0;
 
 	struct QueueFamilyIndices {

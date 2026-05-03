@@ -110,21 +110,23 @@ void Pathtracer::raytrace_debug(uint32_t index) {
 	vec3& color = task.output;
 	LOG("result color: %f %f %f", color.x, color.y, color.z);
 	
-	// upload ray vertices
-	debugLines->clear();
-	for (int i = 1; i < logged_rays.size(); i++) {
-		PointData ep1(logged_rays[i-1], {255, 220, 100, 255});
-		PointData ep2(logged_rays[i], {255, 220, 100, 255});
-		debugLines->addSegment(ep1, ep2);
+	// upload ray vertices to all frame copies so any next frame shows the latest debug rays
+	for (auto& fd : gpuFrameData) {
+		fd.debugLines->clear();
+		for (int i = 1; i < (int)logged_rays.size(); i++) {
+			PointData ep1(logged_rays[i-1], {255, 220, 100, 255});
+			PointData ep2(logged_rays[i], {255, 220, 100, 255});
+			fd.debugLines->addSegment(ep1, ep2);
+		}
+		fd.debugLines->uploadVertexBuffer();
 	}
-	debugLines->uploadVertexBuffer();
 	LOG("--------------------------------------");
 }
 
 void Pathtracer::clear_debug_ray()
 {
 	logged_rays.clear();
-	debugLines->clear();
+	for (auto& fd : gpuFrameData) fd.debugLines->clear();
 }
 #endif
 

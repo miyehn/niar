@@ -59,13 +59,7 @@ class DeferredRenderer : public Renderer
 {
 public:
 
-	DebugPoints* debugPoints = nullptr;
-	DebugLines* debugLines = nullptr;
-
-	VmaBuffer pointLightsBuffer; // move to renderer
-	VmaBuffer directionalLightsBuffer; // move to renderer
-
-	DescriptorSet frameGlobalDescriptorSet;
+	DescriptorSetLayout getFrameGlobalLayout();
 
 	VkRenderPass mainPass;
 	VkRenderPass postProcessPass;
@@ -88,7 +82,15 @@ private:
 	VkFramebuffer framebuffer;
 	VkFramebuffer postProcessFramebuffer;
 
-	VmaBuffer viewInfoUbo;
+	struct GpuFrameData {
+		VmaBuffer viewInfoUbo;
+		VmaBuffer pointLightsBuffer;
+		VmaBuffer directionalLightsBuffer;
+		DescriptorSet frameGlobalDescriptorSet;
+		DebugPoints* debugPoints = nullptr;
+		DebugLines* debugLines = nullptr;
+	};
+	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 
 	VkExtent2D renderExtent;
 

@@ -9,14 +9,24 @@ class GltfMaterial;
 class SimpleRenderer : public Renderer
 {
 public:
+
 	void render(VkCommandBuffer cmdbuf) override;
 
 	static SimpleRenderer* get();
 
 	VkRenderPass renderPass;
-	DescriptorSet descriptorSet;
+
+	DescriptorSetLayout getFrameGlobalLayout();
 
 private:
+
+	struct GpuFrameData {
+		VmaBuffer viewInfoUbo;
+		DescriptorSet descriptorSet;
+		DebugLines* debugLines = nullptr;
+	};
+	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
+
 	SimpleRenderer();
 	~SimpleRenderer() override;
 
@@ -25,12 +35,8 @@ private:
 	Texture2D* sceneDepth;
 	VkFramebuffer frameBuffer;
 
-	DebugLines* debugLines = nullptr;
-
 	// uniforms
 	ViewInfo viewInfo;
-
-	VmaBuffer viewInfoUbo;
 
 	void updateViewInfoUbo();
 

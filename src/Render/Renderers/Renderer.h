@@ -1,7 +1,6 @@
 #pragma once
 #include "Scene/Camera.hpp"
 #include "Scene/Scene.hpp"
-#include <functional>
 #if GRAPHICS_DISPLAY
 #include "Render/Vulkan/Vulkan.hpp"
 #endif
