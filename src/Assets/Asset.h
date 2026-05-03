@@ -21,8 +21,7 @@ public:
 	}
 
 	std::function<bool()> reload_condition = [](){ return true; };
-	std::vector<std::function<void()>> begin_reload;
-	std::vector<std::function<void()>> finish_reload;
+	std::vector<std::function<void()>> before_reload;
 
 	virtual void release_resources();
 
@@ -33,7 +32,7 @@ public:
 	static void delete_all();
 
 protected:
-	Asset(const std::string &relative_path, const std::function<void()> &load_action);
+	Asset(const std::string &relative_path);
 	std::string relative_path;
 	std::function<void()> load_action_internal = nullptr;
 

@@ -382,7 +382,7 @@ std::vector<Mesh*> load_gltf_meshes(
 SceneAsset::SceneAsset(
 	SceneObject* outer_root,
 	const std::string &relative_path)
-: Asset(relative_path, nullptr)
+: Asset(relative_path)
 {
 	load_action_internal = [this, outer_root, relative_path]() {
 
@@ -691,7 +691,7 @@ void SceneAsset::release_resources()
 std::unordered_map<std::string, std::string> alias_pool;
 
 MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
-	: Asset(relative_path, nullptr)
+	: Asset(relative_path)
 {
 	alias_pool[alias] = relative_path;
 

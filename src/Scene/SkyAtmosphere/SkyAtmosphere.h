@@ -48,6 +48,8 @@ public:
 
 		glm::uvec2 transmittanceLutTextureDimensions;
 		glm::uvec2 skyViewLutTextureDimensions;
+
+		float viewHeightOffset;
 	};
 
 	~SkyAtmosphere() override;
@@ -86,8 +88,6 @@ private:
 	SkyAtmosphere();
 
 	Parameters parameters = {};
-
-	ConfigAsset* config = nullptr;
 
 	DirectionalLight* foundSun = nullptr;
 

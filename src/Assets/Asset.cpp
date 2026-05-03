@@ -23,13 +23,11 @@ time_t get_last_write_time(const std::string& path)
 
 std::unordered_map<std::string, Asset*> Asset::assets_pool;
 
-Asset::Asset(const std::string &_path, const std::function<void()> &_load_action)
+Asset::Asset(const std::string &_path)
 {
 	relative_path = _path;
-	load_action_internal = _load_action;
 	reload_condition = [](){ return true; };
 	assets_pool[relative_path] = this;
-	if (load_action_internal) reload();
 }
 
 void Asset::reload() {
@@ -37,15 +35,13 @@ void Asset::reload() {
 	if (last_load_time < last_write_time) {
 		if (!_initialized || reload_condition()) {
 			// begin reload callbacks
-			for (auto& fn : begin_reload) fn();
+			for (auto& fn : before_reload) fn();
 			// reload
 			last_load_time = get_file_clock_now();
 			if (_initialized) bump_version();
 			ASSET("loading asset '%s (now at v%d)'", relative_path.c_str(), _version)
 			load_action_internal();
 			_initialized = true;
-			// finish reload callbacks
-			for (auto& fn : finish_reload) fn();
 		} else {
 			WARN("'%s' was edited but not reloaded: condition not met", relative_path.c_str())
 		}

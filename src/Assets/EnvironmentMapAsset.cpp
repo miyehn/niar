@@ -11,7 +11,7 @@
 #endif
 
 EnvironmentMapAsset::EnvironmentMapAsset(
-	const std::string &relative_path) : Asset(relative_path, nullptr)
+	const std::string &relative_path) : Asset(relative_path)
 {
 	load_action_internal = [this, relative_path]() {
 

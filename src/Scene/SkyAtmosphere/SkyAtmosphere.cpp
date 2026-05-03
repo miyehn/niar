@@ -15,15 +15,39 @@
 #endif
 
 SkyAtmosphere::SkyAtmosphere() {
-	config = new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg) {
-		// todo [myn]: move the rest of config lookup to here? Test hot reload first
+	new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg) {
+		cfg->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&parameters.transmittanceLutTextureDimensions);
+		cfg->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&parameters.skyViewLutTextureDimensions);
+
+		parameters.exposure = cfg->lookup<float>("exposure");
+		parameters.sunAngularRadius = cfg->lookup<float>("sunAngularRadius");
+		parameters.viewHeightOffset = cfg->lookup<float>("viewHeightOffset");
+
+		cfg->lookupVector<float, 2>("skyViewNumSamplesMinMax", (float*)&parameters.skyViewNumSamplesMinMax);
+		cfg->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&parameters.transmittanceLutTextureDimensions);
+		cfg->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&parameters.skyViewLutTextureDimensions);
+
+		AtmosphereProfile& atmosphere = parameters.atmosphere;
+		{
+			cfg->lookupVector<float, 3>("atmosphere.rayleighScattering", (float*)&atmosphere.rayleighScattering);
+
+			atmosphere.mieScattering = glm::vec3(cfg->lookup<float>("atmosphere.mieScattering"));
+			atmosphere.topRadius = cfg->lookup<float>("atmosphere.topRadius");
+
+			atmosphere.mieAbsorption = glm::vec3(cfg->lookup<float>("atmosphere.mieAbsorption"));
+			atmosphere.miePhaseG = cfg->lookup<float>("atmosphere.miePhaseG");
+
+			cfg->lookupVector<float, 3>("atmosphere.ozoneAbsorption", (float*)&atmosphere.ozoneAbsorption);
+			atmosphere.ozoneMeanHeight = cfg->lookup<float>("atmosphere.ozoneMeanHeight");
+
+			cfg->lookupVector<float, 3>("atmosphere.groundAlbedo", (float*)&atmosphere.groundAlbedo);
+			atmosphere.ozoneLayerWidth = cfg->lookup<float>("atmosphere.ozoneLayerWidth");
+
+			atmosphere.bottomRadius = cfg->lookup<float>("atmosphere.bottomRadius");
+		}
 	});
 
 #if GRAPHICS_DISPLAY
-
-	// so the getters give correct values from the start (these are needed before deferred render creates the luts)
-	config->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&parameters.transmittanceLutTextureDimensions);
-	config->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&parameters.skyViewLutTextureDimensions);
 
 	//======== other properties ========
 
@@ -46,45 +70,16 @@ SkyAtmosphere *SkyAtmosphere::getInstance() {
 void SkyAtmosphere::update(float elapsed) {
 	SceneObject::update(elapsed);
 
-	auto& params = parameters;
-
-	float bottomRadius = config->lookup<float>("atmosphere.bottomRadius");
-
-	glm::vec3 cameraPosWS = {0, 0, 0};
-	cameraPosWS = Camera::Active->world_position();
-	cameraPosWS.z += config->lookup<float>("viewHeightOffset");
-	params.cameraPosES = cameraPosWS * 0.001f + glm::vec3(0, 0, bottomRadius);
-	params.exposure = config->lookup<float>("exposure");
+	glm::vec3 cameraPosWS = Camera::Active->world_position();
+	cameraPosWS.z += parameters.viewHeightOffset;
+	parameters.cameraPosES = cameraPosWS * 0.001f + glm::vec3(0, 0, parameters.atmosphere.bottomRadius);
 
 	// sun
 	foundSun = DirectionalLight::getSun();
 	if (foundSun) {
-		params.dir2sun = -foundSun->getLightDirection();
+		parameters.dir2sun = -foundSun->getLightDirection();
 	} else {
-		params.dir2sun = glm::vec3(0, 0, -1);
-	}
-	params.sunAngularRadius = config->lookup<float>("sunAngularRadius");
-
-	config->lookupVector<float, 2>("skyViewNumSamplesMinMax", (float*)&params.skyViewNumSamplesMinMax);
-	config->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&params.transmittanceLutTextureDimensions);
-	config->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&params.skyViewLutTextureDimensions);
-
-	AtmosphereProfile& atmosphere = params.atmosphere;
-	{
-		config->lookupVector<float, 3>("atmosphere.rayleighScattering", (float*)&atmosphere.rayleighScattering);
-		atmosphere.bottomRadius = bottomRadius;
-
-		atmosphere.mieScattering = glm::vec3(config->lookup<float>("atmosphere.mieScattering"));
-		atmosphere.topRadius = config->lookup<float>("atmosphere.topRadius");
-
-		atmosphere.mieAbsorption = glm::vec3(config->lookup<float>("atmosphere.mieAbsorption"));
-		atmosphere.miePhaseG = config->lookup<float>("atmosphere.miePhaseG");
-
-		config->lookupVector<float, 3>("atmosphere.ozoneAbsorption", (float*)&atmosphere.ozoneAbsorption);
-		atmosphere.ozoneMeanHeight = config->lookup<float>("atmosphere.ozoneMeanHeight");
-
-		config->lookupVector<float, 3>("atmosphere.groundAlbedo", (float*)&atmosphere.groundAlbedo);
-		atmosphere.ozoneLayerWidth = config->lookup<float>("atmosphere.ozoneLayerWidth");
+		parameters.dir2sun = glm::vec3(0, 0, -1);
 	}
 }
 

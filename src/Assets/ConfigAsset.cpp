@@ -19,7 +19,7 @@ void create_config_src(const std::string &absolute_path, libconfig::Config& out_
 ConfigAsset::ConfigAsset(
 	const std::string& relative_file_path,
 	bool allow_reload,
-	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_file_path, nullptr)
+	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_file_path)
 {
 	reload_condition = [allow_reload](){ return allow_reload; };
 	load_action_internal = [this, relative_file_path, loadAction]() {

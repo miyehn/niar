@@ -41,6 +41,8 @@ layout(set = 1, binding = Slot_Parameters) uniform SkyAtmosphereParamsBufferObje
     uvec2 transmittanceLutTextureDimensions;
     uvec2 skyViewLutTextureDimensions;
 
+    float viewHeightOffset;
+
 } params;
 
 layout(set = 1, binding = Slot_TransmittanceLutR) uniform sampler2D transmittanceLut;

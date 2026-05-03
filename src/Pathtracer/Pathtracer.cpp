@@ -101,7 +101,7 @@ void Pathtracer::initialize() {
 
 #if GRAPHICS_DISPLAY
 	// subscribe itself to scene asset
-	get_scene_asset()->begin_reload.emplace_back([this](){
+	get_scene_asset()->before_reload.emplace_back([this](){
 		clear_tasks_and_threads_begin();
 		clear_tasks_and_threads_wait();
 	});
