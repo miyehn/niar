@@ -1,5 +1,5 @@
 #include <windows.h>
-#include <renderdoc/renderdoc_app.h>
+#include <renderdoc_app.h>
 #include <libloaderapi.h>
 
 #include "RenderDoc.h"

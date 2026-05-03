@@ -1,7 +1,6 @@
 #pragma once
 #include "Utils/myn/Timer.h"
 #include "Utils/myn/ThreadSafeQueue.h"
-#include "Scene/AABB.hpp"
 #include "BVH.hpp"
 #include "Render/Renderers/Renderer.h"
 #include "Assets/EnvironmentMapAsset.h"

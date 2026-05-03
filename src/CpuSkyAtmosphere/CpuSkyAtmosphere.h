@@ -4,10 +4,7 @@
 
 #pragma once
 
-#include <string>
 #include <glm/glm.hpp>
-#include <vector>
-#include <functional>
 #include "Utils/myn/ShaderSimulator.h"
 
 namespace myn::sky {

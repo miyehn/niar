@@ -17,12 +17,13 @@ void main() {
 
     ViewInfo viewInfo = GetViewInfo();
     vec3 normal = TANGENT_TO_WORLD_ROT * vec3(0, 0, 1);
+    vec3 sampleDir = reflectRay(normal, viewInfo.ViewDir);
 
     if (viewInfo.BackgroundOption == 0) {
         outColor = vec4(0.1, 0.1, 0.1, 1);
     } else if (viewInfo.BackgroundOption == 1){
-        outColor = vec4(sampleLongLatMap(EnvironmentMap, normal, 2), 1);
+        outColor = vec4(sampleLongLatMap(EnvironmentMap, sampleDir, 2), 1);
     } else if (viewInfo.BackgroundOption == 2) {
-        outColor = vec4(sampleSkyAtmosphere(normal), 1);
+        outColor = vec4(sampleSkyAtmosphere(sampleDir), 1);
     }
 }

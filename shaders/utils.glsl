@@ -42,4 +42,10 @@ vec3 screenSpaceUvToViewDir(vec2 uv, mat4 ViewMatrix, float halfVFovRadians, flo
     return camToWorldRot * camSpaceDir;
 }
 
+vec3 reflectRay(vec3 normal, vec3 rayDir)
+{
+    vec3 n = dot(normal, rayDir) < 0.0f ? normal : -normal;
+    return rayDir - 2.0f * dot(rayDir, n) * n;
+}
+
 #endif

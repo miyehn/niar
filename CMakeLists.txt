@@ -86,7 +86,7 @@ set(ELLYN_SRC
     src/Scene/PathtracerController.cpp
     src/Scene/Probe.cpp
     # imgui SDL2 backend (compiled here since vcpkg dropped sdl2-binding in imgui 1.90+)
-    src/imgui/imgui_impl_sdl2.cpp
+    external/imgui/imgui_impl_sdl2.cpp
     # RTX sources
     src/Render/Vulkan/ShaderBindingTable.cpp
     src/Scene/RtxTriangle.cpp
@@ -116,8 +116,8 @@ set(NIAR_COMMON_DEFINES
 add_executable(ellyn ${ELLYN_SRC} ${SHARED_SRC})
 target_include_directories(ellyn PRIVATE
     src
-    src/imgui
-    include
+    external/imgui
+    external/renderdoc
     ${Vulkan_INCLUDE_DIRS}
     ${Stb_INCLUDE_DIR})
 target_link_libraries(ellyn PRIVATE
@@ -147,7 +147,6 @@ add_custom_command(TARGET ellyn POST_BUILD
 add_executable(asz ${ASZELEA_SRC} ${SHARED_SRC})
 target_include_directories(asz PRIVATE
     src
-    include
     ${Stb_INCLUDE_DIR})
 target_link_libraries(asz PRIVATE
     Threads::Threads
@@ -163,7 +162,6 @@ target_compile_definitions(asz PRIVATE
 add_executable(vin ${VINCENT_SRC})
 target_include_directories(vin PRIVATE
     src
-    include
     ${Stb_INCLUDE_DIR})
 target_link_libraries(vin PRIVATE
     cxxopts::cxxopts)
