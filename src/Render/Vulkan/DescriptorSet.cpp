@@ -129,7 +129,12 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 		std::vector<VkDescriptorPoolSize> poolSizes = {
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 64 },
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 64 },
-			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 }
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 },
+			// to be cleaned up when doing more rtx:
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 16 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16 },
+			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 16 },
+			{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 16 },
 		};
 		VkDescriptorPoolCreateInfo poolInfo = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,

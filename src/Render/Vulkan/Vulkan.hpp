@@ -135,7 +135,7 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 
 	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
+	std::vector<VkSemaphore> renderFinishedSemaphores; // one per swapchain image, indexed by currentImageIndex
 	std::vector<VkFence> inFlightFences; // per frame-in-flight
 	std::vector<VkFence> imagesInFlight; // per swap chain image
 	VkFence immediateSubmitFence;

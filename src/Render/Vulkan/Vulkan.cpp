@@ -60,9 +60,11 @@ Vulkan::~Vulkan() {
 
 	for (int i=0; i<MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(device, inFlightFences[i], nullptr);
     }
+	for (auto sem : renderFinishedSemaphores) {
+		vkDestroySemaphore(device, sem, nullptr);
+	}
 	vkDestroyFence(device, immediateSubmitFence, nullptr);
 
 	vkDestroyCommandPool(device, commandPool, nullptr);
@@ -123,7 +125,7 @@ void Vulkan::endFrame()
 	// submit to queue
 	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentImageIndex] };
 	VkSubmitInfo submitInfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.waitSemaphoreCount = 1,
@@ -273,7 +275,7 @@ void Vulkan::initImGui()
 	ImGui_ImplSDL2_InitForVulkan(window);
 
 	ImGui_ImplVulkan_InitInfo initInfo = {
-		.ApiVersion = VK_API_VERSION_1_2,
+		.ApiVersion = VK_API_VERSION_1_4,
 		.Instance = instance,
 		.PhysicalDevice = physicalDevice,
 		.Device = device,
@@ -303,7 +305,7 @@ void Vulkan::createInstance() {
         .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
         .pEngineName = "no engine",
         .engineVersion = VK_MAKE_VERSION(0, 1, 0),
-        .apiVersion = VK_API_VERSION_1_2
+        .apiVersion = VK_API_VERSION_1_4
     };
 
     //---- extensions to use with sdl ----
@@ -561,6 +563,14 @@ void Vulkan::createLogicalDevice() {
 		.pEnabledFeatures = &deviceFeatures,
 	};
 
+	// Vulkan 1.3 features always required (shaderDemoteToHelperInvocation needed for SPIR-V 1.6)
+	VkPhysicalDeviceVulkan13Features features13 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+		.pNext = nullptr,
+		.shaderDemoteToHelperInvocation = VK_TRUE,
+	};
+	createInfo.pNext = &features13;
+
 	if (Config->lookup<int>("Debug.RTX"))
 	{
 		VkPhysicalDeviceVulkan12Features features12 = {
@@ -579,7 +589,7 @@ void Vulkan::createLogicalDevice() {
 			.pNext = &rtFeatures,
 			.accelerationStructure = VK_TRUE,
 		};
-		createInfo.pNext = &asFeatures;
+		features13.pNext = &asFeatures;
 	}
 
 	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS)
@@ -841,7 +851,7 @@ void Vulkan::createCommandBuffers()
 void Vulkan::createSynchronizationObjects() {
 
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	renderFinishedSemaphores.resize(swapChainImages.size());
 	inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 	imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
 
@@ -855,8 +865,13 @@ void Vulkan::createSynchronizationObjects() {
 
 	for (int i=0; i<MAX_FRAMES_IN_FLIGHT; i++) {
 		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
 			vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+		{
+			ERR("failed to create semaphores")
+		}
+	}
+	for (int i=0; i<(int)swapChainImages.size(); i++) {
+		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS)
 		{
 			ERR("failed to create semaphores")
 		}

@@ -5,7 +5,6 @@
 #include "RayTracingRenderer.h"
 #include "Scene/RtxTriangle.h"
 #include "Render/Vulkan/VulkanUtils.h"
-#include "Render/Vulkan/ImageCreator.h"
 #include "Render/Texture.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
 
