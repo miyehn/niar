@@ -139,18 +139,6 @@ mat4 Camera::world_to_clip() {
 	return camera_to_clip() * world_to_object();
 }
 
-vec3 Camera::right() {
-	return glm::normalize(glm::mat3(object_to_world()) * vec3(1, 0, 0));
-}
-
-vec3 Camera::up() {
-	return glm::normalize(glm::mat3(object_to_world()) * vec3(0, 1, 0));
-}
-
-vec3 Camera::forward() {
-	return glm::normalize(glm::mat3(object_to_world()) * vec3(0, 0, -1));
-}
-
 vec4 Camera::ZBufferParams() {
 	vec4 res;
 	res.x = cutoffNear;

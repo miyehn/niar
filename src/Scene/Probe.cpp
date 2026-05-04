@@ -90,7 +90,6 @@ void EnvMapVisualizer::update(float elapsed) {
 	if (!Camera::Active) return;
 
 	auto camPosWS = Camera::Active->world_position();
-	auto camRot = Camera::Active->world_to_object_rotation();
 	auto halfY = Camera::Active->fov;
 	auto halfX = halfY * Camera::Active->aspect_ratio;
 

@@ -68,6 +68,10 @@ public:
 	glm::quat rotation() const { return _rotation; }
 	glm::vec3 scale() const { return _scale; }
 
+	glm::vec3 right() const;
+	glm::vec3 up() const;
+	glm::vec3 forward() const;
+
 	bool enabled() const { return _enabled; }
 	void toggle_enabled();
 

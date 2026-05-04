@@ -208,3 +208,15 @@ void SceneObject::rotate_around_axis(glm::vec3 ws_axis_unitvec, float theta) {
 		ws_axis_unitvec.z * sin_half_theta);
 	_rotation = normalize(qrot * _rotation);
 }
+
+vec3 SceneObject::right() const {
+	return normalize(mat3(object_to_world()) * vec3(1, 0, 0));
+}
+
+vec3 SceneObject::up() const {
+	return normalize(mat3(object_to_world()) * vec3(0, 1, 0));
+}
+
+vec3 SceneObject::forward() const {
+	return normalize(mat3(object_to_world()) * vec3(0, 0, -1));
+}

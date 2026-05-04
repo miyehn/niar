@@ -53,10 +53,6 @@ struct Camera : SceneObject {
 	glm::mat4 camera_to_clip();
 	glm::mat4 world_to_clip();
 
-	glm::vec3 forward();
-	glm::vec3 up();
-	glm::vec3 right();
-
 	glm::vec4 ZBufferParams();
 
 private:
