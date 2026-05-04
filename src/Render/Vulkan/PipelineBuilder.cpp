@@ -223,8 +223,8 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
 		.pSetLayouts = setLayouts.data(),
-		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = nullptr
+		.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
+		.pPushConstantRanges = pushConstantRanges.empty() ? nullptr : pushConstantRanges.data()
 	};
 	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &outPipelineLayout), VK_SUCCESS)
 
@@ -249,6 +249,11 @@ void GraphicsPipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const De
 {
 	if (descriptorSetLayouts.size() <= setIndex) descriptorSetLayouts.resize(setIndex + 1);
 	descriptorSetLayouts[setIndex] = setLayout;
+}
+
+void GraphicsPipelineBuilder::usePushConstantRange(const VkPushConstantRange& range)
+{
+	pushConstantRanges.push_back(range);
 }
 
 void ComputePipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout)

@@ -1,12 +1,7 @@
 #pragma once
 #include "Render/Vulkan/PipelineBuilder.h"
-#include "Render/Vulkan/Buffer.h"
-#include "Render/Vulkan/DescriptorSet.h"
 
 #include <string>
-#include <vector>
-#include <unordered_map>
-#include <glm/glm.hpp>
 
 class SceneObject;
 
@@ -19,6 +14,8 @@ struct MaterialPipeline
 		return this->pipeline == rhs.pipeline && this->layout == rhs.layout;
 	}
 	bool operator<(const MaterialPipeline& rhs) const {
+		// sort order: group material pipelines of the same layout together
+		if (this->layout != rhs.layout) return this->layout < rhs.layout;
 		return this->pipeline < rhs.pipeline;
 	}
 };
@@ -34,7 +31,4 @@ public:
 	virtual ~Material() = default;
 
 	virtual MaterialPipeline getPipeline() = 0;
-
-	// materials with dynamic uniform buffers should implement this
-	virtual void resetInstanceCounter() {}
 };

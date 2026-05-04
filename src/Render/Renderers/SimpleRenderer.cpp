@@ -175,12 +175,6 @@ void SimpleRenderer::updateViewInfoUbo()
 
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
-	// reset material instance counters
-	for (auto it : materials)
-	{
-		it.second->resetInstanceCounter();
-	}
-
 	// prepare frameglobals
 	updateViewInfoUbo();
 
@@ -247,6 +241,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		}
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "debug draw")
+			fd.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, fd.debugLines->getPipelineLayout());
 			fd.debugLines->bindAndDraw(cmdbuf);
 		}
 	}

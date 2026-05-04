@@ -1,5 +1,6 @@
 #pragma once
 #include "Render/Materials/Material.h"
+#include <glm/glm.hpp>
 
 class DeferredRenderer;
 

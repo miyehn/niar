@@ -58,6 +58,8 @@ struct GraphicsPipelineBuilder
 
 	void useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
 
+	void usePushConstantRange(const VkPushConstantRange& range);
+
 	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout);
 
 	std::string vertPath;
@@ -70,6 +72,7 @@ struct GraphicsPipelineBuilder
 
 private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
+	std::vector<VkPushConstantRange> pushConstantRanges;
 };
 
 struct ComputePipelineBuilder

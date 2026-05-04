@@ -7,23 +7,16 @@
 #include <tiny_gltf.h>
 #include "Render/Renderers/SimpleRenderer.h"
 
-#define MAX_MATERIAL_INSTANCES 128
-
 void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
 	// per-material-instance renderingParams (static)
 	materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
 
-	// per-object renderingParams (dynamic)
-	uniforms = {
-		.ModelMatrix = drawable->object_to_world(),
-	};
-	uniformBuffer.writeData(&uniforms, 0, instanceCounter);
+	// per-object model matrix via push constants
+	glm::mat4 modelMatrix = drawable->object_to_world();
+	vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 
-	uint32_t offset = uniformBuffer.strideSize * instanceCounter;
-	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout, 0, 1, &offset);
-
-	instanceCounter++;
+	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout);
 }
 
 void GltfMaterial::usePipeline(VkCommandBuffer cmdbuf)
@@ -33,7 +26,6 @@ void GltfMaterial::usePipeline(VkCommandBuffer cmdbuf)
 
 GltfMaterial::~GltfMaterial()
 {
-	uniformBuffer.release();
 	materialParamsBuffer.release();
 }
 
@@ -43,18 +35,8 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 
 	this->name = info.name;
 	LOG("loading material '%s'..", name.c_str())
-	VkDeviceSize alignment = Vulkan::Instance->minUniformBufferOffsetAlignment;
-	uint32_t numBlocks = (sizeof(uniforms) + alignment - 1) / alignment;
 
-	// TODO: dynamically get numStrides (num instances of that material)
-	std::string bufferName = "Material uniform buffer (" + info.name + ")";
-	uniformBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-							  numBlocks * alignment,
-							  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-							  VMA_MEMORY_USAGE_CPU_TO_GPU,
-							  bufferName,
-							  MAX_MATERIAL_INSTANCES});
-	bufferName = "Material renderingParams buffer (" + info.name + ")";
+	std::string bufferName = "Material renderingParams buffer (" + info.name + ")";
 	materialParamsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
 									 sizeof(materialParams),
 									 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -65,12 +47,11 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 
 		// set layouts and allocation
 		DescriptorSetLayout dynamicSetLayout{};
-		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_VERTEX_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSetLayout.addBinding(5, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
 
 		// assign actual values to them
@@ -88,17 +69,12 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 			info.clipThreshold);
 		materialParams._pad0 = glm::vec4();
 
-		dynamicSet.pointToBuffer(uniformBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-		dynamicSet.pointToBuffer(materialParamsBuffer, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		dynamicSet.pointToImageView(albedo->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(normal->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(orm->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(emissive->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToBuffer(materialParamsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		dynamicSet.pointToImageView(albedo->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(normal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(orm->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(emissive->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
-}
-
-void GltfMaterial::resetInstanceCounter() {
-	instanceCounter = 0;
 }
 
 bool PbrGltfMaterial::pipelineIsDirty = false;
@@ -129,6 +105,7 @@ MaterialPipeline PbrGltfMaterial::getPipeline()
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+		pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
 		// since it has 4 color outputs:
 		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
@@ -169,6 +146,7 @@ MaterialPipeline PbrTranslucentGltfMaterial::getPipeline()
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+		pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
 		// don't write to depth
 		pipelineBuilder.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
@@ -222,6 +200,7 @@ MaterialPipeline SimpleGltfMaterial::getPipeline()
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+		pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
 		// since it has 4 color outputs:
 		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;

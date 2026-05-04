@@ -16,9 +16,7 @@ public:
 
 	virtual void markPipelineDirty() = 0;
 
-	void resetInstanceCounter() override;
-
-	uint32_t getVersion() const { return cachedMaterialInfo._version; }
+	uint32_t getVersion()const { return cachedMaterialInfo._version; }
 
 	bool isOpaque() const { return cachedMaterialInfo.blendMode == BM_OpaqueOrClip; }
 
@@ -31,12 +29,6 @@ protected:
 
 private:
 
-	// dynamic (per-object)
-	struct {
-		glm::mat4 ModelMatrix;
-	} uniforms;
-	VmaBuffer uniformBuffer;
-
 	// static (per-material-instance)
 	struct {
 		glm::vec4 BaseColorFactor;
@@ -45,8 +37,6 @@ private:
 		glm::vec4 _pad0;
 	} materialParams;
 	VmaBuffer materialParamsBuffer;
-
-	uint32_t instanceCounter = 0;
 };
 
 class PbrGltfMaterial : public GltfMaterial

@@ -2,9 +2,9 @@
 
 #include "scene_common.glsl"
 
-layout(set = 3, binding = 0) uniform UniformBufferObject {
+layout(push_constant) uniform PushConstants {
   mat4 ModelMatrix;
-} ubo;
+} pc;
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
@@ -19,12 +19,12 @@ void main()
 {
   ViewInfo viewInfo = GetViewInfo();
 
-  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * ubo.ModelMatrix * vec4(in_position, 1.0);
-  vf_position = ubo.ModelMatrix * vec4(in_position, 1.0) - vec4(viewInfo.CameraPosition, 0);
+  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * pc.ModelMatrix * vec4(in_position, 1.0);
+  vf_position = pc.ModelMatrix * vec4(in_position, 1.0) - vec4(viewInfo.CameraPosition, 0);
 
   vf_uv = in_uv;
 
-  mat3 OBJECT_TO_WORLD_ROT = mat3(ubo.ModelMatrix);
+  mat3 OBJECT_TO_WORLD_ROT = mat3(pc.ModelMatrix);
 
   vec3 N = normalize(OBJECT_TO_WORLD_ROT * in_normal);
   vec3 T = normalize(OBJECT_TO_WORLD_ROT * in_tangent.xyz);

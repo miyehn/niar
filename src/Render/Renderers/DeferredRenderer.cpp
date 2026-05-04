@@ -319,7 +319,6 @@ DeferredRenderer::DeferredRenderer()
 		});
 
 		// dependencies
-		// TODO: any dependency w external needed?
 		passBuilder.dependencies.push_back({
 			.srcSubpass = DEFERRED_SUBPASS_GEOMETRY,
 			.dstSubpass = DEFERRED_SUBPASS_LIGHTING,
@@ -692,16 +691,12 @@ void DeferredRenderer::updateUniformBuffers()
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	// reset material instance counters
-	for (auto it : materials) {
-		it.second->resetInstanceCounter();
-	}
-
 	updateUniformBuffers();
 
-	// here the layout is for just so it gets ANY compatible layout
-	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].frameGlobalDescriptorSet.bind(
-		cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, deferredLighting->getPipeline().layout);
+	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+	auto bindFrameGlobal = [&](VkPipelineLayout layout) {
+		fd.frameGlobalDescriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_FRAMEGLOBAL, layout);
+	};
 
 	// objects gathering and sorting
 	std::vector<MeshObject*> opaqueMeshes;
@@ -755,7 +750,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	// TODO: find a better place to put this
 	if (sky) {
-		auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
 		sky->composite(fd.skyParametersBuffer, fd.skyDescriptorSet, skyTransmittanceLut, skyViewLut);
 	}
 
@@ -783,9 +777,11 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
 			auto pipeline = mat->getPipeline();
 
-			// pipeline changed: re-bind; re-set frame globals if necessary
+			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
 			if (pipeline != last_pipeline) {
 				mat->usePipeline(cmdbuf);
+				if (pipeline.layout != last_pipeline.layout)
+					bindFrameGlobal(pipeline.layout);
 				last_pipeline = pipeline;
 			}
 
@@ -806,6 +802,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		deferredLighting->usePipeline(cmdbuf);
 		auto pipelineLayout = deferredLighting->getPipeline().layout;
+		bindFrameGlobal(pipelineLayout);
 		getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
 		vk::drawFullscreenTriangle(cmdbuf);
 
@@ -819,8 +816,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		for (auto probe : probes) // TODO: material (pipeline) sorting, etc.
 		{
 			if (firstInstance) {
-				mat->resetInstanceCounter();
 				mat->usePipeline(cmdbuf);
+				bindFrameGlobal(mat->getPipeline().layout);
 			}
 			mat->setParameters(cmdbuf, probe);
 			probe->draw(cmdbuf);
@@ -840,6 +837,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			// pipeline changed: re-bind; re-set frame globals if necessary
 			if (pipeline != last_pipeline) {
 				mat->usePipeline(cmdbuf);
+				if (pipeline.layout != last_pipeline.layout)
+					bindFrameGlobal(pipeline.layout);
 				last_pipeline = pipeline;
 			}
 
@@ -868,15 +867,21 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
 			postProcessing->usePipeline(cmdbuf);
+			bindFrameGlobal(postProcessing->getPipeline().layout);
 			vk::drawFullscreenTriangle(cmdbuf);
 			vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		}
 		{
 			if (drawDebug) {
 				SCOPED_DRAW_EVENT(cmdbuf, "Debug draw")
-				auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
-				if (fd.debugLines) fd.debugLines->bindAndDraw(cmdbuf);
-				if (fd.debugPoints) fd.debugPoints->bindAndDraw(cmdbuf);
+				if (fd.debugLines) {
+					bindFrameGlobal(fd.debugLines->getPipelineLayout());
+					fd.debugLines->bindAndDraw(cmdbuf);
+				}
+				if (fd.debugPoints) {
+					bindFrameGlobal(fd.debugPoints->getPipelineLayout());
+					fd.debugPoints->bindAndDraw(cmdbuf);
+				}
 			}
 			vkCmdEndRenderPass(cmdbuf);
 		}
