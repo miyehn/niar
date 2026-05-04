@@ -44,12 +44,6 @@ public:
 
 		return materialPipeline;
 	}
-	void usePipeline(VkCommandBuffer cmdbuf) override
-	{
-		MaterialPipeline materialPipeline = getPipeline();
-		dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, materialPipeline.layout);
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, materialPipeline.pipeline);
-	}
 
 private:
 
@@ -107,11 +101,6 @@ public:
 		}
 
 		return materialPipeline;
-	}
-
-	void usePipeline(VkCommandBuffer cmdbuf) override {
-		MaterialPipeline materialPipeline = getPipeline();
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, materialPipeline.pipeline);
 	}
 
 private:
@@ -779,7 +768,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
 			if (pipeline != last_pipeline) {
-				mat->usePipeline(cmdbuf);
+				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 				if (pipeline.layout != last_pipeline.layout)
 					bindFrameGlobal(pipeline.layout);
 				last_pipeline = pipeline;
@@ -787,10 +776,11 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 			// material changed
 			if (mat != last_material) {
+				mat->bindMaterialDescriptors(cmdbuf, pipeline.layout);
 				last_material = mat;
 			}
 
-			mat->setParameters(cmdbuf, mo);
+			mat->setPerDrawParameters(cmdbuf, mo);
 			mo->draw(cmdbuf);
 		}
 
@@ -800,10 +790,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Opaque lighting pass")
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 
-		deferredLighting->usePipeline(cmdbuf);
-		auto pipelineLayout = deferredLighting->getPipeline().layout;
-		bindFrameGlobal(pipelineLayout);
-		getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, pipelineLayout);
+		auto deferredLightingPipeline = deferredLighting->getPipeline();
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredLightingPipeline.pipeline);
+		bindFrameGlobal(deferredLightingPipeline.layout);
+		getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, deferredLightingPipeline.layout);
 		vk::drawFullscreenTriangle(cmdbuf);
 
 	}
@@ -816,10 +806,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		for (auto probe : probes) // TODO: material (pipeline) sorting, etc.
 		{
 			if (firstInstance) {
-				mat->usePipeline(cmdbuf);
+				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mat->getPipeline().pipeline);
 				bindFrameGlobal(mat->getPipeline().layout);
 			}
-			mat->setParameters(cmdbuf, probe);
+			mat->setPerDrawParameters(cmdbuf, probe);
 			probe->draw(cmdbuf);
 			firstInstance = false;
 		}
@@ -836,7 +826,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 			// pipeline changed: re-bind; re-set frame globals if necessary
 			if (pipeline != last_pipeline) {
-				mat->usePipeline(cmdbuf);
+				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 				if (pipeline.layout != last_pipeline.layout)
 					bindFrameGlobal(pipeline.layout);
 				last_pipeline = pipeline;
@@ -844,10 +834,11 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 			// material changed
 			if (mat != last_material) {
+				mat->bindMaterialDescriptors(cmdbuf, pipeline.layout);
 				last_material = mat;
 			}
 
-			mat->setParameters(cmdbuf, mo);
+			mat->setPerDrawParameters(cmdbuf, mo);
 			mo->draw(cmdbuf);
 		}
 	}
@@ -866,8 +857,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
-			postProcessing->usePipeline(cmdbuf);
-			bindFrameGlobal(postProcessing->getPipeline().layout);
+			auto postProcessPipeline = postProcessing->getPipeline();
+			bindFrameGlobal(postProcessPipeline.layout); // 0
+			postProcessing->dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, postProcessPipeline.layout); // 3
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, postProcessPipeline.pipeline);
 			vk::drawFullscreenTriangle(cmdbuf);
 			vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		}

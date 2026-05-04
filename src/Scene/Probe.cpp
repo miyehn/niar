@@ -48,13 +48,10 @@ public:
 
 		return materialPipeline;
 	}
-	void setParameters(VkCommandBuffer cmdbuf, SceneObject* obj) override {
+	void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* obj) override {
 		glm::mat4 modelMatrix = obj->object_to_world();
 		vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 		DeferredRenderer::get()->getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);
-	}
-	void usePipeline(VkCommandBuffer cmdbuf) override {
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline().pipeline);
 	}
 };
 

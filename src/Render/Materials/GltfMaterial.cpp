@@ -7,21 +7,16 @@
 #include <tiny_gltf.h>
 #include "Render/Renderers/SimpleRenderer.h"
 
-void GltfMaterial::setParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
+void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
 {
-	// per-material-instance renderingParams (static)
-	materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
-
 	// per-object model matrix via push constants
 	glm::mat4 modelMatrix = drawable->object_to_world();
 	vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
-
-	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, getPipeline().layout);
 }
 
-void GltfMaterial::usePipeline(VkCommandBuffer cmdbuf)
+void GltfMaterial::bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout)
 {
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline().pipeline);
+	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, layout);
 }
 
 GltfMaterial::~GltfMaterial()
@@ -68,6 +63,7 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 			info.EmissiveFactor.b,
 			info.clipThreshold);
 		materialParams._pad0 = glm::vec4();
+		materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
 
 		dynamicSet.pointToBuffer(materialParamsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		dynamicSet.pointToImageView(albedo->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);

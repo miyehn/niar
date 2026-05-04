@@ -10,13 +10,15 @@ namespace tinygltf { struct Material; }
 class GltfMaterial : public Material
 {
 public:
-	void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
-	void usePipeline(VkCommandBuffer cmdbuf) override;
+	// per-draw
+	void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) override;
+	// per-material
+	void bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout) override;
 	~GltfMaterial() override;
 
 	virtual void markPipelineDirty() = 0;
 
-	uint32_t getVersion()const { return cachedMaterialInfo._version; }
+	uint32_t getVersion() const { return cachedMaterialInfo._version; }
 
 	bool isOpaque() const { return cachedMaterialInfo.blendMode == BM_OpaqueOrClip; }
 
@@ -29,7 +31,9 @@ protected:
 
 private:
 
-	// static (per-material-instance)
+	// static (per-material)
+	// currently there's no real material instance so ie. different tint requires different materials (keyed by name)
+	// so this buffer only needs to be uploaded once when material is created
 	struct {
 		glm::vec4 BaseColorFactor;
 		glm::vec4 OcclusionRoughnessMetallicNormalStrengths;

@@ -204,7 +204,6 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		Material* last_material = nullptr;
 		//VkPipeline last_pipeline = VK_NULL_HANDLE;
 		MaterialPipeline last_pipeline = {};
-		uint32_t instance_ctr = 0;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
 			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
@@ -215,7 +214,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 				// pipeline changed: re-bind; re-set frame globals if necessary
 				if (pipeline != last_pipeline)
 				{
-					mat->usePipeline(cmdbuf);
+					vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 					if (pipeline.layout != last_pipeline.layout)
 					{
 						fd.descriptorSet.bind(
@@ -230,13 +229,12 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 				// material changed: reset instance counter
 				if (mat != last_material)
 				{
-					instance_ctr = 0;
+					mat->bindMaterialDescriptors(cmdbuf, pipeline.layout);
 					last_material = mat;
 				}
 
-				mat->setParameters(cmdbuf, mo);
+				mat->setPerDrawParameters(cmdbuf, mo);
 				mo->draw(cmdbuf);
-				instance_ctr++;
 			}
 		}
 		{

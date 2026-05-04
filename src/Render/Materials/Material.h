@@ -25,8 +25,9 @@ class Material
 public:
 	std::string name;
 
-	virtual void setParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) {};
-	virtual void usePipeline(VkCommandBuffer cmdbuf) = 0;
+	// aka should only just be push constants?
+	virtual void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) {};
+	virtual void bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {};
 
 	virtual ~Material() = default;
 
