@@ -76,6 +76,16 @@ static void cleanup();
 
 static void init()
 {
+	bool loadRenderDoc = Config->lookup<int>("Debug.RenderDoc");
+	if (Config->lookup<int>("Debug.RTX")) {
+		loadRenderDoc = false;
+		WARN("RenderDoc requested but is disabled because it's incompatible with RTX.")
+	}
+
+	if (loadRenderDoc) {
+		RenderDoc::load("niar");
+	}
+
 	vk::init_window("niar - main window", width, height, &window);
 
 	{// shared resources
@@ -138,7 +148,7 @@ static void init()
 	ui::checkBox("show ImGui demo", &show_imgui_demo);
 
 	// renderdoc
-	if (Config->lookup<int>("Debug.RenderDoc"))
+	if (loadRenderDoc)
 	{
 		ui::button("capture frame", RenderDoc::captureNextFrame, "Rendering");
 		ui::elem([](){ ImGui::SameLine(); }, "Rendering");
@@ -321,8 +331,6 @@ int main(int argc, const char * argv[])
 	std::srand(time(nullptr));
 
 	Config = new ConfigAsset("config/global.ini", false);
-
-	if (Config->lookup<int>("Debug.RenderDoc")) RenderDoc::load("niar");
 
 	init();
 

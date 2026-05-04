@@ -335,7 +335,7 @@ void Vulkan::createInstance() {
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-    bool validationLayersSupported = true;
+    bool validationLayersSupported = Config->lookup<int>("Debug.ValidationLayer");
     for (const char* layerName : validationLayers) {
         bool layerFound = false;
         for (const auto& layerProperties : availableLayers) {
@@ -346,10 +346,13 @@ void Vulkan::createInstance() {
         }
         if (!layerFound) {
             validationLayersSupported = false;
-            WARN("Validation layer %s requested but not supported. Running without validation..", layerName)
+            WARN("Validation layer %s requested but not supported.", layerName)
             break;
         }
     }
+	if (!validationLayersSupported) {
+		WARN("Running without any Vulkan validation layer..")
+	}
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{}; // only used if validationLayersSupported is true
     if (validationLayersSupported) {
