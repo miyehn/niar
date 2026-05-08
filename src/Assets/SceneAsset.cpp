@@ -348,18 +348,65 @@ void load_mesh_buffers(
 #endif
 }
 
+#if GRAPHICS_DISPLAY
+static void build_blas(const Mesh& m, BLASInfo& out_info)
+{
+	VkBufferDeviceAddressInfo vbAddrInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.buffer = m.gpu_data.vertexBuffer->getBufferInstance()
+	};
+	VkDeviceAddress vbAddr = vkGetBufferDeviceAddress(Vulkan::Instance->device, &vbAddrInfo);
+
+	VkBufferDeviceAddressInfo ibAddrInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.buffer = m.gpu_data.indexBuffer->getBufferInstance()
+	};
+	VkDeviceAddress ibAddr = vkGetBufferDeviceAddress(Vulkan::Instance->device, &ibAddrInfo);
+
+	VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+		.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+		.vertexData = {.deviceAddress = vbAddr + m.gpu_data.vertexBufferOffsetBytes},
+		.vertexStride = sizeof(Vertex),
+		.maxVertex = m.cpu_data.num_vertices - 1,
+		.indexType = VK_INDEX_TYPE,
+		.indexData = {.deviceAddress = ibAddr + m.gpu_data.indexBufferOffsetBytes},
+	};
+	VkAccelerationStructureGeometryKHR geom = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+		.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+		.geometry = {.triangles = triangles},
+		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+	};
+	VkAccelerationStructureBuildRangeInfoKHR range = {
+		.primitiveCount = m.cpu_data.num_indices / 3,
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0
+	};
+
+	vk::build_blas(
+		geom, range,
+		VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR |
+		VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+		out_info.blas,
+		out_info.blasBuffer);
+}
+#endif
+
 // load from glTF data
-std::vector<Mesh*> load_gltf_meshes(
+std::vector<Mesh> load_gltf_meshes(
 	const std::string& node_name,
 	const tinygltf::Mesh* in_mesh,
 	const std::vector<std::string>& material_names,
 	const std::unordered_map<PrimitiveBufferIndex, Mesh::CpuDataAccessor>& cpu_buffer_indices
 #if GRAPHICS_DISPLAY
 	, const std::unordered_map<PrimitiveBufferIndex, Mesh::GpuDataAccessor>& gpu_buffer_indices
+	, std::vector<BLASInfo>& blas_collection
 #endif
 	)
 {
-	std::vector<Mesh*> output;
+	std::vector<Mesh> output;
 	const bool rtxEnabled = Config->lookup<int>("Debug.RTX");
 	if (rtxEnabled) {
 		LOG("loading mesh obj %s with %d primitives (w blas)", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
@@ -378,13 +425,17 @@ std::vector<Mesh*> load_gltf_meshes(
 		auto in_material_name = prim.material >= 0 ? material_names[prim.material] : "";
 
 		auto buf_idx = primitive_buffer_indices(prim);
-		auto m = new Mesh(in_name, in_material_name);
-		m->cpu_data = cpu_buffer_indices.at(buf_idx);
+		output.emplace_back(in_name, in_material_name);
+		Mesh& m = output.back();
+		m.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
-		m->gpu_data = gpu_buffer_indices.at(buf_idx);
-		if (rtxEnabled) m->build_blas();
+		m.gpu_data = gpu_buffer_indices.at(buf_idx);
+		if (rtxEnabled) {
+			blas_collection.push_back({});
+			build_blas(m, blas_collection.back());
+			m.gpu_data.blasHandle = blas_collection.back().blas;
+		}
 #endif
-		output.emplace_back(m);
 	}
 	return output;
 }
@@ -410,7 +461,6 @@ SceneAsset::SceneAsset(
 		std::string err;
 		std::string warn;
 
-		//bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, absolute_path);
 		bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, ROOT_DIR"/" + relative_path);
 
 		if (!warn.empty()) WARN("[TinyGLTF] %s", warn.c_str())
@@ -621,19 +671,19 @@ SceneAsset::SceneAsset(
 			else if (node->mesh_idx != -1)
 			{
 				auto in_mesh = &model.meshes[node->mesh_idx];
-				std::vector<Mesh*> meshes = load_gltf_meshes(
+				std::vector<Mesh> meshes = load_gltf_meshes(
 					node->name,
 					in_mesh,
 					material_names,
 					cpu_buffer_indices
 #if GRAPHICS_DISPLAY
 					, gpu_buffer_indices
+					, blas_collection
 #endif
 					);
 				if (in_mesh->primitives.size() > 1) {
 					object = new SceneObject(nullptr, in_mesh->name);
-					for (auto m : meshes)
-					{
+					for (auto& m : meshes) {
 						object->add_child(new MeshObject(m));
 					}
 				}
@@ -692,6 +742,13 @@ void SceneAsset::release_resources()
 	combined_indices.clear();
 	combined_vertex_buffer.release();
 	combined_index_buffer.release();
+
+	for (auto& bi : blas_collection) {
+		if (bi.blas != VK_NULL_HANDLE)
+			Vulkan::Instance->fn_vkDestroyAccelerationStructureKHR(Vulkan::Instance->device, bi.blas, nullptr);
+		bi.blasBuffer.release();
+	}
+	blas_collection.clear();
 #endif
 	Asset::release_resources();
 }
@@ -751,11 +808,15 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 			}
 
 			auto buf_idx = primitive_buffer_indices(prim);
-			mesh = new Mesh(in_mesh.name, "");
-			mesh->cpu_data = cpu_buffer_indices.at(buf_idx);
+			mesh = Mesh(in_mesh.name, "");
+			mesh.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
-			mesh->gpu_data = gpu_buffer_indices.at(buf_idx);
-			if (Config->lookup<int>("Debug.RTX")) mesh->build_blas();
+			mesh.gpu_data = gpu_buffer_indices.at(buf_idx);
+			if (Config->lookup<int>("Debug.RTX")) {
+				blas_collection.push_back({});
+				build_blas(mesh, blas_collection.back());
+				mesh.gpu_data.blasHandle = blas_collection.back().blas;
+			}
 #endif
 			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())
 		}
@@ -768,19 +829,23 @@ Mesh *MeshAsset::find(const std::string &alias)
 {
 	auto rel_path = alias_pool[alias];
 	auto* ma = Asset::find<MeshAsset>(rel_path);
-	return ma->mesh;
+	return &ma->mesh;
 }
 
 void MeshAsset::release_resources()
 {
-	delete mesh;
-	mesh = nullptr;
-
 	combined_vertices.clear();
 	combined_indices.clear();
 #if GRAPHICS_DISPLAY
 	combined_vertex_buffer.release();
 	combined_index_buffer.release();
+
+	for (auto& bi : blas_collection) {
+		if (bi.blas != VK_NULL_HANDLE)
+			Vulkan::Instance->fn_vkDestroyAccelerationStructureKHR(Vulkan::Instance->device, bi.blas, nullptr);
+		bi.blasBuffer.release();
+	}
+	blas_collection.clear();
 #endif
 	Asset::release_resources();
 }

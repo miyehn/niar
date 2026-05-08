@@ -294,16 +294,16 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 	{
 		if (auto* mo = dynamic_cast<MeshObject*>(drawable)) {
 
-			BSDF* bsdf = get_or_create_mesh_bsdf(mo->mesh->materialName);
+			BSDF* bsdf = get_or_create_mesh_bsdf(mo->mesh.materialName);
 			mo->bsdf = bsdf;
 			meshes_count++;
 
 			bool emissive = mo->bsdf->is_emissive;
-			for (int i=0; i < mo->mesh->get_num_indices(); i+=3) {
+			for (int i=0; i < mo->mesh.get_num_indices(); i+=3) {
 				// loop and load triangles
-				Vertex v1 = mo->mesh->get_vertices()[mo->mesh->get_indices()[i]];
-				Vertex v2 = mo->mesh->get_vertices()[mo->mesh->get_indices()[i + 1]];
-				Vertex v3 = mo->mesh->get_vertices()[mo->mesh->get_indices()[i + 2]];
+				Vertex v1 = mo->mesh.get_vertices()[mo->mesh.get_indices()[i]];
+				Vertex v2 = mo->mesh.get_vertices()[mo->mesh.get_indices()[i + 1]];
+				Vertex v3 = mo->mesh.get_vertices()[mo->mesh.get_indices()[i + 2]];
 				auto* T = new Triangle(mo->object_to_world(), v1, v2, v3, mo->bsdf);
 				auto* P = static_cast<Primitive*>(T);
 				primitives.push_back(P);

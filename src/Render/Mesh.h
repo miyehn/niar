@@ -20,13 +20,15 @@ namespace tinygltf
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
+// is really just a mesh instance; it doesn't own anything. Assets own the data.
 struct Mesh {
+
+	Mesh() = default;
+	~Mesh() = default;
 
 	explicit Mesh(
 		const std::string& name,
 		const std::string& material_name);
-
-	~Mesh();
 
 	struct CpuDataAccessor {
 		const std::vector<Vertex>* vertices;
@@ -44,12 +46,10 @@ struct Mesh {
 		VkDeviceSize vertexBufferOffsetBytes;
 		const VmaBuffer* indexBuffer;
 		VkDeviceSize indexBufferOffsetBytes;
-		VmaBuffer blasBuffer;
-		VkAccelerationStructureKHR blas = VK_NULL_HANDLE;
+		VkAccelerationStructureKHR blasHandle = VK_NULL_HANDLE;
 	};
 
 	void draw(VkCommandBuffer cmdbuf);
-	void build_blas();
 #endif
 
 	std::string name;

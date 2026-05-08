@@ -14,6 +14,13 @@
 class SceneObject;
 class Texture2D;
 
+#if GRAPHICS_DISPLAY
+struct BLASInfo {
+	VkAccelerationStructureKHR blas = VK_NULL_HANDLE;
+	VmaBuffer blasBuffer;
+};
+#endif
+
 /*
  * Currently offline rendering doesn't load textures because managing textures sounds like a pain
  * hmm actually... it's doable?
@@ -41,6 +48,7 @@ private:
 	std::vector<Texture2D*> asset_textures;
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
+	std::vector<BLASInfo> blas_collection;
 #endif
 };
 
@@ -51,7 +59,7 @@ public:
 
 	static Mesh* find(const std::string& alias);
 
-	Mesh* mesh = nullptr;
+	Mesh mesh = {};
 
 	void release_resources() override;
 
@@ -63,5 +71,6 @@ private:
 #if GRAPHICS_DISPLAY
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
+	std::vector<BLASInfo> blas_collection;
 #endif
 };

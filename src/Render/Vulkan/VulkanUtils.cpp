@@ -302,8 +302,8 @@ void vk::build_blas(
 	VkAccelerationStructureGeometryKHR geom,
 	VkAccelerationStructureBuildRangeInfoKHR range,
 	VkBuildAccelerationStructureFlagsKHR flags,
-	VkAccelerationStructureKHR* outBlas,
-	VmaBuffer* outBlasBuffer)
+	VkAccelerationStructureKHR& outBlas,
+	VmaBuffer& outBlasBuffer)
 {
 	const uint32_t primitiveCount = range.primitiveCount;
 
@@ -384,7 +384,7 @@ void vk::build_blas(
 		sizeof(VkDeviceSize), &compactSize, sizeof(VkDeviceSize),
 		VK_QUERY_RESULT_WAIT_BIT), VK_SUCCESS);
 
-	*outBlasBuffer = VmaBuffer({
+	outBlasBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
 		compactSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
@@ -393,18 +393,18 @@ void vk::build_blas(
 
 	VkAccelerationStructureCreateInfoKHR compactInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = outBlasBuffer->getBufferInstance(),
+		.buffer = outBlasBuffer.getBufferInstance(),
 		.size = compactSize,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 	};
-	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &compactInfo, nullptr, outBlas);
+	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &compactInfo, nullptr, &outBlas);
 
 	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
 	{
 		VkCopyAccelerationStructureInfoKHR copyInfo = {
 			.sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,
 			.src = stagingBlas,
-			.dst = *outBlas,
+			.dst = outBlas,
 			.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR
 		};
 		Vulkan::Instance->fn_vkCmdCopyAccelerationStructureKHR(cmdbuf, &copyInfo);

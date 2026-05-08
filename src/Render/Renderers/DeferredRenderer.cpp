@@ -697,7 +697,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawable->foreach_descendent_bfs([&](SceneObject* child) {
 			// meshes
 			if (auto mo = dynamic_cast<MeshObject*>(child)) {
-				if (auto mat = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(mo->mesh->materialName))) {
+				if (auto mat = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(mo->mesh.materialName))) {
 					if (mat->isOpaque()) { // opaque
 						opaqueMeshes.push_back(mo);
 					} else { // translucent
@@ -716,8 +716,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		// opaque objects sorting
 		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
-			auto aMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(a->mesh->materialName));
-			auto bMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(b->mesh->materialName));
+			auto aMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(a->mesh.materialName));
+			auto bMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(b->mesh.materialName));
 			auto aPipeline = aMaterial->getPipeline();
 			auto bPipeline = bMaterial->getPipeline();
 			if (aPipeline != bPipeline) { // different pipeline -> sort by pipeline
@@ -763,7 +763,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		MaterialPipeline last_pipeline = {};
 		for (auto mo : opaqueMeshes)
 		{
-			auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
+			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
 			auto pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
@@ -821,7 +821,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		Material* last_material = nullptr;
 		MaterialPipeline last_pipeline = {};
 		for (auto mo : translucentMeshes) {
-			auto mat = getOrCreateMeshMaterial(mo->mesh->materialName);//mo->get_material();
+			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
 			auto pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind; re-set frame globals if necessary

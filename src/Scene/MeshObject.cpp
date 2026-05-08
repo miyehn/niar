@@ -5,15 +5,10 @@
 #include "MeshObject.h"
 #include "Render/Mesh.h"
 
-MeshObject::MeshObject(Mesh *in_mesh) : mesh(in_mesh)
+MeshObject::MeshObject(const Mesh &in_mesh) : mesh(in_mesh)
 {
-	name = in_mesh->name;
+	name = in_mesh.name;
 	generate_aabb();
-}
-
-MeshObject::~MeshObject()
-{
-	delete mesh;
 }
 
 #if GRAPHICS_DISPLAY
@@ -25,7 +20,7 @@ void MeshObject::update(float elapsed)
 
 void MeshObject::draw(VkCommandBuffer cmdbuf)
 {
-	mesh->draw(cmdbuf);
+	mesh.draw(cmdbuf);
 }
 #endif
 
@@ -60,7 +55,7 @@ void MeshObject::generate_aabb()
 {
 	glm::mat4 o2w = object_to_world();
 	aabb = AABB();
-	for (int i=0; i<mesh->get_num_vertices(); i++) {
-		aabb.add_point(o2w * glm::vec4(mesh->get_vertices()[i].position, 1));
+	for (int i=0; i<mesh.get_num_vertices(); i++) {
+		aabb.add_point(o2w * glm::vec4(mesh.get_vertices()[i].position, 1));
 	}
 }

@@ -53,8 +53,8 @@ namespace vk
 		VkAccelerationStructureGeometryKHR geom,
 		VkAccelerationStructureBuildRangeInfoKHR range,
 		VkBuildAccelerationStructureFlagsKHR flags,
-		VkAccelerationStructureKHR* outBlas,
-		VmaBuffer* outBlasBuffer);
+		VkAccelerationStructureKHR& outBlas,
+		VmaBuffer& outBlasBuffer);
 
 	void generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height);
 

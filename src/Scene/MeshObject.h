@@ -6,15 +6,14 @@
 
 #include "Scene/AABB.hpp"
 #include "SceneObject.hpp"
+#include "Render/Mesh.h"
 
-struct Mesh;
 struct BSDF;
 
 class MeshObject : public SceneObject
 {
 public:
-	explicit MeshObject(Mesh* in_mesh);
-	~MeshObject() override;
+	explicit MeshObject(const Mesh &in_mesh);
 
 #if GRAPHICS_DISPLAY
 	void update(float elapsed) override;
@@ -25,9 +24,9 @@ public:
 	void setRotation(glm::quat in_rotation) override;
 	void set_scale(glm::vec3 in_scale) override;
 
-	Mesh* mesh = nullptr;
+	Mesh mesh = {};
+	AABB aabb; // todo [myn]: should probably change to use local space instead
 	BSDF* bsdf = nullptr;
-	AABB aabb;
 
 private:
 	void generate_aabb();
