@@ -45,9 +45,16 @@ namespace vk
 		uint32_t pixelSize,
 		VmaAllocatedImage outResource);
 
-	void create_vertex_buffer(void* data, uint32_t num_vertices, uint32_t vertex_size, VmaBuffer& vertexBuffer);
+	void create_vertex_buffer(void* data, uint32_t num_vertices, uint32_t vertex_size, bool rtxEnabled, VmaBuffer& vertexBuffer);
 
-	void create_index_buffer(void* data, uint32_t num_indices, uint32_t index_size, VmaBuffer& indexBuffer);
+	void create_index_buffer(void* data, uint32_t num_indices, uint32_t index_size, bool rtxEnabled, VmaBuffer& indexBuffer);
+
+	void build_blas(
+		VkAccelerationStructureGeometryKHR geom,
+		VkAccelerationStructureBuildRangeInfoKHR range,
+		VkBuildAccelerationStructureFlagsKHR flags,
+		VkAccelerationStructureKHR* outBlas,
+		VmaBuffer* outBlasBuffer);
 
 	void generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height);
 

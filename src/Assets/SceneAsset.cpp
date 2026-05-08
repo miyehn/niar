@@ -325,19 +325,23 @@ void load_mesh_buffers(
 #if GRAPHICS_DISPLAY
 	// also load gpu resources:
 	if (gpu_buffer_indices_map && vbo && ibo) {
+		const bool rtxEnabled = Config->lookup<int>("Debug.RTX");
 
 		vk::create_vertex_buffer(
-			vertex_buffer_cpu.data(), vertex_buffer_cpu.size(), sizeof(Vertex), *vbo);
+			vertex_buffer_cpu.data(), vertex_buffer_cpu.size(), sizeof(Vertex), rtxEnabled, *vbo);
 		vk::create_index_buffer(
-			index_buffer_cpu.data(), index_buffer_cpu.size(), sizeof(VERTEX_INDEX_TYPE), *ibo);
+			index_buffer_cpu.data(), index_buffer_cpu.size(), sizeof(VERTEX_INDEX_TYPE), rtxEnabled, *ibo);
 
 		for (auto& p : cpu_buffer_indices_map) {
+			auto& cpu = p.second;
+
 			Mesh::GpuDataAccessor gpu_accessor = {
 				.vertexBuffer = vbo,
-				.vertexBufferOffsetBytes = p.second.offset_num_vertices * sizeof(Vertex),
+				.vertexBufferOffsetBytes = cpu.offset_num_vertices * sizeof(Vertex),
 				.indexBuffer = ibo,
-				.indexBufferOffsetBytes = p.second.offset_num_indices * sizeof(VERTEX_INDEX_TYPE)
+				.indexBufferOffsetBytes = cpu.offset_num_indices * sizeof(VERTEX_INDEX_TYPE)
 			};
+
 			(*gpu_buffer_indices_map)[p.first] = gpu_accessor;
 		}
 	}
@@ -356,7 +360,12 @@ std::vector<Mesh*> load_gltf_meshes(
 	)
 {
 	std::vector<Mesh*> output;
-	LOG("loading mesh obj %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
+	const bool rtxEnabled = Config->lookup<int>("Debug.RTX");
+	if (rtxEnabled) {
+		LOG("loading mesh obj %s with %d primitives (w blas)", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
+	} else {
+		LOG("loading mesh obj %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
+	}
 	for (int i = 0; i < in_mesh->primitives.size(); i++)
 	{
 		auto& prim = in_mesh->primitives[i];
@@ -373,6 +382,7 @@ std::vector<Mesh*> load_gltf_meshes(
 		m->cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
 		m->gpu_data = gpu_buffer_indices.at(buf_idx);
+		if (rtxEnabled) m->build_blas();
 #endif
 		output.emplace_back(m);
 	}
@@ -745,6 +755,7 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 			mesh->cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
 			mesh->gpu_data = gpu_buffer_indices.at(buf_idx);
+			if (Config->lookup<int>("Debug.RTX")) mesh->build_blas();
 #endif
 			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())
 		}

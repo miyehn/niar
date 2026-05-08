@@ -11,6 +11,7 @@ private:
 	RayTracingRenderer();
 
 public:
+	~RayTracingRenderer();
 	void render(VkCommandBuffer cmdbuf) override;
 
 	static RayTracingRenderer* get();

@@ -10,7 +10,7 @@ class ShaderBindingTable;
 class RtxTriangle : public SceneObject
 {
 public:
-	RtxTriangle();
+	explicit RtxTriangle(Texture2D* outImage);
 	~RtxTriangle() override;
 	void update(float elapsed) override;
 

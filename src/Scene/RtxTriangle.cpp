@@ -82,11 +82,9 @@ void buildBlas(
 	VkAccelerationStructureKHR* outBlas,
 	VmaBuffer* outBlasBuffer)
 {
-	VkDeviceSize structureSize{0};
-	VkDeviceSize scratchSize{0};
 	const uint32_t maxPrimitivesCount = 1;
 
-	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {
+	VkAccelerationStructureBuildGeometryInfoKHR buildGeometryInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 		.flags = flags,
@@ -95,14 +93,15 @@ void buildBlas(
 		.pGeometries = &geom,
 	};
 
-	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-
+	// buildScratchSize, updateScratchSize, accelerationStructureSize
+	VkAccelerationStructureBuildSizesInfoKHR buildSizesInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 	Vulkan::Instance->fn_vkGetAccelerationStructureBuildSizesKHR(
-		Vulkan::Instance->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxPrimitivesCount, &sizeInfo);
+		Vulkan::Instance->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildGeometryInfo, &maxPrimitivesCount, &buildSizesInfo);
 
+	// create scratch buffer of size buildScratchSize, get its device address
 	VmaBuffer scratchBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
-		sizeInfo.buildScratchSize,
+		buildSizesInfo.buildScratchSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY});
 	const VkBufferDeviceAddressInfo scratchBufferAddressInfo = {
@@ -126,25 +125,28 @@ void buildBlas(
 	// pt 1 : alloc AS buffer and create it
 	VmaBuffer stagingBlasBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
-		sizeInfo.accelerationStructureSize,
+		buildSizesInfo.accelerationStructureSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
 		VMA_MEMORY_USAGE_GPU_ONLY});
+	// aka call to vkCreateAccelerationStructureKHR will create a blas to the staging buffer and occupy this amount of data
+	// result will be the form of a handle
+	// but this blas will be uninitialized with geometry data yet, still "all 0s"?
 	VkAccelerationStructureCreateInfoKHR asCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 		.buffer = stagingBlasBuffer.getBufferInstance(),
-		.size = sizeInfo.accelerationStructureSize,
+		.size = buildSizesInfo.accelerationStructureSize,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
 	};
 	VkAccelerationStructureKHR stagingBlas;
 	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &asCreateInfo, nullptr, &stagingBlas);
 
-	// pt 2 : build (using scratch memory)
-	buildInfo.dstAccelerationStructure = stagingBlas;
-	buildInfo.scratchData.deviceAddress = scratchAddress;
+	// pt 2 : build (using scratch memory), also query how much mem it'll take after compaction
+	buildGeometryInfo.dstAccelerationStructure = stagingBlas;
+	buildGeometryInfo.scratchData.deviceAddress = scratchAddress;
 	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
 	{
 		auto rangePtr = &range;
-		Vulkan::Instance->fn_vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &buildInfo, &rangePtr);
+		Vulkan::Instance->fn_vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &buildGeometryInfo, &rangePtr);
 
 		VkMemoryBarrier barrier = {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -332,7 +334,7 @@ void buildTlas(
 	instancesBuffer.release();
 }
 
-RtxTriangle::RtxTriangle()
+RtxTriangle::RtxTriangle(Texture2D* outImage) : outImage(outImage)
 {
 	name = "RTX Triangle";
 	create_vertex_buffer();
@@ -377,14 +379,14 @@ RtxTriangle::RtxTriangle()
 		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
 	};
 
-	VkAccelerationStructureBuildRangeInfoKHR offset = {
+	VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {
 		.primitiveCount = 1,
 		.primitiveOffset = 0,
 		.firstVertex = 0,
 		.transformOffset = 0
 	};
 
-	buildBlas(asGeom, offset,
+	buildBlas(asGeom, rangeInfo,
 			  VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR |
 			  VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
 			  &blas, &blasBuffer);
@@ -412,28 +414,6 @@ RtxTriangle::RtxTriangle()
 		.accelerationStructureReference = blasAddress,
 	};
 	buildTlas(rayInst, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, &tlas, &tlasBuffer);
-
-	// output image
-	auto renderExtent = Vulkan::Instance->swapChainExtent;
-	ImageCreator imageCreator(
-		VK_FORMAT_R8G8B8A8_UNORM,
-		{renderExtent.width, renderExtent.height, 1},
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		"outImage(rtx)");
-	outImage = new Texture2D(imageCreator);
-	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, outImage->resource.image, "rtx output image")
-	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
-	{
-		vk::insertImageBarrier(cmdbuf, outImage->resource.image,
-							   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-							   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-							   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-							   VK_ACCESS_SHADER_WRITE_BIT,
-							   VK_ACCESS_SHADER_WRITE_BIT,
-							   VK_IMAGE_LAYOUT_UNDEFINED,
-							   VK_IMAGE_LAYOUT_GENERAL);
-	});
 
 	// descriptor set
 	DescriptorSetLayout setLayout{};
@@ -467,7 +447,6 @@ RtxTriangle::~RtxTriangle()
 	tlasBuffer.release();
 	vertexBuffer.release();
 	indexBuffer.release();
-	delete outImage;
 	delete sbt;
 }
 

@@ -1,5 +1,4 @@
 #pragma once
-#include "Vulkan.hpp"
 
 class ShaderBindingTable
 {

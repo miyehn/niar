@@ -21,13 +21,12 @@ namespace tinygltf
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
 struct Mesh {
-public:
 
 	explicit Mesh(
 		const std::string& name,
 		const std::string& material_name);
 
-	~Mesh() = default;
+	~Mesh();
 
 	struct CpuDataAccessor {
 		const std::vector<Vertex>* vertices;
@@ -45,9 +44,12 @@ public:
 		VkDeviceSize vertexBufferOffsetBytes;
 		const VmaBuffer* indexBuffer;
 		VkDeviceSize indexBufferOffsetBytes;
+		VmaBuffer blasBuffer;
+		VkAccelerationStructureKHR blas = VK_NULL_HANDLE;
 	};
 
 	void draw(VkCommandBuffer cmdbuf);
+	void build_blas();
 #endif
 
 	std::string name;
