@@ -93,3 +93,27 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 	missRegion.deviceAddress = hitRegion.deviceAddress + hitRegion.size;
 	callableRegion.deviceAddress = missRegion.deviceAddress + missRegion.size;
 }
+
+ShaderBindingTable::ShaderBindingTable(ShaderBindingTable&& other) noexcept
+	: raygenRegion(other.raygenRegion),
+	  hitRegion(other.hitRegion),
+	  missRegion(other.missRegion),
+	  callableRegion(other.callableRegion),
+	  shaderBindingTable(other.shaderBindingTable)
+{
+	other.shaderBindingTable = VmaBuffer{};
+}
+
+ShaderBindingTable& ShaderBindingTable::operator=(ShaderBindingTable&& other) noexcept
+{
+	if (this != &other) {
+		shaderBindingTable.release();
+		raygenRegion = other.raygenRegion;
+		hitRegion = other.hitRegion;
+		missRegion = other.missRegion;
+		callableRegion = other.callableRegion;
+		shaderBindingTable = other.shaderBindingTable;
+		other.shaderBindingTable = VmaBuffer{};
+	}
+	return *this;
+}

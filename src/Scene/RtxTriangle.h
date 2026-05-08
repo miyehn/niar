@@ -2,17 +2,12 @@
 
 #include "SceneObject.hpp"
 #include "Render/Vulkan/Buffer.h"
-#include "Render/Vulkan/DescriptorSet.h"
-
-class Texture2D;
-class ShaderBindingTable;
 
 class RtxTriangle : public SceneObject
 {
 public:
-	explicit RtxTriangle(Texture2D* outImage);
+	RtxTriangle();
 	~RtxTriangle() override;
-	void update(float elapsed) override;
 
 	//---- vulkan stuff ----
 
@@ -24,18 +19,5 @@ public:
 
 	VmaBuffer blasBuffer;
 	VkAccelerationStructureKHR blas;
-
-	VmaBuffer tlasBuffer;
-	VkAccelerationStructureKHR tlas;
-
-	DescriptorSet descriptorSet;
-
-	Texture2D* outImage;
-
-	ShaderBindingTable* sbt;
-
-	// singletons (TODO: clean up later)
-	VkPipeline pipeline;
-	VkPipelineLayout pipelineLayout;
 };
 

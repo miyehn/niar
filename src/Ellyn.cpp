@@ -125,8 +125,10 @@ static void init()
 
 		// rtx
 		if (Config->lookup<int>("Debug.RTX")) {
-			auto tri = new RtxTriangle(RayTracingRenderer::get()->outImage);
+			auto* rtr = RayTracingRenderer::get();
+			auto tri = new RtxTriangle();
 			gltf->add_child(tri);
+			rtr->setup(tri->blas);
 		}
 
 		// probe (debug)
