@@ -125,7 +125,10 @@ SceneNodeIntermediate* loadSceneTree(const std::vector<tinygltf::Node> &in_nodes
 
 void collapseSceneTree(SceneNodeIntermediate* root)
 {
-	for (auto child : root->children) collapseSceneTree(child);
+	// Snapshot before recursing: collapsing a child can modify root->children
+	// (by detaching itself and re-attaching its children to root), invalidating the iterator.
+	auto children_snapshot = root->children;
+	for (auto child : children_snapshot) collapseSceneTree(child);
 
 	if (root->parent!=nullptr &&
 		root->mesh_idx == -1 &&
@@ -150,7 +153,8 @@ void collapseSceneTree(SceneNodeIntermediate* root)
 		else
 		{
 			// pass to children
-			for (auto c : root->children)
+			auto children_to_reparent = root->children; // snapshot: detach_from_hierarchy() will invalidate iterators
+			for (auto c : children_to_reparent)
 			{
 				c->transformation = root->transformation * c->transformation;
 				c->detach_from_hierarchy();
@@ -434,6 +438,12 @@ std::vector<Mesh> load_gltf_meshes(
 			blas_collection.push_back({});
 			build_blas(m, blas_collection.back());
 			m.gpu_data.blasHandle = blas_collection.back().blas;
+			const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+				.accelerationStructure = m.gpu_data.blasHandle
+			};
+			m.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
+				Vulkan::Instance->device, &addrInfo);
 		}
 #endif
 	}
@@ -816,6 +826,12 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 				blas_collection.push_back({});
 				build_blas(mesh, blas_collection.back());
 				mesh.gpu_data.blasHandle = blas_collection.back().blas;
+				const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+					.accelerationStructure = mesh.gpu_data.blasHandle
+				};
+				mesh.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
+					Vulkan::Instance->device, &addrInfo);
 			}
 #endif
 			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())

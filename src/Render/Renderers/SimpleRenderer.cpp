@@ -104,7 +104,7 @@ SimpleRenderer::SimpleRenderer()
 			auto& fd = gpuFrameData[i];
 
 			fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								   sizeof(viewInfo),
+								   sizeof(ViewInfo),
 								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								   VMA_MEMORY_USAGE_CPU_TO_GPU,
 								   "View info uniform buffer (simple renderer)"});
@@ -158,25 +158,11 @@ DescriptorSetLayout SimpleRenderer::getFrameGlobalLayout()
 	return gpuFrameData[0].descriptorSet.getLayout();
 }
 
-void SimpleRenderer::updateViewInfoUbo()
-{
-	memset(&viewInfo, 0, sizeof(ViewInfo));
-
-	// update whatever's needed
-	viewInfo.ViewMatrix = camera->world_to_object();
-	viewInfo.ProjectionMatrix = camera->camera_to_clip();
-	viewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
-
-	viewInfo.CameraPosition = camera->world_position();
-	viewInfo.ViewDir = camera->forward();
-
-	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
-}
-
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
 	// prepare frameglobals
-	updateViewInfoUbo();
+	ViewInfo viewInfo = getCameraViewInfo();
+	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
 	std::vector<SceneObject*> drawables;
 	drawable->foreach_descendent_bfs([&drawables](SceneObject* child) {

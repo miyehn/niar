@@ -1,7 +1,6 @@
 #include "Scene/Scene.hpp"
 #include "Scene/Camera.hpp"
 #include "Scene/PathtracerController.h"
-#include "Scene/RtxTriangle.h"
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
@@ -121,14 +120,6 @@ static void init()
 		// environment map
 		if (Config->lookup<int>("LoadEnvironmentMap")) {
 			new EnvironmentMapAsset(Config->lookup<std::string>("EnvironmentMap"));
-		}
-
-		// rtx
-		if (Config->lookup<int>("Debug.RTX")) {
-			auto* rtr = RayTracingRenderer::get();
-			auto tri = new RtxTriangle();
-			gltf->add_child(tri);
-			rtr->setup(tri->blas);
 		}
 
 		// probe (debug)

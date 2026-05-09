@@ -4,13 +4,12 @@
 #include "Render/Vulkan/ShaderBindingTable.h"
 #include "Render/Vulkan/Buffer.h"
 #include "Renderer.h"
+#include "DeferredRenderer.h"
 
 class Texture2D;
 
 class RayTracingRenderer : public Renderer
 {
-private:
-	RayTracingRenderer();
 
 public:
 	~RayTracingRenderer();
@@ -18,21 +17,31 @@ public:
 
 	static RayTracingRenderer* get();
 
-	// Called once after RtxTriangle is constructed, to build the TLAS and
-	// create the pipeline resources that depend on it.
-	void setup(VkAccelerationStructureKHR blas);
+private:
+
+	RayTracingRenderer();
 
 	Texture2D* outImage = nullptr;
 
-	VmaBuffer tlasBuffer;
 	VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
+	VmaBuffer tlasBuffer;
+	VkAccelerationStructureGeometryKHR tlasGeometry{};
+	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo{};
+	VmaBuffer scratchBuffer;
 
-	DescriptorSet descriptorSet;
 	VkPipeline pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 	ShaderBindingTable sbt;
 
-private:
-	VkExtent2D renderExtent{};
+	struct GpuFrameData {
+		VmaBuffer viewInfoUbo;
+		DescriptorSet descriptorSet;
+		VmaBuffer instancesBuffer;
+		VkDeviceAddress instancesBufferAddr = 0;
+	};
+	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
+
+	static constexpr uint32_t MAX_RTX_INSTANCES = 64;
+
 };
 

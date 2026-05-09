@@ -52,7 +52,7 @@ DirectionalLight::DirectionalLight(const std::string& node_name, const tinygltf:
 	}
 }
 
-DirectionalLight::~DirectionalLight() noexcept {
+DirectionalLight::~DirectionalLight() {
 	if (sun == this) sun = nullptr;
 }
 

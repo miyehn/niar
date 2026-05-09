@@ -8,6 +8,26 @@
 class Renderer
 {
 protected:
+
+	// ViewInfo is optional for renderers, some don't use it (path tracer), but still common enough
+	struct ViewInfo {
+		glm::mat4 ViewMatrix;
+		glm::mat4 ProjectionMatrix;
+
+		glm::vec3 CameraPosition;
+		int NumPointLights;
+
+		glm::vec3 ViewDir;
+		int NumDirectionalLights;
+
+		float Exposure;
+		float AspectRatio;
+		float HalfVFovRadians;
+		int ToneMappingOption;
+		int BackgroundOption;
+	};
+	ViewInfo getCameraViewInfo();
+
 	Renderer() = default;
 public:
 

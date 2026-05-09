@@ -4,5 +4,5 @@
 layout(location = 0) rayPayloadInEXT vec3 ResultColor;
 
 void main() {
-	ResultColor = vec3(0.2, 0.3, 0.4);
+	ResultColor = gl_WorldRayDirectionEXT * 0.5 + 0.5;
 }

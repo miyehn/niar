@@ -1,38 +1,51 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-layout(set = 0, binding = 0) uniform accelerationStructureEXT Scene;
-layout(set = 0, binding = 1, rgba8) uniform image2D ResultImage;
+layout(set = 0, binding = 0) uniform ViewInfoUBO {
+	mat4 ViewMatrix;
+	mat4 ProjectionMatrix;
+	vec3 CameraPosition;
+	int NumPointLights;
+	vec3 ViewDir;
+	int NumDirectionalLights;
+	float Exposure;
+	float AspectRatio;
+	float HalfVFovRadians;
+	int ToneMappingOption;
+	int BackgroundOption;
+} viewInfo;
+
+layout(set = 0, binding = 1) uniform accelerationStructureEXT Scene;
+layout(set = 0, binding = 2, rgba8) uniform image2D ResultImage;
 
 layout(location = 0) rayPayloadEXT vec3 ResultColor;
 
 void main() {
-	const vec2 uv = vec2(gl_LaunchIDEXT.xy) / vec2(gl_LaunchSizeEXT.xy - 1);
+	// Pixel center in NDC [-1, 1]
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+	const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+	const vec2 ndc = inUV * 2.0 - 1.0;
 
-	const vec3 origin = vec3(uv.x, 1.0f - uv.y, -1.0f);
-	const vec3 direction = vec3(0.0f, 0.0f, 1.0f);
+	// Ray direction in view space
+	float halfFovY = tan(viewInfo.HalfVFovRadians);
+	vec3 rayDir_view = vec3(ndc.x * halfFovY * viewInfo.AspectRatio, -ndc.y * halfFovY, -1.0);
 
-	const uint rayFlags = gl_RayFlagsNoneEXT;
-	const uint cullMask = 0xFF;
-	const uint sbtRecordOffset = 1;
-	const uint sbtRecordStride = 0;
-	const uint missIndex = 1;
-	const float tmin = 0.0f;
-	const float tmax = 10.0f;
-	const int payloadLocation = 0;
+	// Transform to world space: camera-to-world rotation = transpose of upper-left 3x3 of ViewMatrix
+	mat3 camToWorld = transpose(mat3(viewInfo.ViewMatrix));
+	vec3 direction = normalize(camToWorld * rayDir_view);
 
 	traceRayEXT(
 		Scene,
-		rayFlags,
-		cullMask,
-		sbtRecordOffset,
-		sbtRecordStride,
-		missIndex,
-		origin,
-		tmin,
+		gl_RayFlagsNoneEXT,
+		0xFF,    // cullMask
+		0,       // sbtRecordOffset TRYME looks like this is added to .instanceShaderBindingTableRecordOffset in cpp
+		0,       // sbtRecordStride
+		0,       // missIndex tryme!
+		viewInfo.CameraPosition,
+		0.001f,
 		direction,
-		tmax,
-		payloadLocation);
+		10000.0f,
+		0);      // payload location
 
 	imageStore(ResultImage, ivec2(gl_LaunchIDEXT.xy), vec4(ResultColor, 1.0f));
 }

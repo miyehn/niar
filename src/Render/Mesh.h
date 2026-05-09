@@ -47,6 +47,7 @@ struct Mesh {
 		const VmaBuffer* indexBuffer;
 		VkDeviceSize indexBufferOffsetBytes;
 		VkAccelerationStructureKHR blasHandle = VK_NULL_HANDLE;
+		VkDeviceAddress blasAddress = 0;
 	};
 
 	void draw(VkCommandBuffer cmdbuf);

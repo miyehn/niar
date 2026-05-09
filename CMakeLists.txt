@@ -92,7 +92,8 @@ set(ELLYN_SRC
     src/Scene/RtxTriangle.cpp
     src/Render/Renderers/RayTracingRenderer.cpp
     src/Render/Materials/ComputeShader.cpp
-    src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp)
+    src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp
+        src/Render/Renderers/Renderer.cpp)
 
 set(ASZELEA_SRC
     src/Aszelea.cpp)

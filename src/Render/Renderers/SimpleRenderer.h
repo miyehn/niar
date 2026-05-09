@@ -35,11 +35,6 @@ private:
 	Texture2D* sceneDepth;
 	VkFramebuffer frameBuffer;
 
-	// uniforms
-	ViewInfo viewInfo;
-
-	void updateViewInfoUbo();
-
 	// materials
 	std::unordered_map<std::string, GltfMaterial*> materials;
 	Material* getOrCreateMeshMaterial(const std::string& materialName);

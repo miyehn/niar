@@ -471,7 +471,7 @@ DeferredRenderer::DeferredRenderer()
 			auto& fd = gpuFrameData[i];
 
 			fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								   sizeof(viewInfo),
+								   sizeof(ViewInfo),
 								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								   VMA_MEMORY_USAGE_CPU_TO_GPU,
 								   "View info uniform buffer (deferred renderer)"});
@@ -558,8 +558,8 @@ DeferredRenderer::DeferredRenderer()
 	}
 
 	// misc
-	viewInfo.Exposure = 3.0f;
-	viewInfo.ToneMappingOption = 1;
+	cfgExposure = 3.0f;
+	cfgToneMappingOption = 1;
 
 	deferredLighting = new DeferredLighting(this);
 	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
@@ -622,65 +622,56 @@ DeferredRenderer::~DeferredRenderer()
 	for (const auto& p : materials) delete p.second;
 }
 
-void DeferredRenderer::updateUniformBuffers()
-{
-	viewInfo.ViewMatrix = camera->world_to_object();
-	viewInfo.ProjectionMatrix = camera->camera_to_clip();
-	viewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
-
-	viewInfo.CameraPosition = camera->world_position();
-	viewInfo.ViewDir = camera->forward();
-
-	viewInfo.AspectRatio = camera->aspect_ratio;
-	viewInfo.HalfVFovRadians = camera->fov * 0.5f;
-
-	int numPointLights = 0;
-	int numDirectionalLights = 0;
-	drawable->foreach_descendent_bfs([this, &numPointLights, &numDirectionalLights](SceneObject* child){
-		// convert whatever unit (cd, lx, nt) to watt:
-		// from blender, PBR_WATTS_TO_LUMENS = 683 // so lumen to watt is 1.0f/683
-		// the last div by 2*PI is converting irradiance to radiance (???)
-		// todo: rename the "getMultipliedColor" interface altogether
-		if (child->enabled()) {
-			if (auto L = dynamic_cast<PointLight*>(child))
-			{
-				if (numPointLights < MAX_LIGHTS_PER_PASS) {
-					pointLights.Data[numPointLights].position = L->world_position();
-					pointLights.Data[numPointLights].color = L->getLuminousIntensityCd();
-					numPointLights++;
-				}
-			}
-			else if (auto L = dynamic_cast<DirectionalLight*>(child))
-			{
-				if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
-					directionalLights.Data[numDirectionalLights].direction = L->getLightDirection();
-					directionalLights.Data[numDirectionalLights].color = L->getIrradianceLx();
-					numDirectionalLights++;
-				}
-			}
-		}
-	});
-	viewInfo.NumPointLights = numPointLights;
-	viewInfo.NumDirectionalLights = numDirectionalLights;
-
-	// background option
-	if (SkyAtmosphere::getInstance()->enabled()) {
-		viewInfo.BackgroundOption = BG_SkyAtmosphere;
-	} else if (Config->lookup<int>("LoadEnvironmentMap")) {
-		viewInfo.BackgroundOption = BG_EnvironmentMap;
-	} else {
-		viewInfo.BackgroundOption = BG_None;
-	}
-
-	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
-	fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
-	fd.pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
-	fd.directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
-}
-
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	updateUniformBuffers();
+	ViewInfo viewInfo = getCameraViewInfo();
+	{
+        int numPointLights = 0;
+        int numDirectionalLights = 0;
+        drawable->foreach_descendent_bfs([this, &numPointLights, &numDirectionalLights](SceneObject* child){
+            // convert whatever unit (cd, lx, nt) to watt:
+            // from blender, PBR_WATTS_TO_LUMENS = 683 // so lumen to watt is 1.0f/683
+            // the last div by 2*PI is converting irradiance to radiance (???)
+            // todo: rename the "getMultipliedColor" interface altogether
+            if (child->enabled()) {
+                if (auto L = dynamic_cast<PointLight*>(child))
+                {
+                    if (numPointLights < MAX_LIGHTS_PER_PASS) {
+                        pointLights.Data[numPointLights].position = L->world_position();
+                        pointLights.Data[numPointLights].color = L->getLuminousIntensityCd();
+                        numPointLights++;
+                    }
+                }
+                else if (auto L = dynamic_cast<DirectionalLight*>(child))
+                {
+                    if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
+                        directionalLights.Data[numDirectionalLights].direction = L->getLightDirection();
+                        directionalLights.Data[numDirectionalLights].color = L->getIrradianceLx();
+                        numDirectionalLights++;
+                    }
+                }
+            }
+        });
+        viewInfo.NumPointLights = numPointLights;
+        viewInfo.NumDirectionalLights = numDirectionalLights;
+
+        viewInfo.Exposure = cfgExposure;
+        viewInfo.ToneMappingOption = cfgToneMappingOption;
+
+        // background option
+        if (SkyAtmosphere::getInstance()->enabled()) {
+            viewInfo.BackgroundOption = BG_SkyAtmosphere;
+        } else if (Config->lookup<int>("LoadEnvironmentMap")) {
+            viewInfo.BackgroundOption = BG_EnvironmentMap;
+        } else {
+            viewInfo.BackgroundOption = BG_None;
+        }
+
+        auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
+        fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
+        fd.pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
+        fd.directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
+	}
 
 	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
 	auto bindFrameGlobal = [&](VkPipelineLayout layout) {
@@ -729,7 +720,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		std::sort(opaqueMeshes.begin(), opaqueMeshes.end(), materialSortFn);
 
 		// translucent objects sorting
-		auto distToCameraSortFn = [this](MeshObject* a, MeshObject* b) {
+		auto distToCameraSortFn = [this, &viewInfo](MeshObject* a, MeshObject* b) {
 			auto distToCamA = glm::dot(a->world_position() - viewInfo.CameraPosition, viewInfo.ViewDir);
 			auto distToCamB = glm::dot(b->world_position() - viewInfo.CameraPosition, viewInfo.ViewDir);
 			return distToCamA >= distToCamB;
@@ -950,10 +941,10 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 }
 
 void DeferredRenderer::draw_config_ui() {
-	ImGui::SliderFloat("##exposure", &viewInfo.Exposure, -25, 25, "exposure comp: %.3f");
+	ImGui::SliderFloat("##exposure", &cfgExposure, -25, 25, "exposure comp: %.3f");
 	ImGui::Combo(
 		"tone mapping",
-		&viewInfo.ToneMappingOption,
+		&cfgToneMappingOption,
 		"Off\0Reinhard2\0ACES\0\0");
 	ImGui::Checkbox("draw debug", &drawDebug);
 }

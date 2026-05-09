@@ -37,24 +37,6 @@ enum BackgroundOption {
 	BG_SkyAtmosphere
 };
 
-struct ViewInfo {
-	glm::mat4 ViewMatrix;
-	glm::mat4 ProjectionMatrix;
-
-	glm::vec3 CameraPosition;
-	int NumPointLights;
-
-	glm::vec3 ViewDir;
-	int NumDirectionalLights;
-
-	float Exposure;
-	float AspectRatio;
-	float HalfVFovRadians;
-	int ToneMappingOption;
-	int BackgroundOption;
-
-};
-
 class DeferredRenderer : public Renderer
 {
 public:
@@ -65,8 +47,6 @@ public:
 
 	VkRenderPass mainPass;
 	VkRenderPass postProcessPass;
-
-	ViewInfo viewInfo;
 
 	void render(VkCommandBuffer cmdbuf) override;
 
@@ -122,7 +102,8 @@ private:
 
 	PostProcessing* postProcessing;
 
-	void updateUniformBuffers();
+	float cfgExposure;
+	int cfgToneMappingOption;
 
 	// light buffers
 
