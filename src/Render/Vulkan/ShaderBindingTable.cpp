@@ -45,7 +45,7 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 		VMA_MEMORY_USAGE_CPU_TO_GPU,
 		"Shader binding table"
 	});
-	NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, shaderBindingTable.getBufferInstance(), "shader binding table")
+	NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, shaderBindingTable.buffer, "shader binding table")
 
 	std::vector<uint8_t> alignedHandles(sbtSize, 0);
 	const uint32_t raygenStart = 0;
@@ -82,12 +82,7 @@ ShaderBindingTable::ShaderBindingTable(VkPipeline pipeline, uint32_t numHitShade
 	shaderBindingTable.writeData(alignedHandles.data(), alignedHandles.size());
 
 	// also get the device addresses
-	VkBufferDeviceAddressInfo addressInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = shaderBindingTable.getBufferInstance()
-	};
-	VkDeviceAddress address = vkGetBufferDeviceAddress(Vulkan::Instance->device, &addressInfo);
-	raygenRegion.deviceAddress = address;
+	raygenRegion.deviceAddress = shaderBindingTable.getDeviceAddress();
 	// do the below addresses not even get used...
 	hitRegion.deviceAddress = raygenRegion.deviceAddress + raygenRegion.size;
 	missRegion.deviceAddress = hitRegion.deviceAddress + hitRegion.size;

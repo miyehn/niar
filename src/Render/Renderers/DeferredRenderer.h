@@ -2,6 +2,8 @@
 
 #include "Renderer.h"
 #include "Render/Vulkan/DescriptorSet.h"
+#include "Render/Vulkan/Buffer.h"
+#include <vulkan/vulkan.h>
 
 class Texture2D;
 class DebugPoints;
@@ -74,6 +76,7 @@ private:
 		VmaBuffer skyParametersBuffer;
 		DescriptorSet skyDescriptorSet;
 		DescriptorSet skyDummyDescriptorSet;
+		VmaBuffer instancesBuffer;
 	};
 	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 
@@ -129,4 +132,10 @@ private:
 
 	std::unordered_map<std::string, GltfMaterial*> materials;
 	Material* getOrCreateMeshMaterial(const std::string& materialName);
+
+	// ray-traced shadow resources (valid only when Debug.RTX = 1)
+	static constexpr uint32_t MAX_DEFERRED_RTX_INSTANCES = 64;
+	VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
+	VmaBuffer tlasBuffer;
+	VmaBuffer scratchBuffer;
 };

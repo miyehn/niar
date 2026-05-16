@@ -209,7 +209,7 @@ void vk::uploadPixelsToImage(
 			};
 			vkCmdCopyBufferToImage(
 				cmdbuf,
-				stagingBuffer.getBufferInstance(),
+				stagingBuffer.buffer,
 				outResource.image,
 				transferLayout,
 				1,
@@ -259,7 +259,7 @@ void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex
 		"Vertex buffer"});
 
 	// and copy stuff from staging buffer to vertex buffer
-	vk::copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(vertexBuffer.buffer, stagingBuffer.buffer, bufferSize);
 	stagingBuffer.release();
 }
 
@@ -289,7 +289,7 @@ void vk::create_index_buffer(void *data, uint32_t num_indices, uint32_t index_si
 	});
 
 	// move stuff from staging buffer and destroy staging buffer
-	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(indexBuffer.buffer, stagingBuffer.buffer, bufferSize);
 	stagingBuffer.release();
 }
 
@@ -298,7 +298,7 @@ static inline bool isPowerOfTwo(uint32_t v) {
 	return v != 0 && (v & (v - 1)) == 0;
 }
 
-void vk::build_blas(
+void vk::buildBlas(
 	VkAccelerationStructureGeometryKHR geom,
 	VkAccelerationStructureBuildRangeInfoKHR range,
 	VkBuildAccelerationStructureFlagsKHR flags,
@@ -325,11 +325,6 @@ void vk::build_blas(
 		buildSizesInfo.buildScratchSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY});
-	const VkBufferDeviceAddressInfo scratchBufferAddressInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = scratchBuffer.getBufferInstance()
-	};
-	VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &scratchBufferAddressInfo);
 
 	VkQueryPool queryPool{VK_NULL_HANDLE};
 	VkQueryPoolCreateInfo qpCreateInfo = {
@@ -348,7 +343,7 @@ void vk::build_blas(
 		VMA_MEMORY_USAGE_GPU_ONLY});
 	VkAccelerationStructureCreateInfoKHR asCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = stagingBlasBuffer.getBufferInstance(),
+		.buffer = stagingBlasBuffer.buffer,
 		.size = buildSizesInfo.accelerationStructureSize,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
 	};
@@ -356,7 +351,7 @@ void vk::build_blas(
 	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &asCreateInfo, nullptr, &stagingBlas);
 
 	buildGeometryInfo.dstAccelerationStructure = stagingBlas;
-	buildGeometryInfo.scratchData.deviceAddress = scratchAddress;
+	buildGeometryInfo.scratchData.deviceAddress = scratchBuffer.getDeviceAddress();
 	Vulkan::Instance->immediateSubmit([&](VkCommandBuffer cmdbuf)
 	{
 		auto rangePtr = &range;
@@ -393,7 +388,7 @@ void vk::build_blas(
 
 	VkAccelerationStructureCreateInfoKHR compactInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = outBlasBuffer.getBufferInstance(),
+		.buffer = outBlasBuffer.buffer,
 		.size = compactSize,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 	};
@@ -415,12 +410,73 @@ void vk::build_blas(
 	stagingBlasBuffer.release();
 	Vulkan::Instance->fn_vkDestroyAccelerationStructureKHR(Vulkan::Instance->device, stagingBlas, nullptr);
 }
+
+void vk::buildTlas(
+	VkCommandBuffer cmdbuf,
+	const VmaBuffer& instancesBuffer,
+	uint32_t instanceCount,
+	const VmaBuffer& scratchBuffer,
+	VkPipelineStageFlags dstStageMask,
+	VkAccelerationStructureKHR outTlas)
+{
+	VkAccelerationStructureGeometryKHR tlasGeometry = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+		.geometry = {
+			.instances = {
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+				.data = {.deviceAddress = instancesBuffer.getDeviceAddress()}
+			}
+		}
+	};
+
+	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
+		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+		.srcAccelerationStructure = VK_NULL_HANDLE,
+		.dstAccelerationStructure = outTlas,
+		.geometryCount = 1,
+		.pGeometries = &tlasGeometry,
+		.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()},
+	};
+
+	VkMemoryBarrier barrierPre = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+		.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
+		.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+	};
+	vkCmdPipelineBarrier(cmdbuf,
+		VK_PIPELINE_STAGE_HOST_BIT,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		0, 1, &barrierPre, 0, nullptr, 0, nullptr);
+
+	VkAccelerationStructureBuildRangeInfoKHR range = {
+		.primitiveCount = instanceCount,
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0,
+	};
+	auto rangePtr = &range;
+	Vulkan::Instance->fn_vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &tlasBuildInfo, &rangePtr);
+
+	VkMemoryBarrier barrierPost = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+		.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+		.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR
+	};
+	vkCmdPipelineBarrier(cmdbuf,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		dstStageMask,
+		0, 1, &barrierPost, 0, nullptr, 0, nullptr);
+}
 
 void vk::generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height)
 {
 	if (!isPowerOfTwo(width) || !isPowerOfTwo(height))
 	{
-		WARN("Trying to generate an image that doesn't have power of 2 dimensions %ux%u. skipping..", width, height)
+		WARN("Trying to generate mips for an image that doesn't have power of 2 dimensions %ux%u. skipping..", width, height)
 		return;
 	}
 

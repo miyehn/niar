@@ -25,8 +25,6 @@ private:
 
 	VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
 	VmaBuffer tlasBuffer;
-	VkAccelerationStructureGeometryKHR tlasGeometry{};
-	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo{};
 	VmaBuffer scratchBuffer;
 
 	VkPipeline pipeline = VK_NULL_HANDLE;
@@ -37,7 +35,6 @@ private:
 		VmaBuffer viewInfoUbo;
 		DescriptorSet descriptorSet;
 		VmaBuffer instancesBuffer;
-		VkDeviceAddress instancesBufferAddr = 0;
 	};
 	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 

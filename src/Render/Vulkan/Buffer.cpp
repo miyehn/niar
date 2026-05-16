@@ -40,12 +40,26 @@ void VmaBuffer::release()
 	if (buffer != nullptr || allocator != nullptr) {
 		vmaDestroyBuffer(*allocator, buffer, allocation);
 	}
+	buffer = VK_NULL_HANDLE;
+	allocation = VK_NULL_HANDLE;
+	deviceAddress = 0;
 	allocator = nullptr;
 }
 
-VkBuffer VmaBuffer::getBufferInstance() const {
-	ASSERT(allocator != nullptr)
-	return buffer;
+VkDeviceAddress VmaBuffer::getDeviceAddress() const
+{
+	// invalid buffer
+	if (buffer == nullptr) return 0;
+
+	// not the first time querying it
+	if (deviceAddress != 0) return deviceAddress;
+
+	const VkBufferDeviceAddressInfo addrInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.buffer = buffer
+	};
+	deviceAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &addrInfo);
+	return deviceAddress;
 }
 
 VmaAllocationInfo VmaBuffer::getAllocationInfo() const {

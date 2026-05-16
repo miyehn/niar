@@ -17,9 +17,9 @@ void Mesh::set_material_name(const std::string& mesh_name, const std::string& ma
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
 	// TODO: might be able to get rid of the binding calls by specifying offsets in just the draw call?
-	auto vb = gpu_data.vertexBuffer->getBufferInstance();
+	auto vb = gpu_data.vertexBuffer->buffer;
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, &gpu_data.vertexBufferOffsetBytes);
-	vkCmdBindIndexBuffer(cmdbuf, gpu_data.indexBuffer->getBufferInstance(), gpu_data.indexBufferOffsetBytes, VK_INDEX_TYPE);
+	vkCmdBindIndexBuffer(cmdbuf, gpu_data.indexBuffer->buffer, gpu_data.indexBufferOffsetBytes, VK_INDEX_TYPE);
 	vkCmdDrawIndexed(cmdbuf, get_num_indices(), 1, 0, 0, 0);
 }
 #endif

@@ -39,7 +39,7 @@ void RtxTriangle::create_vertex_buffer()
 		"RtxTriangle vertex buffer"});
 
 	// and copy stuff from staging buffer to vertex buffer
-	vk::copyBuffer(vertexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(vertexBuffer.buffer, stagingBuffer.buffer, bufferSize);
 	stagingBuffer.release();
 }
 
@@ -68,7 +68,7 @@ void RtxTriangle::create_index_buffer()
 		VMA_MEMORY_USAGE_GPU_ONLY});
 
 	// move stuff from staging buffer and destroy staging buffer
-	vk::copyBuffer(indexBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(indexBuffer.buffer, stagingBuffer.buffer, bufferSize);
 	stagingBuffer.release();
 }
 
@@ -101,11 +101,7 @@ static void buildBlas(
 		buildSizesInfo.buildScratchSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY});
-	const VkBufferDeviceAddressInfo scratchBufferAddressInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = scratchBuffer.getBufferInstance()
-	};
-	VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &scratchBufferAddressInfo);
+	VkDeviceAddress scratchAddress = scratchBuffer.getDeviceAddress();
 
 	// for compaction
 	VkQueryPool queryPool{VK_NULL_HANDLE};
@@ -130,7 +126,7 @@ static void buildBlas(
 	// but this blas will be uninitialized with geometry data yet, still "all 0s"?
 	VkAccelerationStructureCreateInfoKHR asCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = stagingBlasBuffer.getBufferInstance(),
+		.buffer = stagingBlasBuffer.buffer,
 		.size = buildSizesInfo.accelerationStructureSize,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
 	};
@@ -195,7 +191,7 @@ static void buildBlas(
 
 		VkAccelerationStructureCreateInfoKHR compactInfo = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-			.buffer = outBlasBuffer->getBufferInstance(),
+			.buffer = outBlasBuffer->buffer,
 			.size = compactSize,
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 		};
@@ -223,33 +219,19 @@ RtxTriangle::RtxTriangle()
 	create_vertex_buffer();
 	create_index_buffer();
 
-	auto vBufferRaw = vertexBuffer.getBufferInstance();
-	auto iBufferRaw = indexBuffer.getBufferInstance();
-
-	const VkBufferDeviceAddressInfo vBufferAddressInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = vBufferRaw
-	};
-	const VkBufferDeviceAddressInfo iBufferAddressInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = iBufferRaw
-	};
-	VkDeviceAddress vBufferAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &vBufferAddressInfo);
-	VkDeviceAddress iBufferAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &iBufferAddressInfo);
-
 	// BLAS
 
 	VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
 		.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 		.vertexData = {
-			.deviceAddress = vBufferAddress
+			.deviceAddress = vertexBuffer.getDeviceAddress(),
 		},
 		.vertexStride = sizeof(float) * 3,
 		.maxVertex = 3,
 		.indexType = VK_INDEX_TYPE,
 		.indexData = {
-			.deviceAddress = iBufferAddress
+			.deviceAddress = indexBuffer.getDeviceAddress(),
 		},
 	};
 

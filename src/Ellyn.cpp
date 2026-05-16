@@ -76,7 +76,7 @@ static void cleanup();
 static void init()
 {
 	bool loadRenderDoc = Config->lookup<int>("Debug.RenderDoc");
-	if (Config->lookup<int>("Debug.RTX")) {
+	if (loadRenderDoc && Config->lookup<int>("Debug.RTX")) {
 		loadRenderDoc = false;
 		WARN("RenderDoc requested but is disabled because it's incompatible with RTX.")
 	}

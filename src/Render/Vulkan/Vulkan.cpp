@@ -26,6 +26,7 @@ Vulkan::Vulkan(SDL_Window* window) {
 		deviceExtensions.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 		deviceExtensions.emplace_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 		deviceExtensions.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+		deviceExtensions.emplace_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 	}
 
     pickPhysicalDevice();
@@ -589,7 +590,12 @@ void Vulkan::createLogicalDevice() {
 			.pNext = &rtFeatures,
 			.accelerationStructure = VK_TRUE,
 		};
-		features13.pNext = &asFeatures;
+		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+			.pNext = &asFeatures,
+			.rayQuery = VK_TRUE,
+		};
+		features13.pNext = &rayQueryFeatures;
 	}
 
 	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS)

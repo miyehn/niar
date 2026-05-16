@@ -49,12 +49,20 @@ namespace vk
 
 	void create_index_buffer(void* data, uint32_t num_indices, uint32_t index_size, bool rtxEnabled, VmaBuffer& indexBuffer);
 
-	void build_blas(
+	void buildBlas(
 		VkAccelerationStructureGeometryKHR geom,
 		VkAccelerationStructureBuildRangeInfoKHR range,
 		VkBuildAccelerationStructureFlagsKHR flags,
 		VkAccelerationStructureKHR& outBlas,
 		VmaBuffer& outBlasBuffer);
+
+	void buildTlas(
+		VkCommandBuffer cmdbuf,
+		const VmaBuffer& instancesBuffer,
+		uint32_t instanceCount,
+		const VmaBuffer& scratchBuffer,
+		VkPipelineStageFlags dstStageMask,
+		VkAccelerationStructureKHR outTlas);
 
 	void generateMips(VmaAllocatedImage image, uint32_t width, uint32_t height);
 

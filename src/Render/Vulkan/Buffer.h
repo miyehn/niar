@@ -20,18 +20,19 @@ public:
 
 	void writeData(void* inData, size_t writeSize, uint32_t strideIndex = 0);
 
-	VkBuffer getBufferInstance() const;
-
 	void release();
+
+	VkDeviceAddress getDeviceAddress() const;
 
 	VkDeviceSize strideSize = 0;
 	uint32_t numStrides = 0;
+	VkBuffer buffer = VK_NULL_HANDLE;
 
 private:
 	VmaAllocator* allocator = nullptr;
-	VkBuffer buffer = VK_NULL_HANDLE;
 	VmaAllocation allocation = VK_NULL_HANDLE;
 	VmaAllocationInfo allocationInfo = {};
+	mutable VkDeviceAddress deviceAddress = 0;
 
 	VmaAllocationInfo getAllocationInfo() const;
 };

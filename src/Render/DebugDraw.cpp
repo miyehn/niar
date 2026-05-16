@@ -36,7 +36,7 @@ void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf)
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };
-	auto vb = pointsBuffer.getBufferInstance();
+	auto vb = pointsBuffer.buffer;
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
 	vkCmdDraw(cmdbuf, points.size(), 1, 0, 0);
 }
@@ -66,7 +66,7 @@ void DebugPoints::uploadVertexBuffer()
 		pointsBuffer = VmaBuffer({
 			&Vulkan::Instance->memoryAllocator, bufferSize, vkUsage, VMA_MEMORY_USAGE_GPU_ONLY, "Debug points vertex buffer"});
 
-		vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+		vk::copyBuffer(pointsBuffer.buffer, stagingBuffer.buffer, bufferSize);
 		stagingBuffer.release();
 	}
 }
@@ -113,7 +113,7 @@ void DebugLines::bindAndDraw(VkCommandBuffer cmdbuf)
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkDeviceSize offsets[] = { 0 };
-	auto vb = pointsBuffer.getBufferInstance();
+	auto vb = pointsBuffer.buffer;
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
 	vkCmdDraw(cmdbuf, points.size(), 1, 0, 0);
 }
@@ -171,6 +171,6 @@ void DebugLines::uploadVertexBuffer()
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		"Debug lines vertex buffer"});
 
-	vk::copyBuffer(pointsBuffer.getBufferInstance(), stagingBuffer.getBufferInstance(), bufferSize);
+	vk::copyBuffer(pointsBuffer.buffer, stagingBuffer.buffer, bufferSize);
 	stagingBuffer.release();
 }

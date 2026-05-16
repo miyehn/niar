@@ -34,26 +34,25 @@ RayTracingRenderer::RayTracingRenderer()
 
 	// TLAS resources (pre-allocated for up to MAX_RTX_INSTANCES)
 
-	// "what type of geometry? what data?" - instances, data supplied from instancesBuffer
-	// instancesBuffer address is set per-frame in render(); address=0 is fine for the size query below
-	tlasGeometry = {
+	// temporary structs just for the build size query; address=0 is fine here
+	VkAccelerationStructureGeometryKHR tlasGeometry = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
 		.geometry = {
 			.instances = {
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-				.data = {.deviceAddress = 0} // updated per-frame in render()
+				.data = {.deviceAddress = 0}
 			}
 		}
 	};
 
 	// "what you want to build from the given geometry?" - tlas
-	tlasBuildInfo = {
+	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
 		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-		.srcAccelerationStructure = VK_NULL_HANDLE, // would be not null if we are updating instead of building from scratch (?)
+		.srcAccelerationStructure = VK_NULL_HANDLE,
 		.geometryCount = 1,
 		.pGeometries = &tlasGeometry,
 	};
@@ -77,7 +76,7 @@ RayTracingRenderer::RayTracingRenderer()
 
 	const VkAccelerationStructureCreateInfoKHR tlasCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = tlasBuffer.getBufferInstance(),
+		.buffer = tlasBuffer.buffer,
 		.size = tlasBuildSizeInfo.accelerationStructureSize,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR
 	};
@@ -89,13 +88,6 @@ RayTracingRenderer::RayTracingRenderer()
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		"RTX TLAS scratch buffer"});
-
-	const VkBufferDeviceAddressInfo scratchAddrInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = scratchBuffer.getBufferInstance()
-	};
-	tlasBuildInfo.dstAccelerationStructure = tlas;
-	tlasBuildInfo.scratchData.deviceAddress = vkGetBufferDeviceAddress(Vulkan::Instance->device, &scratchAddrInfo);
 
 	// descriptor set layout: binding 0 = viewInfoUbo, binding 1 = TLAS, binding 2 = outImage
 	DescriptorSetLayout layout{};
@@ -117,11 +109,6 @@ RayTracingRenderer::RayTracingRenderer()
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
 			"RTX instances buffer"});
-		const VkBufferDeviceAddressInfo instancesAddrInfo = {
-			.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-			.buffer = fd.instancesBuffer.getBufferInstance()
-		};
-		fd.instancesBufferAddr = vkGetBufferDeviceAddress(Vulkan::Instance->device, &instancesAddrInfo);
 		fd.descriptorSet = DescriptorSet(layout);
 		fd.descriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToAccelerationStructure(tlas, 1);
@@ -209,39 +196,8 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 
 	{// rebuild TLAS in the command buffer
 		SCOPED_DRAW_EVENT(cmdbuf, "rebuild TLAS")
-
-		tlasGeometry.geometry.instances.data.deviceAddress = fd.instancesBufferAddr;
-
-		VkMemoryBarrier barrierPre = {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
-		};
-		vkCmdPipelineBarrier(cmdbuf,
-			VK_PIPELINE_STAGE_HOST_BIT,
-			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			0, 1, &barrierPre, 0, nullptr, 0, nullptr);
-
-		VkAccelerationStructureBuildRangeInfoKHR range = {
-			.primitiveCount = static_cast<uint32_t>(instances.size()),
-			.primitiveOffset = 0,
-			.firstVertex = 0,
-			.transformOffset = 0,
-		};
-		auto rangePtr = &range;
-		// according to claude, this is a command recording call and completely copies everything needed from tlasBuildInfo
-		// so cpu writes after its return is always safe
-		Vulkan::Instance->fn_vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &tlasBuildInfo, &rangePtr);
-
-		VkMemoryBarrier barrierPost = {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-			.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR
-		};
-		vkCmdPipelineBarrier(cmdbuf,
-			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			0, 1, &barrierPost, 0, nullptr, 0, nullptr);
+		vk::buildTlas(cmdbuf, fd.instancesBuffer, static_cast<uint32_t>(instances.size()),
+			scratchBuffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, tlas);
 	}
 
 	{

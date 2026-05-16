@@ -355,17 +355,8 @@ void load_mesh_buffers(
 #if GRAPHICS_DISPLAY
 static void build_blas(const Mesh& m, BLASInfo& out_info)
 {
-	VkBufferDeviceAddressInfo vbAddrInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = m.gpu_data.vertexBuffer->getBufferInstance()
-	};
-	VkDeviceAddress vbAddr = vkGetBufferDeviceAddress(Vulkan::Instance->device, &vbAddrInfo);
-
-	VkBufferDeviceAddressInfo ibAddrInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = m.gpu_data.indexBuffer->getBufferInstance()
-	};
-	VkDeviceAddress ibAddr = vkGetBufferDeviceAddress(Vulkan::Instance->device, &ibAddrInfo);
+	VkDeviceAddress vbAddr = m.gpu_data.vertexBuffer->getDeviceAddress();
+	VkDeviceAddress ibAddr = m.gpu_data.indexBuffer->getDeviceAddress();
 
 	VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
@@ -389,7 +380,7 @@ static void build_blas(const Mesh& m, BLASInfo& out_info)
 		.transformOffset = 0
 	};
 
-	vk::build_blas(
+	vk::buildBlas(
 		geom, range,
 		VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR |
 		VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
