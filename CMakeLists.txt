@@ -75,7 +75,7 @@ set(ELLYN_SRC
     src/Render/Texture.cpp
     src/Utils/myn/RenderDoc.cpp
     src/Render/Vulkan/SamplerCache.cpp
-    src/Render/Vulkan/ShaderModule.cpp
+    src/Assets/ShaderModuleAsset.cpp
     src/Render/Vulkan/VulkanUtils.cpp
     src/Render/Renderers/DeferredRenderer.cpp
     src/Render/Vulkan/ImageCreator.cpp
