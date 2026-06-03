@@ -66,10 +66,14 @@ uint32_t Asset::register_callback(Asset* asset, CallbackStage stage, const std::
 
 bool Asset::unregister_callback(uint32_t callbackId)
 {
+	if (callback_registry.empty()) {
+		// asset callback registry cleared before this callback is unregistered
+		// fine because without the asset(s), the callbacks not unregistered won't be called anyway
+		return false;
+	}
+
 	const auto it = callback_registry.find(callbackId);
 	ASSERT(it != callback_registry.end())
-
-	if (it == callback_registry.end()) return false;
 
 	auto [asset, stage] = it->second;
 	auto& vec = asset->reload_callbacks[stage];
@@ -110,4 +114,5 @@ void Asset::delete_all() {
 		delete asset;
 	}
 	assets_pool.clear();
+	callback_registry = {};
 }
