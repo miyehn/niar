@@ -16,6 +16,7 @@ public:
 private:
 	explicit TransmittanceLutCS() {
 		shaderPath = "spirv/sky_transmittance_lut.comp.spv";
+		debugName = "Transmittance LUT";
 	}
 	friend class ComputeShader;
 };
@@ -30,6 +31,7 @@ public:
 private:
 	explicit SkyViewLutCS() {
 		shaderPath = "spirv/sky_view_lut.comp.spv";
+		debugName = "Sky View LUT";
 	}
 	friend class ComputeShader;
 };

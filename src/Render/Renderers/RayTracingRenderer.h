@@ -3,6 +3,7 @@
 #include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/ShaderBindingTable.h"
 #include "Render/Vulkan/Buffer.h"
+#include "Render/Vulkan/Pipeline.h"
 #include "Renderer.h"
 #include "DeferredRenderer.h"
 
@@ -27,8 +28,7 @@ private:
 	VmaBuffer tlasBuffer;
 	VmaBuffer scratchBuffer;
 
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	RayTracingPipeline rtPipeline;
 	ShaderBindingTable sbt;
 
 	struct GpuFrameData {

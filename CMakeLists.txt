@@ -68,7 +68,7 @@ set(ELLYN_SRC
     src/Scene/Scene.cpp
     src/Scene/GrassField.cpp
     src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
-    src/Render/Vulkan/PipelineBuilder.cpp
+        src/Render/Vulkan/Pipeline.cpp
     src/Render/Vulkan/RenderPassBuilder.cpp
     src/Render/Vulkan/Buffer.cpp
     src/Render/Vulkan/DescriptorSet.cpp

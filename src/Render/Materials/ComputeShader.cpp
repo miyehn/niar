@@ -1,13 +1,14 @@
 #include "ComputeShader.h"
-#include "Render/Vulkan/PipelineBuilder.h"
+#include "Render/Vulkan/Pipeline.h"
 
-void ComputeShader::initializePipeline() {
-	if (pipeline != VK_NULL_HANDLE && pipelineLayout != VK_NULL_HANDLE) return;
-
+const ComputePipeline& ComputeShader::getPipeline() {
 	ASSERT(descriptorSetPtr != nullptr)
 
-	ComputePipelineBuilder pipelineBuilder{};
-	pipelineBuilder.shaderPath = shaderPath;
-	pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
-	pipelineBuilder.build(pipeline, pipelineLayout);
+	if (!computePipeline.valid()) {
+		auto& b = computePipeline.builder;
+		b.shaderPath = shaderPath;
+		b.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
+		computePipeline.build(debugName);
+	}
+	return computePipeline;
 }

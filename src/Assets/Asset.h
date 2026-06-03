@@ -1,16 +1,25 @@
 //
 // Created by raind on 5/21/2022.
 //
+#pragma once
+
 #include <functional>
 #include <string>
 #include <vector>
 #include <unordered_map>
 
-#pragma once
 
 class Asset
 {
 public:
+
+	enum CallbackStage
+	{
+		BeforeReload = 0,
+		AfterReload = 1,
+		CallbackStageCount = 2
+	};
+
 	uint32_t get_version() const { return _version; }
 	void reload();
 	virtual ~Asset();
@@ -21,9 +30,9 @@ public:
 	}
 
 	std::function<bool()> reload_condition = [](){ return true; };
-	std::vector<std::function<void()>> before_reload;
 
-	virtual void release_resources();
+	static uint32_t register_callback(Asset* asset, CallbackStage stage, const std::function<void()>& callback);
+	static bool unregister_callback(uint32_t callbackId);
 
 	static void reload_all();
 
@@ -38,10 +47,20 @@ protected:
 
 	void bump_version() { _version += 1; }
 
+	virtual void release_resources();
+
 private:
+	struct ReloadCallback {
+		uint32_t id;
+		std::function<void()> fn;
+	};
+	std::vector<ReloadCallback> reload_callbacks[CallbackStageCount];
+
 	bool _initialized = false;
 	time_t last_load_time = 0;
 	uint32_t _version = 0;
 
 	static std::unordered_map<std::string, Asset*> assets_pool;
+	static uint32_t next_callback_id;
+	static std::unordered_map<uint32_t, std::pair<Asset*, CallbackStage>> callback_registry;
 };

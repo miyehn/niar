@@ -5,9 +5,9 @@
 #include "Asset.h"
 #include "Utils/myn/Log.h"
 #include "SceneAsset.h"
-#include "EnvironmentMapAsset.h"
 #include <filesystem>
 #include <unordered_map>
+#include <algorithm>
 
 time_t get_file_clock_now() {
 	auto tp = std::chrono::system_clock::now();
@@ -22,6 +22,8 @@ time_t get_last_write_time(const std::string& path)
 }
 
 std::unordered_map<std::string, Asset*> Asset::assets_pool;
+uint32_t Asset::next_callback_id = 1;
+std::unordered_map<uint32_t, std::pair<Asset*, Asset::CallbackStage>> Asset::callback_registry;
 
 Asset::Asset(const std::string &_path)
 {
@@ -35,13 +37,14 @@ void Asset::reload() {
 	if (last_load_time < last_write_time) {
 		if (!_initialized || reload_condition()) {
 			// begin reload callbacks
-			for (auto& fn : before_reload) fn();
+				for (auto& cb : reload_callbacks[BeforeReload]) cb.fn();
 			// reload
 			last_load_time = get_file_clock_now();
 			if (_initialized) bump_version();
 			ASSET("loading asset '%s (now at v%d)'", relative_path.c_str(), _version)
 			load_action_internal();
 			_initialized = true;
+				for (auto& cb : reload_callbacks[AfterReload]) cb.fn();
 		} else {
 			WARN("'%s' was edited but not reloaded: condition not met", relative_path.c_str())
 		}
@@ -51,6 +54,29 @@ void Asset::reload() {
 Asset::~Asset() {
 	ASSERT(!_initialized)
 	assets_pool.erase(relative_path);
+}
+
+uint32_t Asset::register_callback(Asset* asset, CallbackStage stage, const std::function<void()>& callback)
+{
+	const uint32_t id = next_callback_id++;
+	asset->reload_callbacks[stage].push_back({id, callback});
+	callback_registry[id] = {asset, stage};
+	return id;
+}
+
+bool Asset::unregister_callback(uint32_t callbackId)
+{
+	const auto it = callback_registry.find(callbackId);
+	ASSERT(it != callback_registry.end())
+
+	if (it == callback_registry.end()) return false;
+
+	auto [asset, stage] = it->second;
+	auto& vec = asset->reload_callbacks[stage];
+	std::erase_if(vec, [callbackId](const ReloadCallback& cb){ return cb.id == callbackId; });
+
+	callback_registry.erase(it);
+	return true;
 }
 
 void Asset::release_resources() {

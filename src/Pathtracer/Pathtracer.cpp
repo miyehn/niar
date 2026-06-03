@@ -67,6 +67,8 @@ Pathtracer::~Pathtracer() {
 	clear_tasks_and_threads_begin();
 	clear_tasks_and_threads_wait();
 
+	if (_sceneCallbackId) Asset::unregister_callback(_sceneCallbackId);
+
 	delete window_surface;
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		gpuFrameData[i].viewInfoUbo.release();
@@ -101,7 +103,7 @@ void Pathtracer::initialize() {
 
 #if GRAPHICS_DISPLAY
 	// subscribe itself to scene asset
-	get_scene_asset()->before_reload.emplace_back([this](){
+	_sceneCallbackId = Asset::register_callback(get_scene_asset(), Asset::BeforeReload, [this](){
 		clear_tasks_and_threads_begin();
 		clear_tasks_and_threads_wait();
 	});

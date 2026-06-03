@@ -1,5 +1,6 @@
 .idea/
 .ccls-cache/
+.github/task-description.md
 build/
 cmake-build-debug/
 vcpkg_installed/

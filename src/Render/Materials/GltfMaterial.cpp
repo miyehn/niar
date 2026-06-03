@@ -1,6 +1,7 @@
 #include "GltfMaterial.h"
 #include "Scene/SceneObject.hpp"
 #include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/Pipeline.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Texture.h"
 
@@ -73,82 +74,62 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 	}
 }
 
-bool PbrGltfMaterial::pipelineIsDirty = false;
-MaterialPipeline PbrGltfMaterial::getPipeline()
-{
-	static MaterialPipeline materialPipeline = {};
-
-	if (pipelineIsDirty) {
-		materialPipeline.pipeline = VK_NULL_HANDLE;
-		materialPipeline.layout = VK_NULL_HANDLE;
-		pipelineIsDirty = false;
-	}
-
-	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
-	{
-		auto vk = Vulkan::Instance;
-
-		// now build the pipeline
-		GraphicsPipelineBuilder pipelineBuilder{};
-		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-		pipelineBuilder.fragPath = "spirv/geometry.frag.spv";
-		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
-			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
-		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
-
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
-		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-		pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
-
-		// since it has 4 color outputs:
-		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
-		const VkPipelineColorBlendAttachmentState blendInfoArray[4] = {blendInfo, blendInfo, blendInfo, blendInfo};
-		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 4;
-		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = blendInfoArray;
-
-		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
-	}
-
-	return materialPipeline;
+GraphicsPipeline PbrGltfMaterial::graphicsPipeline;
+void PbrGltfMaterial::destroyPipeline() {
+	graphicsPipeline.destroy();
 }
 
-bool PbrTranslucentGltfMaterial::pipelineIsDirty = false;
-MaterialPipeline PbrTranslucentGltfMaterial::getPipeline()
+const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 {
-	static MaterialPipeline materialPipeline = {};
-
-	if (pipelineIsDirty) {
-		materialPipeline.pipeline = VK_NULL_HANDLE;
-		materialPipeline.layout = VK_NULL_HANDLE;
-		pipelineIsDirty = false;
-	}
-
-	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE) {
+	if (!graphicsPipeline.valid()) {
 		auto vk = Vulkan::Instance;
-
-		// now build the pipeline
-		GraphicsPipelineBuilder pipelineBuilder{};
-		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-		pipelineBuilder.fragPath = "spirv/translucency_lit.frag.spv";
-		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.pipelineState.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-		pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
-		pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
+		auto& b = graphicsPipeline.builder;
+		b.vertPath = "spirv/geometry.vert.spv";
+		b.fragPath = "spirv/geometry.frag.spv";
+		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		b.pipelineState.rasterizationInfo.cullMode =
+			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+		b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-		pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
-		// don't write to depth
-		pipelineBuilder.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
+		// 4 color outputs; store by value so the pointer stays valid for deferred rebuilds
+		auto singleBlend = b.pipelineState.colorBlendAttachmentInfo;
+		b.pipelineState.colorBlendAttachments = {singleBlend, singleBlend, singleBlend, singleBlend};
 
-		// blending
-		VkPipelineColorBlendAttachmentState blendInfo = {
+		graphicsPipeline.build("PbrGltf");
+	}
+	return graphicsPipeline;
+}
+
+GraphicsPipeline PbrTranslucentGltfMaterial::graphicsPipeline;
+void PbrTranslucentGltfMaterial::destroyPipeline() { graphicsPipeline.destroy(); }
+
+const GraphicsPipeline& PbrTranslucentGltfMaterial::getPipeline()
+{
+	if (!graphicsPipeline.valid()) {
+		auto vk = Vulkan::Instance;
+		auto& b = graphicsPipeline.builder;
+		b.vertPath = "spirv/geometry.vert.spv";
+		b.fragPath = "spirv/translucency_lit.frag.spv";
+		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		b.pipelineState.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+		b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
+		b.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
+
+		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
+		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+
+		b.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
+
+		b.pipelineState.colorBlendAttachments = {{
 			.blendEnable = VK_TRUE,
 			.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
 			.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
@@ -157,54 +138,38 @@ MaterialPipeline PbrTranslucentGltfMaterial::getPipeline()
 			.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
 			.alphaBlendOp = VK_BLEND_OP_ADD,
 			.colorWriteMask = 15
-		};
+		}};
 
-		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 1;
-		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = &blendInfo;
-
-		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+		graphicsPipeline.build("PbrTranslucent");
 	}
-
-	return materialPipeline;
+	return graphicsPipeline;
 }
 
-bool SimpleGltfMaterial::pipelineIsDirty = false;
-MaterialPipeline SimpleGltfMaterial::getPipeline()
+GraphicsPipeline SimpleGltfMaterial::graphicsPipeline;
+void SimpleGltfMaterial::destroyPipeline() { graphicsPipeline.destroy(); }
+
+const GraphicsPipeline& SimpleGltfMaterial::getPipeline()
 {
-	static MaterialPipeline materialPipeline = {};
-
-	if (pipelineIsDirty) {
-		materialPipeline.pipeline = VK_NULL_HANDLE;
-		materialPipeline.layout = VK_NULL_HANDLE;
-		pipelineIsDirty = false;
-	}
-
-	if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
-	{
+	if (!graphicsPipeline.valid()) {
 		auto vk = Vulkan::Instance;
 
-		// now build the pipeline
-		GraphicsPipelineBuilder pipelineBuilder{};
-		pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-		pipelineBuilder.fragPath = "spirv/simple_gltf.frag.spv";
-		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.pipelineState.rasterizationInfo.cullMode =
+		auto& b = graphicsPipeline.builder;
+		b.vertPath = "spirv/geometry.vert.spv";
+		b.fragPath = "spirv/simple_gltf.frag.spv";
+		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		b.pipelineState.rasterizationInfo.cullMode =
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
-		pipelineBuilder.compatibleRenderPass = SimpleRenderer::get()->renderPass;
+		b.compatibleRenderPass = SimpleRenderer::get()->renderPass;
 
 		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-		pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-		pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
-		// since it has 4 color outputs:
-		auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
-		pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 1;
-		pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = &blendInfo;
+		b.pipelineState.colorBlendAttachments = { b.pipelineState.colorBlendAttachmentInfo };
 
-		pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+		graphicsPipeline.build("SimpleGltf");
 	}
-
-	return materialPipeline;
+	return graphicsPipeline;
 }

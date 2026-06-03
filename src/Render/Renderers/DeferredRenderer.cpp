@@ -1,5 +1,6 @@
 #include "DeferredRenderer.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
+#include "Render/Vulkan/Pipeline.h"
 #include "Render/Texture.h"
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
@@ -18,31 +19,28 @@
 class PostProcessing : public Material
 {
 public:
-	MaterialPipeline getPipeline() override
+	const GraphicsPipeline& getPipeline() override
 	{
-		static MaterialPipeline materialPipeline = {};
-		if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
-		{
+		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
-			// build the pipeline
-			GraphicsPipelineBuilder pipelineBuilder{};
-			pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
-			pipelineBuilder.fragPath = "spirv/post_processing.frag.spv";
-			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-			pipelineBuilder.pipelineState.useVertexInput = false;
-			pipelineBuilder.pipelineState.useDepthStencil = false;
-			pipelineBuilder.compatibleRenderPass = postProcessPass;
-			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_POSTPROCESSING;
+			auto& b = graphicsPipeline.builder;
+			b.vertPath = "spirv/fullscreen_triangle.vert.spv";
+			b.fragPath = "spirv/post_processing.frag.spv";
+			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+			b.pipelineState.useVertexInput = false;
+			b.pipelineState.useDepthStencil = false;
+			b.compatibleRenderPass = postProcessPass;
+			b.compatibleSubpass = DEFERRED_SUBPASS_POSTPROCESSING;
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
 			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 
-			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+			graphicsPipeline.build("Post Processing");
+
 		}
-
-		return materialPipeline;
+		return graphicsPipeline;
 	}
 
 private:
@@ -67,6 +65,7 @@ private:
 
 	VkRenderPass postProcessPass;
 	DescriptorSet dynamicSet;
+	GraphicsPipeline graphicsPipeline;
 
 	DeferredRenderer* renderer;
 
@@ -77,32 +76,28 @@ class DeferredLighting : public Material
 {
 public:
 
-	MaterialPipeline getPipeline() override
+	const GraphicsPipeline& getPipeline() override
 	{
-		static MaterialPipeline materialPipeline = {};
-		if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
-		{
+		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
-			// build the pipeline
-			GraphicsPipelineBuilder pipelineBuilder{};
-			pipelineBuilder.vertPath = "spirv/fullscreen_triangle.vert.spv";
-			pipelineBuilder.fragPath = Config->lookup<int>("Debug.RTX")
+			auto& b = graphicsPipeline.builder;
+			b.vertPath = "spirv/fullscreen_triangle.vert.spv";
+			b.fragPath = Config->lookup<int>("Debug.RTX")
 				? "spirv/deferred_lighting_shadow.frag.spv"
 				: "spirv/deferred_lighting.frag.spv";
-			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-			pipelineBuilder.pipelineState.useVertexInput = false;
-			pipelineBuilder.pipelineState.useDepthStencil = false;
-			pipelineBuilder.compatibleRenderPass = renderer->mainPass;
-			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_LIGHTING;
+			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+			b.pipelineState.useVertexInput = false;
+			b.pipelineState.useDepthStencil = false;
+			b.compatibleRenderPass = renderer->mainPass;
+			b.compatibleSubpass = DEFERRED_SUBPASS_LIGHTING;
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
-			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, renderer->getSkyDescriptorSetLayout());
+			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			b.useDescriptorSetLayout(DSET_INDEPENDENT, renderer->getSkyDescriptorSetLayout());
 
-			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+			graphicsPipeline.build("Deferred Lighting");
 		}
-
-		return materialPipeline;
+		return graphicsPipeline;
 	}
 
 private:
@@ -112,6 +107,7 @@ private:
 	}
 
 	DeferredRenderer* renderer;
+	GraphicsPipeline graphicsPipeline;
 
 	friend class DeferredRenderer;
 };
@@ -693,6 +689,9 @@ DeferredRenderer::~DeferredRenderer()
 	delete deferredLighting;
 	delete postProcessing;
 
+	PbrGltfMaterial::destroyPipeline();
+	PbrTranslucentGltfMaterial::destroyPipeline();
+
 	std::vector<Texture2D*> images = {
 		GPosition, GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed,
 		skyTransmittanceLut, skyViewLut
@@ -789,8 +788,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
 			auto aMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(a->mesh.materialName));
 			auto bMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(b->mesh.materialName));
-			auto aPipeline = aMaterial->getPipeline();
-			auto bPipeline = bMaterial->getPipeline();
+			auto& aPipeline = aMaterial->getPipeline();
+			auto& bPipeline = bMaterial->getPipeline();
 			if (aPipeline != bPipeline) { // different pipeline -> sort by pipeline
 				return aPipeline < bPipeline;
 			} else { // same pipeline -> compare material name
@@ -868,18 +867,18 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Opaque base pass")
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
-		MaterialPipeline last_pipeline = {};
+		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto mo : opaqueMeshes)
 		{
 			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
-			auto pipeline = mat->getPipeline();
+			auto& pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
-			if (pipeline != last_pipeline) {
+			if (!last_pipeline || pipeline != *last_pipeline) {
 				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-				if (pipeline.layout != last_pipeline.layout)
+				if (!last_pipeline || pipeline.layout != last_pipeline->layout)
 					bindFrameGlobal(pipeline.layout);
-				last_pipeline = pipeline;
+				last_pipeline = &pipeline;
 			}
 
 			// material changed
@@ -898,7 +897,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Opaque lighting pass")
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 
-		auto deferredLightingPipeline = deferredLighting->getPipeline();
+		auto& deferredLightingPipeline = deferredLighting->getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredLightingPipeline.pipeline);
 		bindFrameGlobal(deferredLightingPipeline.layout);
 		getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, deferredLightingPipeline.layout);
@@ -927,17 +926,17 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "Translucency")
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
 		Material* last_material = nullptr;
-		MaterialPipeline last_pipeline = {};
+		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto mo : translucentMeshes) {
 			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
-			auto pipeline = mat->getPipeline();
+			auto& pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind; re-set frame globals if necessary
-			if (pipeline != last_pipeline) {
+			if (!last_pipeline || pipeline != *last_pipeline) {
 				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-				if (pipeline.layout != last_pipeline.layout)
+				if (!last_pipeline || pipeline.layout != last_pipeline->layout)
 					bindFrameGlobal(pipeline.layout);
-				last_pipeline = pipeline;
+				last_pipeline = &pipeline;
 			}
 
 			// material changed
@@ -965,7 +964,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
 			SCOPED_DRAW_EVENT(cmdbuf, "Post processing")
-			auto postProcessPipeline = postProcessing->getPipeline();
+			auto& postProcessPipeline = postProcessing->getPipeline();
 			bindFrameGlobal(postProcessPipeline.layout); // 0
 			postProcessing->dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, postProcessPipeline.layout); // 3
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, postProcessPipeline.pipeline);
@@ -1040,7 +1039,6 @@ Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialN
 			return pooled_mat;
 		} else {
 			// obsolete; delete and create a new one below
-			pooled_mat->markPipelineDirty();
 			delete pooled_mat;
 		}
 	}

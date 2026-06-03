@@ -1,7 +1,7 @@
 #pragma once
 #include "Render/Vulkan/Vulkan.hpp"
-#include "Render/Vulkan/Buffer.h"
 #include "Render/Vulkan/DescriptorSet.h"
+#include "Render/Vulkan/Pipeline.h"
 
 class ComputeShader {
 public:
@@ -20,7 +20,8 @@ public:
 	virtual void dispatch(int groupCountX, int groupCountY, int groupCountZ) = 0;
 protected:
 	std::string shaderPath; // set by inherited class constructor
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	void initializePipeline();
+	std::string debugName;  // set by inherited class constructor
+	const ComputePipeline& getPipeline();
+private:
+	ComputePipeline computePipeline;
 };
