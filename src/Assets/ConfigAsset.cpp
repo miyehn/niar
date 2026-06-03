@@ -19,9 +19,8 @@ void create_config_src(const std::string &absolute_path, libconfig::Config& out_
 ConfigAsset::ConfigAsset(
 	const std::string& relative_file_path,
 	bool allow_reload,
-	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_file_path)
+	const std::function<void(const ConfigAsset *cfg)> &loadAction) : Asset(relative_file_path, allow_reload)
 {
-	reload_condition = [allow_reload](){ return allow_reload; };
 	load_action_internal = [this, relative_file_path, loadAction]() {
 		create_config_src(ROOT_DIR"/" + relative_file_path, config);
 		if (loadAction) {
@@ -34,5 +33,5 @@ ConfigAsset::ConfigAsset(
 			}
 		}
 	};
-	reload();
+	initialize_or_reload_outdated();
 }

@@ -444,7 +444,7 @@ std::vector<Mesh> load_gltf_meshes(
 SceneAsset::SceneAsset(
 	SceneObject* outer_root,
 	const std::string &relative_path)
-: Asset(relative_path)
+: Asset(relative_path, true)
 {
 	load_action_internal = [this, outer_root, relative_path]() {
 
@@ -728,7 +728,7 @@ SceneAsset::SceneAsset(
 		delete tree;
 	};
 
-	reload();
+	initialize_or_reload_outdated();
 }
 
 void SceneAsset::release_resources()
@@ -759,12 +759,9 @@ void SceneAsset::release_resources()
 std::unordered_map<std::string, std::string> alias_pool;
 
 MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
-	: Asset(relative_path)
+	: Asset(relative_path, false /* built-in assets; disable reload for now */)
 {
 	alias_pool[alias] = relative_path;
-
-	// reload is disabled for now
-	reload_condition = [](){ return false; };
 
 	load_action_internal = [this, relative_path](){
 
@@ -829,7 +826,7 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 		}
 
 	};
-	reload();
+	initialize_or_reload_outdated();
 }
 
 Mesh *MeshAsset::find(const std::string &alias)

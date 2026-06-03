@@ -21,7 +21,7 @@ public:
 	};
 
 	uint32_t get_version() const { return _version; }
-	void reload();
+	void initialize_or_reload_outdated();
 	virtual ~Asset();
 
 	template<typename Asset_T>
@@ -29,19 +29,19 @@ public:
 		return dynamic_cast<Asset_T*>(assets_pool[key]);
 	}
 
-	std::function<bool()> reload_condition = [](){ return true; };
+	const bool reloadable;
 
 	static uint32_t register_callback(Asset* asset, CallbackStage stage, const std::function<void()>& callback);
 	static bool unregister_callback(uint32_t callbackId);
 
-	static void reload_all();
+	static void initialize_or_reload_all_outdated();
 
 	static void release_all();
 
 	static void delete_all();
 
 protected:
-	Asset(const std::string &relative_path);
+	Asset(const std::string &relative_path, bool reloadable);
 	std::string relative_path;
 	std::function<void()> load_action_internal = nullptr;
 

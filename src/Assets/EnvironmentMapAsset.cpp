@@ -11,7 +11,7 @@
 #endif
 
 EnvironmentMapAsset::EnvironmentMapAsset(
-	const std::string &relative_path) : Asset(relative_path)
+	const std::string &relative_path) : Asset(relative_path, true)
 {
 	load_action_internal = [this, relative_path]() {
 
@@ -40,7 +40,7 @@ EnvironmentMapAsset::EnvironmentMapAsset(
 			ERR("load exr '%s' failed: %s", relative_path.c_str(), err)
 		}
 	};
-	reload();
+	initialize_or_reload_outdated();
 }
 
 void EnvironmentMapAsset::release_resources() {
