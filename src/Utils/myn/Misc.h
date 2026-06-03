@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <string>
 #include <vector>
 #include <glm/glm.hpp>
@@ -17,6 +18,17 @@ namespace myn
 	std::string lower(const std::string& s);
 
 	std::vector<char> read_file(const std::string& filename);
+
+	inline time_t get_file_clock_now() {
+		auto tp = std::chrono::system_clock::now();
+		return std::chrono::system_clock::to_time_t(tp);
+	}
+
+	inline time_t get_file_last_write_time(const std::string& path) {
+		auto file_time = std::filesystem::last_write_time(path);
+		auto system_time = std::chrono::clock_cast<std::chrono::system_clock>(file_time);
+		return std::chrono::system_clock::to_time_t(system_time);
+	}
 
 	template <typename T>
 	T aligned_size(T alignment, T in_size) { return (in_size + (alignment - 1)) & ~(alignment - 1); }

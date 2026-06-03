@@ -21,7 +21,12 @@ public:
 	};
 
 	uint32_t get_version() const { return _version; }
+
+	// by default, it watches the asset file at relative_path. But can be overwritten if needed.
+	virtual bool is_outdated();
+
 	void initialize_or_reload_outdated();
+
 	virtual ~Asset();
 
 	template<typename Asset_T>
@@ -56,7 +61,6 @@ private:
 	};
 	std::vector<ReloadCallback> reload_callbacks[CallbackStageCount];
 
-	bool _initialized = false;
 	time_t last_load_time = 0;
 	uint32_t _version = 0;
 
