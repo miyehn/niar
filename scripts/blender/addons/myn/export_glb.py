@@ -66,7 +66,7 @@ class MYN_OT_export_glb(bpy.types.Operator):
             export_normals=True,
             export_tangents=True,
             export_materials='EXPORT',
-            export_colors=False,
+            export_vertex_color='NONE',
             export_cameras=True,
             #export_selected=False,
             use_selection=False,

@@ -9,17 +9,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-time_t get_file_clock_now() {
-	auto tp = std::chrono::system_clock::now();
-	return std::chrono::system_clock::to_time_t(tp);
-}
-
-time_t get_last_write_time(const std::string& path)
-{
-	auto file_time = std::filesystem::last_write_time(path);
-	auto system_time = std::chrono::clock_cast<std::chrono::system_clock>(file_time);
-	return std::chrono::system_clock::to_time_t(system_time);
-}
+#include "Utils/myn/Misc.h"
 
 std::unordered_map<std::string, Asset*> Asset::assets_pool;
 uint32_t Asset::next_callback_id = 1;
@@ -31,27 +21,30 @@ Asset::Asset(const std::string &_path, bool _reloadable): reloadable(_reloadable
 	assets_pool[relative_path] = this;
 }
 
+bool Asset::is_outdated()
+{
+	time_t last_write_time = myn::get_file_last_write_time(ROOT_DIR"/" + relative_path);
+	return last_load_time < last_write_time;
+}
+
 void Asset::initialize_or_reload_outdated() {
-	time_t last_write_time = get_last_write_time(ROOT_DIR"/" + relative_path);
-	if (last_load_time < last_write_time) {
-		if (!_initialized || reloadable) {
+	if (is_outdated()) {
+		if (_version == 0 || reloadable) {
 			// begin reload callbacks
-				for (auto& cb : reload_callbacks[BeforeReload]) cb.fn();
+			for (auto& cb : reload_callbacks[BeforeReload]) cb.fn();
 			// reload
-			last_load_time = get_file_clock_now();
-			if (_initialized) bump_version();
+			last_load_time = myn::get_file_clock_now();
+			bump_version();
 			ASSET("loading asset '%s (now at v%d)'", relative_path.c_str(), _version)
 			load_action_internal();
-			_initialized = true;
-				for (auto& cb : reload_callbacks[AfterReload]) cb.fn();
+			for (auto& cb : reload_callbacks[AfterReload]) cb.fn();
 		} else {
-			WARN("'%s' was edited but not reloaded: condition not met", relative_path.c_str())
+			WARN("'%s' was edited but not reloaded because this is not a reloadable asset type", relative_path.c_str())
 		}
 	}
 }
 
 Asset::~Asset() {
-	ASSERT(!_initialized)
 	assets_pool.erase(relative_path);
 }
 
@@ -83,10 +76,9 @@ bool Asset::unregister_callback(uint32_t callbackId)
 }
 
 void Asset::release_resources() {
-	if (_initialized) {
+	if (_version > 0) {
 		ASSET("releasing asset %s", relative_path.c_str())
 	}
-	_initialized = false;
 }
 
 void Asset::initialize_or_reload_all_outdated() {
