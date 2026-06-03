@@ -10,6 +10,7 @@
 #include "Assets/SceneAsset.h"
 #include "Utils/myn/Log.h"
 #include "Render/Vulkan/Vulkan.hpp"
+#include "Render/Vulkan/Pipeline.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Scene/SkyAtmosphere/SkyAtmosphere.h"
 
@@ -19,40 +20,35 @@ public:
 		name = "probe material";
 	}
 	~ProbeMaterial() override = default;
-	MaterialPipeline getPipeline() override {
-		static MaterialPipeline materialPipeline = {};
-		if (materialPipeline.pipeline == VK_NULL_HANDLE || materialPipeline.layout == VK_NULL_HANDLE)
-		{
+	const GraphicsPipeline& getPipeline() override {
+		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
-
-			// now build the pipeline
-			GraphicsPipelineBuilder pipelineBuilder{};
-			pipelineBuilder.vertPath = "spirv/geometry.vert.spv";
-			pipelineBuilder.fragPath = "spirv/envmap_visualizer.frag.spv";
-			pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-			pipelineBuilder.compatibleRenderPass = DeferredRenderer::get()->mainPass;
-			pipelineBuilder.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
+			auto& b = graphicsPipeline.builder;
+			b.vertPath = "spirv/geometry.vert.spv";
+			b.fragPath = "spirv/envmap_visualizer.frag.spv";
+			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+			b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
+			b.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
 
 			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 			DescriptorSetLayout independentSetLayout = DeferredRenderer::get()->getSkyDescriptorSetLayout();
-			pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			pipelineBuilder.useDescriptorSetLayout(DSET_INDEPENDENT, independentSetLayout);
-			pipelineBuilder.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			b.useDescriptorSetLayout(DSET_INDEPENDENT, independentSetLayout);
+			b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
-			auto blendInfo = pipelineBuilder.pipelineState.colorBlendAttachmentInfo;
-			pipelineBuilder.pipelineState.colorBlendInfo.attachmentCount = 1;
-			pipelineBuilder.pipelineState.colorBlendInfo.pAttachments = &blendInfo;
+			b.pipelineState.colorBlendAttachments = { b.pipelineState.colorBlendAttachmentInfo };
 
-			pipelineBuilder.build(materialPipeline.pipeline, materialPipeline.layout);
+			graphicsPipeline.build("Probe EnvMap");
 		}
-
-		return materialPipeline;
+		return graphicsPipeline;
 	}
 	void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* obj) override {
 		glm::mat4 modelMatrix = obj->object_to_world();
 		vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 		DeferredRenderer::get()->getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);
 	}
+private:
+	GraphicsPipeline graphicsPipeline;
 };
 
 Probe::Probe()

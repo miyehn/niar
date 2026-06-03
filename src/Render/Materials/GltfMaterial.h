@@ -1,6 +1,7 @@
 #pragma once
 #include "Material.h"
 #include "GltfMaterialInfo.h"
+#include "Render/Vulkan/Pipeline.h"
 
 class Texture2D;
 
@@ -15,8 +16,6 @@ public:
 	// per-material
 	void bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout) override;
 	~GltfMaterial() override;
-
-	virtual void markPipelineDirty() = 0;
 
 	uint32_t getVersion() const { return cachedMaterialInfo._version; }
 
@@ -48,10 +47,10 @@ class PbrGltfMaterial : public GltfMaterial
 public:
 	explicit PbrGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
-	MaterialPipeline getPipeline() override;
-	void markPipelineDirty() override { pipelineIsDirty = true; }
+	const GraphicsPipeline& getPipeline() override;
+	static void destroyPipeline();
 private:
-	static bool pipelineIsDirty;
+	static GraphicsPipeline graphicsPipeline;
 };
 
 class PbrTranslucentGltfMaterial : public GltfMaterial
@@ -59,10 +58,10 @@ class PbrTranslucentGltfMaterial : public GltfMaterial
 public:
 	explicit PbrTranslucentGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
-	MaterialPipeline getPipeline() override;
-	void markPipelineDirty() override { pipelineIsDirty = true; }
+	const GraphicsPipeline& getPipeline() override;
+	static void destroyPipeline();
 private:
-	static bool pipelineIsDirty;
+	static GraphicsPipeline graphicsPipeline;
 };
 
 class SimpleGltfMaterial : public GltfMaterial
@@ -70,8 +69,8 @@ class SimpleGltfMaterial : public GltfMaterial
 public:
 	explicit SimpleGltfMaterial(const GltfMaterialInfo& info) : GltfMaterial(info) {}
 
-	MaterialPipeline getPipeline() override;
-	void markPipelineDirty() override { pipelineIsDirty = true; }
+	const GraphicsPipeline& getPipeline() override;
+	static void destroyPipeline();
 private:
-	static bool pipelineIsDirty;
+	static GraphicsPipeline graphicsPipeline;
 };

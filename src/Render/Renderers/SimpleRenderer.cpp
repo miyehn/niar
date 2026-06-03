@@ -142,6 +142,7 @@ SimpleRenderer::~SimpleRenderer()
 	delete sceneColor;
 	delete sceneDepth;
 	for (const auto& p : materials) delete p.second;
+	SimpleGltfMaterial::destroyPipeline();
 }
 
 SimpleRenderer *SimpleRenderer::get()
@@ -189,19 +190,19 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		// deferred base pass: draw the meshes with materials
 		Material* last_material = nullptr;
 		//VkPipeline last_pipeline = VK_NULL_HANDLE;
-		MaterialPipeline last_pipeline = {};
+		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
 		{
 			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
 			{
 				auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);
-				auto pipeline = mat->getPipeline();
+				auto& pipeline = mat->getPipeline();
 
 				// pipeline changed: re-bind; re-set frame globals if necessary
-				if (pipeline != last_pipeline)
+				if (!last_pipeline || pipeline != *last_pipeline)
 				{
 					vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-					if (pipeline.layout != last_pipeline.layout)
+					if (!last_pipeline || pipeline.layout != last_pipeline->layout)
 					{
 						fd.descriptorSet.bind(
 							cmdbuf,
@@ -209,7 +210,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 							DSET_FRAMEGLOBAL,
 							pipeline.layout);
 					}
-					last_pipeline = pipeline;
+					last_pipeline = &pipeline;
 				}
 
 				// material changed: reset instance counter
@@ -259,7 +260,6 @@ Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialNam
 		}
 		else {
 			// pooled material is obsolete; delete it.
-			pooled_mat->markPipelineDirty();
 			delete pooled_mat;
 		}
 	}

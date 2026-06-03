@@ -3,12 +3,10 @@
 //
 
 #include "SkyAtmosphereShaders.h"
-#include "Render/Vulkan/PipelineBuilder.h"
+#include "Render/Vulkan/Pipeline.h"
 #include "Render/Vulkan/VulkanUtils.h"
 
 void TransmittanceLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
-	initializePipeline();
-
 	// singleton instance
 	Vulkan::Instance->immediateSubmit(
 		[&](VkCommandBuffer cmdbuf) {
@@ -24,9 +22,8 @@ void TransmittanceLutCS::dispatch(int groupCountX, int groupCountY, int groupCou
 				VK_IMAGE_LAYOUT_UNDEFINED,
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-
-			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipelineLayout);
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, getPipeline().pipeline);
+			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, getPipeline().layout);
 			vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 
 			vk::insertImageBarrier(
@@ -44,8 +41,6 @@ void TransmittanceLutCS::dispatch(int groupCountX, int groupCountY, int groupCou
 }
 
 void SkyViewLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
-	initializePipeline();
-
 	Vulkan::Instance->immediateSubmit(
 		[&](VkCommandBuffer cmdbuf) {
 			SCOPED_DRAW_EVENT(cmdbuf, "Dispatch SkyViewLutCS")
@@ -61,8 +56,8 @@ void SkyViewLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
 				VK_IMAGE_LAYOUT_GENERAL
 			);
 
-			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipelineLayout);
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, getPipeline().pipeline);
+			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, getPipeline().layout);
 			vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 
 			vk::insertImageBarrier(

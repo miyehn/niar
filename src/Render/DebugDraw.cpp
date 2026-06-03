@@ -1,40 +1,38 @@
 #include "DebugDraw.h"
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Vulkan/VulkanUtils.h"
+#include "Vulkan/Pipeline.h"
 
 //................... points .......................
 
 DebugPoints::DebugPoints(const DescriptorSetLayout& frameGlobalSetLayout, VkRenderPass compatiblePass, int compatibleSubpass)
 {
-	if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
-	{
-		// build the pipeline
-		auto vk = Vulkan::Instance;
-		GraphicsPipelineBuilder pipelineBuilder{};
-		pipelineBuilder.vertPath = "spirv/debug_point.vert.spv";
-		pipelineBuilder.fragPath = "spirv/debug_point.frag.spv";
-		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-		pipelineBuilder.compatibleRenderPass = compatiblePass;
-		pipelineBuilder.compatibleSubpass = compatibleSubpass;
+	// build the pipeline
+	auto vk = Vulkan::Instance;
+	auto& pipelineBuilder = graphicsPipeline.builder;
+	pipelineBuilder.vertPath = "spirv/debug_point.vert.spv";
+	pipelineBuilder.fragPath = "spirv/debug_point.frag.spv";
+	pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+	pipelineBuilder.compatibleRenderPass = compatiblePass;
+	pipelineBuilder.compatibleSubpass = compatibleSubpass;
 
-		// input info
-		pipelineBuilder.pipelineState.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-		PointData::getBindingDescription(pipelineBuilder.pipelineState.bindingDescription);
-		PointData::getAttributeDescriptions(pipelineBuilder.pipelineState.attributeDescriptions);
-		pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
-		pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_POINT;
+	// input info
+	pipelineBuilder.pipelineState.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+	PointData::getBindingDescription(pipelineBuilder.pipelineState.bindingDescription);
+	PointData::getAttributeDescriptions(pipelineBuilder.pipelineState.attributeDescriptions);
+	pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
+	pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_POINT;
 
-		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+	pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 
-		pipelineBuilder.build(pipeline, pipelineLayout);
-	}
+	graphicsPipeline.build("Debug Points");
 }
 
 void DebugPoints::bindAndDraw(VkCommandBuffer cmdbuf)
 {
 	if (points.empty()) return;
 
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.pipeline);
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = pointsBuffer.buffer;
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)
@@ -75,11 +73,9 @@ void DebugPoints::uploadVertexBuffer()
 
 DebugLines::DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRenderPass compatiblePass, int compatibleSubpass)
 {
-	if (pipelineLayout == VK_NULL_HANDLE || pipeline == VK_NULL_HANDLE)
-	{
 		// build the pipeline
 		auto vk = Vulkan::Instance;
-		GraphicsPipelineBuilder pipelineBuilder{};
+		auto& pipelineBuilder = graphicsPipeline.builder;
 		pipelineBuilder.vertPath = "spirv/debug_point.vert.spv";
 		pipelineBuilder.fragPath = "spirv/debug_point.frag.spv";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
@@ -95,11 +91,7 @@ DebugLines::DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRender
 
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 
-		pipelineBuilder.build(pipeline, pipelineLayout);
-
-		NAME_OBJECT(VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipelineLayout, "Debug Lines pipeline layout")
-		NAME_OBJECT(VK_OBJECT_TYPE_PIPELINE, pipeline, "Debug Lines pipeline")
-	}
+		graphicsPipeline.build("Debug Lines");
 }
 
 DebugLines::~DebugLines()
@@ -111,7 +103,7 @@ void DebugLines::bindAndDraw(VkCommandBuffer cmdbuf)
 {
 	if (points.empty()) return;
 
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.pipeline);
 	VkDeviceSize offsets[] = { 0 };
 	auto vb = pointsBuffer.buffer;
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vb, offsets); // offset, #bindings, (content)

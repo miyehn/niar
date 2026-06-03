@@ -59,13 +59,11 @@ public:
 
 	uint32_t numPoints() { return points.size(); }
 
-	VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
+	VkPipelineLayout getPipelineLayout() const { return graphicsPipeline.layout; }
 
 private:
 
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	//DescriptorSet descriptorSet = {};
+	GraphicsPipeline graphicsPipeline;
 
 	std::vector<PointData> points;
 };
@@ -91,12 +89,10 @@ public:
 
 	uint32_t numSegments() { return points.size() / 2; }
 
-	VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
+	VkPipelineLayout getPipelineLayout() const { return graphicsPipeline.layout; }
 
 private:
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	//DescriptorSet descriptorSetPtr = {};
+	GraphicsPipeline graphicsPipeline;
 
 	std::vector<PointData> points;
 };

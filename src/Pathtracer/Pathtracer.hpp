@@ -78,6 +78,8 @@ private:
 	ConfigAsset* config = nullptr;
 	CachedConfig cached_config;
 
+	uint32_t _sceneCallbackId = 0;
+
 #if GRAPHICS_DISPLAY
 	// ray tracing state and control
 	bool paused = true;

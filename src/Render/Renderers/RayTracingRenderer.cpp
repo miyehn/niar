@@ -4,7 +4,7 @@
 #include "RayTracingRenderer.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/VulkanUtils.h"
-#include "Render/Vulkan/PipelineBuilder.h"
+#include "Render/Vulkan/Pipeline.h"
 #include "Render/Texture.h"
 #include "Scene/MeshObject.h"
 
@@ -116,19 +116,20 @@ RayTracingRenderer::RayTracingRenderer()
 	}
 
 	// pipeline
-	RayTracingPipelineBuilder builder{};
-	builder.rgenPath = "spirv/ray_gen.rgen.spv";
-	builder.rchitPaths.emplace_back("spirv/ray_chit.rchit.spv");
-	builder.rchitPaths.emplace_back("spirv/ray_chit2.rchit.spv");
-	builder.rmissPaths.emplace_back("spirv/ray_miss.rmiss.spv");
-	builder.rmissPaths.emplace_back("spirv/ray_miss2.rmiss.spv");
-	builder.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{0, -1});
-	builder.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{1, -1});
-	builder.useDescriptorSetLayout(0, gpuFrameData[0].descriptorSet.getLayout());
-	builder.build(pipeline, pipelineLayout);
+	auto& b = rtPipeline.builder;
+	b.rgenPath = "spirv/ray_gen.rgen.spv";
+	b.rchitPaths.emplace_back("spirv/ray_chit.rchit.spv");
+	b.rchitPaths.emplace_back("spirv/ray_chit2.rchit.spv");
+	b.rmissPaths.emplace_back("spirv/ray_miss.rmiss.spv");
+	b.rmissPaths.emplace_back("spirv/ray_miss2.rmiss.spv");
+	b.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{0, -1});
+	b.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{1, -1});
+	b.useDescriptorSetLayout(0, gpuFrameData[0].descriptorSet.getLayout());
+	rtPipeline.onRebuilt = [this]() { sbt = ShaderBindingTable(rtPipeline.pipeline, 2, 2); };
+	rtPipeline.build("Ray Tracing");
 
 	// sbt
-	sbt = ShaderBindingTable(pipeline, 2, 2);
+	sbt = ShaderBindingTable(rtPipeline.pipeline, 2, 2);
 }
 
 RayTracingRenderer::~RayTracingRenderer()
@@ -211,8 +212,8 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 							   VK_IMAGE_LAYOUT_UNDEFINED,
 							   VK_IMAGE_LAYOUT_GENERAL);
 
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline);
-		fd.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 0, pipelineLayout);
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipeline);
+		fd.descriptorSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 0, rtPipeline.layout);
 		const auto &extent = Vulkan::Instance->swapChainExtent;
 		Vulkan::Instance->fn_vkCmdTraceRaysKHR(
 			cmdbuf,
