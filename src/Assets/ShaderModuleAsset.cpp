@@ -4,10 +4,8 @@
 #include "Utils/myn/Misc.h"
 
 ShaderModuleAsset::ShaderModuleAsset(const std::string& path)
-	: Asset(path)
+	: Asset(path, false)
 {
-	reload_condition = []() { return false; };
-
 	load_action_internal = [this, path]() {
 		auto code = myn::read_file(path);
 		VkShaderModuleCreateInfo createInfo = {
@@ -21,7 +19,7 @@ ShaderModuleAsset::ShaderModuleAsset(const std::string& path)
 		NAME_OBJECT(VK_OBJECT_TYPE_SHADER_MODULE, module, formattedName)
 	};
 
-	reload();
+	initialize_or_reload_outdated();
 }
 
 ShaderModuleAsset* ShaderModuleAsset::get(const std::string& path)

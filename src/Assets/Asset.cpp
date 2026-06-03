@@ -25,17 +25,16 @@ std::unordered_map<std::string, Asset*> Asset::assets_pool;
 uint32_t Asset::next_callback_id = 1;
 std::unordered_map<uint32_t, std::pair<Asset*, Asset::CallbackStage>> Asset::callback_registry;
 
-Asset::Asset(const std::string &_path)
+Asset::Asset(const std::string &_path, bool _reloadable): reloadable(_reloadable)
 {
 	relative_path = _path;
-	reload_condition = [](){ return true; };
 	assets_pool[relative_path] = this;
 }
 
-void Asset::reload() {
+void Asset::initialize_or_reload_outdated() {
 	time_t last_write_time = get_last_write_time(ROOT_DIR"/" + relative_path);
 	if (last_load_time < last_write_time) {
-		if (!_initialized || reload_condition()) {
+		if (!_initialized || reloadable) {
 			// begin reload callbacks
 				for (auto& cb : reload_callbacks[BeforeReload]) cb.fn();
 			// reload
@@ -90,9 +89,9 @@ void Asset::release_resources() {
 	_initialized = false;
 }
 
-void Asset::reload_all() {
+void Asset::initialize_or_reload_all_outdated() {
 	for (auto& p : assets_pool) {
-		p.second->reload();
+		p.second->initialize_or_reload_outdated();
 	}
 }
 

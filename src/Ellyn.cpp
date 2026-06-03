@@ -212,7 +212,7 @@ static bool process_input()
 		else if (event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_FOCUS_GAINED) {
 			if (Config->lookup<int>("Debug.AutoHotReload")) {
 
-				Asset::reload_all();
+				Asset::initialize_or_reload_all_outdated();
 
 				// find a camera and set it active
 				Scene::Active->foreach_descendent_bfs([](SceneObject* obj) {
