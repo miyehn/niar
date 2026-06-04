@@ -1,10 +1,16 @@
 #pragma once
 
 #include <iostream>
+#include <mutex>
 
 // for showing last relative_path node, see: https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
 #define PATH_ELIM_SLASH '\\'
 #define __FILENAME__ (strrchr(__FILE__, PATH_ELIM_SLASH) ? strrchr(__FILE__, PATH_ELIM_SLASH) + 1 : __FILE__)
+
+// Global mutex for thread-safe logging
+namespace {
+	std::mutex _log_mutex;
+}
 
 // colors
 // for color formatting, see: https://stackoverflow.com/questions/2616906/how-do-i-output-coloured-text-to-a-linux-terminal
@@ -29,6 +35,7 @@
 #define NEWLINE { printf("\n"); fflush(stdout); }
 
 #define LOG(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_GREEN \
 	printf("["); LOCATION; printf("] "); \
 	COLOR_RESET \
@@ -37,11 +44,13 @@
 }
 
 #define LOGR(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	printf(__VA_ARGS__); \
 	NEWLINE \
 }
 
 #define WARN(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_YELLOW \
 	printf("["); LOCATION; printf("] "); \
 	COLOR_RESET \
@@ -50,6 +59,7 @@
 }
 
 #define ERR(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_RED \
 	printf("["); LOCATION; printf("] "); \
 	COLOR_RESET \
@@ -60,6 +70,7 @@
 
 // pathtracer
 #define TRACE(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_MAGENTA \
 	printf("[Pathtracer] "); \
 	printf(__VA_ARGS__); \
@@ -69,6 +80,7 @@
 
 // blue (assets)
 #define ASSET(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_BLUE \
 	printf("[Asset] "); \
 	printf(__VA_ARGS__); \
@@ -77,6 +89,7 @@
 }
 
 #define VKLOG(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_CYAN \
 	printf("[Vulkan validation] "); \
 	printf(__VA_ARGS__); \
@@ -84,6 +97,7 @@
 	NEWLINE \
 }
 #define VKWARN(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_YELLOW \
 	printf("[Vulkan validation] "); \
 	printf(__VA_ARGS__); \
@@ -91,6 +105,7 @@
 	NEWLINE \
 }
 #define VKERR(...) { \
+	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_RED \
 	printf("[Vulkan validation] "); \
 	printf(__VA_ARGS__); \
@@ -105,6 +120,7 @@
 
 #define EXPECT_M(STATEMENT, EXPECTED, ...) { \
 	if (STATEMENT != EXPECTED) { \
+		std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 		COLOR_RED \
 		printf("["); LOCATION; printf("]"); \
 		printf("[Assertion failed] "); \
