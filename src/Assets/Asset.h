@@ -47,10 +47,11 @@ public:
 
 protected:
 	Asset(const std::string &relative_path, bool reloadable);
-	std::string relative_path;
+	std::string virtual_path;
 	std::function<void()> load_action_internal = nullptr;
 
 	void bump_version() { _version += 1; }
+	time_t get_last_load_time() const { return last_load_time; }
 
 	virtual void release_resources();
 

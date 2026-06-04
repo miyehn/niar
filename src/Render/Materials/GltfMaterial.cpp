@@ -84,8 +84,8 @@ const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 	if (!graphicsPipeline.valid()) {
 		auto vk = Vulkan::Instance;
 		auto& b = graphicsPipeline.builder;
-		b.vertPath = "spirv/geometry.vert.spv";
-		b.fragPath = "spirv/geometry.frag.spv";
+		b.vertPath = "shaders/geometry.vert";
+		b.fragPath = "shaders/geometry.frag";
 		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		b.pipelineState.rasterizationInfo.cullMode =
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
@@ -114,8 +114,8 @@ const GraphicsPipeline& PbrTranslucentGltfMaterial::getPipeline()
 	if (!graphicsPipeline.valid()) {
 		auto vk = Vulkan::Instance;
 		auto& b = graphicsPipeline.builder;
-		b.vertPath = "spirv/geometry.vert.spv";
-		b.fragPath = "spirv/translucency_lit.frag.spv";
+		b.vertPath = "shaders/geometry.vert";
+		b.fragPath = "shaders/translucency_lit.frag";
 		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		b.pipelineState.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
 		b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
@@ -154,8 +154,8 @@ const GraphicsPipeline& SimpleGltfMaterial::getPipeline()
 		auto vk = Vulkan::Instance;
 
 		auto& b = graphicsPipeline.builder;
-		b.vertPath = "spirv/geometry.vert.spv";
-		b.fragPath = "spirv/simple_gltf.frag.spv";
+		b.vertPath = "shaders/geometry.vert";
+		b.fragPath = "shaders/simple_gltf.frag";
 		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		b.pipelineState.rasterizationInfo.cullMode =
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;

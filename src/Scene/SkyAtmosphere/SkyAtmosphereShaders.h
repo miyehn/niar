@@ -15,7 +15,7 @@ public:
 	void dispatch(int groupCountX, int groupCountY, int groupCountZ) override;
 private:
 	explicit TransmittanceLutCS() {
-		shaderPath = "spirv/sky_transmittance_lut.comp.spv";
+		shaderPath = "shaders/sky_transmittance_lut.comp";
 		debugName = "Transmittance LUT";
 	}
 	friend class ComputeShader;
@@ -30,7 +30,7 @@ public:
 
 private:
 	explicit SkyViewLutCS() {
-		shaderPath = "spirv/sky_view_lut.comp.spv";
+		shaderPath = "shaders/sky_view_lut.comp";
 		debugName = "Sky View LUT";
 	}
 	friend class ComputeShader;

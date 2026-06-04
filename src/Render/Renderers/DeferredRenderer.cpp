@@ -24,8 +24,8 @@ public:
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
-			b.vertPath = "spirv/fullscreen_triangle.vert.spv";
-			b.fragPath = "spirv/post_processing.frag.spv";
+			b.vertPath = "shaders/fullscreen_triangle.vert";
+			b.fragPath = "shaders/post_processing.frag";
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.pipelineState.useVertexInput = false;
 			b.pipelineState.useDepthStencil = false;
@@ -81,10 +81,10 @@ public:
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
-			b.vertPath = "spirv/fullscreen_triangle.vert.spv";
+			b.vertPath = "shaders/fullscreen_triangle.vert";
 			b.fragPath = Config->lookup<int>("Debug.RTX")
-				? "spirv/deferred_lighting_shadow.frag.spv"
-				: "spirv/deferred_lighting.frag.spv";
+				? "shaders/deferred_lighting_shadow.frag"
+				: "shaders/deferred_lighting.frag";
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.pipelineState.useVertexInput = false;
 			b.pipelineState.useDepthStencil = false;

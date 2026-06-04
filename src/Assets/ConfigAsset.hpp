@@ -26,10 +26,10 @@ public:
 			if (config.lookupValue(cfg_path.c_str(), value))
 				return value;
 			else
-			ERR("failed to lookup \"%s\" from config file \"%s\"", cfg_path.c_str(), relative_path.c_str())
+			ERR("failed to lookup \"%s\" from config file \"%s\"", cfg_path.c_str(), virtual_path.c_str())
 		} catch (const libconfig::SettingNotFoundException &nfex) {
 			ERR("\"%s\" not found in config file \"%s\": %s",
-				cfg_path.c_str(), relative_path.c_str(), nfex.what())
+				cfg_path.c_str(), virtual_path.c_str(), nfex.what())
 		} catch (const libconfig::SettingTypeException &tpex) {
 			ERR("\"%s\" is not of type %s: %s"
 			, cfg_path.c_str(), typeid(T).name(), tpex.what())
