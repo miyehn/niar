@@ -17,13 +17,14 @@ std::unordered_map<uint32_t, std::pair<Asset*, Asset::CallbackStage>> Asset::cal
 
 Asset::Asset(const std::string &_path, bool _reloadable): reloadable(_reloadable)
 {
-	relative_path = _path;
-	assets_pool[relative_path] = this;
+	virtual_path = _path;
+	assets_pool[virtual_path] = this;
 }
 
 bool Asset::is_outdated()
 {
-	time_t last_write_time = myn::get_file_last_write_time(ROOT_DIR"/" + relative_path);
+	if (_version == 0) return true;
+	time_t last_write_time = myn::get_file_last_write_time(ROOT_DIR"/" + virtual_path);
 	return last_load_time < last_write_time;
 }
 
@@ -34,18 +35,18 @@ void Asset::initialize_or_reload_outdated() {
 			for (auto& cb : reload_callbacks[BeforeReload]) cb.fn();
 			// reload
 			last_load_time = myn::get_file_clock_now();
-			bump_version();
-			ASSET("loading asset '%s (now at v%d)'", relative_path.c_str(), _version)
+			ASSET("loading asset '%s (v%d)'", virtual_path.c_str(), _version + 1)
 			load_action_internal();
+			bump_version();
 			for (auto& cb : reload_callbacks[AfterReload]) cb.fn();
 		} else {
-			WARN("'%s' was edited but not reloaded because this is not a reloadable asset type", relative_path.c_str())
+			WARN("'%s' was edited but not reloaded because this is not a reloadable asset type", virtual_path.c_str())
 		}
 	}
 }
 
 Asset::~Asset() {
-	assets_pool.erase(relative_path);
+	assets_pool.erase(virtual_path);
 }
 
 uint32_t Asset::register_callback(Asset* asset, CallbackStage stage, const std::function<void()>& callback)
@@ -77,7 +78,7 @@ bool Asset::unregister_callback(uint32_t callbackId)
 
 void Asset::release_resources() {
 	if (_version > 0) {
-		ASSET("releasing asset %s", relative_path.c_str())
+		ASSET("releasing asset %s", virtual_path.c_str())
 	}
 }
 

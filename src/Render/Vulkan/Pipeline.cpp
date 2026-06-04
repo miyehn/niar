@@ -198,8 +198,8 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 {
 	// shader stages
 
-	auto vertModule = ShaderModuleAsset::get(vertPath);
-	auto fragModule = ShaderModuleAsset::get(fragPath);
+	auto vertModule = ShaderModuleAsset::get(vertPath + ":main");
+	auto fragModule = ShaderModuleAsset::get(fragPath + ":main");
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -269,7 +269,7 @@ void ComputePipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const Des
 void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName)
 {
 	// shader stage
-	auto shaderModule = ShaderModuleAsset::get(shaderPath);
+	auto shaderModule = ShaderModuleAsset::get(shaderPath + ":main");
 	VkPipelineShaderStageCreateInfo shaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -319,7 +319,7 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 	shaderStages.push_back({
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-		.module = ShaderModuleAsset::get(rgenPath)->module,
+		.module = ShaderModuleAsset::get(rgenPath + ":main")->module,
 		.pName = "main", // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	});
@@ -330,7 +330,7 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 		shaderStages.push_back({
 		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		   .stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		   .module = ShaderModuleAsset::get(rchitPath)->module,
+		   .module = ShaderModuleAsset::get(rchitPath + ":main")->module,
 		   .pName = "main", // entry point function (should be main for glsl shaders)
 		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		});
@@ -342,7 +342,7 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 		shaderStages.push_back({
 		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		   .stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-		   .module = ShaderModuleAsset::get(rahitPath)->module,
+		   .module = ShaderModuleAsset::get(rahitPath + ":main")->module,
 		   .pName = "main", // entry point function (should be main for glsl shaders)
 		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		});
@@ -354,7 +354,7 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 		shaderStages.push_back({
 		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		   .stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-		   .module = ShaderModuleAsset::get(rmissPath)->module,
+		   .module = ShaderModuleAsset::get(rmissPath + ":main")->module,
 		   .pName = "main", // entry point function (should be main for glsl shaders)
 		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		});
@@ -462,7 +462,7 @@ void GraphicsPipeline::build(const std::string& debugName)
 	{
 		auto register_on = [this, debugName](const std::string& path) {
 			if (path.empty()) return;
-			auto* asset = ShaderModuleAsset::get(path);
+			auto* asset = ShaderModuleAsset::get(path + ":main");
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() { destroy(); }));
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::AfterReload, [this, debugName]() { build(debugName); }));
 		};
@@ -482,7 +482,7 @@ void ComputePipeline::build(const std::string& debugName)
 
 	if (_callbackIds.empty())
 	{
-		auto* asset = ShaderModuleAsset::get(builder.shaderPath);
+		auto* asset = ShaderModuleAsset::get(builder.shaderPath + ":main");
 		_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() { destroy(); }));
 		_callbackIds.push_back(Asset::register_callback(asset, Asset::AfterReload, [this, debugName]() { build(debugName); }));
 	}
@@ -500,8 +500,11 @@ void RayTracingPipeline::build(const std::string& debugName)
 	{
 		auto register_on = [this, debugName](const std::string& path) {
 			if (path.empty()) return;
-			auto* asset = ShaderModuleAsset::get(path);
-			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() { destroy(); }));
+			auto* asset = ShaderModuleAsset::get(path + ":main");
+			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() {
+				Vulkan::Instance->waitDeviceIdle();
+				destroy();
+			}));
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::AfterReload, [this, debugName]() {
 				build(debugName);
 				if (onRebuilt) onRebuilt();

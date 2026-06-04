@@ -4,6 +4,7 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
+#include "Assets/ShaderModuleAsset.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
 #include "Render/Texture.h"
@@ -89,6 +90,7 @@ static void init()
 
 	{// shared resources
 		LOG("loading resources (vulkan)...");
+		ShaderModuleAsset::compile_all();
 		Texture2D::createDefaultTextures();
 
 		const libconfig::Setting& asset_paths = Config->lookupRaw("AdditionalAssets");

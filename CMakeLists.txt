@@ -120,6 +120,7 @@ target_include_directories(ellyn PRIVATE
     external/imgui
     external/renderdoc
     ${Vulkan_INCLUDE_DIRS}
+    $ENV{VULKAN_SDK}/Include
     ${Stb_INCLUDE_DIR})
 target_link_libraries(ellyn PRIVATE
     Threads::Threads
@@ -131,7 +132,8 @@ target_link_libraries(ellyn PRIVATE
     GPUOpen::VulkanMemoryAllocator
     unofficial::tinyexr::tinyexr
     nlohmann_json::nlohmann_json
-    cxxopts::cxxopts)
+    cxxopts::cxxopts
+    "$ENV{VULKAN_SDK}/Lib/shaderc_shared.lib")
 target_compile_definitions(ellyn PRIVATE
     ${NIAR_COMMON_DEFINES}
     GRAPHICS_DISPLAY=1)
@@ -140,6 +142,9 @@ target_compile_definitions(ellyn PRIVATE
 add_custom_command(TARGET ellyn POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_RUNTIME_DLLS:ellyn>
+        $<TARGET_FILE_DIR:ellyn>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$ENV{VULKAN_SDK}/Bin/shaderc_shared.dll"
         $<TARGET_FILE_DIR:ellyn>
     COMMAND_EXPAND_LISTS
     COMMENT "Copying runtime DLLs")
