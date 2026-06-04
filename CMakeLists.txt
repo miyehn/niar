@@ -175,12 +175,12 @@ target_compile_definitions(vin PRIVATE
     ${NIAR_COMMON_DEFINES}
     GRAPHICS_DISPLAY=0)
 
-# ---------- Vulkan shaders ----------
+# ---------- Vulkan shaders (NOTE: deprecated now that shaders are compiled in cpp) ----------
 
-set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders)
-set(VULKAN_SHADERS_BIN_DIR ${CMAKE_SOURCE_DIR}/spirv)
+#set(VULKAN_SHADERS_SRC_DIR ${CMAKE_SOURCE_DIR}/shaders)
+#set(VULKAN_SHADERS_BIN_DIR ${CMAKE_SOURCE_DIR}/spirv)
 #set(VULKAN_SHADERS_BIN_DIR ${CMAKE_BINARY_DIR}/spirv)
-add_custom_target(shaders ALL
-    COMMENT "Compiling Vulkan shaders"
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/compile_vulkan_shaders.sh
-        ${VULKAN_SHADERS_SRC_DIR} ${VULKAN_SHADERS_BIN_DIR})
+#add_custom_target(shaders ALL
+#    COMMENT "Compiling Vulkan shaders"
+#    COMMAND ${CMAKE_SOURCE_DIR}/scripts/compile_vulkan_shaders.sh
+#        ${VULKAN_SHADERS_SRC_DIR} ${VULKAN_SHADERS_BIN_DIR})

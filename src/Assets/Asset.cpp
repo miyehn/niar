@@ -15,9 +15,9 @@ std::unordered_map<std::string, Asset*> Asset::assets_pool;
 uint32_t Asset::next_callback_id = 1;
 std::unordered_map<uint32_t, std::pair<Asset*, Asset::CallbackStage>> Asset::callback_registry;
 
-Asset::Asset(const std::string &_path, bool _reloadable): reloadable(_reloadable)
+Asset::Asset(const std::string &_virtual_path, bool _reloadable): reloadable(_reloadable)
 {
-	virtual_path = _path;
+	virtual_path = _virtual_path;
 	assets_pool[virtual_path] = this;
 }
 
