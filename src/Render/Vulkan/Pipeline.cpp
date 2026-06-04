@@ -463,7 +463,10 @@ void GraphicsPipeline::build(const std::string& debugName)
 		auto register_on = [this, debugName](const std::string& path) {
 			if (path.empty()) return;
 			auto* asset = ShaderModuleAsset::get(path + ":main");
-			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() { destroy(); }));
+			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this](){
+				Vulkan::Instance->waitDeviceIdle();
+				destroy();
+			}));
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::AfterReload, [this, debugName]() { build(debugName); }));
 		};
 
@@ -483,7 +486,10 @@ void ComputePipeline::build(const std::string& debugName)
 	if (_callbackIds.empty())
 	{
 		auto* asset = ShaderModuleAsset::get(builder.shaderPath + ":main");
-		_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() { destroy(); }));
+		_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this](){
+			Vulkan::Instance->waitDeviceIdle();
+			destroy();
+		}));
 		_callbackIds.push_back(Asset::register_callback(asset, Asset::AfterReload, [this, debugName]() { build(debugName); }));
 	}
 }
