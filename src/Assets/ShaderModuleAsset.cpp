@@ -3,8 +3,12 @@
 #include "../Render/Vulkan/VulkanUtils.h"
 #include "Utils/myn/Log.h"
 #include "Utils/myn/Misc.h"
+#include "Utils/myn/ThreadSafeQueue.h"
 #include <shaderc/shaderc.hpp>
 #include <filesystem>
+#include <thread>
+
+#include "Utils/myn/Timer.h"
 
 // ---------------------------------------------------------------------------
 // Hard-coded list of every entry-point shader.
@@ -101,50 +105,68 @@ public:
 
 // ---------------------------------------------------------------------------
 
-ShaderModuleAsset::ShaderModuleAsset(const ShaderModuleDef& def)
+static bool compile_shader(
+	const ShaderModuleAsset::ShaderModuleDef& moduleDef,
+	std::vector<uint32_t>& outSpirv,
+	std::vector<std::string>& outDeps,
+	std::string& outCompileErr)
+{
+	std::string abs_entry = std::string(ROOT_DIR) + "/" + moduleDef.entry_file;
+
+	auto source_bytes = myn::read_file(abs_entry);
+	std::string source(source_bytes.begin(), source_bytes.end());
+
+	// Prepare tracking for this compile.
+	std::vector<std::string> new_deps;
+
+	shaderc::Compiler compiler;
+	shaderc::CompileOptions options;
+	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
+
+	auto includer = std::make_unique<TrackingIncluder>();
+	includer->tracked_paths = &new_deps;
+	options.SetIncluder(std::move(includer));
+
+	for (const auto& def : moduleDef.defines) {
+		auto eq = def.find('=');
+		if (eq != std::string::npos)
+			options.AddMacroDefinition(def.substr(0, eq), def.substr(eq + 1));
+		else
+			options.AddMacroDefinition(def);
+	}
+
+	auto result = compiler.CompileGlslToSpv(
+		source, moduleDef.stage, abs_entry.c_str(), moduleDef.entry_function.c_str(), options);
+
+	if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
+		outCompileErr = result.GetErrorMessage();
+		return false;
+	}
+
+	// On success, update tracked dependencies.
+	outDeps = std::move(new_deps);
+	outDeps.push_back(abs_entry);
+
+	outSpirv = std::vector<uint32_t>(result.cbegin(), result.cend());
+	return true;
+}
+
+ShaderModuleAsset::ShaderModuleAsset(const ShaderModuleDef& def, const std::vector<uint32_t>& initial_spirv, const std::vector<std::string>& dependency_files)
 	: Asset(def.entry_file + ":" + def.entry_function, /*reloadable=*/true)
 	, _def(def)
+	, _dependency_files(dependency_files)
 {
-	load_action_internal = [this]() {
-		std::string abs_entry = std::string(ROOT_DIR) + "/" + _def.entry_file;
+	load_action_internal = [this, initial_spirv]() {
 
-		auto source_bytes = myn::read_file(abs_entry);
-		std::string source(source_bytes.begin(), source_bytes.end());
-
-		// Prepare tracking for this compile.
-		std::vector<std::string> new_deps;
-
-		shaderc::Compiler compiler;
-		shaderc::CompileOptions options;
-		options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
-		
-		auto includer = std::make_unique<TrackingIncluder>();
-		includer->tracked_paths = &new_deps;
-		options.SetIncluder(std::move(includer));
-		
-		for (const auto& def : _def.defines) {
-			auto eq = def.find('=');
-			if (eq != std::string::npos)
-				options.AddMacroDefinition(def.substr(0, eq), def.substr(eq + 1));
-			else
-				options.AddMacroDefinition(def);
-		}
-
-		auto result = compiler.CompileGlslToSpv(
-			source, _def.stage, abs_entry.c_str(), _def.entry_function.c_str(), options);
-
-		if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
-			if (get_version() == 0) {
-				ERR("Shader compile error in '%s':\n%s", virtual_path.c_str(), result.GetErrorMessage().c_str())
-			} else {
-				WARN("Shader compile error in '%s':\n%s", virtual_path.c_str(), result.GetErrorMessage().c_str())
+		std::vector<uint32_t> spirv = initial_spirv;
+		if (get_version() > 0) {
+			// this is a reload, aka will need to call compile_shader ourselves instead of relying on what's passed in from constructor
+			std::string err;
+			if (!compile_shader(_def, spirv, _dependency_files, err)) {
+				WARN("Shader compile error in '%s':\n%s", virtual_path.c_str(), err.c_str())
+				return;
 			}
-			return;
 		}
-
-		// On success, update tracked dependencies.
-		_dependency_files = std::move(new_deps);
-		_dependency_files.push_back(abs_entry);
 
 		// Destroy previous module before creating the new one.
 		if (module != VK_NULL_HANDLE) {
@@ -152,7 +174,6 @@ ShaderModuleAsset::ShaderModuleAsset(const ShaderModuleDef& def)
 			module = VK_NULL_HANDLE;
 		}
 
-		std::vector<uint32_t> spirv(result.cbegin(), result.cend());
 		VkShaderModuleCreateInfo createInfo = {
 			.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 			.codeSize = spirv.size() * sizeof(uint32_t),
@@ -169,18 +190,53 @@ ShaderModuleAsset::ShaderModuleAsset(const ShaderModuleDef& def)
 
 void ShaderModuleAsset::compile_all()
 {
-	for (const auto& def : _shaderModuleDefs) {
-		get(def);
+	struct CompiledShader {
+		ShaderModuleDef def;
+		std::vector<uint32_t> spirv;
+		std::vector<std::string> dependency_files;
+	};
+	auto shaderCount = std::size(_shaderModuleDefs);
+	std::vector<CompiledShader> compiledShaders(shaderCount);
+
+	TIMER_BEGIN
+
+	constexpr uint32_t MAX_THREADS = 8;
+	constexpr uint32_t SHADERS_PER_TASK = 2;
+
+	// Build a queue of [start, end) index ranges to compile
+	myn::ThreadSafeQueue<std::pair<uint32_t, uint32_t>> taskQueue;
+	for (uint32_t start = 0; start < shaderCount; start += SHADERS_PER_TASK) {
+		taskQueue.enqueue({ start, std::min(start + SHADERS_PER_TASK, (uint32_t)shaderCount) });
 	}
+
+	auto worker = [&]() {
+		std::pair<uint32_t, uint32_t> range;
+		while (taskQueue.dequeue(range)) {
+			for (uint32_t i = range.first; i < range.second; i++) {
+				std::string err;
+				compiledShaders[i].def = _shaderModuleDefs[i];
+				if (!compile_shader(_shaderModuleDefs[i], compiledShaders[i].spirv, compiledShaders[i].dependency_files, err)) {
+					auto virtualPath = compiledShaders[i].def.entry_file + ":" + compiledShaders[i].def.entry_function;
+					WARN("Shader compile error in '%s':\n%s", virtualPath.c_str(), err.c_str())
+				}
+			}
+		}
+	};
+
+	uint32_t numTasks = ((uint32_t)shaderCount + SHADERS_PER_TASK - 1) / SHADERS_PER_TASK;
+	uint32_t numThreads = std::min(MAX_THREADS, numTasks);
+	std::vector<std::thread> threads(numThreads);
+	for (auto& t : threads) t = std::thread(worker);
+	for (auto& t : threads) t.join();
+
+	TIMER_END(shaderCompileTime)
+
+	for (const auto& [def, spirv, dependency_files] : compiledShaders) {
+		new ShaderModuleAsset(def, spirv, dependency_files);
+	}
+	LOG("Initial shader compilation took %fs", shaderCompileTime)
 }
 
-ShaderModuleAsset* ShaderModuleAsset::get(const ShaderModuleDef& def)
-{
-	std::string key = def.entry_file + ":" + def.entry_function;
-	if (auto existing = Asset::find<ShaderModuleAsset>(key)) return existing;
-
-	return new ShaderModuleAsset(def);
-}
 
 ShaderModuleAsset* ShaderModuleAsset::get(const std::string& virtual_path)
 {

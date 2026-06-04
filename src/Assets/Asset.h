@@ -46,7 +46,7 @@ public:
 	static void delete_all();
 
 protected:
-	Asset(const std::string &relative_path, bool reloadable);
+	Asset(const std::string &_virtual_path, bool _reloadable);
 	std::string virtual_path;
 	std::function<void()> load_action_internal = nullptr;
 
