@@ -1,17 +1,28 @@
 #version 460 core
 
+#ifndef RTX
+#define RTX 0
+#endif
+
+#if RTX
+#extension GL_EXT_ray_query : require
+#endif
+
+layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
+#if RTX
+layout (set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
+#endif
+
+layout(location = 0) in vec2 vf_uv;
+layout(location = 0) out vec4 FragColor;
+
+
 #include "utils.glsl"
 #include "scene_common.glsl" // (set 0, binding 0; 5-7) frameglobal
 #include "lighting_common.glsl" // pbr lighting functions
 #include "rendertargets.glsl" // (set 0, bindings 1-4) g buffers
 
 #include "sky_common.glsl" // set 1, bindings 0-2; 8-9
-
-layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
-
-layout(location = 0) in vec2 vf_uv;
-
-layout(location = 0) out vec4 FragColor;
 
 void main() {
 

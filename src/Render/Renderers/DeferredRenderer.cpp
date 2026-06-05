@@ -82,9 +82,10 @@ public:
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
 			b.vertDef = "shaders/fullscreen_triangle.vert";
-			b.fragDef = Config->lookup<int>("Debug.RTX")
-				? "shaders/deferred_lighting_shadow.frag"
-				: "shaders/deferred_lighting.frag";
+			b.fragDef = "shaders/deferred_lighting.frag";
+			b.fragDef.defines = Config->lookup<int>("Debug.RTX")
+				? std::vector<std::string>{"RTX=1"}
+				: std::vector<std::string>{"RTX=0"};
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.pipelineState.useVertexInput = false;
 			b.pipelineState.useDepthStencil = false;

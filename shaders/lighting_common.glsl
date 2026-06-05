@@ -97,6 +97,26 @@ vec3 lightingContrib(MaterialLightingInfo info)
     return (diffuse + specular) * info.NdotL;
 }
 
+float shadowFactor(vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
+{
+#if RTX
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(
+        rq,
+        SceneTLAS,
+        gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsOpaqueEXT,
+        0xFF,
+        worldPos + normal * 0.001,
+        0.0,
+        dirToLight,
+        tMax);
+    rayQueryProceedEXT(rq);
+    return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+#else
+    return 1.0;
+#endif
+}
+
 // assumes frameglobal stuff is available and fragment is visible
 vec3 accumulateLighting(vec3 worldPos, vec3 normal, vec3 albedo, vec3 orm)
 {
@@ -115,29 +135,33 @@ vec3 accumulateLighting(vec3 worldPos, vec3 normal, vec3 albedo, vec3 orm)
     for (int i = 0; i < viewInfo.NumPointLights; i++)
     {
         // some useful properties
-        vec3 dirToLight = PointLights.Data[i].position - worldPos;
-        float atten = 1.0 / dot(dirToLight, dirToLight);
-        dirToLight = normalize(dirToLight);
+        vec3 toLight = PointLights.Data[i].position - worldPos;
+        float dist = length(toLight);
+        vec3 dirToLight = toLight / dist;
+        float atten = 1.0 / dot(toLight, toLight);
         vec3 halfVec = normalize(info.dirToCam + dirToLight);
         float NdotL = max(dot(normal, dirToLight), 0);
         vec3 radiance = PointLights.Data[i].color * atten;
+        float shadow = shadowFactor(worldPos, normal, dirToLight, dist - 0.01);
 
         info.halfVec = halfVec;
         info.NdotL = NdotL;
-        result += lightingContrib(info) * radiance;
+        result += lightingContrib(info) * radiance * shadow;
     }
 
     // directional lights
     for (int i = 0; i < viewInfo.NumDirectionalLights; i++)
     {
         vec3 lightDir = DirectionalLights.Data[i].direction;
-        vec3 halfVec = normalize(info.dirToCam - lightDir);
-        float NdotL = max(dot(normal, -lightDir), 0);
+        vec3 dirToLight = normalize(-lightDir);
+        vec3 halfVec = normalize(info.dirToCam + dirToLight);
+        float NdotL = max(dot(normal, dirToLight), 0);
         vec3 radiance = DirectionalLights.Data[i].color;
+        float shadow = shadowFactor(worldPos, normal, dirToLight, 10000.0);
 
         info.halfVec = halfVec;
         info.NdotL = NdotL;
-        result += lightingContrib(info) * radiance;
+        result += lightingContrib(info) * radiance * shadow;
     }
 
     return result;
