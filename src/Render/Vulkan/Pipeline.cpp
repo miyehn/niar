@@ -198,14 +198,14 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 {
 	// shader stages
 
-	auto vertModule = ShaderModuleAsset::get(vertPath + ":main");
-	auto fragModule = ShaderModuleAsset::get(fragPath + ":main");
+	auto vertModule = ShaderModuleAsset::get(vertDef);
+	auto fragModule = ShaderModuleAsset::get(fragDef);
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_VERTEX_BIT,
 		.module = vertModule->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pName = vertDef.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	};
 
@@ -213,7 +213,7 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
 		.module = fragModule->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pName = fragDef.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	};
 
@@ -269,12 +269,12 @@ void ComputePipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const Des
 void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName)
 {
 	// shader stage
-	auto shaderModule = ShaderModuleAsset::get(shaderPath + ":main");
+	auto shaderModule = ShaderModuleAsset::get(shaderDef);
 	VkPipelineShaderStageCreateInfo shaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
 		.module = shaderModule->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
+		.pName = shaderDef.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	};
 	// layout
@@ -319,43 +319,43 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 	shaderStages.push_back({
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-		.module = ShaderModuleAsset::get(rgenPath + ":main")->module,
-		.pName = "main", // entry point function (should be main for glsl shaders)
+		.module = ShaderModuleAsset::get(rgenPath)->module,
+		.pName = rgenPath.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		.pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 	});
 
 	const uint32_t rchitStartIndex = 1;
-	for (auto& rchitPath : rchitPaths)
+	for (auto& rchitPath : rchitDefs)
 	{
 		shaderStages.push_back({
 		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		   .stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		   .module = ShaderModuleAsset::get(rchitPath + ":main")->module,
-		   .pName = "main", // entry point function (should be main for glsl shaders)
+		   .module = ShaderModuleAsset::get(rchitPath)->module,
+		   .pName = rchitPath.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		});
 	}
 
-	const uint32_t rahitStartIndex = rchitStartIndex + rchitPaths.size();
-	for (auto& rahitPath : rahitPaths)
+	const uint32_t rahitStartIndex = rchitStartIndex + rchitDefs.size();
+	for (auto& rahitPath : rahitDefs)
 	{
 		shaderStages.push_back({
 		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		   .stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-		   .module = ShaderModuleAsset::get(rahitPath + ":main")->module,
-		   .pName = "main", // entry point function (should be main for glsl shaders)
+		   .module = ShaderModuleAsset::get(rahitPath)->module,
+		   .pName = rahitPath.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		});
 	}
 
-	const uint32_t rmissStartIndex = rahitStartIndex + rahitPaths.size();
-	for (auto& rmissPath : rmissPaths)
+	const uint32_t rmissStartIndex = rahitStartIndex + rahitDefs.size();
+	for (auto& rmissPath : rmissDefs)
 	{
 		shaderStages.push_back({
 		   .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		   .stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-		   .module = ShaderModuleAsset::get(rmissPath + ":main")->module,
-		   .pName = "main", // entry point function (should be main for glsl shaders)
+		   .module = ShaderModuleAsset::get(rmissPath)->module,
+		   .pName = rmissPath.entry_function.c_str(), // entry point function (should be main for glsl shaders)
 		   .pSpecializationInfo = nullptr // for specifying the shader's compile-time constants
 		});
 	}
@@ -389,7 +389,7 @@ void RayTracingPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout 
 		});
 	}
 	// miss groups
-	for (auto i = 0; i < rmissPaths.size(); i++)
+	for (auto i = 0; i < rmissDefs.size(); i++)
 	{
 		groupInfos.push_back({
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -460,9 +460,9 @@ void GraphicsPipeline::build(const std::string& debugName)
 
 	if (_callbackIds.empty())
 	{
-		auto register_on = [this, debugName](const std::string& path) {
-			if (path.empty()) return;
-			auto* asset = ShaderModuleAsset::get(path + ":main");
+		auto register_on = [this, debugName](const ShaderModuleDef& ref) {
+			if (ref.entry_file.empty()) return;
+			auto* asset = ShaderModuleAsset::get(ref);
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this](){
 				Vulkan::Instance->waitDeviceIdle();
 				destroy();
@@ -470,8 +470,8 @@ void GraphicsPipeline::build(const std::string& debugName)
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::AfterReload, [this, debugName]() { build(debugName); }));
 		};
 
-		register_on(builder.vertPath);
-		register_on(builder.fragPath);
+		register_on(builder.vertDef);
+		register_on(builder.fragDef);
 	}
 }
 
@@ -485,7 +485,7 @@ void ComputePipeline::build(const std::string& debugName)
 
 	if (_callbackIds.empty())
 	{
-		auto* asset = ShaderModuleAsset::get(builder.shaderPath + ":main");
+		auto* asset = ShaderModuleAsset::get(builder.shaderDef);
 		_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this](){
 			Vulkan::Instance->waitDeviceIdle();
 			destroy();
@@ -504,9 +504,9 @@ void RayTracingPipeline::build(const std::string& debugName)
 
 	if (_callbackIds.empty())
 	{
-		auto register_on = [this, debugName](const std::string& path) {
-			if (path.empty()) return;
-			auto* asset = ShaderModuleAsset::get(path + ":main");
+		auto register_on = [this, debugName](const ShaderModuleDef& ref) {
+			if (ref.entry_file.empty()) return;
+			auto* asset = ShaderModuleAsset::get(ref);
 			_callbackIds.push_back(Asset::register_callback(asset, Asset::BeforeReload, [this]() {
 				Vulkan::Instance->waitDeviceIdle();
 				destroy();
@@ -518,8 +518,8 @@ void RayTracingPipeline::build(const std::string& debugName)
 		};
 
 		register_on(builder.rgenPath);
-		for (const auto& p : builder.rchitPaths) register_on(p);
-		for (const auto& p : builder.rahitPaths) register_on(p);
-		for (const auto& p : builder.rmissPaths) register_on(p);
+		for (const auto& p : builder.rchitDefs) register_on(p);
+		for (const auto& p : builder.rahitDefs) register_on(p);
+		for (const auto& p : builder.rmissDefs) register_on(p);
 	}
 }

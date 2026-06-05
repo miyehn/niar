@@ -1,23 +1,66 @@
 #pragma once
 #include "Assets/Asset.h"
-#include <shaderc/shaderc.h>
 #include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
 
+enum ShaderStage
+{
+	SS_Unknown = 0,
+	SS_Vertex,
+	SS_Fragment,
+	SS_Compute,
+	SS_RayGen,
+	SS_AnyHit,
+	SS_ClosestHit,
+	SS_Miss,
+};
+
+struct ShaderModuleDef
+{
+	ShaderModuleDef() = default;
+	ShaderModuleDef(
+		std::string entry_file,
+		std::string entry_function = "main",
+		ShaderStage stage = SS_Vertex,
+		std::vector<std::string> defines = {})
+		: entry_file(std::move(entry_file))
+		, entry_function(std::move(entry_function))
+		, stage(stage)
+		, defines(std::move(defines))
+	{
+	}
+
+	ShaderModuleDef& operator=(std::string newEntryFile)
+	{
+		entry_file = std::move(newEntryFile);
+		entry_function = "main";
+		stage = SS_Unknown;
+		defines.clear();
+		return *this;
+	}
+
+	std::string entry_file;              // e.g. "shaders/geometry.vert"
+	std::string entry_function = "main";
+	ShaderStage stage = SS_Unknown;
+	std::vector<std::string> defines;    // e.g. {"USE_NORMAL_MAP=1"}
+};
+
 class ShaderModuleAsset : public Asset
 {
 public:
-	struct ShaderModuleDef {
-		std::string entry_file;              // e.g. "shaders/geometry.vert"
-		std::string entry_function = "main";
-		shaderc_shader_kind stage;
-		std::vector<std::string> defines;    // e.g. {"USE_NORMAL_MAP=1"}
-	};
 
 	static void compile_all();
-	// Pool-only lookup — all shaders must be pre-compiled via compile_all().
+
+	// Pool-only lookups - all shaders must be pre-compiled via compile_all().
 	static ShaderModuleAsset* get(const std::string& virtual_path);
+	static ShaderModuleAsset* get(const ShaderModuleDef& def);
+	/*
+	static ShaderModuleAsset* get(
+		const std::string& entry_file,
+		const std::string& entry_function,
+		const std::vector<std::string>& defines);
+	*/
 
 	VkShaderModule module = VK_NULL_HANDLE;
 

@@ -118,10 +118,10 @@ RayTracingRenderer::RayTracingRenderer()
 	// pipeline
 	auto& b = rtPipeline.builder;
 	b.rgenPath = "shaders/ray_gen.rgen";
-	b.rchitPaths.emplace_back("shaders/ray_chit.rchit");
-	b.rchitPaths.emplace_back("shaders/ray_chit2.rchit");
-	b.rmissPaths.emplace_back("shaders/ray_miss.rmiss");
-	b.rmissPaths.emplace_back("shaders/ray_miss2.rmiss");
+	b.rchitDefs.emplace_back("shaders/ray_chit.rchit");
+	b.rchitDefs.emplace_back("shaders/ray_chit2.rchit");
+	b.rmissDefs.emplace_back("shaders/ray_miss.rmiss");
+	b.rmissDefs.emplace_back("shaders/ray_miss2.rmiss");
 	b.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{0, -1});
 	b.hitGroups.emplace_back(RayTracingPipelineBuilder::HitGroup{1, -1});
 	b.useDescriptorSetLayout(0, gpuFrameData[0].descriptorSet.getLayout());

@@ -1,4 +1,4 @@
-#version 450 core
+#version 460 core
 
 #include "utils.glsl"
 #include "scene_common.glsl" // (set 0, binding 0; 5-7) frameglobal

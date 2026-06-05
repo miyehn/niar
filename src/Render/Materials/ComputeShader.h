@@ -19,7 +19,7 @@ public:
 	}
 	virtual void dispatch(int groupCountX, int groupCountY, int groupCountZ) = 0;
 protected:
-	std::string shaderPath; // set by inherited class constructor
+	ShaderModuleDef shaderDef; // set by inherited class constructor
 	std::string debugName;  // set by inherited class constructor
 	const ComputePipeline& getPipeline();
 private:

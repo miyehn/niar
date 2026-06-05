@@ -6,7 +6,7 @@ const ComputePipeline& ComputeShader::getPipeline() {
 
 	if (!computePipeline.valid()) {
 		auto& b = computePipeline.builder;
-		b.shaderPath = shaderPath;
+		b.shaderDef = shaderDef;
 		b.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
 		computePipeline.build(debugName);
 	}

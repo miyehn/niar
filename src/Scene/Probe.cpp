@@ -24,8 +24,8 @@ public:
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
-			b.vertPath = "shaders/geometry.vert";
-			b.fragPath = "shaders/envmap_visualizer.frag";
+			b.vertDef = "shaders/geometry.vert";
+			b.fragDef = "shaders/envmap_visualizer.frag";
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
 			b.compatibleSubpass = DEFERRED_SUBPASS_PROBES;

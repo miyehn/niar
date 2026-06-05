@@ -5,6 +5,7 @@
 #include "Utils/myn/Misc.h"
 #include "Utils/myn/ThreadSafeQueue.h"
 #include <shaderc/shaderc.hpp>
+#include <algorithm>
 #include <filesystem>
 #include <thread>
 
@@ -14,26 +15,26 @@
 // Hard-coded list of every entry-point shader.
 // Add a new row here whenever a new shader is introduced.
 // ---------------------------------------------------------------------------
-ShaderModuleAsset::ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
-	{ "shaders/geometry.vert",              "main", shaderc_vertex_shader },
-	{ "shaders/geometry.frag",              "main", shaderc_fragment_shader },
-	{ "shaders/translucency_lit.frag",      "main", shaderc_fragment_shader },
-	{ "shaders/simple_gltf.frag",           "main", shaderc_fragment_shader },
-	{ "shaders/fullscreen_triangle.vert",   "main", shaderc_vertex_shader },
-	{ "shaders/post_processing.frag",       "main", shaderc_fragment_shader },
-	{ "shaders/deferred_lighting.frag",     "main", shaderc_fragment_shader },
-	{ "shaders/deferred_lighting_shadow.frag", "main", shaderc_fragment_shader },
-	{ "shaders/debug_point.vert",           "main", shaderc_vertex_shader },
-	{ "shaders/debug_point.frag",           "main", shaderc_fragment_shader },
-	{ "shaders/envmap_visualizer.frag",     "main", shaderc_fragment_shader },
-	{ "shaders/sine.comp",                  "main", shaderc_compute_shader },
-	{ "shaders/sky_transmittance_lut.comp", "main", shaderc_compute_shader },
-	{ "shaders/sky_view_lut.comp",          "main", shaderc_compute_shader },
-	{ "shaders/ray_gen.rgen",               "main", shaderc_raygen_shader },
-	{ "shaders/ray_chit.rchit",             "main", shaderc_closesthit_shader },
-	{ "shaders/ray_chit2.rchit",            "main", shaderc_closesthit_shader },
-	{ "shaders/ray_miss.rmiss",             "main", shaderc_miss_shader },
-	{ "shaders/ray_miss2.rmiss",            "main", shaderc_miss_shader },
+ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
+	{ "shaders/geometry.vert",              "main", SS_Vertex },
+	{ "shaders/geometry.frag",              "main", SS_Fragment },
+	{ "shaders/translucency_lit.frag",      "main", SS_Fragment },
+	{ "shaders/simple_gltf.frag",           "main", SS_Fragment },
+	{ "shaders/fullscreen_triangle.vert",   "main", SS_Vertex },
+	{ "shaders/post_processing.frag",       "main", SS_Fragment },
+	{ "shaders/deferred_lighting.frag",     "main", SS_Fragment },
+	{ "shaders/deferred_lighting_shadow.frag", "main", SS_Fragment },
+	{ "shaders/debug_point.vert",           "main", SS_Vertex },
+	{ "shaders/debug_point.frag",           "main", SS_Fragment },
+	{ "shaders/envmap_visualizer.frag",     "main", SS_Fragment },
+	{ "shaders/sine.comp",                  "main", SS_Compute },
+	{ "shaders/sky_transmittance_lut.comp", "main", SS_Compute },
+	{ "shaders/sky_view_lut.comp",          "main", SS_Compute },
+	{ "shaders/ray_gen.rgen",               "main", SS_RayGen },
+	{ "shaders/ray_chit.rchit",             "main", SS_ClosestHit },
+	{ "shaders/ray_chit2.rchit",            "main", SS_ClosestHit },
+	{ "shaders/ray_miss.rmiss",             "main", SS_Miss },
+	{ "shaders/ray_miss2.rmiss",            "main", SS_Miss },
 };
 
 // ---------------------------------------------------------------------------
@@ -105,8 +106,68 @@ public:
 
 // ---------------------------------------------------------------------------
 
+static std::pair<std::string, std::string> parse_define(const std::string& define)
+{
+	auto eq = define.find('=');
+	if (eq == std::string::npos) return {define, ""};
+	return {define.substr(0, eq), define.substr(eq + 1)};
+}
+
+static std::string shader_module_key(
+	const std::string& entry_file,
+	const std::string& entry_function,
+	const std::vector<std::string>& defines)
+{
+	std::string result = entry_file + ":" + entry_function;
+	if (defines.empty()) return result;
+
+	auto sortedDefines = defines;
+	std::sort(sortedDefines.begin(), sortedDefines.end(), [](const std::string& a, const std::string& b) {
+		auto [nameA, valueA] = parse_define(a);
+		auto [nameB, valueB] = parse_define(b);
+		if (nameA != nameB) return nameA < nameB;
+		return valueA < valueB;
+	});
+
+	result += "?";
+	for (size_t i = 0; i < sortedDefines.size(); i++) {
+		auto [name, value] = parse_define(sortedDefines[i]);
+		if (i > 0) result += "&";
+		result += name;
+		if (!value.empty()) {
+			result += "=";
+			result += value;
+		}
+	}
+	return result;
+}
+
+static shaderc_shader_kind to_shaderc_stage(ShaderStage stage)
+{
+	switch (stage) {
+		case SS_Vertex: return shaderc_vertex_shader;
+		case SS_Fragment: return shaderc_fragment_shader;
+		case SS_Compute: return shaderc_compute_shader;
+		case SS_RayGen: return shaderc_raygen_shader;
+		case SS_AnyHit: return shaderc_anyhit_shader;
+		case SS_ClosestHit: return shaderc_closesthit_shader;
+		case SS_Miss: return shaderc_miss_shader;
+		case SS_Unknown: return shaderc_glsl_infer_from_source;
+	}
+
+	ERR("Unsupported ShaderStage value: %d", static_cast<int>(stage))
+	return shaderc_glsl_infer_from_source;
+}
+
+static std::string shader_module_key(const ShaderModuleDef& def)
+{
+	return shader_module_key(def.entry_file, def.entry_function, def.defines);
+}
+
+// ---------------------------------------------------------------------------
+
 static bool compile_shader(
-	const ShaderModuleAsset::ShaderModuleDef& moduleDef,
+	const ShaderModuleDef& moduleDef,
 	std::vector<uint32_t>& outSpirv,
 	std::vector<std::string>& outDeps,
 	std::string& outCompileErr)
@@ -128,15 +189,15 @@ static bool compile_shader(
 	options.SetIncluder(std::move(includer));
 
 	for (const auto& def : moduleDef.defines) {
-		auto eq = def.find('=');
-		if (eq != std::string::npos)
-			options.AddMacroDefinition(def.substr(0, eq), def.substr(eq + 1));
+		auto [name, value] = parse_define(def);
+		if (!value.empty())
+			options.AddMacroDefinition(name, value);
 		else
-			options.AddMacroDefinition(def);
+			options.AddMacroDefinition(name);
 	}
 
 	auto result = compiler.CompileGlslToSpv(
-		source, moduleDef.stage, abs_entry.c_str(), moduleDef.entry_function.c_str(), options);
+		source, to_shaderc_stage(moduleDef.stage), abs_entry.c_str(), moduleDef.entry_function.c_str(), options);
 
 	if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
 		outCompileErr = result.GetErrorMessage();
@@ -152,7 +213,7 @@ static bool compile_shader(
 }
 
 ShaderModuleAsset::ShaderModuleAsset(const ShaderModuleDef& def, const std::vector<uint32_t>& initial_spirv, const std::vector<std::string>& dependency_files)
-	: Asset(def.entry_file + ":" + def.entry_function, /*reloadable=*/true)
+	: Asset(shader_module_key(def), /*reloadable=*/true)
 	, _def(def)
 	, _dependency_files(dependency_files)
 {
@@ -216,7 +277,7 @@ void ShaderModuleAsset::compile_all()
 				std::string err;
 				compiledShaders[i].def = _shaderModuleDefs[i];
 				if (!compile_shader(_shaderModuleDefs[i], compiledShaders[i].spirv, compiledShaders[i].dependency_files, err)) {
-					auto virtualPath = compiledShaders[i].def.entry_file + ":" + compiledShaders[i].def.entry_function;
+					auto virtualPath = shader_module_key(compiledShaders[i].def);
 					WARN("Shader compile error in '%s':\n%s", virtualPath.c_str(), err.c_str())
 				}
 			}
@@ -237,12 +298,26 @@ void ShaderModuleAsset::compile_all()
 	LOG("Initial shader compilation took %fs", shaderCompileTime)
 }
 
+/*
+ShaderModuleAsset* ShaderModuleAsset::get(
+	const std::string& entry_file,
+	const std::string& entry_function,
+	const std::vector<std::string>& defines)
+{
+	return get(shader_module_key(entry_file, entry_function, defines));
+}
+*/
+
+ShaderModuleAsset* ShaderModuleAsset::get(const ShaderModuleDef& def)
+{
+	return get(shader_module_key(def));
+}
 
 ShaderModuleAsset* ShaderModuleAsset::get(const std::string& virtual_path)
 {
 	if (auto existing = Asset::find<ShaderModuleAsset>(virtual_path)) return existing;
 
-	ERR("ShaderModuleAsset '%s' not found — was compile_all() called before renderer init?",
+	ERR("ShaderModuleAsset '%s' not found — was it compiled in compile_all()?",
 		virtual_path.c_str())
 	return nullptr;
 }

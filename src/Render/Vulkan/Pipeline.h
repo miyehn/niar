@@ -4,6 +4,8 @@
 #include <vulkan/vulkan.h>
 #include "DescriptorSet.h"
 #include "Assets/Asset.h"
+#include "Assets/ShaderModuleAsset.h"
+#include <string>
 
 struct PipelineState
 {
@@ -66,8 +68,8 @@ struct GraphicsPipelineBuilder
 
 	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName);
 
-	std::string vertPath;
-	std::string fragPath;
+	ShaderModuleDef vertDef = {"", "main", SS_Vertex, {}};
+	ShaderModuleDef fragDef = {"", "main", SS_Fragment, {}};
 
 	PipelineState pipelineState{};
 
@@ -87,7 +89,7 @@ struct ComputePipelineBuilder
 
 	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName);
 
-	std::string shaderPath;
+	ShaderModuleDef shaderDef = {"", "main", SS_Compute, {}};
 
 private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
@@ -102,10 +104,10 @@ struct RayTracingPipelineBuilder
 
 	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName);
 
-	std::string rgenPath;
-	std::vector<std::string> rchitPaths;
-	std::vector<std::string> rahitPaths;
-	std::vector<std::string> rmissPaths;
+	ShaderModuleDef rgenPath = {"", "main", SS_RayGen, {}};
+	std::vector<ShaderModuleDef> rchitDefs;
+	std::vector<ShaderModuleDef> rahitDefs;
+	std::vector<ShaderModuleDef> rmissDefs;
 
 	struct HitGroup {
 		int rchitIndex, rahitIndex;

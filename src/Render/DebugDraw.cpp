@@ -10,8 +10,8 @@ DebugPoints::DebugPoints(const DescriptorSetLayout& frameGlobalSetLayout, VkRend
 	// build the pipeline
 	auto vk = Vulkan::Instance;
 	auto& pipelineBuilder = graphicsPipeline.builder;
-	pipelineBuilder.vertPath = "shaders/debug_point.vert";
-	pipelineBuilder.fragPath = "shaders/debug_point.frag";
+	pipelineBuilder.vertDef = "shaders/debug_point.vert";
+	pipelineBuilder.fragDef = "shaders/debug_point.frag";
 	pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 	pipelineBuilder.compatibleRenderPass = compatiblePass;
 	pipelineBuilder.compatibleSubpass = compatibleSubpass;
@@ -76,8 +76,8 @@ DebugLines::DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRender
 		// build the pipeline
 		auto vk = Vulkan::Instance;
 		auto& pipelineBuilder = graphicsPipeline.builder;
-		pipelineBuilder.vertPath = "shaders/debug_point.vert";
-		pipelineBuilder.fragPath = "shaders/debug_point.frag";
+		pipelineBuilder.vertDef = "shaders/debug_point.vert";
+		pipelineBuilder.fragDef = "shaders/debug_point.frag";
 		pipelineBuilder.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		pipelineBuilder.compatibleRenderPass = compatiblePass;
 		pipelineBuilder.compatibleSubpass = compatibleSubpass;

@@ -15,4 +15,5 @@ nsight/
 **__pycache__/
 *.swp
 .github/task.md
+.github/task-description.md
 **spirv/

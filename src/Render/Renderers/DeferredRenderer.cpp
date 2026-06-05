@@ -24,8 +24,8 @@ public:
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
-			b.vertPath = "shaders/fullscreen_triangle.vert";
-			b.fragPath = "shaders/post_processing.frag";
+			b.vertDef = "shaders/fullscreen_triangle.vert";
+			b.fragDef = "shaders/post_processing.frag";
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.pipelineState.useVertexInput = false;
 			b.pipelineState.useDepthStencil = false;
@@ -81,8 +81,8 @@ public:
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
-			b.vertPath = "shaders/fullscreen_triangle.vert";
-			b.fragPath = Config->lookup<int>("Debug.RTX")
+			b.vertDef = "shaders/fullscreen_triangle.vert";
+			b.fragDef = Config->lookup<int>("Debug.RTX")
 				? "shaders/deferred_lighting_shadow.frag"
 				: "shaders/deferred_lighting.frag";
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
