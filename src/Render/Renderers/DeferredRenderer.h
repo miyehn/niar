@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Renderer.h"
+#include "Render/RendererComponents/SceneTlas.h"
 #include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/Buffer.h"
 #include <vulkan/vulkan.h>
@@ -76,7 +77,6 @@ private:
 		VmaBuffer skyParametersBuffer;
 		DescriptorSet skyDescriptorSet;
 		DescriptorSet skyDummyDescriptorSet;
-		VmaBuffer instancesBuffer;
 	};
 	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 
@@ -134,8 +134,5 @@ private:
 	Material* getOrCreateMeshMaterial(const std::string& materialName);
 
 	// ray-traced shadow resources (valid only when Debug.RTX = 1)
-	static constexpr uint32_t MAX_DEFERRED_RTX_INSTANCES = 64;
-	VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
-	VmaBuffer tlasBuffer;
-	VmaBuffer scratchBuffer;
+	SceneTlas shadowTlas;
 };

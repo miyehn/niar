@@ -32,62 +32,7 @@ RayTracingRenderer::RayTracingRenderer()
 							   VK_IMAGE_LAYOUT_GENERAL);
 	});
 
-	// TLAS resources (pre-allocated for up to MAX_RTX_INSTANCES)
-
-	// temporary structs just for the build size query; address=0 is fine here
-	VkAccelerationStructureGeometryKHR tlasGeometry = {
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-		.geometry = {
-			.instances = {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-				.data = {.deviceAddress = 0}
-			}
-		}
-	};
-
-	// "what you want to build from the given geometry?" - tlas
-	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo = {
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
-		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-		.srcAccelerationStructure = VK_NULL_HANDLE,
-		.geometryCount = 1,
-		.pGeometries = &tlasGeometry,
-	};
-
-	// "get build size for the build operation, for maxCount"
-	VkAccelerationStructureBuildSizesInfoKHR tlasBuildSizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-	uint32_t maxCount = MAX_RTX_INSTANCES;
-	Vulkan::Instance->fn_vkGetAccelerationStructureBuildSizesKHR(
-		Vulkan::Instance->device,
-		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-		&tlasBuildInfo,
-		&maxCount,
-		&tlasBuildSizeInfo);
-
-	tlasBuffer = VmaBuffer({
-		&Vulkan::Instance->memoryAllocator,
-		tlasBuildSizeInfo.accelerationStructureSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-		VMA_MEMORY_USAGE_GPU_ONLY,
-		"RTX TLAS buffer"});
-
-	const VkAccelerationStructureCreateInfoKHR tlasCreateInfo = {
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = tlasBuffer.buffer,
-		.size = tlasBuildSizeInfo.accelerationStructureSize,
-		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR
-	};
-	Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &tlasCreateInfo, nullptr, &tlas);
-
-	scratchBuffer = VmaBuffer({
-		&Vulkan::Instance->memoryAllocator,
-		tlasBuildSizeInfo.buildScratchSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY,
-		"RTX TLAS scratch buffer"});
+	sceneTlas.init("RTX");
 
 	// descriptor set layout: binding 0 = viewInfoUbo, binding 1 = TLAS, binding 2 = outImage
 	DescriptorSetLayout layout{};
@@ -103,15 +48,9 @@ RayTracingRenderer::RayTracingRenderer()
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
 			"RTX view info UBO"});
-		fd.instancesBuffer = VmaBuffer({
-			&Vulkan::Instance->memoryAllocator,
-			MAX_RTX_INSTANCES * sizeof(VkAccelerationStructureInstanceKHR),
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-			VMA_MEMORY_USAGE_CPU_TO_GPU,
-			"RTX instances buffer"});
 		fd.descriptorSet = DescriptorSet(layout);
 		fd.descriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		fd.descriptorSet.pointToAccelerationStructure(tlas, 1);
+		fd.descriptorSet.pointToAccelerationStructure(sceneTlas.get(), 1);
 		fd.descriptorSet.pointToRWImageView(outImage->imageView, 2);
 	}
 
@@ -134,13 +73,9 @@ RayTracingRenderer::RayTracingRenderer()
 
 RayTracingRenderer::~RayTracingRenderer()
 {
-	if (tlas != VK_NULL_HANDLE)
-		Vulkan::Instance->fn_vkDestroyAccelerationStructureKHR(Vulkan::Instance->device, tlas, nullptr);
-	tlasBuffer.release();
-	scratchBuffer.release();
+	sceneTlas.release();
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		gpuFrameData[i].viewInfoUbo.release();
-		gpuFrameData[i].instancesBuffer.release();
 	}
 	delete outImage;
 }
@@ -161,44 +96,20 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 	if (meshObjects.empty()) return;
 
 	if (meshObjects.size() > MAX_RTX_INSTANCES) {
-		WARN("Scene has more MeshObjects with BLAS (%zu) than MAX_RTX_INSTANCES (%u); clamping.",
+		WARN("Scene has more MeshObjects (%zu) than MAX_RTX_INSTANCES (%u); TLAS will be clamped.",
 			meshObjects.size(), MAX_RTX_INSTANCES)
-		meshObjects.resize(MAX_RTX_INSTANCES);
 	}
 
 	ViewInfo viewInfo = getCameraViewInfo();
 	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
-	// build instance descriptors from current world transforms
-	std::vector<VkAccelerationStructureInstanceKHR> instances;
-	instances.reserve(meshObjects.size());
-	for (uint32_t i = 0; i < meshObjects.size(); i++)
-	{
-		const MeshObject* mo = meshObjects[i];
-
-		// convert GLM column-major mat4 to Vulkan row-major [3][4] transform
-		glm::mat4 t = mo->object_to_world();
-		VkTransformMatrixKHR transform{};
-		for (int row = 0; row < 3; row++)
-			for (int col = 0; col < 4; col++)
-				transform.matrix[row][col] = t[col][row];
-
-		instances.push_back({
-			.transform = transform,
-			.instanceCustomIndex = i,
-			.mask = 0xFF,
-			.instanceShaderBindingTableRecordOffset = 0, // TRYME: change this to use other hit/miss shaders in the SBT
-			.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-			.accelerationStructureReference = mo->mesh.gpu_data.blasAddress,
-		});
-	}
-
-	fd.instancesBuffer.writeData(instances.data(), instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-
 	{// rebuild TLAS in the command buffer
 		SCOPED_DRAW_EVENT(cmdbuf, "rebuild TLAS")
-		vk::buildTlas(cmdbuf, fd.instancesBuffer, static_cast<uint32_t>(instances.size()),
-			scratchBuffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, tlas);
+		sceneTlas.build_from_meshes(
+			cmdbuf,
+			Vulkan::Instance->getCurrentFrameIndex(),
+			meshObjects,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 	}
 
 	{

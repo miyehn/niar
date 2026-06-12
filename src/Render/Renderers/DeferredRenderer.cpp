@@ -464,59 +464,7 @@ DeferredRenderer::DeferredRenderer()
 		if (Config->lookup<int>("Debug.RTX"))
 		{
 			frameGlobalSetLayout.addBinding(8, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
-
-			// init TLAS resources (pre-allocated for up to MAX_DEFERRED_RTX_INSTANCES)
-			// temporary structs just for the build size query; address=0 is fine here
-			VkAccelerationStructureGeometryKHR tlasGeometry = {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-				.geometry = {
-					.instances = {
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-						.data = {.deviceAddress = 0}
-					}
-				}
-			};
-			VkAccelerationStructureBuildGeometryInfoKHR tlasBuildInfo = {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-				.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
-				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-				.srcAccelerationStructure = VK_NULL_HANDLE,
-				.geometryCount = 1,
-				.pGeometries = &tlasGeometry,
-			};
-
-			VkAccelerationStructureBuildSizesInfoKHR tlasBuildSizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-			uint32_t maxCount = MAX_DEFERRED_RTX_INSTANCES;
-			Vulkan::Instance->fn_vkGetAccelerationStructureBuildSizesKHR(
-				Vulkan::Instance->device,
-				VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-				&tlasBuildInfo,
-				&maxCount,
-				&tlasBuildSizeInfo);
-
-			tlasBuffer = VmaBuffer({
-				&Vulkan::Instance->memoryAllocator,
-				tlasBuildSizeInfo.accelerationStructureSize,
-				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-				VMA_MEMORY_USAGE_GPU_ONLY,
-				"Deferred TLAS buffer"});
-
-			const VkAccelerationStructureCreateInfoKHR tlasCreateInfo = {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-				.buffer = tlasBuffer.buffer,
-				.size = tlasBuildSizeInfo.accelerationStructureSize,
-				.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR
-			};
-			Vulkan::Instance->fn_vkCreateAccelerationStructureKHR(Vulkan::Instance->device, &tlasCreateInfo, nullptr, &tlas);
-
-			scratchBuffer = VmaBuffer({
-				&Vulkan::Instance->memoryAllocator,
-				tlasBuildSizeInfo.buildScratchSize,
-				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-				VMA_MEMORY_USAGE_GPU_ONLY,
-				"Deferred TLAS scratch buffer"});
+			shadowTlas.init("Deferred");
 		}
 
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
@@ -543,16 +491,6 @@ DeferredRenderer::DeferredRenderer()
 												 VMA_MEMORY_USAGE_CPU_TO_GPU,
 												 "Directional lights buffer"});
 
-			if (Config->lookup<int>("Debug.RTX"))
-			{
-				fd.instancesBuffer = VmaBuffer({
-					&Vulkan::Instance->memoryAllocator,
-					MAX_DEFERRED_RTX_INSTANCES * sizeof(VkAccelerationStructureInstanceKHR),
-					VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-					VMA_MEMORY_USAGE_CPU_TO_GPU,
-					"Deferred RTX instances buffer"});
-			}
-
 			fd.frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
@@ -565,7 +503,7 @@ DeferredRenderer::DeferredRenderer()
 
 			if (Config->lookup<int>("Debug.RTX"))
 			{
-				fd.frameGlobalDescriptorSet.pointToAccelerationStructure(tlas, 8);
+				fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
 			}
 		}
 	}
@@ -672,17 +610,13 @@ DeferredRenderer::~DeferredRenderer()
 	auto vk = Vulkan::Instance;
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
-	if (tlas != VK_NULL_HANDLE)
-		vk->fn_vkDestroyAccelerationStructureKHR(vk->device, tlas, nullptr);
-	tlasBuffer.release();
-	scratchBuffer.release();
+	shadowTlas.release();
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		auto& fd = gpuFrameData[i];
 		fd.viewInfoUbo.release();
 		fd.pointLightsBuffer.release();
 		fd.directionalLightsBuffer.release();
 		fd.skyParametersBuffer.release();
-		fd.instancesBuffer.release();
 		delete fd.debugPoints;
 		delete fd.debugLines;
 	}
@@ -813,41 +747,13 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		sky->composite(fd.skyParametersBuffer, fd.skyDescriptorSet, skyTransmittanceLut, skyViewLut);
 	}
 
-	if (tlas != VK_NULL_HANDLE)
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "rebuild deferred shadow TLAS")
-
-		// collect shadow-caster instances from all renderable MeshObjects
-		std::vector<VkAccelerationStructureInstanceKHR> instances;
-
-		for (auto* mo : opaqueMeshes) // for now: only opaque meshes cast shadow
-		{
-			if (mo->mesh.gpu_data.blasAddress == 0) continue;
-			if (instances.size() >= MAX_DEFERRED_RTX_INSTANCES) break;
-
-			glm::mat4 t = mo->object_to_world();
-			VkTransformMatrixKHR transform{};
-			for (int row = 0; row < 3; row++)
-				for (int col = 0; col < 4; col++)
-					transform.matrix[row][col] = t[col][row];
-
-			instances.push_back({
-				.transform = transform,
-				.instanceCustomIndex = static_cast<uint32_t>(instances.size()),
-				.mask = 0xFF,
-				.instanceShaderBindingTableRecordOffset = 0,
-				.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-				.accelerationStructureReference = mo->mesh.gpu_data.blasAddress,
-			});
-		}
-
-		if (!instances.empty())
-		{
-			fd.instancesBuffer.writeData(instances.data(), instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-		}
-
-		vk::buildTlas(cmdbuf, fd.instancesBuffer, static_cast<uint32_t>(instances.size()),
-			scratchBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, tlas);
+		shadowTlas.build_from_meshes(
+			cmdbuf,
+			Vulkan::Instance->getCurrentFrameIndex(),
+			opaqueMeshes,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
 
 	VkClearValue clearColor = {0, 0, 0, 0};

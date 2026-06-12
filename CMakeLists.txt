@@ -73,6 +73,7 @@ set(ELLYN_SRC
     src/Render/Vulkan/Buffer.cpp
     src/Render/Vulkan/DescriptorSet.cpp
     src/Render/Texture.cpp
+    src/Render/RendererComponents/SceneTlas.cpp
     src/Utils/myn/RenderDoc.cpp
     src/Render/Vulkan/SamplerCache.cpp
     src/Assets/ShaderModuleAsset.cpp
