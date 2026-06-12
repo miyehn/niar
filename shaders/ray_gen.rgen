@@ -13,6 +13,10 @@ layout(set = 0, binding = 0) uniform ViewInfoUBO {
 	float HalfVFovRadians;
 	int ToneMappingOption;
 	int BackgroundOption;
+	uint FrameIndex;
+	uint _pad0;
+	uint _pad1;
+	vec4 FrameRandom;
 } viewInfo;
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT Scene;

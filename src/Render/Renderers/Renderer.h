@@ -25,6 +25,11 @@ protected:
 		float HalfVFovRadians;
 		int ToneMappingOption;
 		int BackgroundOption;
+		uint32_t FrameIndex;
+		uint32_t _pad0;
+		uint32_t _pad1;
+
+		glm::vec4 FrameRandom;
 	};
 	ViewInfo getCameraViewInfo();
 

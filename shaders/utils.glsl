@@ -10,6 +10,26 @@ precision highp float;
 #define TWO_PI 6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
 
+uint pcg_hash(uint value)
+{
+    uint state = value * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+uint hash_combine(uint a, uint b)
+{
+    return pcg_hash(a ^ pcg_hash(b + 0x9E3779B9u));
+}
+
+float white_noise01(uvec3 xyz, float noise)
+{
+    uint h = hash_combine(xyz.x, floatBitsToUint(noise));
+    h = hash_combine(h, xyz.y);
+    h = hash_combine(h, xyz.z);
+    return float(h >> 8u) * (1.0f / 16777216.0f);
+}
+
 vec3 sampleLongLatMap(sampler2D map, vec3 dir, float mipLevel)
 {
     float phi = atan(dir.y, dir.x);

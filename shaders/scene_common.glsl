@@ -15,6 +15,11 @@ struct ViewInfo
     float HalfVFovRadians;
     int ToneMappingOption;
     int BackgroundOption;
+    uint FrameIndex;
+    uint _pad0;
+    uint _pad1;
+
+    vec4 FrameRandom;
 };
 
 layout (set = 0, binding = 0) uniform _ViewInfoUBO

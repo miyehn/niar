@@ -158,6 +158,7 @@ void Vulkan::endFrame()
 	vkQueuePresentKHR(presentQueue, &presentInfo);
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	globalFrameIndex++;
 	isFrameStarted = false;
 }
 

@@ -3,6 +3,7 @@
 //
 
 #include "Renderer.h"
+#include "Utils/myn/Sample.h"
 
 Renderer::ViewInfo Renderer::getCameraViewInfo()
 {
@@ -18,6 +19,19 @@ Renderer::ViewInfo Renderer::getCameraViewInfo()
 
 	viewInfo.AspectRatio = camera->aspect_ratio;
 	viewInfo.HalfVFovRadians = camera->fov * 0.5f;
+
+#if GRAPHICS_DISPLAY
+	viewInfo.FrameIndex = Vulkan::Instance->getGlobalFrameIndex();
+#else
+	viewInfo.FrameIndex = 0;
+#endif
+
+	viewInfo.FrameRandom = glm::vec4(
+		myn::sample::rand01(),
+		myn::sample::rand01(),
+		myn::sample::rand01(),
+		myn::sample::rand01()
+		);
 
     return viewInfo;
 }

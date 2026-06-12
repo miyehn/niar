@@ -1,6 +1,7 @@
 #version 450 core
 
 #include "scene_common.glsl"
+#include "utils.glsl"
 
 layout(set = 3, binding = 0) uniform sampler2D SceneColor;
 layout(set = 3, binding = 1) uniform sampler2D SceneDepth;
@@ -82,4 +83,9 @@ void main()
     {
         FragColor.rgb = ACES_vec3(FragColor.rgb);
     }
+
+//    FragColor = vec4(0, 0, 0, 1);
+//    FragColor.r = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.FrameRandom.r);
+//    FragColor.g = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.FrameRandom.g);
+//    FragColor.b = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.FrameRandom.b);
 }

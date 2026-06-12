@@ -69,6 +69,11 @@ struct Vulkan {
 		return currentFrame;
 	}
 
+	uint32_t getGlobalFrameIndex() const
+	{
+		return globalFrameIndex;
+	}
+
 	VkRenderPass getSwapChainRenderPass() const { return swapChainRenderPass; }
 
 	void waitDeviceIdle()
@@ -96,6 +101,7 @@ private:
 	bool isFrameStarted = false;
 
 	size_t currentFrame = 0;
+	uint32_t globalFrameIndex = 0;
 
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
