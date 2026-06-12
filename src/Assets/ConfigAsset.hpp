@@ -1,3 +1,4 @@
+#pragma once
 #include "Utils/myn/Log.h"
 #include "Asset.h"
 #include <functional>

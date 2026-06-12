@@ -6,6 +6,8 @@
 #include "Render/Vulkan/Buffer.h"
 #include <vulkan/vulkan.h>
 
+#include "Render/RendererComponents/GI.h"
+
 class Texture2D;
 class DebugPoints;
 class DebugLines;
@@ -132,6 +134,8 @@ private:
 
 	std::unordered_map<std::string, GltfMaterial*> materials;
 	Material* getOrCreateMeshMaterial(const std::string& materialName);
+
+	GI gi;
 
 	// ray-traced shadow resources (valid only when Debug.RTX = 1)
 	SceneTlas shadowTlas;

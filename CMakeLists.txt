@@ -94,7 +94,9 @@ set(ELLYN_SRC
     src/Render/Renderers/RayTracingRenderer.cpp
     src/Render/Materials/ComputeShader.cpp
     src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp
-        src/Render/Renderers/Renderer.cpp)
+        src/Render/Renderers/Renderer.cpp
+        src/Render/RendererComponents/GI.cpp
+        src/Render/RendererComponents/GI.h)
 
 set(ASZELEA_SRC
     src/Aszelea.cpp)

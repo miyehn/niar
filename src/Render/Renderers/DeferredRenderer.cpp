@@ -116,6 +116,15 @@ private:
 DeferredRenderer::DeferredRenderer()
 {
 	renderExtent = Vulkan::Instance->swapChainExtent;
+
+	// init the components
+	// TODO: make sky atmosphere a renderer component
+	gi.init();
+	if (Config->lookup<int>("Debug.RTX"))
+	{
+		shadowTlas.init("Deferred");
+	}
+
 	{// images
 		ImageCreator GPositionCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -464,7 +473,6 @@ DeferredRenderer::DeferredRenderer()
 		if (Config->lookup<int>("Debug.RTX"))
 		{
 			frameGlobalSetLayout.addBinding(8, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
-			shadowTlas.init("Deferred");
 		}
 
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
@@ -610,7 +618,11 @@ DeferredRenderer::~DeferredRenderer()
 	auto vk = Vulkan::Instance;
 	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
-	shadowTlas.release();
+	gi.release();
+	if (Config->lookup<int>("Debug.RTX"))
+	{
+		shadowTlas.release();
+	}
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		auto& fd = gpuFrameData[i];
 		fd.viewInfoUbo.release();
@@ -747,6 +759,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		sky->composite(fd.skyParametersBuffer, fd.skyDescriptorSet, skyTransmittanceLut, skyViewLut);
 	}
 
+	if (Config->lookup<int>("Debug.RTX"))
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "rebuild deferred shadow TLAS")
 		shadowTlas.build_from_meshes(
