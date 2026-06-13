@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 #include "Render/RendererComponents/SceneTlas.h"
+#include "Render/RendererComponents/SkyAtmosphereRender.h"
 #include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/Buffer.h"
 #include <vulkan/vulkan.h>
@@ -47,7 +48,6 @@ class DeferredRenderer : public Renderer
 public:
 
 	DescriptorSetLayout getFrameGlobalLayout();
-	DescriptorSetLayout getSkyDescriptorSetLayout();
 	DescriptorSet& getSkyDescriptorSet();
 
 	VkRenderPass mainPass;
@@ -76,9 +76,6 @@ private:
 		DescriptorSet frameGlobalDescriptorSet;
 		DebugPoints* debugPoints = nullptr;
 		DebugLines* debugLines = nullptr;
-		VmaBuffer skyParametersBuffer;
-		DescriptorSet skyDescriptorSet;
-		DescriptorSet skyDummyDescriptorSet;
 	};
 	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 
@@ -97,9 +94,6 @@ private:
 	Texture2D* sceneDepth;
 
 	Texture2D* postProcessed;
-
-	Texture2D* skyTransmittanceLut;
-	Texture2D* skyViewLut;
 
 	// specific to this renderer
 
@@ -136,7 +130,7 @@ private:
 	Material* getOrCreateMeshMaterial(const std::string& materialName);
 
 	GI gi;
-
+	SkyAtmosphereRender skyAtmosphereRender;
 	// ray-traced shadow resources (valid only when Debug.RTX = 1)
 	SceneTlas shadowTlas;
 };

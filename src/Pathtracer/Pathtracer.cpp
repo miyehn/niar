@@ -28,7 +28,7 @@
 #define SIZE_PER_CHANNEL 1
 
 #include "Assets/SceneAsset.h"
-#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
+#include "../Scene/SkyAtmosphere.h"
 
 struct RaytraceThread {
 

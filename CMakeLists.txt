@@ -56,7 +56,7 @@ set(SHARED_SRC
     # Note: TinyExrImpl.cpp is intentionally omitted. vcpkg's tinyexr port
     # compiles the implementation into a static library, so no impl file is needed.
     src/Utils/myn/Sample.cpp
-    src/Scene/SkyAtmosphere/SkyAtmosphere.cpp
+        src/Scene/SkyAtmosphere.cpp
     src/Utils/myn/ShaderSimulator.cpp
     src/CpuSkyAtmosphere/CpuSkyAtmosphere.cpp
     src/Utils/myn/CpuTexture.cpp)
@@ -74,6 +74,7 @@ set(ELLYN_SRC
     src/Render/Vulkan/DescriptorSet.cpp
     src/Render/Texture.cpp
     src/Render/RendererComponents/SceneTlas.cpp
+    src/Render/RendererComponents/SkyAtmosphereRender.cpp
     src/Utils/myn/RenderDoc.cpp
     src/Render/Vulkan/SamplerCache.cpp
     src/Assets/ShaderModuleAsset.cpp
@@ -93,7 +94,6 @@ set(ELLYN_SRC
     src/Scene/RtxTriangle.cpp
     src/Render/Renderers/RayTracingRenderer.cpp
     src/Render/Materials/ComputeShader.cpp
-    src/Scene/SkyAtmosphere/SkyAtmosphereShaders.cpp
         src/Render/Renderers/Renderer.cpp
         src/Render/RendererComponents/GI.cpp
         src/Render/RendererComponents/GI.h)

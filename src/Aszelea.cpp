@@ -6,7 +6,7 @@
 #include "Pathtracer/Pathtracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
-#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
+#include "Scene/SkyAtmosphere.h"
 #include <cxxopts.hpp>
 #include <windows.h>
 
@@ -68,9 +68,7 @@ int main(int argc, const char * argv[])
 	// sky atmosphere
 	auto sky = SkyAtmosphere::getInstance();
 	scene_asset->get_root()->add_child(sky);
-	if (!Config->lookup<int>("SkyAtmosphereDefaultEnabled")) {
-		sky->toggle_enabled();
-	}
+	sky->find_sun();
 
 	auto pathtracer = Pathtracer::get(width, height);
 	auto pathtracerConfig = pathtracer->get_config_ref();

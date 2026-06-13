@@ -192,8 +192,10 @@ void SceneObject::draw_transform_ui(bool global) const
 }
 #endif
 
-void SceneObject::toggle_enabled() {
-	_enabled = !_enabled;
+void SceneObject::set_enabled(bool enabled) {
+	if (_enabled == enabled) return;
+
+	_enabled = enabled;
 	if (_enabled) on_enable();
 	else on_disable();
 }

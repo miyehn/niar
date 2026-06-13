@@ -73,7 +73,7 @@ public:
 	glm::vec3 forward() const;
 
 	bool enabled() const { return _enabled; }
-	void toggle_enabled();
+	void set_enabled(bool enabled);
 
 	std::string name;
 
@@ -86,5 +86,5 @@ protected:
 	virtual void on_enable() {}
 	virtual void on_disable() {}
 
-	bool _enabled = true;
+	bool _enabled = true; // todo [myn]: make private?
 };

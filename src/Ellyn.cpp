@@ -22,7 +22,7 @@
 #include "Render/Renderers/DeferredRenderer.h"
 #include "Assets/EnvironmentMapAsset.h"
 #include "Scene/Probe.h"
-#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
+#include "Scene/SkyAtmosphere.h"
 
 using namespace myn;
 
@@ -133,9 +133,6 @@ static void init()
 		auto sky = SkyAtmosphere::getInstance();
 		sky->name = "Sky Atmosphere";
 		gltf->add_child(sky);
-		if (!Config->lookup<int>("SkyAtmosphereDefaultEnabled")) {
-			sky->toggle_enabled();
-		}
 	}
 
 	ui::usePurpleStyle();
@@ -185,7 +182,7 @@ static void init()
 				if (ImGui::TreeNode(node->name.c_str()))
 				{
 					if (ImGui::Button(node->enabled() ? "disable" : "enable")) {
-						node->toggle_enabled();
+						node->set_enabled(!node->enabled());
 					}
 					if (node->ui_show_transform) node->draw_transform_ui(show_global_transform);
 					node->drawConfigUI();

@@ -12,7 +12,7 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/Pipeline.h"
 #include "Render/Renderers/DeferredRenderer.h"
-#include "Scene/SkyAtmosphere/SkyAtmosphere.h"
+#include "SkyAtmosphere.h"
 
 class ProbeMaterial : public Material {
 public:
@@ -31,7 +31,7 @@ public:
 			b.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
 
 			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
-			DescriptorSetLayout independentSetLayout = DeferredRenderer::get()->getSkyDescriptorSetLayout();
+			DescriptorSetLayout independentSetLayout = DeferredRenderer::get()->getSkyDescriptorSet().getLayout();
 			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 			b.useDescriptorSetLayout(DSET_INDEPENDENT, independentSetLayout);
 			b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});

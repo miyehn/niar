@@ -1,9 +1,12 @@
-//
-// Created by miyehn on 11/17/2022.
-//
-
 #pragma once
+
 #include "Render/Materials/ComputeShader.h"
+#include "Render/Vulkan/Buffer.h"
+#include "Render/Vulkan/DescriptorSet.h"
+#include "Render/Vulkan/Vulkan.hpp"
+
+class SkyAtmosphere;
+class Texture2D;
 
 #define CS_GROUPSIZE_X 8
 #define CS_GROUPSIZE_Y 8
@@ -34,4 +37,28 @@ private:
 		debugName = "Sky View LUT";
 	}
 	friend class ComputeShader;
+};
+
+struct SkyAtmosphereRender
+{
+	SkyAtmosphereRender() = default;
+	SkyAtmosphereRender(const SkyAtmosphereRender&) = delete;
+	SkyAtmosphereRender& operator=(const SkyAtmosphereRender&) = delete;
+
+	void init();
+	void release();
+	void render(SkyAtmosphere* sky);
+
+	DescriptorSet& get_descriptor_set();
+
+private:
+	struct GpuFrameData {
+		VmaBuffer parametersBuffer;
+		DescriptorSet descriptorSet;
+		DescriptorSet dummyDescriptorSet;
+	};
+
+	Texture2D* transmittanceLut = nullptr;
+	Texture2D* skyViewLut = nullptr;
+	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 };

@@ -8,14 +8,12 @@
 #include "Scene/Camera.hpp"
 #if GRAPHICS_DISPLAY
 #include <imgui.h>
-#include "Render/Vulkan/ImageCreator.h"
-#include "Render/Texture.h"
-#include "Render/Materials/ComputeShader.h"
-#include "SkyAtmosphereShaders.h"
 #endif
 
 SkyAtmosphere::SkyAtmosphere() {
 	new ConfigAsset("config/skyAtmosphere.ini", true, [this](const ConfigAsset* cfg) {
+		set_enabled(cfg->lookup<int>("enabled"));
+
 		cfg->lookupVector<int, 2>("transmittanceLutTextureDimensions", (int*)&parameters.transmittanceLutTextureDimensions);
 		cfg->lookupVector<int, 2>("skyViewLutTextureDimensions", (int*)&parameters.skyViewLutTextureDimensions);
 
@@ -83,33 +81,6 @@ void SkyAtmosphere::update(float elapsed) {
 	}
 }
 
-// called by the renderer
-void SkyAtmosphere::composite(
-	VmaBuffer& parametersBuffer,
-	DescriptorSet& descriptorSet,
-	const Texture2D* transmittanceLut,
-	const Texture2D* skyViewLut)
-{
-	// upload parameters
-	parametersBuffer.writeData(&parameters, sizeof(parameters));
-
-	{// update luts
-		auto transmittanceCS = ComputeShader::getInstance<TransmittanceLutCS>();
-		transmittanceCS->descriptorSetPtr = &descriptorSet;
-		transmittanceCS->targetImage = transmittanceLut->resource.image;
-		transmittanceCS->dispatch(
-			(transmittanceLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
-			(transmittanceLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
-
-		auto skyViewCS = ComputeShader::getInstance<SkyViewLutCS>();
-		skyViewCS->descriptorSetPtr = &descriptorSet;
-		skyViewCS->targetImage = skyViewLut->resource.image;
-		skyViewCS->dispatch(
-			(skyViewLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
-			(skyViewLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y, 1);
-	}
-}
-
 void SkyAtmosphere::drawConfigUI() {
 	//ImGui::SliderFloat("Sun angular radius", &parameters.sunAngularRadius, 0, 1);
 	// TODO: the rest
@@ -121,6 +92,16 @@ void SkyAtmosphere::drawConfigUI() {
 		} else {
 			ImGui::TextColored(yellow, "There's no sun in the scene.");
 		}
+	}
+}
+#else
+void SkyAtmosphere::find_sun()
+{
+	foundSun = DirectionalLight::getSun();
+	if (foundSun) {
+		parameters.dir2sun = -foundSun->getLightDirection();
+	} else {
+		parameters.dir2sun = glm::vec3(0, 0, -1);
 	}
 }
 #endif

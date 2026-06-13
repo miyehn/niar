@@ -4,12 +4,7 @@
 #pragma once
 
 #include "Scene/SceneObject.hpp"
-#if GRAPHICS_DISPLAY
-#include "Render/Vulkan/Buffer.h"
-#include "Render/Vulkan/DescriptorSet.h"
-#endif
 
-class Texture2D;
 class ConfigAsset;
 class DirectionalLight;
 
@@ -72,15 +67,16 @@ public:
 	glm::uvec2 getTransmittanceLutDimensions() const { return parameters.transmittanceLutTextureDimensions; };
 	glm::uvec2 getSkyViewLutDimensions() const { return parameters.skyViewLutTextureDimensions; };
 
-	void composite(VmaBuffer& parametersBuffer, DescriptorSet& descriptorSet, const Texture2D* transmittanceLut, const Texture2D* skyViewLut);
-
 	//==== scene object overrides ====
 
 	void update(float elapsed) override;
 
 	void drawConfigUI() override;
+#else
+	void find_sun(); // called by asz to hook up the sun
 #endif
 
+	[[nodiscard]] const Parameters& getParameters() const { return parameters; }
 	[[nodiscard]] DirectionalLight *const getSun() const { return foundSun; }
 
 private:
