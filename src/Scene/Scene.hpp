@@ -6,7 +6,7 @@
 struct Light;
 struct DirectionalLight;
 struct PointLight;
-struct MeshObject;
+class MeshObject;
 
 /* a scene is a tree of drawables */
 class Scene : public SceneObject {

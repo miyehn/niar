@@ -7,6 +7,37 @@
 #include "Render/Vulkan/VulkanUtils.h"
 #include "../../Scene/SkyAtmosphere.h"
 
+#define CS_GROUPSIZE_X 8
+#define CS_GROUPSIZE_Y 8
+
+// checklist: https://community.khronos.org/t/drawing-to-image-from-compute-shader-example/7116/2
+class TransmittanceLutCS : public ComputeShader {
+public:
+	VkImage targetImage = VK_NULL_HANDLE;
+	void dispatch(int groupCountX, int groupCountY, int groupCountZ) override;
+private:
+	explicit TransmittanceLutCS() {
+		shaderDef = "shaders/sky_transmittance_lut.comp";
+		debugName = "Transmittance LUT";
+	}
+	friend class ComputeShader;
+};
+
+class SkyViewLutCS : public ComputeShader {
+public:
+	// renderingParams
+	VkImage targetImage = VK_NULL_HANDLE;
+	// dispatch fn
+	void dispatch(int groupCountX, int groupCountY, int groupCountZ) override;
+
+private:
+	explicit SkyViewLutCS() {
+		shaderDef = "shaders/sky_view_lut.comp";
+		debugName = "Sky View LUT";
+	}
+	friend class ComputeShader;
+};
+
 void TransmittanceLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
 	// singleton instance
 	Vulkan::Instance->immediateSubmit(
@@ -146,7 +177,7 @@ void SkyAtmosphereRender::release()
 	skyViewLut = nullptr;
 }
 
-void SkyAtmosphereRender::render(SkyAtmosphere* sky)
+void SkyAtmosphereRender::update_luts(SkyAtmosphere* sky)
 {
 	if (!sky || !sky->enabled()) return;
 
@@ -171,8 +202,8 @@ void SkyAtmosphereRender::render(SkyAtmosphere* sky)
 		1);
 }
 
-DescriptorSet& SkyAtmosphereRender::get_descriptor_set()
+DescriptorSet& SkyAtmosphereRender::get_descriptor_set(const SkyAtmosphere* sky)
 {
 	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
-	return SkyAtmosphere::getInstance()->enabled() ? fd.descriptorSet : fd.dummyDescriptorSet;
+	return (sky && sky->enabled()) ? fd.descriptorSet : fd.dummyDescriptorSet;
 }

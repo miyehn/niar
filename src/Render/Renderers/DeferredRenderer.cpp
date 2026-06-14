@@ -695,7 +695,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		std::sort(translucentMeshes.begin(), translucentMeshes.end(), distToCameraSortFn);
 	}
 
-	skyAtmosphereRender.render(sky);
+	skyAtmosphereRender.update_luts(sky);
 
 	if (Config->lookup<int>("Debug.RTX"))
 	{
@@ -868,7 +868,7 @@ DescriptorSetLayout DeferredRenderer::getFrameGlobalLayout()
 
 DescriptorSet& DeferredRenderer::getSkyDescriptorSet()
 {
-	return skyAtmosphereRender.get_descriptor_set();
+	return skyAtmosphereRender.get_descriptor_set(SkyAtmosphere::getInstance());
 }
 
 /*

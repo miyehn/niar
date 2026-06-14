@@ -68,7 +68,7 @@ set(ELLYN_SRC
     src/Scene/Scene.cpp
     src/Scene/GrassField.cpp
     src/Render/Vulkan/VulkanMemoryAllocatorImpl.cpp
-        src/Render/Vulkan/Pipeline.cpp
+    src/Render/Vulkan/Pipeline.cpp
     src/Render/Vulkan/RenderPassBuilder.cpp
     src/Render/Vulkan/Buffer.cpp
     src/Render/Vulkan/DescriptorSet.cpp
@@ -89,14 +89,13 @@ set(ELLYN_SRC
     src/Scene/Probe.cpp
     # imgui SDL2 backend (compiled here since vcpkg dropped sdl2-binding in imgui 1.90+)
     external/imgui/imgui_impl_sdl2.cpp
-    # RTX sources
     src/Render/Vulkan/ShaderBindingTable.cpp
     src/Scene/RtxTriangle.cpp
     src/Render/Renderers/RayTracingRenderer.cpp
     src/Render/Materials/ComputeShader.cpp
-        src/Render/Renderers/Renderer.cpp
-        src/Render/RendererComponents/GI.cpp
-        src/Render/RendererComponents/GI.h)
+    src/Render/Renderers/Renderer.cpp
+    src/Render/RendererComponents/GI.cpp
+    src/Render/RendererComponents/GI.h)
 
 set(ASZELEA_SRC
     src/Aszelea.cpp)
