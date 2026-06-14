@@ -127,7 +127,6 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 	// create the pool first if it isn't created yet
 	if (descriptorPool == VK_NULL_HANDLE)
 	{
-		const bool rtxEnabled = Config->lookup<int>("Debug.RTX");
 		// TODO: make more reliable
 		std::vector<VkDescriptorPoolSize> poolSizes = {
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 64 },
@@ -135,12 +134,9 @@ DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances)
 			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 },
 			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 16 },
 			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 16 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16 },
+			{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 16 },
 		};
-		if (rtxEnabled) {
-			// to be cleaned up when doing more rtx:
-			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16 });
-			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 16 });
-		}
 		VkDescriptorPoolCreateInfo poolInfo = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 			.maxSets = static_cast<uint32_t>(256),
@@ -307,7 +303,7 @@ void DescriptorSet::bind(
 	VkPipelineLayout pipelineLayout,
 	uint32_t instanceId,
 	uint32_t numDynamicOffsets,
-	const uint32_t* pDynamicOffsets)
+	const uint32_t* pDynamicOffsets) const
 {
 	vkCmdBindDescriptorSets(
 		cmdbuf, pipelineBindPoint,

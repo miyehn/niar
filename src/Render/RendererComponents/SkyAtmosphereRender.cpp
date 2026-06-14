@@ -13,98 +13,50 @@
 // checklist: https://community.khronos.org/t/drawing-to-image-from-compute-shader-example/7116/2
 class TransmittanceLutCS : public ComputeShader {
 public:
-	VkImage targetImage = VK_NULL_HANDLE;
-	void dispatch(int groupCountX, int groupCountY, int groupCountZ) override;
-private:
-	explicit TransmittanceLutCS() {
-		shaderDef = "shaders/sky_transmittance_lut.comp";
-		debugName = "Transmittance LUT";
+	const DescriptorSet* descriptorSetPtr = nullptr;
+	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override {
+		ASSERT(cmdbuf != VK_NULL_HANDLE)
+		ASSERT(descriptorSetPtr != nullptr)
+
+		auto& pipeline = getPipeline();
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+		descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
+		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
+	}
+protected:
+	void configurePipeline(ComputePipelineBuilder& builder) override
+	{
+		ASSERT(descriptorSetPtr != nullptr)
+		builder.shaderDef = ShaderModuleDef("shaders/sky_transmittance_lut.comp", "main", SS_Compute);
+		builder.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
 	}
 	friend class ComputeShader;
 };
 
 class SkyViewLutCS : public ComputeShader {
 public:
-	// renderingParams
-	VkImage targetImage = VK_NULL_HANDLE;
+	const DescriptorSet* descriptorSetPtr = nullptr;
 	// dispatch fn
-	void dispatch(int groupCountX, int groupCountY, int groupCountZ) override;
+	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override {
+		ASSERT(cmdbuf != VK_NULL_HANDLE)
+		ASSERT(descriptorSetPtr != nullptr)
 
-private:
-	explicit SkyViewLutCS() {
-		shaderDef = "shaders/sky_view_lut.comp";
-		debugName = "Sky View LUT";
+		auto& pipeline = getPipeline();
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+		descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
+		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
+	}
+
+protected:
+	void configurePipeline(ComputePipelineBuilder& builder) override
+	{
+		ASSERT(descriptorSetPtr != nullptr)
+		builder.shaderDef = ShaderModuleDef("shaders/sky_view_lut.comp", "main", SS_Compute);
+		builder.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
 	}
 	friend class ComputeShader;
 };
 
-void TransmittanceLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
-	// singleton instance
-	Vulkan::Instance->immediateSubmit(
-		[&](VkCommandBuffer cmdbuf) {
-			SCOPED_DRAW_EVENT(cmdbuf, "Dispatch TransmittanceLutCS")
-			vk::insertImageBarrier(
-				cmdbuf,
-				targetImage,
-				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_GENERAL
-			);
-			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, getPipeline().pipeline);
-			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, getPipeline().layout);
-			vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
-
-			vk::insertImageBarrier(
-				cmdbuf,
-				targetImage,
-				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_IMAGE_LAYOUT_GENERAL,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			);
-		});
-}
-
-void SkyViewLutCS::dispatch(int groupCountX, int groupCountY, int groupCountZ) {
-	Vulkan::Instance->immediateSubmit(
-		[&](VkCommandBuffer cmdbuf) {
-			SCOPED_DRAW_EVENT(cmdbuf, "Dispatch SkyViewLutCS")
-			vk::insertImageBarrier(
-				cmdbuf,
-				targetImage,
-				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_GENERAL
-			);
-
-			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, getPipeline().pipeline);
-			descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, getPipeline().layout);
-			vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
-
-			vk::insertImageBarrier(
-				cmdbuf,
-				targetImage,
-				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_IMAGE_LAYOUT_GENERAL,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			);
-		});
-}
 
 void SkyAtmosphereRender::init()
 {
@@ -127,6 +79,32 @@ void SkyAtmosphereRender::init()
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"Sky View LUT");
 	skyViewLut = new Texture2D(skyViewLutCreator);
+
+	// initialize luts into SHADER_READ_ONLY_OPTIMAL
+	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
+	{
+		const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+		vk::insertImageBarrier(
+			cmdbuf,
+			transmittanceLut->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		vk::insertImageBarrier(
+			cmdbuf,
+			skyViewLut->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	});
 
 	DescriptorSetLayout skySetLayout{};
 	skySetLayout.addBinding(SkyAtmosphere::Slot_Parameters, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -177,7 +155,7 @@ void SkyAtmosphereRender::release()
 	skyViewLut = nullptr;
 }
 
-void SkyAtmosphereRender::update_luts(SkyAtmosphere* sky)
+void SkyAtmosphereRender::update_luts(VkCommandBuffer cmdbuf, SkyAtmosphere* sky)
 {
 	if (!sky || !sky->enabled()) return;
 
@@ -185,21 +163,69 @@ void SkyAtmosphereRender::update_luts(SkyAtmosphere* sky)
 	auto parameters = sky->getParameters();
 	fd.parametersBuffer.writeData(&parameters, sizeof(parameters));
 
-	auto transmittanceCS = ComputeShader::getInstance<TransmittanceLutCS>();
-	transmittanceCS->descriptorSetPtr = &fd.descriptorSet;
-	transmittanceCS->targetImage = transmittanceLut->resource.image;
-	transmittanceCS->dispatch(
-		(transmittanceLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
-		(transmittanceLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y,
-		1);
+	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
-	auto skyViewCS = ComputeShader::getInstance<SkyViewLutCS>();
-	skyViewCS->descriptorSetPtr = &fd.descriptorSet;
-	skyViewCS->targetImage = skyViewLut->resource.image;
-	skyViewCS->dispatch(
-		(skyViewLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
-		(skyViewLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y,
-		1);
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "Dispatch TransmittanceLutCS")
+		auto transmittanceCS = ComputeShader::getInstance<TransmittanceLutCS>();
+		transmittanceCS->descriptorSetPtr = &fd.descriptorSet;
+		vk::insertImageBarrier(
+			cmdbuf,
+			transmittanceLut->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_IMAGE_LAYOUT_GENERAL);
+		transmittanceCS->dispatch(
+			cmdbuf,
+			(transmittanceLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
+			(transmittanceLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y,
+			1);
+		vk::insertImageBarrier(
+			cmdbuf,
+			transmittanceLut->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "Dispatch SkyViewLutCS")
+		auto skyViewCS = ComputeShader::getInstance<SkyViewLutCS>();
+		skyViewCS->descriptorSetPtr = &fd.descriptorSet;
+		vk::insertImageBarrier(
+			cmdbuf,
+			skyViewLut->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_IMAGE_LAYOUT_GENERAL);
+		skyViewCS->dispatch(
+			cmdbuf,
+			(skyViewLut->getWidth() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_X,
+			(skyViewLut->getHeight() + CS_GROUPSIZE_X - 1) / CS_GROUPSIZE_Y,
+			1);
+		vk::insertImageBarrier(
+			cmdbuf,
+			skyViewLut->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
 }
 
 DescriptorSet& SkyAtmosphereRender::get_descriptor_set(const SkyAtmosphere* sky)

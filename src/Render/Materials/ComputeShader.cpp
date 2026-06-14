@@ -2,13 +2,10 @@
 #include "Render/Vulkan/Pipeline.h"
 
 const ComputePipeline& ComputeShader::getPipeline() {
-	ASSERT(descriptorSetPtr != nullptr)
-
 	if (!computePipeline.valid()) {
 		auto& b = computePipeline.builder;
-		b.shaderDef = shaderDef;
-		b.useDescriptorSetLayout(DSET_INDEPENDENT, descriptorSetPtr->getLayout());
-		computePipeline.build(debugName);
+		configurePipeline(b);
+		computePipeline.build(b.shaderDef.shader_module_key());
 	}
 	return computePipeline;
 }

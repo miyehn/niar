@@ -30,6 +30,8 @@ ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
 	{ "shaders/sine.comp",                  "main", SS_Compute },
 	{ "shaders/sky_transmittance_lut.comp", "main", SS_Compute },
 	{ "shaders/sky_view_lut.comp",          "main", SS_Compute },
+	{ "shaders/rtgi_generate.comp",         "main", SS_Compute },
+	{ "shaders/rtgi_composite.comp",        "main", SS_Compute },
 	{ "shaders/ray_gen.rgen",               "main", SS_RayGen },
 	{ "shaders/ray_chit.rchit",             "main", SS_ClosestHit },
 	{ "shaders/ray_chit2.rchit",            "main", SS_ClosestHit },
@@ -113,15 +115,12 @@ static std::pair<std::string, std::string> parse_define(const std::string& defin
 	return {define.substr(0, eq), define.substr(eq + 1)};
 }
 
-static std::string shader_module_key(
-	const std::string& entry_file,
-	const std::string& entry_function,
-	const std::vector<std::string>& defines)
+std::string ShaderModuleDef::shader_module_key() const
 {
-	std::string result = entry_file + ":" + entry_function;
-	if (defines.empty()) return result;
+	std::string result = this->entry_file + ":" + this->entry_function;
+	if (this->defines.empty()) return result;
 
-	auto sortedDefines = defines;
+	auto sortedDefines = this->defines;
 	std::sort(sortedDefines.begin(), sortedDefines.end(), [](const std::string& a, const std::string& b) {
 		auto [nameA, valueA] = parse_define(a);
 		auto [nameB, valueB] = parse_define(b);
@@ -157,11 +156,6 @@ static shaderc_shader_kind to_shaderc_stage(ShaderStage stage)
 
 	ERR("Unsupported ShaderStage value: %d", static_cast<int>(stage))
 	return shaderc_glsl_infer_from_source;
-}
-
-static std::string shader_module_key(const ShaderModuleDef& def)
-{
-	return shader_module_key(def.entry_file, def.entry_function, def.defines);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +207,7 @@ static bool compile_shader(
 }
 
 ShaderModuleAsset::ShaderModuleAsset(const ShaderModuleDef& def, const std::vector<uint32_t>& initial_spirv, const std::vector<std::string>& dependency_files)
-	: Asset(shader_module_key(def), /*reloadable=*/true)
+	: Asset(def.shader_module_key(), /*reloadable=*/true)
 	, _def(def)
 	, _dependency_files(dependency_files)
 {
@@ -277,7 +271,7 @@ void ShaderModuleAsset::compile_all()
 				std::string err;
 				compiledShaders[i].def = _shaderModuleDefs[i];
 				if (!compile_shader(_shaderModuleDefs[i], compiledShaders[i].spirv, compiledShaders[i].dependency_files, err)) {
-					auto virtualPath = shader_module_key(compiledShaders[i].def);
+					auto virtualPath = compiledShaders[i].def.shader_module_key();
 					WARN("Shader compile error in '%s':\n%s", virtualPath.c_str(), err.c_str())
 				}
 			}
@@ -310,7 +304,7 @@ ShaderModuleAsset* ShaderModuleAsset::get(
 
 ShaderModuleAsset* ShaderModuleAsset::get(const ShaderModuleDef& def)
 {
-	return get(shader_module_key(def));
+	return get(def.shader_module_key());
 }
 
 ShaderModuleAsset* ShaderModuleAsset::get(const std::string& virtual_path)

@@ -44,6 +44,8 @@ struct ShaderModuleDef
 	std::string entry_function = "main";
 	ShaderStage stage = SS_Unknown;
 	std::vector<std::string> defines;    // e.g. {"USE_NORMAL_MAP=1"}
+
+	std::string shader_module_key() const;
 };
 
 class ShaderModuleAsset : public Asset

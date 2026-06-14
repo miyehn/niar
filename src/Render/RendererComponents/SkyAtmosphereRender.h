@@ -15,7 +15,7 @@ struct SkyAtmosphereRender
 
 	void init();
 	void release();
-	void update_luts(SkyAtmosphere* sky);
+	void update_luts(VkCommandBuffer cmdbuf, SkyAtmosphere* sky);
 
 	DescriptorSet& get_descriptor_set(const SkyAtmosphere* sky);
 

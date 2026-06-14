@@ -1,0 +1,29 @@
+#version 460 core
+#extension GL_EXT_ray_query : require
+
+#include "scene_common.glsl"
+#include "sky_common.glsl"
+
+// (set 0, binding 0) is view info from scene_common.glsl
+layout(set = 0, binding = 1) uniform sampler2D GPosition;
+layout(set = 0, binding = 2) uniform sampler2D GNormal;
+layout(set = 0, binding = 3) uniform accelerationStructureEXT SceneTLAS;
+layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D IndirectLighting;
+// (set 0, binding 5) is sceneColor but unused in the generate pass
+
+// (set 1, binding 0) sky parameters
+// (set 1, binding 8) transmittance
+// (set 1, binding 9) skyview
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 dims = imageSize(IndirectLighting);
+    if (pixel.x >= dims.x || pixel.y >= dims.y) {
+        return;
+    }
+
+    imageStore(IndirectLighting, pixel, vec4(0.005, 0.0, 0.0, 1.0));
+}

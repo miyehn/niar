@@ -1,13 +1,13 @@
 #pragma once
 #include "Render/Vulkan/Vulkan.hpp"
-#include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/Pipeline.h"
 
 class ComputeShader {
 public:
-	// set by caller
-	DescriptorSet* descriptorSetPtr = nullptr;
+	virtual ~ComputeShader() = default;
 
+	// to use a CS, caller gets a pointer to T through this,
+	// sets whatever input required by T, and calls dispatch
 	template<typename T>
 	static T* getInstance() {
 		static T* instance;
@@ -17,11 +17,10 @@ public:
 		}
 		return instance;
 	}
-	virtual void dispatch(int groupCountX, int groupCountY, int groupCountZ) = 0;
+	virtual void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) = 0;
 protected:
-	ShaderModuleDef shaderDef; // set by inherited class constructor
-	std::string debugName;  // set by inherited class constructor
 	const ComputePipeline& getPipeline();
+	virtual void configurePipeline(ComputePipelineBuilder& builder) = 0;
 private:
 	ComputePipeline computePipeline;
 };

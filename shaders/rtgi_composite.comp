@@ -1,0 +1,20 @@
+#version 450 core
+
+layout(set = 0, binding = 4, rgba16f) uniform readonly image2D IndirectLighting;
+layout(set = 0, binding = 5, rgba16f) uniform image2D SceneColor;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 dims = imageSize(SceneColor);
+    if (pixel.x >= dims.x || pixel.y >= dims.y) {
+        return;
+    }
+
+    vec4 sceneColor = imageLoad(SceneColor, pixel);
+    vec4 indirectLighting = imageLoad(IndirectLighting, pixel);
+    sceneColor.rgb += indirectLighting.rgb;
+    imageStore(SceneColor, pixel, sceneColor);
+}

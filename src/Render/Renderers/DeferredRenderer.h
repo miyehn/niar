@@ -134,6 +134,6 @@ private:
 
 	GI gi;
 	SkyAtmosphereRender skyAtmosphereRender;
-	// ray-traced shadow resources (valid only when Debug.RTX = 1)
+	// Shared TLAS for RTX shadows and GI.
 	SceneTlas shadowTlas;
 };

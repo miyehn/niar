@@ -46,9 +46,9 @@ public:
 		VkPipelineLayout pipelineLayout,
 		uint32_t instanceId = 0,
 		uint32_t numDynamicOffsets = 0,
-		const uint32_t* pDynamicOffsets = nullptr);
+		const uint32_t* pDynamicOffsets = nullptr) const;
 
-	DescriptorSetLayout getLayout() { return layout; }
+	DescriptorSetLayout getLayout() const { return layout; }
 
 private:
 

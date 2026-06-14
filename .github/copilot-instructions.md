@@ -53,9 +53,21 @@ The `#define GRAPHICS_DISPLAY` flag gates all Vulkan, SDL2, and ImGui code. Alwa
 
 ### Naming
 - Types/classes: `PascalCase`
-- Functions and methods: `snake_case`
+- Functions and methods: follow nearby code
 - Namespaces: lowercase (`myn`, `myn::sky`)
 - Shader files: `.vert`, `.frag`, `.comp`, `.rgen`, `.rchit`, `.rmiss`
+
+### Class/Struct Members
+
+Prefer lean class/struct declarations, especially in headers. The public surface should make intended use clear without exposing implementation details.
+- Expose only the members that callers need. Keep implementation state private or protected.
+- Use const getters when callers only need read-only access.
+- Store only essential state. Do not add cached fields or boolean flags when the value can be trivially inferred from existing members.
+- Keep implementation-only helper types out of the public namespace when possible. Prefer `.cpp`-local types, or private nested types when they must stay close to the owning type.
+
+### Compute Shaders
+
+Wrap compute shader dispatches in a small class derived from `ComputeShader`. Keep shader-specific setup and dispatch behavior inside that wrapper, instead of spreading pipeline binding and dispatch details through renderer code. Use `.cpp`-local wrapper classes when the compute shader is only used by one component. See `TransmittanceLutCS` and `SkyViewLutCS` for the expected pattern.
 
 ### Header Extensions
 `.h` and `.hpp` are both used with no strict rule. `.inl` files hold inline implementations included at the bottom of headers (e.g., `PathtracerBufferOperations.inl`).
@@ -78,7 +90,7 @@ Vulkan descriptor sets are organized by update frequency:
 - Set 3: Per-object (model matrix UBO)
 
 ### Config Files
-`config/global.ini` is loaded once at startup. `config/pathtracer.ini` and `config/skyAtmosphere.ini` hot-reload during execution. Use the `Config->lookup<T>("Key.Subkey")` pattern to read values.
+`config/global.ini` is loaded once at startup. `config/pathtracer.ini`, `config/skyAtmosphere.ini` and others are hot-reload during execution. Use the `Config->lookup<T>("Key.Subkey")` pattern to read values.
 
 ## Key Dependencies
 
