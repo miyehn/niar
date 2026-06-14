@@ -22,6 +22,7 @@ DebugPoints::DebugPoints(const DescriptorSetLayout& frameGlobalSetLayout, VkRend
 	PointData::getAttributeDescriptions(pipelineBuilder.pipelineState.attributeDescriptions);
 	pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
 	pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_POINT;
+	pipelineBuilder.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
 
 	pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 
@@ -88,6 +89,7 @@ DebugLines::DebugLines(const DescriptorSetLayout& frameGlobalSetLayout, VkRender
 		PointData::getAttributeDescriptions(pipelineBuilder.pipelineState.attributeDescriptions);
 		pipelineBuilder.pipelineState.vertexInputInfo.vertexAttributeDescriptionCount = pipelineBuilder.pipelineState.attributeDescriptions.size();
 		pipelineBuilder.pipelineState.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
+		pipelineBuilder.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
 
 		pipelineBuilder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 

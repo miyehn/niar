@@ -27,12 +27,10 @@ class GltfMaterial;
 // main
 #define DEFERRED_SUBPASS_GEOMETRY 0
 #define DEFERRED_SUBPASS_LIGHTING 1
-#define DEFERRED_SUBPASS_PROBES 2
-#define DEFERRED_SUBPASS_TRANSLUCENCY 3
+#define DEFERRED_SUBPASS_TRANSLUCENCY 2
 
 // post process
 #define DEFERRED_SUBPASS_POSTPROCESSING 0
-#define DEFERRED_SUBPASS_DEBUGDRAW 1
 
 // lighting related
 #define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
@@ -51,7 +49,9 @@ public:
 	DescriptorSet& getSkyDescriptorSet();
 
 	VkRenderPass mainPass;
+	VkRenderPass envmapVisualizationPass;
 	VkRenderPass postProcessPass;
+	VkRenderPass debugDrawPass;
 
 	void render(VkCommandBuffer cmdbuf) override;
 
@@ -65,9 +65,12 @@ private:
 	~DeferredRenderer() override;
 
 	bool drawDebug = true;
+	bool drawEnvmapVisualization = true;
 
 	VkFramebuffer framebuffer;
-	VkFramebuffer postProcessFramebuffer;
+	VkFramebuffer envmapVisualizationFramebuffer; // sceneColor + sceneDepth
+	VkFramebuffer postProcessFramebuffer; // postprocessed
+	VkFramebuffer debugDrawFramebuffer; // postprocessed(RW) + sceneDepth(R)
 
 	struct GpuFrameData {
 		VmaBuffer viewInfoUbo;

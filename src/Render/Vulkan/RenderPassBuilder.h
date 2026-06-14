@@ -12,7 +12,7 @@ struct RenderPassBuilder
 	VkAttachmentDescription depthAttachment;
 	std::vector<VkSubpassDescription> subpasses;
 	std::vector<VkSubpassDependency> dependencies;
-	bool useDepthAttachment;
+	bool useDepthAttachment = false;
 
 	VkRenderPass build(Vulkan* vulkan);
 	VkRenderPass buildDisplayPass(Vulkan* vulkan, VkFormat colorFormat);

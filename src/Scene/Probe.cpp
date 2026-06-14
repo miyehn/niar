@@ -27,8 +27,8 @@ public:
 			b.vertDef = "shaders/geometry.vert";
 			b.fragDef = "shaders/envmap_visualizer.frag";
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
-			b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
-			b.compatibleSubpass = DEFERRED_SUBPASS_PROBES;
+			b.compatibleRenderPass = DeferredRenderer::get()->envmapVisualizationPass;
+			b.compatibleSubpass = 0;
 
 			DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 			DescriptorSetLayout independentSetLayout = DeferredRenderer::get()->getSkyDescriptorSet().getLayout();

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Render/Materials/ComputeShader.h"
 #include "Render/Vulkan/Buffer.h"
 #include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/Vulkan.hpp"

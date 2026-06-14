@@ -5,6 +5,8 @@
 #include "Assets/ConfigAsset.hpp"
 
 
+class Texture2D;
+
 struct GI
 {
     GI() = default;
@@ -13,6 +15,8 @@ struct GI
 
     void init();
     void release();
+
+    void render(Texture2D* sceneColor);
 
 private:
     // can use a config asset for options

@@ -21,3 +21,7 @@ void GI::release()
 {
 
 }
+
+void GI::render(Texture2D* sceneColor) {
+
+}
