@@ -24,11 +24,27 @@ The shader script uses `glslc --target-env=vulkan1.2 -g -O0` to compile GLSL to 
 
 ## Build Targets
 
-There are three executable targets, named after original characters:
+There are three executable targets:
 - **`ellyn`** — Interactive Vulkan GUI application (`src/Ellyn.cpp`), compiled with `GRAPHICS_DISPLAY=1`
 - **`asz`** — Headless CLI path tracer that writes to file (`src/Aszelea.cpp`), `GRAPHICS_DISPLAY=0`
 - **`vin`** — CPU shader simulator (`src/Vincent.cpp`), `GRAPHICS_DISPLAY=0`
-- **`ispc`** — Custom CMake target that compiles the ISPC pathtracer kernel (`src/Pathtracer/pathtracer_kernel.ispc`)
+
+There is no active `ispc` CMake target.
+
+To check build success for a specific target:
+```powershell
+cmake --build build/debug-dynamic --target ellyn -j 14
+cmake --build build/debug-dynamic --target asz -j 14
+cmake --build build/debug-dynamic --target vin -j 14
+```
+
+On Windows, if the compiler environment is not already loaded, run the target build through Visual Studio's developer environment:
+```powershell
+$cmd = 'call "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" -arch=x64 && cmake --build build/debug-dynamic --target ellyn -j 14'
+cmd.exe /d /s /c $cmd
+```
+
+Swap `ellyn` for `asz` or `vin` as needed.
 
 The `#define GRAPHICS_DISPLAY` flag gates all Vulkan, SDL2, and ImGui code. Always check this flag when modifying rendering-related code.
 
@@ -51,23 +67,9 @@ The `#define GRAPHICS_DISPLAY` flag gates all Vulkan, SDL2, and ImGui code. Alwa
 
 ## Key Conventions
 
-### Naming
-- Types/classes: `PascalCase`
-- Functions and methods: follow nearby code
-- Namespaces: lowercase (`myn`, `myn::sky`)
-- Shader files: `.vert`, `.frag`, `.comp`, `.rgen`, `.rchit`, `.rmiss`
+### Overall
 
-### Class/Struct Members
-
-Prefer lean class/struct declarations, especially in headers. The public surface should make intended use clear without exposing implementation details.
-- Expose only the members that callers need. Keep implementation state private or protected.
-- Use const getters when callers only need read-only access.
-- Store only essential state. Do not add cached fields or boolean flags when the value can be trivially inferred from existing members.
-- Keep implementation-only helper types out of the public namespace when possible. Prefer `.cpp`-local types, or private nested types when they must stay close to the owning type.
-
-### Compute Shaders
-
-Wrap compute shader dispatches in a small class derived from `ComputeShader`. Keep shader-specific setup and dispatch behavior inside that wrapper, instead of spreading pipeline binding and dispatch details through renderer code. Use `.cpp`-local wrapper classes when the compute shader is only used by one component. See `TransmittanceLutCS` and `SkyViewLutCS` for the expected pattern.
+Prefer code that makes ownership and data flow visible at the call site. Keep abstractions small, remove redundant state, and place responsibilities at the layer that has the relevant context.
 
 ### Header Extensions
 `.h` and `.hpp` are both used with no strict rule. `.inl` files hold inline implementations included at the bottom of headers (e.g., `PathtracerBufferOperations.inl`).
@@ -83,14 +85,54 @@ Wrap compute shader dispatches in a small class derived from `ComputeShader`. Ke
 ### Logging
 Use the macros from `Utils/myn/Log.h` (color-coded terminal output) rather than raw `printf`/`std::cout`.
 
+### Naming
+- Types/classes: `PascalCase`
+- Functions and methods: follow nearby code
+- Namespaces: lowercase (`myn`, `myn::sky`)
+- Shader files: `.vert`, `.frag`, `.comp`, `.rgen`, `.rchit`, `.rmiss`
+
+### Class/Struct Members
+
+Prefer lean class/struct declarations, especially in headers. The public surface should make intended use clear without exposing implementation details.
+- Expose only the members that callers need. Keep implementation state private or protected.
+- Use const getters when callers only need read-only access.
+- Store only essential state. Do not add cached fields or boolean flags when the value can be trivially inferred from existing members.
+- Do not store transient call inputs, such as `VkCommandBuffer`, on persistent objects. Pass them through the function that uses them.
+- Prefer `const` pointers/references for dependencies that are only read, queried for layout, or bound.
+- Keep implementation-only helper types out of the public namespace when possible. Prefer `.cpp`-local types, or private nested types when they must stay close to the owning type.
+- Avoid thin private helper functions that only obscure a single call site. Fold small glue code into the owning function unless it is reused or clarifies a real phase boundary.
+
+### Compute Shaders
+
+Wrap compute shader dispatches in a small class derived from `ComputeShader`. Use `.cpp`-local wrapper classes when the compute shader is only used by one component.
+- `ComputeShader::dispatch(...)` should bind the pipeline, bind descriptor sets, and call `vkCmdDispatch`. It should not do image layout transitions, memory barriers, or command buffer submission.
+- Pass `VkCommandBuffer` into `dispatch(...)`; do not keep it as shader object state.
+- Keep descriptor set pointers on the concrete shader wrapper, not on the base class. Make them `const DescriptorSet*` when the shader only binds or queries them.
+- The render component that owns the surrounding frame context should own synchronization: image layout transitions, memory barriers, and ordering between passes.
+- Use `Vulkan::Instance->immediateSubmit(...)` for one-time resource setup only. Per-frame compute work should record into the frame command buffer when it participates in the frame graph.
+- Keep shader wrapper setup focused on shader-specific pipeline configuration. Do not expose wrapper classes from headers unless multiple components need them.
+- If several compute passes follow the same pattern, make their call sites consistent before adding new abstractions.
+
 ### Descriptor Set Layout Convention
 Vulkan descriptor sets are organized by update frequency:
 - Set 0: Frame-global data (camera, lights)
 - Set 1–2: Material-specific
 - Set 3: Per-object (model matrix UBO)
 
+Descriptor set layouts may include bindings that are reserved for near-term shader work, but avoid fake shader declarations unless the resource is intentionally part of that shader interface. When a resource is part of the interface, keep the C++ descriptor layout and GLSL binding declarations aligned.
+
+### Render Passes And Synchronization
+Keep logically separate rendering/debug work in separate passes when it makes ownership and toggling clearer. Do not force work into subpasses only to reduce object counts.
+- Prefer explicit render/compute pass ordering over hidden side effects inside material or shader wrappers.
+- Put image barriers at the producer/consumer boundary owned by the render component, not inside low-level dispatch helpers.
+- If a previous pass's outgoing dependency already covers a consumer pass, do not add redundant consumer-side external dependencies.
+- Framebuffer/render pass objects are cheap enough that clarity and correct attachment ownership should win over aggressive reuse.
+
 ### Config Files
 `config/global.ini` is loaded once at startup. `config/pathtracer.ini`, `config/skyAtmosphere.ini` and others are hot-reload during execution. Use the `Config->lookup<T>("Key.Subkey")` pattern to read values.
+
+### Config And Branches
+Use config options for choices that are genuinely supported at runtime. When the project direction makes one path mandatory, remove the old option and fold code to the active path instead of keeping dead branches, shader defines, or inactive descriptor layouts.
 
 ## Key Dependencies
 
