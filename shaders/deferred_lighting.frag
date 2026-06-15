@@ -1,17 +1,8 @@
 #version 460 core
-
-#ifndef RTX
-#define RTX 0
-#endif
-
-#if RTX
 #extension GL_EXT_ray_query : require
-#endif
 
 layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
-#if RTX
 layout (set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
-#endif
 
 layout(location = 0) in vec2 vf_uv;
 layout(location = 0) out vec4 FragColor;

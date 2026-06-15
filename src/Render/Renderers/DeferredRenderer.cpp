@@ -82,9 +82,6 @@ public:
 			auto& b = graphicsPipeline.builder;
 			b.vertDef = "shaders/fullscreen_triangle.vert";
 			b.fragDef = "shaders/deferred_lighting.frag";
-			b.fragDef.defines = Config->lookup<int>("Debug.RTX")
-				? std::vector<std::string>{"RTX=1"}
-				: std::vector<std::string>{"RTX=0"};
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.pipelineState.useVertexInput = false;
 			b.pipelineState.useDepthStencil = false;
@@ -559,11 +556,7 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalSetLayout.addBinding(5, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(6, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(7, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-		if (Config->lookup<int>("Debug.RTX"))
-		{
-			frameGlobalSetLayout.addBinding(8, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
-		}
+		frameGlobalSetLayout.addBinding(8, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 		VkImageView envMapView = loadedEnvironmentMap
@@ -598,11 +591,7 @@ DeferredRenderer::DeferredRenderer()
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToImageView(envMapView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-			if (Config->lookup<int>("Debug.RTX"))
-			{
-				fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
-			}
+			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
 		}
 	}
 

@@ -329,12 +329,10 @@ void load_mesh_buffers(
 #if GRAPHICS_DISPLAY
 	// also load gpu resources:
 	if (gpu_buffer_indices_map && vbo && ibo) {
-		const bool rtxEnabled = Config->lookup<int>("Debug.RTX");
-
 		vk::create_vertex_buffer(
-			vertex_buffer_cpu.data(), vertex_buffer_cpu.size(), sizeof(Vertex), rtxEnabled, *vbo);
+			vertex_buffer_cpu.data(), vertex_buffer_cpu.size(), sizeof(Vertex), *vbo);
 		vk::create_index_buffer(
-			index_buffer_cpu.data(), index_buffer_cpu.size(), sizeof(VERTEX_INDEX_TYPE), rtxEnabled, *ibo);
+			index_buffer_cpu.data(), index_buffer_cpu.size(), sizeof(VERTEX_INDEX_TYPE), *ibo);
 
 		for (auto& p : cpu_buffer_indices_map) {
 			auto& cpu = p.second;
@@ -402,12 +400,7 @@ std::vector<Mesh> load_gltf_meshes(
 	)
 {
 	std::vector<Mesh> output;
-	const bool rtxEnabled = Config->lookup<int>("Debug.RTX");
-	if (rtxEnabled) {
-		LOG("loading mesh obj %s with %d primitives (w blas)", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
-	} else {
-		LOG("loading mesh obj %s with %d primitives..", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
-	}
+	LOG("loading mesh obj %s with %d primitives (w blas)", in_mesh->name.c_str(), (int)in_mesh->primitives.size())
 	for (int i = 0; i < in_mesh->primitives.size(); i++)
 	{
 		auto& prim = in_mesh->primitives[i];
@@ -425,17 +418,15 @@ std::vector<Mesh> load_gltf_meshes(
 		m.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
 		m.gpu_data = gpu_buffer_indices.at(buf_idx);
-		if (rtxEnabled) {
-			blas_collection.push_back({});
-			build_blas(m, blas_collection.back());
-			m.gpu_data.blasHandle = blas_collection.back().blas;
-			const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-				.accelerationStructure = m.gpu_data.blasHandle
-			};
-			m.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
-				Vulkan::Instance->device, &addrInfo);
-		}
+		blas_collection.push_back({});
+		build_blas(m, blas_collection.back());
+		m.gpu_data.blasHandle = blas_collection.back().blas;
+		const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+			.accelerationStructure = m.gpu_data.blasHandle
+		};
+		m.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
+			Vulkan::Instance->device, &addrInfo);
 #endif
 	}
 	return output;
@@ -810,17 +801,15 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 			mesh.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
 			mesh.gpu_data = gpu_buffer_indices.at(buf_idx);
-			if (Config->lookup<int>("Debug.RTX")) {
-				blas_collection.push_back({});
-				build_blas(mesh, blas_collection.back());
-				mesh.gpu_data.blasHandle = blas_collection.back().blas;
-				const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-					.accelerationStructure = mesh.gpu_data.blasHandle
-				};
-				mesh.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
-					Vulkan::Instance->device, &addrInfo);
-			}
+			blas_collection.push_back({});
+			build_blas(mesh, blas_collection.back());
+			mesh.gpu_data.blasHandle = blas_collection.back().blas;
+			const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+				.accelerationStructure = mesh.gpu_data.blasHandle
+			};
+			mesh.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
+				Vulkan::Instance->device, &addrInfo);
 #endif
 			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())
 		}

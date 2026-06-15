@@ -77,9 +77,9 @@ static void cleanup();
 static void init()
 {
 	bool loadRenderDoc = Config->lookup<int>("Debug.RenderDoc");
-	if (loadRenderDoc && Config->lookup<int>("Debug.RTX")) {
+	if (loadRenderDoc) {
 		loadRenderDoc = false;
-		WARN("RenderDoc requested but is disabled because it's incompatible with RTX.")
+		WARN("RenderDoc requested but is disabled because it's incompatible with ray tracing.")
 	}
 
 	if (loadRenderDoc) {
@@ -148,22 +148,15 @@ static void init()
 	}
 
 	{// renderers
-		int rtx_enabled = Config->lookup<int>("Debug.RTX");
 		renderers.push_back(SimpleRenderer::get());
 		renderers.push_back(DeferredRenderer::get());
 		renderers.push_back(Pathtracer::get(width, height));
-		if (rtx_enabled) {
-			renderers.push_back(RayTracingRenderer::get());
-		}
+		renderers.push_back(RayTracingRenderer::get());
 
 		auto rendererIndexRef = (int*)&renderer_index;
-		ui::elem([rendererIndexRef, rtx_enabled]()
+		ui::elem([rendererIndexRef]()
 		{
-			if (rtx_enabled) {
-				ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0RTX\0\0");
-			} else {
-				ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0\0");
-			}
+			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0RTX\0\0");
 			ImGui::Separator();
 
 			renderers[renderer_index]->draw_config_ui();

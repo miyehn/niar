@@ -231,7 +231,7 @@ void vk::uploadPixelsToImage(
 	stagingBuffer.release();
 }
 
-void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex_size, bool rtxEnabled, VmaBuffer &vertexBuffer)
+void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex_size, VmaBuffer &vertexBuffer)
 {
 	VkDeviceSize bufferSize = vertex_size * num_vertices;
 
@@ -246,10 +246,11 @@ void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex
 	stagingBuffer.writeData(data, bufferSize);
 
 	// now create the actual vertex buffer
-	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	if (rtxEnabled) {
-		vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	}
+	VkBufferUsageFlags vkUsage =
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
 	vertexBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,
@@ -263,7 +264,7 @@ void vk::create_vertex_buffer(void *data, uint32_t num_vertices, uint32_t vertex
 	stagingBuffer.release();
 }
 
-void vk::create_index_buffer(void *data, uint32_t num_indices, uint32_t index_size, bool rtxEnabled, VmaBuffer &indexBuffer)
+void vk::create_index_buffer(void *data, uint32_t num_indices, uint32_t index_size, VmaBuffer &indexBuffer)
 {
 	VkDeviceSize bufferSize = index_size * num_indices;
 
@@ -275,10 +276,11 @@ void vk::create_index_buffer(void *data, uint32_t num_indices, uint32_t index_si
 	stagingBuffer.writeData(data, bufferSize);
 
 	// create the actual index buffer
-	VkBufferUsageFlags vkUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	if (rtxEnabled) {
-		vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	}
+	VkBufferUsageFlags vkUsage =
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
 	indexBuffer = VmaBuffer({
 		&Vulkan::Instance->memoryAllocator,

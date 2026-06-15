@@ -21,13 +21,10 @@ Vulkan::Vulkan(SDL_Window* window) {
     #endif
     createSurface();
 
-	//if (Config->lookup<int>("Debug.RTX"))
-	{
-		deviceExtensions.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-		deviceExtensions.emplace_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-		deviceExtensions.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-		deviceExtensions.emplace_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-	}
+	deviceExtensions.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+	deviceExtensions.emplace_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+	deviceExtensions.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+	deviceExtensions.emplace_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 
     pickPhysicalDevice();
     createLogicalDevice();
@@ -40,10 +37,7 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createFramebuffers();
 	createCommandBuffers();
 
-	//if (Config->lookup<int>("Debug.RTX"))
-	{
-		initRayTracing();
-	}
+	initRayTracing();
 
 	initImGui();
 }
@@ -195,14 +189,11 @@ void Vulkan::endSwapChainRenderPass(VkCommandBuffer cmdbuf)
 void Vulkan::createMemoryAllocator()
 {
 	VmaAllocatorCreateInfo allocatorInfo = {
+		.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
 		.physicalDevice = physicalDevice,
 		.device = device,
 		.instance = instance
 	};
-	//if (Config->lookup<int>("Debug.RTX"))
-	{
-		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-	}
 	EXPECT(vmaCreateAllocator(&allocatorInfo, &memoryAllocator), VK_SUCCESS);
 }
 
@@ -576,31 +567,28 @@ void Vulkan::createLogicalDevice() {
 	};
 	createInfo.pNext = &features13;
 
-	//if (Config->lookup<int>("Debug.RTX"))
-	{
-		VkPhysicalDeviceVulkan12Features features12 = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-			.pNext = nullptr,
-			.hostQueryReset = VK_TRUE,
-			.bufferDeviceAddress = VK_TRUE,
-		};
-		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-			.pNext = &features12,
-			.rayTracingPipeline = VK_TRUE,
-		};
-		VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.pNext = &rtFeatures,
-			.accelerationStructure = VK_TRUE,
-		};
-		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
-			.pNext = &asFeatures,
-			.rayQuery = VK_TRUE,
-		};
-		features13.pNext = &rayQueryFeatures;
-	}
+	VkPhysicalDeviceVulkan12Features features12 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.pNext = nullptr,
+		.hostQueryReset = VK_TRUE,
+		.bufferDeviceAddress = VK_TRUE,
+	};
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+		.pNext = &features12,
+		.rayTracingPipeline = VK_TRUE,
+	};
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+		.pNext = &rtFeatures,
+		.accelerationStructure = VK_TRUE,
+	};
+	VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+		.pNext = &asFeatures,
+		.rayQuery = VK_TRUE,
+	};
+	features13.pNext = &rayQueryFeatures;
 
 	EXPECT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), VK_SUCCESS)
 
@@ -967,19 +955,16 @@ void Vulkan::findProxyFunctionPointers()
 	FIND_FN_PTR(vkCmdInsertDebugUtilsLabelEXT)
 	FIND_FN_PTR(vkSetDebugUtilsObjectNameEXT)
 
-	//if (Config->lookup<int>("Debug.RTX"))
-	{
-		FIND_FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
-		FIND_FN_PTR(vkCreateAccelerationStructureKHR)
-		FIND_FN_PTR(vkDestroyAccelerationStructureKHR)
-		FIND_FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
-		FIND_FN_PTR(vkCreateRayTracingPipelinesKHR)
-		FIND_FN_PTR(vkGetRayTracingShaderGroupHandlesKHR)
-		FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
-		FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
-		FIND_FN_PTR(vkCmdCopyAccelerationStructureKHR)
-		FIND_FN_PTR(vkCmdTraceRaysKHR)
-	}
+	FIND_FN_PTR(vkGetAccelerationStructureBuildSizesKHR)
+	FIND_FN_PTR(vkCreateAccelerationStructureKHR)
+	FIND_FN_PTR(vkDestroyAccelerationStructureKHR)
+	FIND_FN_PTR(vkGetAccelerationStructureDeviceAddressKHR)
+	FIND_FN_PTR(vkCreateRayTracingPipelinesKHR)
+	FIND_FN_PTR(vkGetRayTracingShaderGroupHandlesKHR)
+	FIND_FN_PTR(vkCmdBuildAccelerationStructuresKHR)
+	FIND_FN_PTR(vkCmdWriteAccelerationStructuresPropertiesKHR)
+	FIND_FN_PTR(vkCmdCopyAccelerationStructureKHR)
+	FIND_FN_PTR(vkCmdTraceRaysKHR)
 }
 
 void Vulkan::cmdInsertDebugLabel(VkCommandBuffer &cmdbuf, const std::string &labelName, const myn::Color color)

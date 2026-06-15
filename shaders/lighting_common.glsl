@@ -99,7 +99,6 @@ vec3 lightingContrib(MaterialLightingInfo info)
 
 float shadowFactor(vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
 {
-#if RTX
     rayQueryEXT rq;
     rayQueryInitializeEXT(
         rq,
@@ -112,9 +111,6 @@ float shadowFactor(vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
         tMax);
     rayQueryProceedEXT(rq);
     return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
-#else
-    return 1.0;
-#endif
 }
 
 // assumes frameglobal stuff is available and fragment is visible

@@ -45,9 +45,9 @@ namespace vk
 		uint32_t pixelSize,
 		VmaAllocatedImage outResource);
 
-	void create_vertex_buffer(void* data, uint32_t num_vertices, uint32_t vertex_size, bool rtxEnabled, VmaBuffer& vertexBuffer);
+	void create_vertex_buffer(void* data, uint32_t num_vertices, uint32_t vertex_size, VmaBuffer& vertexBuffer);
 
-	void create_index_buffer(void* data, uint32_t num_indices, uint32_t index_size, bool rtxEnabled, VmaBuffer& indexBuffer);
+	void create_index_buffer(void* data, uint32_t num_indices, uint32_t index_size, VmaBuffer& indexBuffer);
 
 	void buildBlas(
 		VkAccelerationStructureGeometryKHR geom,
