@@ -120,28 +120,28 @@ DeferredRenderer::DeferredRenderer()
 		ImageCreator GPositionCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GPosition");
 
 		ImageCreator GNormalCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GNormal");
 
 		ImageCreator GColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GColor");
 
 		ImageCreator GORMCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GORM");
 
@@ -257,13 +257,14 @@ DeferredRenderer::DeferredRenderer()
 			.pDepthStencilAttachment = &depthAttachmentReference
 		});
 
+		// base pass dependencies
 		passBuilder.dependencies.push_back({
 			.srcSubpass = DEFERRED_SUBPASS_GEOMETRY,
 			.dstSubpass = VK_SUBPASS_EXTERNAL,
 			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 		});
 
@@ -273,20 +274,6 @@ DeferredRenderer::DeferredRenderer()
 	{// lighting and translucency pass
 		RenderPassBuilder passBuilder;
 
-		// GPosition, GNormal, GColor, GORM
-		for (int i = 0; i < 4; i++) {
-			passBuilder.colorAttachments.push_back(
-				{
-					.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-					.samples = VK_SAMPLE_COUNT_1_BIT,
-					.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-				});
-		}
 		// sceneColor
 		passBuilder.colorAttachments.push_back(
 			{
@@ -312,26 +299,17 @@ DeferredRenderer::DeferredRenderer()
 			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		};
 
-		std::vector<VkAttachmentReference> lightingInputAttachmentRefs = {
-			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
-		};
 		std::vector<VkAttachmentReference> lightingColorAttachmentRefs = {
-			{SCENECOLOR_ATTACHMENT,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+			{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
 		VkAttachmentReference depthAttachmentReference = {
-			SCENEDEPTH_ATTACHMENT,
+			1,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		};
 
 		// lighting subpass
 		passBuilder.subpasses.push_back({
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-			// input attachments
-			.inputAttachmentCount = static_cast<uint32_t>(lightingInputAttachmentRefs.size()),
-			.pInputAttachments = lightingInputAttachmentRefs.data(),
 			// output attachments
 			.colorAttachmentCount = static_cast<uint32_t>(lightingColorAttachmentRefs.size()),
 			.pColorAttachments = lightingColorAttachmentRefs.data(),
@@ -353,7 +331,7 @@ DeferredRenderer::DeferredRenderer()
 			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 		});
 		passBuilder.dependencies.push_back({
@@ -549,17 +527,13 @@ DeferredRenderer::DeferredRenderer()
 
 	{// framebuffer for lighting and translucency pass
 		VkImageView attachments[] = {
-			GPosition->imageView,
-			GNormal->imageView,
-			GColor->imageView,
-			GORM->imageView,
 			sceneColor->imageView,
 			sceneDepth->imageView
 		};
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = lightingPass, // the render pass it needs to be compatible with
-			.attachmentCount = 6,
+			.attachmentCount = 2,
 			.pAttachments = attachments, // a pointer to an array of VkImageView handles, each of which will be used as the corresponding attachment in a render pass instance.
 			.width = renderExtent.width,
 			.height = renderExtent.height,
@@ -629,10 +603,10 @@ DeferredRenderer::DeferredRenderer()
 	{// frame-global descriptor set (per-frame ring buffer)
 		DescriptorSetLayout frameGlobalSetLayout{};
 		frameGlobalSetLayout.addBinding(0, VK_SHADER_STAGE_ALL_GRAPHICS, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		frameGlobalSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		frameGlobalSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+		frameGlobalSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		frameGlobalSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		frameGlobalSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		frameGlobalSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		frameGlobalSetLayout.addBinding(5, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(6, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(7, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -642,6 +616,19 @@ DeferredRenderer::DeferredRenderer()
 		VkImageView envMapView = loadedEnvironmentMap
 			? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D->imageView
 			: Texture::get<Texture2D>("_black")->imageView;
+
+		VkSamplerCreateInfo gbufferSamplerInfo = {
+			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			.magFilter = VK_FILTER_NEAREST,
+			.minFilter = VK_FILTER_NEAREST,
+			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+			.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			.mipLodBias = 0,
+			.minLod = 0,
+			.maxLod = 0,
+		};
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			auto& fd = gpuFrameData[i];
@@ -664,10 +651,10 @@ DeferredRenderer::DeferredRenderer()
 
 			fd.frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			fd.frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-			fd.frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-			fd.frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+			fd.frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToImageView(envMapView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -926,13 +913,13 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
-	VkClearValue lightingClearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
+	VkClearValue lightingClearValues[] = { clearColor, clearDepth };
 	VkRenderPassBeginInfo lightingPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = lightingPass,
 		.framebuffer = lightingFramebuffer,
 		.renderArea = renderArea,
-		.clearValueCount = 6,
+		.clearValueCount = 2,
 		.pClearValues = lightingClearValues
 	};
 	vkCmdBeginRenderPass(cmdbuf, &lightingPassInfo, VK_SUBPASS_CONTENTS_INLINE);

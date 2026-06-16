@@ -5,9 +5,13 @@ layout(location = 0) in vec2 vf_uv;
 layout(location = 0) out vec4 FragColor;
 
 #include "utils.glsl"
-#include "scene_common.glsl" // (set 0, binding 0; 5-7) frameglobal
-#include "lighting_common.glsl" // pbr lighting functions
-#include "rendertargets.glsl" // (set 0, bindings 1-4) g buffers
+#include "scene_common.glsl" // (set 0, binding 0) view info
+#include "lighting_common.glsl" // (set 0, bindings 5-8) pbr lighting functions
+
+layout(set = 0, binding = 1) uniform sampler2D GBUF0;
+layout(set = 0, binding = 2) uniform sampler2D GBUF1;
+layout(set = 0, binding = 3) uniform sampler2D GBUF2;
+layout(set = 0, binding = 4) uniform sampler2D GBUF3;
 
 #include "sky_common.glsl" // set 1, bindings 0-2; 8-9
 
@@ -15,10 +19,11 @@ void main() {
 
 	FragColor = vec4(0, 0, 0, 1);
 
-	vec4 GPosition = subpassLoad(GBUF0);
-	vec4 GNormal = subpassLoad(GBUF1);
-	vec4 GColor = subpassLoad(GBUF2);
-	vec4 GORM = subpassLoad(GBUF3);
+	ivec2 pixel = ivec2(gl_FragCoord.xy);
+	vec4 GPosition = texelFetch(GBUF0, pixel, 0);
+	vec4 GNormal = texelFetch(GBUF1, pixel, 0);
+	vec4 GColor = texelFetch(GBUF2, pixel, 0);
+	vec4 GORM = texelFetch(GBUF3, pixel, 0);
 
 	ViewInfo viewInfo = GetViewInfo();
 
