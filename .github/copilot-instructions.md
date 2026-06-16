@@ -29,8 +29,6 @@ There are three executable targets:
 - **`asz`** — Headless CLI path tracer that writes to file (`src/Aszelea.cpp`), `GRAPHICS_DISPLAY=0`
 - **`vin`** — CPU shader simulator (`src/Vincent.cpp`), `GRAPHICS_DISPLAY=0`
 
-There is no active `ispc` CMake target.
-
 To check build success for a specific target:
 ```powershell
 cmake --build build/debug-dynamic --target ellyn -j 14

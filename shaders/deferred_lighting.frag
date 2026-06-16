@@ -1,12 +1,8 @@
 #version 460 core
 #extension GL_EXT_ray_query : require
 
-layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
-layout (set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
-
 layout(location = 0) in vec2 vf_uv;
 layout(location = 0) out vec4 FragColor;
-
 
 #include "utils.glsl"
 #include "scene_common.glsl" // (set 0, binding 0; 5-7) frameglobal

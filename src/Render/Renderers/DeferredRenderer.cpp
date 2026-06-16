@@ -797,26 +797,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	}
 
-	VkClearValue clearColor = {0, 0, 0, 0};
-	VkClearValue clearDepth;
-	clearDepth.depthStencil.depth = 1.f;
-	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
-	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
-	VkRenderPassBeginInfo passInfo = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = mainPass,
-		.framebuffer = framebuffer,
-		.renderArea = renderArea,
-		.clearValueCount = 6,
-		.pClearValues = clearValues
-	};
-	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
-	{
-		SCOPED_DRAW_EVENT(cmdbuf, "Opaque base pass")
-		// deferred base pass: draw the meshes with materials
+	auto renderMeshes = [this, &cmdbuf, &bindFrameGlobal](const std::vector<MeshObject*>& meshes) {
 		Material* last_material = nullptr;
 		const GraphicsPipeline* last_pipeline = nullptr;
-		for (auto mo : opaqueMeshes)
+		for (auto mo : meshes)
 		{
 			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
 			auto& pipeline = mat->getPipeline();
@@ -838,7 +822,26 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			mat->setPerDrawParameters(cmdbuf, mo);
 			mo->draw(cmdbuf);
 		}
+	};
 
+	VkClearValue clearColor = {0, 0, 0, 0};
+	VkClearValue clearDepth;
+	clearDepth.depthStencil.depth = 1.f;
+	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
+	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
+	VkRenderPassBeginInfo passInfo = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = mainPass,
+		.framebuffer = framebuffer,
+		.renderArea = renderArea,
+		.clearValueCount = 6,
+		.pClearValues = clearValues
+	};
+	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+	{
+		SCOPED_DRAW_EVENT(cmdbuf, "Opaque base pass")
+		// deferred base pass: draw the meshes with materials
+		renderMeshes(opaqueMeshes);
 	}
 
 	{
@@ -855,29 +858,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Translucency")
 		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
-		Material* last_material = nullptr;
-		const GraphicsPipeline* last_pipeline = nullptr;
-		for (auto mo : translucentMeshes) {
-			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
-			auto& pipeline = mat->getPipeline();
-
-			// pipeline changed: re-bind; re-set frame globals if necessary
-			if (!last_pipeline || pipeline != *last_pipeline) {
-				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-				if (!last_pipeline || pipeline.layout != last_pipeline->layout)
-					bindFrameGlobal(pipeline.layout);
-				last_pipeline = &pipeline;
-			}
-
-			// material changed
-			if (mat != last_material) {
-				mat->bindMaterialDescriptors(cmdbuf, pipeline.layout);
-				last_material = mat;
-			}
-
-			mat->setPerDrawParameters(cmdbuf, mo);
-			mo->draw(cmdbuf);
-		}
+		renderMeshes(translucentMeshes);
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
