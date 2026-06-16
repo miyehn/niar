@@ -59,43 +59,17 @@ protected:
 	}
 };
 
-class RtgiCompositeCS : public ComputeShader
-{
-public:
-	const DescriptorSet* descriptorSetPtr = nullptr;
-
-	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
-	{
-		ASSERT(descriptorSetPtr != nullptr)
-
-		auto& pipeline = getPipeline();
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
-		descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipeline.layout);
-		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
-	}
-
-protected:
-	void configurePipeline(ComputePipelineBuilder& builder) override
-	{
-		ASSERT(descriptorSetPtr != nullptr)
-		builder.shaderDef = ShaderModuleDef("shaders/rtgi_composite.comp", "main", SS_Compute);
-		builder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, descriptorSetPtr->getLayout());
-	}
-};
 }
 
 void GI::init(const InitInfo& info)
 {
 	ASSERT(info.GPosition != nullptr)
 	ASSERT(info.GNormal != nullptr)
-	ASSERT(info.sceneColor != nullptr)
 	ASSERT(info.tlas != VK_NULL_HANDLE)
-
-	sceneColor = info.sceneColor;
 
 	ImageCreator indirectLightingCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
-		{sceneColor->getWidth(), sceneColor->getHeight(), 1},
+		{info.GPosition->getWidth(), info.GPosition->getHeight(), 1},
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"indirectLighting");
@@ -120,7 +94,6 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(2, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(3, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 	giSetLayout.addBinding(4, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-	giSetLayout.addBinding(5, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -146,7 +119,6 @@ void GI::init(const InitInfo& info)
 			&samplerInfo);
 		giDescriptorSets[i].pointToAccelerationStructure(info.tlas, 3);
 		giDescriptorSets[i].pointToRWImageView(indirectLighting->imageView, 4);
-		giDescriptorSets[i].pointToRWImageView(info.sceneColor->imageView, 5);
 	}
 }
 
@@ -155,22 +127,18 @@ void GI::release()
 	ASSERT(indirectLighting != nullptr)
 	delete indirectLighting;
 	indirectLighting = nullptr;
-	sceneColor = nullptr;
 }
 
-void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
+const Texture2D* GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
 {
 	// enabled?
-	if (get_gi_config()->lookup<int>("enabled") == 0) return;
+	if (get_gi_config()->lookup<int>("enabled") == 0) return Texture::get<Texture2D>("_black");
 
 	ASSERT(frameIndex < MAX_FRAMES_IN_FLIGHT)
 	auto& giDescriptorSet = giDescriptorSets[frameIndex];
 	const uint32_t groupCountX = (indirectLighting->getWidth() + RTGI_GROUPSIZE_X - 1) / RTGI_GROUPSIZE_X;
 	const uint32_t groupCountY = (indirectLighting->getHeight() + RTGI_GROUPSIZE_Y - 1) / RTGI_GROUPSIZE_Y;
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
-	// in this case, sceneColor already has its barrier between translucency and this GI render pass (external),
-	// so no need to insert another one here
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "RTGI Generate")
@@ -202,36 +170,6 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 			VK_IMAGE_LAYOUT_GENERAL);
 	}
 
-	{
-		SCOPED_DRAW_EVENT(cmdbuf, "RTGI Composite")
-		auto* compositeCS = ComputeShader::getInstance<RtgiCompositeCS>();
-		compositeCS->descriptorSetPtr = &giDescriptorSet;
-
-		vk::insertImageBarrier(
-			cmdbuf,
-			sceneColor->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_IMAGE_LAYOUT_GENERAL);
-
-		compositeCS->dispatch(cmdbuf, groupCountX, groupCountY, 1);
-
-		vk::insertImageBarrier(
-			cmdbuf,
-			sceneColor->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
-
 	vk::insertImageBarrier(
 		cmdbuf,
 		indirectLighting->resource.image,
@@ -242,4 +180,6 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	return indirectLighting;
 }

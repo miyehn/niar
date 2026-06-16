@@ -30,7 +30,6 @@ ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
 	{ "shaders/sky_transmittance_lut.comp", "main", SS_Compute },
 	{ "shaders/sky_view_lut.comp",          "main", SS_Compute },
 	{ "shaders/rtgi_generate.comp",         "main", SS_Compute },
-	{ "shaders/rtgi_composite.comp",        "main", SS_Compute },
 	{ "shaders/ray_gen.rgen",               "main", SS_RayGen },
 	{ "shaders/ray_chit.rchit",             "main", SS_ClosestHit },
 	{ "shaders/ray_chit2.rchit",            "main", SS_ClosestHit },

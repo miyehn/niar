@@ -668,7 +668,6 @@ DeferredRenderer::DeferredRenderer()
 		GI::InitInfo giInitInfo{};
 		giInitInfo.GPosition = GPosition;
 		giInitInfo.GNormal = GNormal;
-		giInitInfo.sceneColor = sceneColor;
 		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
 		}
@@ -939,7 +938,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
-	gi.render(cmdbuf, Vulkan::Instance->getCurrentFrameIndex(), getSkyDescriptorSet());
+	(void)gi.render(cmdbuf, Vulkan::Instance->getCurrentFrameIndex(), getSkyDescriptorSet());
 
 	if (drawEnvmapVisualization) {
 		SCOPED_DRAW_EVENT(cmdbuf, "EnvMap visualization")
