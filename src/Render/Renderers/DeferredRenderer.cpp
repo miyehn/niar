@@ -85,7 +85,7 @@ public:
 			b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 			b.pipelineState.useVertexInput = false;
 			b.pipelineState.useDepthStencil = false;
-			b.compatibleRenderPass = renderer->mainPass;
+			b.compatibleRenderPass = renderer->lightingPass;
 			b.compatibleSubpass = DEFERRED_SUBPASS_LIGHTING;
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
@@ -175,7 +175,7 @@ DeferredRenderer::DeferredRenderer()
 		postProcessed = new Texture2D(postProcessedCreator);
 	}
 
-	{// main pass
+	{// base pass
 		RenderPassBuilder passBuilder;
 
 		// GPosition
@@ -212,7 +212,7 @@ DeferredRenderer::DeferredRenderer()
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			});
 		// GORM
 		passBuilder.colorAttachments.push_back(
@@ -224,21 +224,8 @@ DeferredRenderer::DeferredRenderer()
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-			});
-		// sceneColor
-		passBuilder.colorAttachments.push_back(
-			{
-				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			});
-		// sceneDepth
 		passBuilder.useDepthAttachment = true;
 		passBuilder.depthAttachment = {
 			.format = VK_FORMAT_D32_SFLOAT,
@@ -258,8 +245,9 @@ DeferredRenderer::DeferredRenderer()
 			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
+		constexpr uint32_t basePassDepthAttachment = 4;
 		VkAttachmentReference depthAttachmentReference = {
-			SCENEDEPTH_ATTACHMENT,
+			basePassDepthAttachment,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		};
 		passBuilder.subpasses.push_back({
@@ -269,7 +257,61 @@ DeferredRenderer::DeferredRenderer()
 			.pDepthStencilAttachment = &depthAttachmentReference
 		});
 
-		// lighting pass
+		passBuilder.dependencies.push_back({
+			.srcSubpass = DEFERRED_SUBPASS_GEOMETRY,
+			.dstSubpass = VK_SUBPASS_EXTERNAL,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		});
+
+		basePass = passBuilder.build(Vulkan::Instance);
+	}
+
+	{// lighting and translucency pass
+		RenderPassBuilder passBuilder;
+
+		// GPosition, GNormal, GColor, GORM
+		for (int i = 0; i < 4; i++) {
+			passBuilder.colorAttachments.push_back(
+				{
+					.format = VK_FORMAT_R16G16B16A16_SFLOAT,
+					.samples = VK_SAMPLE_COUNT_1_BIT,
+					.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				});
+		}
+		// sceneColor
+		passBuilder.colorAttachments.push_back(
+			{
+				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			});
+		// sceneDepth
+		passBuilder.useDepthAttachment = true;
+		passBuilder.depthAttachment = {
+			.format = VK_FORMAT_D32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
 		std::vector<VkAttachmentReference> lightingInputAttachmentRefs = {
 			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
@@ -279,6 +321,12 @@ DeferredRenderer::DeferredRenderer()
 		std::vector<VkAttachmentReference> lightingColorAttachmentRefs = {
 			{SCENECOLOR_ATTACHMENT,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
+		VkAttachmentReference depthAttachmentReference = {
+			SCENEDEPTH_ATTACHMENT,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		};
+
+		// lighting subpass
 		passBuilder.subpasses.push_back({
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 			// input attachments
@@ -290,7 +338,7 @@ DeferredRenderer::DeferredRenderer()
 			.pDepthStencilAttachment = nullptr
 		});
 
-		// translucency
+		// translucency subpass
 		passBuilder.subpasses.push_back({
 			.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 			.colorAttachmentCount = 1,
@@ -300,12 +348,21 @@ DeferredRenderer::DeferredRenderer()
 
 		// dependencies
 		passBuilder.dependencies.push_back({
-			.srcSubpass = DEFERRED_SUBPASS_GEOMETRY,
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
 			.dstSubpass = DEFERRED_SUBPASS_LIGHTING,
-			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		});
+		passBuilder.dependencies.push_back({
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = DEFERRED_SUBPASS_TRANSLUCENCY,
+			.srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
 			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 		});
 		passBuilder.dependencies.push_back({
@@ -327,8 +384,7 @@ DeferredRenderer::DeferredRenderer()
 			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
 		});
 
-		// build the renderpass
-		mainPass = passBuilder.build(Vulkan::Instance);
+		lightingPass = passBuilder.build(Vulkan::Instance);
 	}
 
 	{// envmap visualization pass
@@ -467,7 +523,31 @@ DeferredRenderer::DeferredRenderer()
 		debugDrawPass = passBuilder.build(Vulkan::Instance);
 	}
 
-	{// framebuffer
+	{// framebuffer for base pass
+		VkImageView attachments[] = {
+			GPosition->imageView,
+			GNormal->imageView,
+			GColor->imageView,
+			GORM->imageView,
+			sceneDepth->imageView
+		};
+		VkFramebufferCreateInfo framebufferInfo = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = basePass,
+			.attachmentCount = 5,
+			.pAttachments = attachments,
+			.width = renderExtent.width,
+			.height = renderExtent.height,
+			.layers = 1
+		};
+		EXPECT(vkCreateFramebuffer(
+			Vulkan::Instance->device,
+			&framebufferInfo,
+			nullptr,
+			&baseFramebuffer), VK_SUCCESS)
+	}
+
+	{// framebuffer for lighting and translucency pass
 		VkImageView attachments[] = {
 			GPosition->imageView,
 			GNormal->imageView,
@@ -478,7 +558,7 @@ DeferredRenderer::DeferredRenderer()
 		};
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			.renderPass = mainPass, // the render pass it needs to be compatible with
+			.renderPass = lightingPass, // the render pass it needs to be compatible with
 			.attachmentCount = 6,
 			.pAttachments = attachments, // a pointer to an array of VkImageView handles, each of which will be used as the corresponding attachment in a render pass instance.
 			.width = renderExtent.width,
@@ -489,7 +569,7 @@ DeferredRenderer::DeferredRenderer()
 			Vulkan::Instance->device,
 			&framebufferInfo,
 			nullptr,
-			&framebuffer), VK_SUCCESS)
+			&lightingFramebuffer), VK_SUCCESS)
 	}
 
 	{// framebuffer for envmap visualization
@@ -650,7 +730,8 @@ DeferredRenderer::DeferredRenderer()
 DeferredRenderer::~DeferredRenderer()
 {
 	auto vk = Vulkan::Instance;
-	vkDestroyFramebuffer(vk->device, framebuffer, nullptr);
+	vkDestroyFramebuffer(vk->device, baseFramebuffer, nullptr);
+	vkDestroyFramebuffer(vk->device, lightingFramebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, envmapVisualizationFramebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, debugDrawFramebuffer, nullptr);
@@ -827,27 +908,36 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	VkClearValue clearColor = {0, 0, 0, 0};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
-	VkClearValue clearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
+	VkClearValue baseClearValues[] = { clearColor, clearColor, clearColor, clearColor, clearDepth };
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
-	VkRenderPassBeginInfo passInfo = {
+	VkRenderPassBeginInfo basePassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = mainPass,
-		.framebuffer = framebuffer,
+		.renderPass = basePass,
+		.framebuffer = baseFramebuffer,
 		.renderArea = renderArea,
-		.clearValueCount = 6,
-		.pClearValues = clearValues
+		.clearValueCount = 5,
+		.pClearValues = baseClearValues
 	};
-	vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(cmdbuf, &basePassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Opaque base pass")
 		// deferred base pass: draw the meshes with materials
 		renderMeshes(opaqueMeshes);
 	}
+	vkCmdEndRenderPass(cmdbuf);
 
+	VkClearValue lightingClearValues[] = { clearColor, clearColor, clearColor, clearColor, clearColor, clearDepth };
+	VkRenderPassBeginInfo lightingPassInfo = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = lightingPass,
+		.framebuffer = lightingFramebuffer,
+		.renderArea = renderArea,
+		.clearValueCount = 6,
+		.pClearValues = lightingClearValues
+	};
+	vkCmdBeginRenderPass(cmdbuf, &lightingPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Opaque lighting pass")
-		vkCmdNextSubpass(cmdbuf, VK_SUBPASS_CONTENTS_INLINE);
-
 		auto& deferredLightingPipeline = deferredLighting->getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredLightingPipeline.pipeline);
 		bindFrameGlobal(deferredLightingPipeline.layout);

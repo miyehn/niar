@@ -89,7 +89,7 @@ const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		b.pipelineState.rasterizationInfo.cullMode =
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
-		b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
+		b.compatibleRenderPass = DeferredRenderer::get()->basePass;
 
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
@@ -118,7 +118,7 @@ const GraphicsPipeline& PbrTranslucentGltfMaterial::getPipeline()
 		b.fragDef = "shaders/translucency_lit.frag";
 		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
 		b.pipelineState.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-		b.compatibleRenderPass = DeferredRenderer::get()->mainPass;
+		b.compatibleRenderPass = DeferredRenderer::get()->lightingPass;
 		b.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
 
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();

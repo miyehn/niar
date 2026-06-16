@@ -26,8 +26,9 @@ class GltfMaterial;
 
 // main
 #define DEFERRED_SUBPASS_GEOMETRY 0
-#define DEFERRED_SUBPASS_LIGHTING 1
-#define DEFERRED_SUBPASS_TRANSLUCENCY 2
+// (gi goes in between)
+#define DEFERRED_SUBPASS_LIGHTING 0
+#define DEFERRED_SUBPASS_TRANSLUCENCY 1
 
 // post process
 #define DEFERRED_SUBPASS_POSTPROCESSING 0
@@ -48,7 +49,8 @@ public:
 	DescriptorSetLayout getFrameGlobalLayout();
 	DescriptorSet& getSkyDescriptorSet();
 
-	VkRenderPass mainPass;
+	VkRenderPass basePass;
+	VkRenderPass lightingPass;
 	VkRenderPass envmapVisualizationPass;
 	VkRenderPass postProcessPass;
 	VkRenderPass debugDrawPass;
@@ -67,7 +69,8 @@ private:
 	bool drawDebug = true;
 	bool drawEnvmapVisualization = true;
 
-	VkFramebuffer framebuffer;
+	VkFramebuffer baseFramebuffer;
+	VkFramebuffer lightingFramebuffer;
 	VkFramebuffer envmapVisualizationFramebuffer; // sceneColor + sceneDepth
 	VkFramebuffer postProcessFramebuffer; // postprocessed
 	VkFramebuffer debugDrawFramebuffer; // postprocessed(RW) + sceneDepth(R)
