@@ -615,9 +615,9 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalSetLayout.addBinding(9, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
-		VkImageView envMapView = loadedEnvironmentMap
-			? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D->imageView
-			: Texture::get<Texture2D>("_black")->imageView;
+		const Texture2D* envmap = loadedEnvironmentMap
+			? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D
+			: Texture::get<Texture2D>("_black");
 
 		auto gbufferSamplerInfo = SamplerCache::defaultInfo();
 		gbufferSamplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -656,6 +656,7 @@ DeferredRenderer::DeferredRenderer()
 				giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
 			}
 			giInitInfo.tlas = shadowTlas.get();
+			giInitInfo.environmentMap = envmap;
 			gi.init(giInitInfo);
 		}
 
@@ -669,7 +670,7 @@ DeferredRenderer::DeferredRenderer()
 			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			fd.frameGlobalDescriptorSet.pointToImageView(envMapView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			fd.frameGlobalDescriptorSet.pointToImageView(envmap->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
 			fd.frameGlobalDescriptorSet.pointToImageView(gi.getIndirectLighting()->imageView, 9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 		}

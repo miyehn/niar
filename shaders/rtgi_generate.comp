@@ -9,12 +9,57 @@ layout(set = 0, binding = 1) uniform sampler2D GPosition;
 layout(set = 0, binding = 2) uniform sampler2D GNormal;
 layout(set = 0, binding = 3) uniform accelerationStructureEXT SceneTLAS;
 layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D IndirectLighting;
+layout(set = 0, binding = 5) uniform sampler2D EnvironmentMap;
 
 // (set 1, binding 0) sky parameters
 // (set 1, binding 8) transmittance
 // (set 1, binding 9) skyview
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+vec3 buildTangent(vec3 normal)
+{
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+    return normalize(cross(up, normal));
+}
+
+vec3 sampleCosineWeightedHemisphere(vec3 normal, vec2 random)
+{
+    float r = sqrt(random.x);
+    float phi = TWO_PI * random.y;
+    vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - random.x)));
+
+    vec3 tangent = buildTangent(normal);
+    vec3 bitangent = cross(normal, tangent);
+    return normalize(localDir.x * tangent + localDir.y * bitangent + localDir.z * normal);
+}
+
+vec3 sampleBackground(ViewInfo viewInfo, vec3 rayDir)
+{
+    if (viewInfo.BackgroundOption == 1) {
+        return sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
+    }
+    if (viewInfo.BackgroundOption == 2) {
+        return sampleSkyAtmosphere(rayDir);
+    }
+    return vec3(0.0);
+}
+
+bool rayMissedScene(vec3 origin, vec3 direction)
+{
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(
+        rq,
+        SceneTLAS,
+        gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsOpaqueEXT,
+        0xFF,
+        origin,
+        0.001,
+        direction,
+        10000.0);
+    rayQueryProceedEXT(rq);
+    return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT;
+}
 
 void main()
 {
@@ -24,5 +69,22 @@ void main()
         return;
     }
 
-    imageStore(IndirectLighting, pixel, vec4(0.005, 0.0, 0.0, 1.0));
+    vec4 gPosition = texelFetch(GPosition, pixel, 0);
+    vec3 normal = texelFetch(GNormal, pixel, 0).xyz;
+    if (dot(normal, normal) < 0.25) {
+        // this texel is empty; doesn't contain hit surface that needs GI
+        imageStore(IndirectLighting, pixel, vec4(0.0, 0.0, 0.0, 1.0));
+        return;
+    }
+
+    normal = normalize(normal);
+    ViewInfo viewInfo = GetViewInfo();
+    vec2 random = vec2(
+        white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x),
+        white_noise01(uvec3(uvec2(pixel.yx), viewInfo.FrameIndex), viewInfo.FrameRandom.y));
+    vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
+    vec3 rayOrigin = gPosition.xyz + viewInfo.CameraPosition + normal * EPSILON;
+
+    vec3 indirect = rayMissedScene(rayOrigin, rayDir) ? sampleBackground(viewInfo, rayDir) : vec3(0.0);
+    imageStore(IndirectLighting, pixel, vec4(indirect, 1.0));
 }

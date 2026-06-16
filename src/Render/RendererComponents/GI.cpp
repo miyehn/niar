@@ -66,6 +66,7 @@ void GI::init(const InitInfo& info)
 	ASSERT(info.GPosition != nullptr)
 	ASSERT(info.GNormal != nullptr)
 	ASSERT(info.tlas != VK_NULL_HANDLE)
+	ASSERT(info.environmentMap != nullptr)
 
 	ImageCreator indirectLightingCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -96,6 +97,7 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(2, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(3, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 	giSetLayout.addBinding(4, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	giSetLayout.addBinding(5, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -121,6 +123,7 @@ void GI::init(const InitInfo& info)
 			&samplerInfo);
 		giDescriptorSets[i].pointToAccelerationStructure(info.tlas, 3);
 		giDescriptorSets[i].pointToRWImageView(indirectLighting->imageView, 4);
+		giDescriptorSets[i].pointToImageView(info.environmentMap->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	}
 }
 

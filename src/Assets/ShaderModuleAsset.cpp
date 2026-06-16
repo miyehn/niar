@@ -290,16 +290,6 @@ void ShaderModuleAsset::compile_all()
 	LOG("Initial shader compilation took %fs", shaderCompileTime)
 }
 
-/*
-ShaderModuleAsset* ShaderModuleAsset::get(
-	const std::string& entry_file,
-	const std::string& entry_function,
-	const std::vector<std::string>& defines)
-{
-	return get(shader_module_key(entry_file, entry_function, defines));
-}
-*/
-
 ShaderModuleAsset* ShaderModuleAsset::get(const ShaderModuleDef& def)
 {
 	return get(def.shader_module_key());
