@@ -33,5 +33,7 @@ Renderer::ViewInfo Renderer::getCameraViewInfo()
 		myn::sample::rand01()
 		);
 
+	viewInfo.RenderSize = glm::vec2(); // specific renderer should fill this out if want to use it
+
     return viewInfo;
 }

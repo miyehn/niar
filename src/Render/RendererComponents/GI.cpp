@@ -70,16 +70,17 @@ void GI::init(const InitInfo& info)
 	ImageCreator indirectLightingCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
 		{info.GPosition->getWidth(), info.GPosition->getHeight(), 1},
-		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"indirectLighting");
 	indirectLighting = new Texture2D(indirectLightingCreator);
 	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
 	{
+		const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 		vk::insertImageBarrier(
 			cmdbuf,
 			indirectLighting->resource.image,
-			{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+			colorRange,
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			0,
@@ -87,6 +88,7 @@ void GI::init(const InitInfo& info)
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	});
+	clear();
 
 	DescriptorSetLayout giSetLayout{};
 	giSetLayout.addBinding(0, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -129,10 +131,66 @@ void GI::release()
 	indirectLighting = nullptr;
 }
 
-const Texture2D* GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
+void GI::clear()
 {
-	// enabled?
-	if (get_gi_config()->lookup<int>("enabled") == 0) return Texture::get<Texture2D>("_black");
+	ASSERT(indirectLighting != nullptr)
+
+	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
+	{
+		clear(cmdbuf);
+	});
+}
+
+void GI::clear(VkCommandBuffer cmdbuf)
+{
+	ASSERT(cmdbuf != VK_NULL_HANDLE)
+	ASSERT(indirectLighting != nullptr)
+
+	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+	vk::insertImageBarrier(
+		cmdbuf,
+		indirectLighting->resource.image,
+		colorRange,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	const VkClearColorValue clearColor = {};
+	vkCmdClearColorImage(
+		cmdbuf,
+		indirectLighting->resource.image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		&clearColor,
+		1,
+		&colorRange);
+
+	vk::insertImageBarrier(
+		cmdbuf,
+		indirectLighting->resource.image,
+		colorRange,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
+{
+	const bool enabled = get_gi_config()->lookup<int>("enabled") != 0;
+	if (!enabled) {
+		if (enabledLastFrame) {
+			SCOPED_DRAW_EVENT(cmdbuf, "RTGI Clear")
+			clear(cmdbuf);
+		}
+		enabledLastFrame = false;
+		return;
+	}
+	enabledLastFrame = true;
 
 	ASSERT(frameIndex < MAX_FRAMES_IN_FLIGHT)
 	auto& giDescriptorSet = giDescriptorSets[frameIndex];
@@ -180,6 +238,4 @@ const Texture2D* GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const D
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	return indirectLighting;
 }

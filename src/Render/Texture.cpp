@@ -188,11 +188,6 @@ Texture2D::Texture2D(ImageCreator &imageCreator)
 	height = imageCreator.imageInfo.extent.height;
 
 	imageCreator.create(resource, imageView);
-	if (imageCreator.debugName.length() > 0)
-	{
-		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, imageCreator.debugName)
-		NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, imageCreator.debugName + "_defaultView")
-	}
 }
 
 Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uint32_t height, ImageFormat format, bool generateMips)

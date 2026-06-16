@@ -6,7 +6,7 @@ layout(location = 0) out vec4 FragColor;
 
 #include "utils.glsl"
 #include "scene_common.glsl" // (set 0, binding 0) view info
-#include "lighting_common.glsl" // (set 0, bindings 5-8) pbr lighting functions
+#include "lighting_common.glsl" // (set 0, bindings 5-9) pbr lighting functions
 
 layout(set = 0, binding = 1) uniform sampler2D GBUF0;
 layout(set = 0, binding = 2) uniform sampler2D GBUF1;
@@ -38,6 +38,7 @@ void main() {
 			GColor.rgb,
 			GORM.rgb
 		);
+		FragColor.rgb += sampleIndirectLighting(vf_uv);
 	}
 	else if (viewInfo.BackgroundOption > 0)
 	{

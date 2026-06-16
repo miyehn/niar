@@ -29,6 +29,8 @@ void main() {
         baseColor.rgb,
         orm
     );
+    vec2 screenUv = gl_FragCoord.xy / GetViewInfo().RenderSize;
+    litResult += sampleIndirectLighting(screenUv);
 
     outColor = vec4(litResult, baseColor.a);
 }

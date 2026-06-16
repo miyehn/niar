@@ -20,6 +20,7 @@ layout (set = 0, binding = 6) uniform DirectionalLightsInfo {
 
 layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
 layout (set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
+layout (set = 0, binding = 9) uniform sampler2D IndirectLighting;
 
 vec3 fresnelSchlick(float VdotH, vec3 F0)
 {
@@ -114,6 +115,11 @@ float shadowFactor(vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
         tMax);
     rayQueryProceedEXT(rq);
     return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+}
+
+vec3 sampleIndirectLighting(vec2 screenUv)
+{
+    return texture(IndirectLighting, screenUv).rgb;
 }
 
 // assumes frameglobal stuff is available and fragment is visible

@@ -60,6 +60,8 @@ The `#define GRAPHICS_DISPLAY` flag gates all Vulkan, SDL2, and ImGui code. Alwa
 ### Vulkan Abstraction
 `src/Render/Vulkan/` contains low-level wrappers. VulkanMemoryAllocator (VMA 3.0.1) handles GPU memory. Validation layers (`VK_LAYER_KHRONOS_validation`) are enabled in DEBUG builds. RenderDoc integration available via `src/Utils/myn/RenderDoc.h`.
 
+Use `SamplerCache` for Vulkan sampler setup. When a descriptor needs non-default sampler behavior, start from `SamplerCache::defaultInfo()` and override only the fields that matter, then pass that `VkSamplerCreateInfo` to descriptor helpers such as `DescriptorSet::pointToImageView(...)`. Let descriptor helpers use their default sampler path when the default behavior is intentional.
+
 ### Pathtracer
 `src/Pathtracer/` contains a tile-based multi-threaded CPU path tracer with a BVH (`BVH.hpp`), BSDF (`BSDF.hpp`), and an optional ISPC SIMD kernel. Config-driven via `config/pathtracer.ini` (hot reloaded at runtime).
 

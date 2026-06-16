@@ -24,9 +24,14 @@ struct GI
     void init(const InitInfo& info);
     void release();
 
-    const Texture2D* render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet);
+    void render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet);
+    void clear();
+    void clear(VkCommandBuffer cmdbuf);
+
+    const Texture2D* getIndirectLighting() const { return indirectLighting; }
 
 private:
+    bool enabledLastFrame = false;
     Texture2D* indirectLighting = nullptr;
     DescriptorSet giDescriptorSets[MAX_FRAMES_IN_FLIGHT];
 

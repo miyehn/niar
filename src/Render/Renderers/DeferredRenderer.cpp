@@ -8,6 +8,7 @@
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
+#include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/EnvironmentMapAsset.h"
@@ -611,24 +612,21 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalSetLayout.addBinding(6, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		frameGlobalSetLayout.addBinding(7, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		frameGlobalSetLayout.addBinding(8, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
+		frameGlobalSetLayout.addBinding(9, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 		VkImageView envMapView = loadedEnvironmentMap
 			? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D->imageView
 			: Texture::get<Texture2D>("_black")->imageView;
 
-		VkSamplerCreateInfo gbufferSamplerInfo = {
-			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-			.magFilter = VK_FILTER_NEAREST,
-			.minFilter = VK_FILTER_NEAREST,
-			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-			.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			.mipLodBias = 0,
-			.minLod = 0,
-			.maxLod = 0,
-		};
+		auto gbufferSamplerInfo = SamplerCache::defaultInfo();
+		gbufferSamplerInfo.magFilter = VK_FILTER_NEAREST;
+		gbufferSamplerInfo.minFilter = VK_FILTER_NEAREST;
+		gbufferSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		gbufferSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		gbufferSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		gbufferSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		gbufferSamplerInfo.maxLod = 0;
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			auto& fd = gpuFrameData[i];
@@ -648,7 +646,21 @@ DeferredRenderer::DeferredRenderer()
 												 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 												 VMA_MEMORY_USAGE_CPU_TO_GPU,
 												 "Directional lights buffer"});
+		}
 
+		{// GI: depends on viewInfoUbos, but need to initialize before slot 9
+			GI::InitInfo giInitInfo{};
+			giInitInfo.GPosition = GPosition;
+			giInitInfo.GNormal = GNormal;
+			for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+				giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
+			}
+			giInitInfo.tlas = shadowTlas.get();
+			gi.init(giInitInfo);
+		}
+
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			auto& fd = gpuFrameData[i];
 			fd.frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
@@ -659,21 +671,11 @@ DeferredRenderer::DeferredRenderer()
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToImageView(envMapView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
+			fd.frameGlobalDescriptorSet.pointToImageView(gi.getIndirectLighting()->imageView, 9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 		}
 	}
 
 	skyAtmosphereRender.init();
-
-	{
-		GI::InitInfo giInitInfo{};
-		giInitInfo.GPosition = GPosition;
-		giInitInfo.GNormal = GNormal;
-		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-			giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
-		}
-		giInitInfo.tlas = shadowTlas.get();
-		gi.init(giInitInfo);
-	}
 
 	// misc
 	cfgExposure = 3.0f;
@@ -750,6 +752,7 @@ DeferredRenderer::~DeferredRenderer()
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
 	ViewInfo viewInfo = getCameraViewInfo();
+	viewInfo.RenderSize = glm::vec2(renderExtent.width, renderExtent.height);
 	{
         int numPointLights = 0;
         int numDirectionalLights = 0;
@@ -912,6 +915,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
+	gi.render(cmdbuf, Vulkan::Instance->getCurrentFrameIndex(), getSkyDescriptorSet());
+
 	VkClearValue lightingClearValues[] = { clearColor, clearDepth };
 	VkRenderPassBeginInfo lightingPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -937,8 +942,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		renderMeshes(translucentMeshes);
 	}
 	vkCmdEndRenderPass(cmdbuf);
-
-	(void)gi.render(cmdbuf, Vulkan::Instance->getCurrentFrameIndex(), getSkyDescriptorSet());
 
 	if (drawEnvmapVisualization) {
 		SCOPED_DRAW_EVENT(cmdbuf, "EnvMap visualization")

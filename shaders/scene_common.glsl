@@ -16,9 +16,7 @@ struct ViewInfo
     int ToneMappingOption;
     int BackgroundOption;
     uint FrameIndex;
-    uint _pad0;
-    uint _pad1;
-
+    vec2 RenderSize;
     vec4 FrameRandom;
 };
 
