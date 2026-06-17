@@ -116,6 +116,7 @@ void SceneTlas::build_from_meshes(
 
 		instances.push_back({
 			.transform = transform,
+			// can use .instanceCustomIndex to know in shader what index it's hitting
 			.instanceCustomIndex = static_cast<uint32_t>(instances.size()),
 			.mask = 0xFF,
 			.instanceShaderBindingTableRecordOffset = 0,

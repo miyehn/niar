@@ -462,133 +462,132 @@ SceneAsset::SceneAsset(
 		//====================
 
 #if GRAPHICS_DISPLAY
-		// image (texture), material
+		{ // images (textures)
+			struct ImageInfo {
+				ImageFormat format;
+				Texture2D* texture;
+			};
+			std::vector<ImageInfo> image_infos(model.images.size());
 
-		struct ImageInfo {
-			ImageFormat format;
-			Texture2D* texture;
-		};
-		std::vector<ImageInfo> image_infos(model.images.size());
-
-		// fill in format for now but defer actual creation till after mesh loading
-		for (int i = 0; i < model.images.size(); i++)
-		{
-			auto& img = model.images[i];
-			image_infos[i].format = { img.component, img.bits, 0 };
-		}
-		// mark albedo and emissive textures as sRGB
-		for (int i = 0; i < model.materials.size(); i++)
-		{
-			auto& mat = model.materials[i];
-			int albedo_tex_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
-			if (albedo_tex_idx >= 0) {
-				int albedo_img_idx = model.textures[albedo_tex_idx].source;
-				image_infos[albedo_img_idx].format.SRGB = 1;
+			// fill in format
+			for (int i = 0; i < model.images.size(); i++) {
+				auto& img = model.images[i];
+				image_infos[i].format = { img.component, img.bits, 0 };
 			}
-			int emissive_tex_idx = mat.emissiveTexture.index;
-			if (emissive_tex_idx >= 0) {
-				int emissive_img_idx = model.textures[emissive_tex_idx].source;
-				image_infos[emissive_img_idx].format.SRGB = 1;
+			// mark albedo and emissive textures as sRGB
+			for (int i = 0; i < model.materials.size(); i++) {
+				auto& mat = model.materials[i];
+				int albedo_tex_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
+				if (albedo_tex_idx >= 0) {
+					int albedo_img_idx = model.textures[albedo_tex_idx].source;
+					image_infos[albedo_img_idx].format.SRGB = 1;
+				}
+				int emissive_tex_idx = mat.emissiveTexture.index;
+				if (emissive_tex_idx >= 0) {
+					int emissive_img_idx = model.textures[emissive_tex_idx].source;
+					image_infos[emissive_img_idx].format.SRGB = 1;
+				}
 			}
-		}
-		// actually create the textures
-		for (int i = 0; i < model.images.size(); i++)
-		{
-			auto& img = model.images[i];
-			auto tex = new Texture2D(
-				img.name,
-				img.image.data(),
-				img.width, img.height,
-				image_infos[i].format);
-			image_infos[i].texture = tex;
-			asset_textures.push_back(tex);
+			// actually create the textures
+			for (int i = 0; i < model.images.size(); i++) {
+				auto& img = model.images[i];
+				auto tex = new Texture2D(
+					img.name + " [gltf]",
+					img.image.data(),
+					img.width, img.height,
+					image_infos[i].format);
+				image_infos[i].texture = tex;
+				asset_textures.push_back(tex);
+			}
 		}
 #endif
 
 		// materials
-		std::vector<std::string> texture_names(model.textures.size());
-		for (int i = 0; i < model.textures.size(); i++) {
-			texture_names[i] = model.images[model.textures[i].source].name;
-		}
-
 		std::vector<std::string> material_names(model.materials.size());
-		for (int i = 0; i < model.materials.size(); i++) {
-			auto& mat = model.materials[i];
-			material_names[i] = mat.name;
-
-			// create mat info and add it to the mapping
-
-			int albedo_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
-			auto albedo = albedo_idx >= 0 ? texture_names[albedo_idx] : "_white";
-
-			int normal_idx = mat.normalTexture.index;
-			auto normal = normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal";
-
-			int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
-			auto orm = mr_idx >= 0 ? texture_names[mr_idx] : "_white";
-
-			int ao_idx = mat.occlusionTexture.index;
-			auto ao = ao_idx >= 0 ? texture_names[ao_idx] : "_white";
-
-			int emissive_idx = mat.emissiveTexture.index;
-			auto emissiveTexName = emissive_idx >= 0 ? texture_names[emissive_idx] : "_black";
-
-			auto bc = mat.pbrMetallicRoughness.baseColorFactor;
-			auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
-			glm::vec4 strengths = {
-				(float)mat.occlusionTexture.strength,
-				(float)mat.pbrMetallicRoughness.roughnessFactor,
-				(float)mat.pbrMetallicRoughness.metallicFactor,
-				(float)mat.normalTexture.scale
-			};
-			// gets multiplied by emissiveStrength, and then clamped to (1, 1, 1)...
-			// basically just don't use emissive strength in blender :/
-			auto em = mat.emissiveFactor;
-			glm::vec3 emissiveFactor = glm::vec3(em[0], em[1], em[2]);
-
-			// blend mode
-			BlendMode blendMode = BM_OpaqueOrClip;
-			if (mat.alphaMode == "BLEND") blendMode = BM_AlphaBlend;
-
-			// clip threshold
-			float clipThreshold = mat.alphaMode == "OPAQUE" ? -1.0f : (float)mat.alphaCutoff;
-
-			GltfMaterialInfo info = {
-				._version = 0,
-				.type = MaterialType::MT_Surface,
-				.name = mat.name,
-				.albedoTexName = albedo,
-				.normalTexName = normal,
-				.ormTexName = orm,
-				.aoTexName = ao,
-				.emissiveTexName = emissiveTexName,
-				.BaseColorFactor = baseColorFactor,
-				.EmissiveFactor = emissiveFactor,
-				.OcclusionRoughnessMetallicNormalStrengths = strengths,
-				.doubleSided = mat.doubleSided,
-				.blendMode = blendMode,
-				.clipThreshold = clipThreshold,
-				.volumeDensity = 0,
-				.volumeColor = glm::vec4(0, 0, 0, 0),
-			};
-
-			// and in case it's a volume material...
-			tinygltf::Value isVolume;
-			tinygltf::Value volumeColor;
-			tinygltf::Value volumeDensity;
-			if (findMaterialProperty(mat, "_is_volume", isVolume) &&
-				findMaterialProperty(mat, "_volume_color", volumeColor) &&
-				findMaterialProperty(mat, "_volume_density", volumeDensity))
-			{
-				info.type = MaterialType::MT_Volume;
-				info.volumeColor = glm::vec4(
-					volumeColor.Get(0).GetNumberAsDouble(),
-					volumeColor.Get(1).GetNumberAsDouble(),
-					volumeColor.Get(2).GetNumberAsDouble(),
-					volumeColor.Get(3).GetNumberAsDouble());
-				info.volumeDensity = (float)volumeDensity.GetNumberAsDouble();
+		{
+			std::vector<std::string> texture_names(model.textures.size());
+			for (int i = 0; i < model.textures.size(); i++) {
+				texture_names[i] = model.images[model.textures[i].source].name;
 			}
-			GltfMaterialInfo::add(info);
+
+			for (int i = 0; i < model.materials.size(); i++) {
+				auto& mat = model.materials[i];
+				material_names[i] = mat.name;
+
+				// create mat info and add it to the mapping
+
+				int albedo_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
+				auto albedo = albedo_idx >= 0 ? texture_names[albedo_idx] : "_white";
+
+				int normal_idx = mat.normalTexture.index;
+				auto normal = normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal";
+
+				int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+				auto orm = mr_idx >= 0 ? texture_names[mr_idx] : "_white";
+
+				int ao_idx = mat.occlusionTexture.index;
+				auto ao = ao_idx >= 0 ? texture_names[ao_idx] : "_white";
+
+				int emissive_idx = mat.emissiveTexture.index;
+				auto emissiveTexName = emissive_idx >= 0 ? texture_names[emissive_idx] : "_black";
+
+				auto bc = mat.pbrMetallicRoughness.baseColorFactor;
+				auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
+				glm::vec4 strengths = {
+					(float)mat.occlusionTexture.strength,
+					(float)mat.pbrMetallicRoughness.roughnessFactor,
+					(float)mat.pbrMetallicRoughness.metallicFactor,
+					(float)mat.normalTexture.scale
+				};
+				// gets multiplied by emissiveStrength, and then clamped to (1, 1, 1)...
+				// basically just don't use emissive strength in blender :/
+				auto em = mat.emissiveFactor;
+				glm::vec3 emissiveFactor = glm::vec3(em[0], em[1], em[2]);
+
+				// blend mode
+				BlendMode blendMode = BM_OpaqueOrClip;
+				if (mat.alphaMode == "BLEND") blendMode = BM_AlphaBlend;
+
+				// clip threshold
+				float clipThreshold = mat.alphaMode == "OPAQUE" ? -1.0f : (float)mat.alphaCutoff;
+
+				GltfMaterialInfo info = {
+					._version = 0,
+					.type = MaterialType::MT_Surface,
+					.name = mat.name,
+					.albedoTexName = albedo,
+					.normalTexName = normal,
+					.ormTexName = orm,
+					.aoTexName = ao,
+					.emissiveTexName = emissiveTexName,
+					.BaseColorFactor = baseColorFactor,
+					.EmissiveFactor = emissiveFactor,
+					.OcclusionRoughnessMetallicNormalStrengths = strengths,
+					.doubleSided = mat.doubleSided,
+					.blendMode = blendMode,
+					.clipThreshold = clipThreshold,
+					.volumeDensity = 0,
+					.volumeColor = glm::vec4(0, 0, 0, 0),
+				};
+
+				// and in case it's a volume material...
+				tinygltf::Value isVolume;
+				tinygltf::Value volumeColor;
+				tinygltf::Value volumeDensity;
+				if (findMaterialProperty(mat, "_is_volume", isVolume) &&
+					findMaterialProperty(mat, "_volume_color", volumeColor) &&
+					findMaterialProperty(mat, "_volume_density", volumeDensity))
+				{
+					info.type = MaterialType::MT_Volume;
+					info.volumeColor = glm::vec4(
+						volumeColor.Get(0).GetNumberAsDouble(),
+						volumeColor.Get(1).GetNumberAsDouble(),
+						volumeColor.Get(2).GetNumberAsDouble(),
+						volumeColor.Get(3).GetNumberAsDouble());
+					info.volumeDensity = (float)volumeDensity.GetNumberAsDouble();
+				}
+				GltfMaterialInfo::add(info);
+			}
 		}
 
 		//====================
