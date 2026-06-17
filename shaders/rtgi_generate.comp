@@ -5,7 +5,7 @@
 #include "sky_common.glsl"
 
 // (set 0, binding 0) is view info from scene_common.glsl
-layout(set = 0, binding = 1) uniform sampler2D GPosition;
+layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
 layout(set = 0, binding = 2) uniform sampler2D GNormal;
 layout(set = 0, binding = 3) uniform accelerationStructureEXT SceneTLAS;
 layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D IndirectLighting;
@@ -69,9 +69,9 @@ void main()
         return;
     }
 
-    vec4 gPosition = texelFetch(GPosition, pixel, 0);
+    float deviceDepth = texelFetch(SceneDepth, pixel, 0).r;
     vec3 normal = texelFetch(GNormal, pixel, 0).xyz;
-    if (dot(normal, normal) < 0.25) {
+    if (deviceDepth >= 1.0f) {
         // this texel is empty; doesn't contain hit surface that needs GI
         imageStore(IndirectLighting, pixel, vec4(0.0, 0.0, 0.0, 1.0));
         return;
@@ -83,7 +83,8 @@ void main()
         white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x),
         white_noise01(uvec3(uvec2(pixel.yx), viewInfo.FrameIndex), viewInfo.FrameRandom.y));
     vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
-    vec3 rayOrigin = gPosition.xyz + viewInfo.CameraPosition + normal * EPSILON;
+    vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
+    vec3 rayOrigin = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo) + normal * EPSILON;
 
     vec3 indirect = rayMissedScene(rayOrigin, rayDir) ? sampleBackground(viewInfo, rayDir) : vec3(0.0);
     imageStore(IndirectLighting, pixel, vec4(indirect, 1.0));

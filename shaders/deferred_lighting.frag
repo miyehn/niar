@@ -8,7 +8,7 @@ layout(location = 0) out vec4 FragColor;
 #include "scene_common.glsl" // (set 0, binding 0) view info
 #include "lighting_common.glsl" // (set 0, bindings 5-9) pbr lighting functions
 
-layout(set = 0, binding = 1) uniform sampler2D GBUF0;
+layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
 layout(set = 0, binding = 2) uniform sampler2D GBUF1;
 layout(set = 0, binding = 3) uniform sampler2D GBUF2;
 layout(set = 0, binding = 4) uniform sampler2D GBUF3;
@@ -20,20 +20,21 @@ void main() {
 	FragColor = vec4(0, 0, 0, 1);
 
 	ivec2 pixel = ivec2(gl_FragCoord.xy);
-	vec4 GPosition = texelFetch(GBUF0, pixel, 0);
+	float sceneDepth = texelFetch(SceneDepth, pixel, 0).r;
 	vec4 GNormal = texelFetch(GBUF1, pixel, 0);
 	vec4 GColor = texelFetch(GBUF2, pixel, 0);
 	vec4 GORM = texelFetch(GBUF3, pixel, 0);
 
 	ViewInfo viewInfo = GetViewInfo();
 
-	float visibility = GColor.a;
+	float visibility = sceneDepth < 1.0f ? 1.0f : 0.0f;
 	if (visibility > 0.5f) {
+		vec3 worldPos = reconstructWorldPositionFromDepth(vf_uv, sceneDepth, viewInfo);
 		// emission
-		FragColor.rgb += vec3(GPosition.a, GNormal.a, GORM.a);
+		FragColor.rgb += vec3(GColor.a, GNormal.a, GORM.a);
 		// the rest of lighting
 		FragColor.rgb += accumulateLighting(
-			GPosition.xyz + viewInfo.CameraPosition,
+			worldPos,
 			GNormal.xyz,
 			GColor.rgb,
 			GORM.rgb

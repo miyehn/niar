@@ -4,6 +4,7 @@
 layout(set = 0, binding = 0) uniform ViewInfoUBO {
 	mat4 ViewMatrix;
 	mat4 ProjectionMatrix;
+	mat4 InverseProjectionMatrix;
 	vec3 CameraPosition;
 	int NumPointLights;
 	vec3 ViewDir;

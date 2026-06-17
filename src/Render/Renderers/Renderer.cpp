@@ -13,6 +13,7 @@ Renderer::ViewInfo Renderer::getCameraViewInfo()
 	viewInfo.ViewMatrix = camera->world_to_object();
 	viewInfo.ProjectionMatrix = camera->camera_to_clip();
 	viewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
 
 	viewInfo.CameraPosition = camera->world_position();
 	viewInfo.ViewDir = camera->forward();

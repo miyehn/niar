@@ -63,14 +63,14 @@ protected:
 
 void GI::init(const InitInfo& info)
 {
-	ASSERT(info.GPosition != nullptr)
+	ASSERT(info.sceneDepth != nullptr)
 	ASSERT(info.GNormal != nullptr)
 	ASSERT(info.tlas != VK_NULL_HANDLE)
 	ASSERT(info.environmentMap != nullptr)
 
 	ImageCreator indirectLightingCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
-		{info.GPosition->getWidth(), info.GPosition->getHeight(), 1},
+		{info.sceneDepth->getWidth(), info.sceneDepth->getHeight(), 1},
 		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"indirectLighting");
@@ -112,7 +112,7 @@ void GI::init(const InitInfo& info)
 		giDescriptorSets[i] = DescriptorSet(giSetLayout);
 		giDescriptorSets[i].pointToBuffer(*info.viewInfoUbos[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		giDescriptorSets[i].pointToImageView(
-			info.GPosition->imageView,
+			info.sceneDepth->imageView,
 			1,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			&samplerInfo);

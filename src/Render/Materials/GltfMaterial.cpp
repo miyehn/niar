@@ -97,9 +97,9 @@ const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
 
-		// 4 color outputs; store by value so the pointer stays valid for deferred rebuilds
+		// 3 color outputs; store by value so the pointer stays valid for deferred rebuilds
 		auto singleBlend = b.pipelineState.colorBlendAttachmentInfo;
-		b.pipelineState.colorBlendAttachments = {singleBlend, singleBlend, singleBlend, singleBlend};
+		b.pipelineState.colorBlendAttachments = {singleBlend, singleBlend, singleBlend};
 
 		graphicsPipeline.build("PbrGltf");
 	}

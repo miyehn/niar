@@ -13,6 +13,7 @@ protected:
 	struct ViewInfo {
 		glm::mat4 ViewMatrix;
 		glm::mat4 ProjectionMatrix;
+		glm::mat4 InverseProjectionMatrix;
 
 		glm::vec3 CameraPosition;
 		int NumPointLights;

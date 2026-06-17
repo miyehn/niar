@@ -118,13 +118,6 @@ DeferredRenderer::DeferredRenderer()
 	shadowTlas.init("Deferred");
 
 	{// images
-		ImageCreator GPositionCreator(
-			VK_FORMAT_R16G16B16A16_SFLOAT,
-			{renderExtent.width, renderExtent.height, 1},
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			"GPosition");
-
 		ImageCreator GNormalCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
@@ -167,7 +160,6 @@ DeferredRenderer::DeferredRenderer()
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"postProcessed");
 
-		GPosition = new Texture2D(GPositionCreator);
 		GNormal = new Texture2D(GNormalCreator);
 		GColor = new Texture2D(GColorCreator);
 		GORM = new Texture2D(GORMCreator);
@@ -179,18 +171,6 @@ DeferredRenderer::DeferredRenderer()
 	{// base pass
 		RenderPassBuilder passBuilder;
 
-		// GPosition
-		passBuilder.colorAttachments.push_back(
-			{
-				.format = VK_FORMAT_R16G16B16A16_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			});
 		// GNormal
 		passBuilder.colorAttachments.push_back(
 			{
@@ -241,12 +221,11 @@ DeferredRenderer::DeferredRenderer()
 
 		// base pass
 		std::vector<VkAttachmentReference> basePassColorAttachmentRefs = {
-			{GPOSITION_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
-		constexpr uint32_t basePassDepthAttachment = 4;
+		constexpr uint32_t basePassDepthAttachment = 3;
 		VkAttachmentReference depthAttachmentReference = {
 			basePassDepthAttachment,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
@@ -504,7 +483,6 @@ DeferredRenderer::DeferredRenderer()
 
 	{// framebuffer for base pass
 		VkImageView attachments[] = {
-			GPosition->imageView,
 			GNormal->imageView,
 			GColor->imageView,
 			GORM->imageView,
@@ -513,7 +491,7 @@ DeferredRenderer::DeferredRenderer()
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = basePass,
-			.attachmentCount = 5,
+			.attachmentCount = 4,
 			.pAttachments = attachments,
 			.width = renderExtent.width,
 			.height = renderExtent.height,
@@ -650,7 +628,7 @@ DeferredRenderer::DeferredRenderer()
 
 		{// GI: depends on viewInfoUbos, but need to initialize before slot 9
 			GI::InitInfo giInitInfo{};
-			giInitInfo.GPosition = GPosition;
+			giInitInfo.sceneDepth = sceneDepth;
 			giInitInfo.GNormal = GNormal;
 			for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 				giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
@@ -664,7 +642,7 @@ DeferredRenderer::DeferredRenderer()
 			auto& fd = gpuFrameData[i];
 			fd.frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			fd.frameGlobalDescriptorSet.pointToImageView(GPosition->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(sceneDepth->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 			fd.frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 			fd.frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
 			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
@@ -743,7 +721,7 @@ DeferredRenderer::~DeferredRenderer()
 	PbrTranslucentGltfMaterial::destroyPipeline();
 
 	std::vector<Texture2D*> images = {
-		GPosition, GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
+		GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
 
@@ -898,14 +876,14 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	VkClearValue clearColor = {0, 0, 0, 0};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
-	VkClearValue baseClearValues[] = { clearColor, clearColor, clearColor, clearColor, clearDepth };
+	VkClearValue baseClearValues[] = { clearColor, clearColor, clearColor, clearDepth };
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
 	VkRenderPassBeginInfo basePassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = basePass,
 		.framebuffer = baseFramebuffer,
 		.renderArea = renderArea,
-		.clearValueCount = 5,
+		.clearValueCount = 4,
 		.pClearValues = baseClearValues
 	};
 	vkCmdBeginRenderPass(cmdbuf, &basePassInfo, VK_SUBPASS_CONTENTS_INLINE);

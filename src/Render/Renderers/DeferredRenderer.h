@@ -17,10 +17,9 @@ class Material;
 class PostProcessing;
 class GltfMaterial;
 
-#define GPOSITION_ATTACHMENT 0
-#define GNORMAL_ATTACHMENT 1
-#define GCOLOR_ATTACHMENT 2
-#define GORM_ATTACHMENT 3
+#define GNORMAL_ATTACHMENT 0
+#define GCOLOR_ATTACHMENT 1
+#define GORM_ATTACHMENT 2
 
 // main
 #define DEFERRED_SUBPASS_GEOMETRY 0
@@ -84,8 +83,6 @@ private:
 	GpuFrameData gpuFrameData[MAX_FRAMES_IN_FLIGHT];
 
 	VkExtent2D renderExtent;
-
-	Texture2D* GPosition;
 
 	Texture2D* GNormal;
 

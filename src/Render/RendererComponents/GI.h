@@ -15,7 +15,7 @@ struct GI
     GI& operator=(const GI&) = delete;
 
     struct InitInfo {
-        const Texture2D* GPosition = nullptr;
+        const Texture2D* sceneDepth = nullptr;
         const Texture2D* GNormal = nullptr;
         const VmaBuffer* viewInfoUbos[MAX_FRAMES_IN_FLIGHT] = {};
         VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
