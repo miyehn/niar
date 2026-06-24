@@ -1,6 +1,7 @@
 #include "Vulkan.hpp"
 #include "Pipeline.h"
 #include "RenderPassBuilder.h"
+#include "Render/BindlessResources.h"
 #include "Assets/ConfigAsset.hpp"
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -471,10 +472,14 @@ inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice in_device) {
 	VkPhysicalDeviceProperties properties;
 	vkGetPhysicalDeviceProperties(in_device, &properties);
 
-	#if 1
-	VkPhysicalDeviceFeatures features;
-	vkGetPhysicalDeviceFeatures(in_device, &features);
-	#endif
+	VkPhysicalDeviceVulkan12Features features12 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
+	};
+	VkPhysicalDeviceFeatures2 features2 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+		.pNext = &features12
+	};
+	vkGetPhysicalDeviceFeatures2(in_device, &features2);
 
 	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(in_device);
 
@@ -486,12 +491,39 @@ inline bool Vulkan::isDeviceSuitable(VkPhysicalDevice in_device) {
 		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 	}
 
+	const auto& limits = properties.limits;
+	const bool bindlessMaterialsSupported =
+		features12.shaderSampledImageArrayNonUniformIndexing &&
+		limits.maxPerStageDescriptorSamplers >= MAX_BINDLESS_TEXTURES_2D &&
+		limits.maxPerStageDescriptorSampledImages >= MAX_BINDLESS_TEXTURES_2D &&
+		limits.maxDescriptorSetSamplers >= MAX_BINDLESS_TEXTURES_2D &&
+		limits.maxDescriptorSetSampledImages >= MAX_BINDLESS_TEXTURES_2D &&
+		limits.maxPerStageResources >= MAX_BINDLESS_TEXTURES_2D;
+
+	if (!bindlessMaterialsSupported) {
+		VKWARN(
+			"Rejecting physical device \"%s\": bindless materials require "
+			"non-uniform sampled-image indexing, %u sampled images/samplers. "
+			"Device limits: nonUniform=%u, "
+			"perStageSamplers=%u, perStageSampledImages=%u, setSamplers=%u, "
+			"setSampledImages=%u, perStageResources=%u",
+			properties.deviceName,
+			MAX_BINDLESS_TEXTURES_2D,
+			features12.shaderSampledImageArrayNonUniformIndexing,
+			limits.maxPerStageDescriptorSamplers,
+			limits.maxPerStageDescriptorSampledImages,
+			limits.maxDescriptorSetSamplers,
+			limits.maxDescriptorSetSampledImages,
+			limits.maxPerStageResources)
+	}
+
 	if (properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU//VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
 		&& queueFamilyIndices.isComplete()
 		&& extensionsSupported
 		&& swapChainAdequate
-		&& features.fillModeNonSolid
-		&& features.largePoints
+		&& features2.features.fillModeNonSolid
+		&& features2.features.largePoints
+		&& bindlessMaterialsSupported
 	) {
 		return true;
 	}
@@ -515,13 +547,38 @@ void Vulkan::pickPhysicalDevice() {
 	}
 	if (physicalDevice == VK_NULL_HANDLE)
 	{
-		ERR("failed to find a suitable GPU with vulkan support!")
+		ERR(
+			"Failed to find a suitable Vulkan GPU. Bindless materials require "
+			"non-uniform sampled-image indexing, at least %u combined 2D "
+			"texture slots, and at least %u per-stage resources.",
+			MAX_BINDLESS_TEXTURES_2D,
+			MAX_BINDLESS_TEXTURES_2D + 64)
 	}
 
 	vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+	VkPhysicalDeviceVulkan12Features features12 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
+	};
+	VkPhysicalDeviceFeatures2 features2 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+		.pNext = &features12
+	};
+	vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
+
 	minUniformBufferOffsetAlignment = physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
 	VKLOG("Picked physical device \"%s\" which has minimum buffer alignment of %llu bytes",
 		physicalDeviceProperties.deviceName, physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+	VKLOG(
+		"Bindless materials: requiredTextures=%u, nonUniform=%u, "
+		"perStageSamplers=%u, perStageSampledImages=%u, setSamplers=%u, "
+		"setSampledImages=%u, perStageResources=%u",
+		MAX_BINDLESS_TEXTURES_2D,
+		features12.shaderSampledImageArrayNonUniformIndexing,
+		physicalDeviceProperties.limits.maxPerStageDescriptorSamplers,
+		physicalDeviceProperties.limits.maxPerStageDescriptorSampledImages,
+		physicalDeviceProperties.limits.maxDescriptorSetSamplers,
+		physicalDeviceProperties.limits.maxDescriptorSetSampledImages,
+		physicalDeviceProperties.limits.maxPerStageResources);
 }
 
 void Vulkan::createLogicalDevice() {
