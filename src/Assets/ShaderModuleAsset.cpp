@@ -1,6 +1,8 @@
 #include "ShaderModuleAsset.h"
 #include "../Render/Vulkan/Vulkan.hpp"
 #include "../Render/Vulkan/VulkanUtils.h"
+#include "Render/BindlessResources.h"
+#include "Render/Vulkan/DescriptorSet.h"
 #include "Utils/myn/Log.h"
 #include "Utils/myn/Misc.h"
 #include "Utils/myn/ThreadSafeQueue.h"
@@ -175,6 +177,11 @@ static bool compile_shader(
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
 	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
+	// todo [myn]: find a better way to keep cpp and shader defnes in sync?
+	options.AddMacroDefinition(
+		"MAX_BINDLESS_TEXTURES_2D",
+		std::to_string(MAX_BINDLESS_TEXTURES_2D));
+	options.AddMacroDefinition("DSET_BINDLESS", std::to_string(DSET_BINDLESS));
 
 	auto includer = std::make_unique<TrackingIncluder>();
 	includer->tracked_paths = &new_deps;
