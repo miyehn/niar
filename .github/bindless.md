@@ -1,437 +1,718 @@
 # Path to Bindless Materials
 
-This roadmap moves `niar` toward a bindless material/resource model without turning the renderer into a broad engine rewrite. The target is a shared material data path that raster, deferred RTGI, hardware ray tracing, and a possible future Forward+ renderer can all consume.
+This roadmap adds bindless material infrastructure to `niar` and applies it to
+the renderer paths that already use glTF materials. RTGI Milestone 2 is the
+immediate motivation, but the bindless path should be useful without RTGI:
+raster materials should stop owning duplicate texture descriptor sets and
+instead consume the same GPU material records and texture table as ray-hit
+shading.
 
-The immediate motivation is Milestone 2 of RTGI: ray hits need to map from instance and primitive identity to material data and textures. If bindless texture access is expected to become necessary anyway, it is reasonable to build that foundation now instead of creating a temporary material lookup path that will be discarded.
+The target is narrower than a completely bindless renderer, but complete for
+the current glTF material use case:
 
-Assumption for estimates: evenings and weekends, with debugging time for Vulkan feature flags, descriptor indexing validation errors, hot reload edge cases, and shader/compiler quirks.
+- one global fixed-size table of combined 2D image samplers
+- optional bindless registration on `Texture2D`
+- asset-owned texture lifetime
+- GPU material records containing bindless texture indices
+- deferred, simple, and translucent glTF raster shaders using those records
+- GPU instance and geometry records for ray-hit lookup
+- textured diffuse and emissive evaluation in `rtgi_generate.comp`
 
-## Direction
+The work order is intentionally hybrid:
 
-Build bindless as shared renderer infrastructure, not as an RTGI-only shortcut:
+1. build the shared bindless texture and material infrastructure
+2. prove it against the deferred opaque geometry path
+3. use it for RTGI Milestone 2
+4. migrate SimpleRenderer and translucent materials
+5. remove the remaining legacy glTF descriptors
 
-- keep `SceneAsset` as the owner of loaded textures, mesh buffers, BLAS objects, and asset-scoped lifetime
-- add a GPU-facing bindless registry that assigns texture/material indices while resources are alive
-- expose material constants and texture indices through storage buffers
-- expose sampled textures through descriptor arrays with descriptor indexing
-- make raster materials consume material indices before deleting the old per-material descriptor path
-- make RTGI hit shading consume the same material/texture tables
+This avoids maintaining an RTGI-only material system, but also avoids making
+every secondary raster path a prerequisite for the next visible GI result.
 
-The useful mental model is:
+Assumption for estimates: evenings and weekends. The individual phases should
+also be small enough to land as separate commits.
 
-- assets own resource objects
-- bindless registries own descriptor slots and GPU indices
-- scene/renderer code owns per-frame binding, synchronization, and table upload
-- shaders receive integer IDs and index into global tables
+## Chosen V1 Design
 
-## Non-Goals
+### Texture ownership
 
-- Do not build a render graph.
-- Do not redesign the whole asset system.
-- Do not make every Vulkan descriptor bindless immediately.
-- Do not remove `SceneAsset` resource ownership.
-- Do not make bindless texture lifetime independent from asset lifetime.
-- Do not implement sparse residency, virtual texturing, or streaming.
-- Do not require ReSTIR reservoirs before the bindless material path is useful.
-- Do not solve all glTF material features in the first pass.
-- Do not make Forward+ a prerequisite.
+`SceneAsset`, `EnvironmentMapAsset`, and other resource owners continue to own
+their `Texture2D` objects. A texture can optionally register itself with the
+global bindless table when constructed and unregister itself when destroyed.
+This makes the owning asset transitively own the registration.
 
-## Constraints In The Current Code
+Registration must remain optional. G-buffer images, depth, GI output, and other
+renderer-owned images should not consume sampled-texture slots unless requested.
+`Texture2D` must continue exposing its Vulkan image and image view for barriers,
+attachments, storage descriptors, transfers, and non-bindless paths.
 
-- `SceneAsset` already owns asset-scoped texture objects in `asset_textures`, plus mesh buffers and BLAS resources. This is a good lifetime boundary for bindless registration and unregistration.
-- `Texture::texturePool` currently maps names to texture objects. Bindless should not rely only on names for shader access; shaders need compact integer indices.
-- `GltfMaterialInfo` currently stores texture names. Bindless material data should eventually store texture indices, while keeping names useful for loading, hot reload, and debug UI.
-- `GltfMaterial` currently creates one descriptor set per material: material UBO plus albedo, normal, ORM, and emissive textures.
-- `DescriptorSetLayout::addBinding` currently creates single-descriptor bindings only. Bindless needs descriptor counts greater than one and descriptor indexing flags.
-- The descriptor pool is currently small and fixed. Bindless needs larger descriptor counts and likely update-after-bind pool/layout flags.
-- Vulkan device creation currently enables ray query and buffer device address, but not descriptor indexing features.
-- TLAS instance custom index is currently the temporary TLAS instance order. RTGI needs that index to map to durable scene instance data.
+### Shared bindless material set
 
-## Milestone 0: Vocabulary And Limits
+Reserve set 2 for renderer-wide bindless material resources:
 
-Estimated time: 1-2 evenings.
+```glsl
+layout(set = 2, binding = 0) uniform sampler2D BindlessTextures[1024];
 
-Goal: define exactly what "bindless" means for `niar` before changing descriptor code.
+layout(set = 2, binding = 1, std430) readonly buffer MaterialTable {
+    GpuMaterial Materials[];
+};
+```
 
-Tasks:
+Each entry is a combined `(VkImageView, VkSampler)` descriptor. The caller
+provides the sampler configuration during texture construction or registration.
+glTF sampler objects are ignored for now; imported material textures use the
+current default sampler.
 
-- Define maximum bindless counts for the first version, such as max sampled textures and max materials.
-- Decide whether the first texture table is per-scene, global, or hybrid.
-- Decide whether default textures occupy permanent slots.
-- Define invalid/fallback indices for white, black, and default normal.
-- Define `GpuMaterial` with scalar factors and texture indices.
-- Define `GpuSceneInstance` with material index and geometry lookup data.
-- Document which material texture types are in v1: albedo, normal, ORM, emissive.
+Use a free-list for slot allocation. Do not scan the whole array for every
+registration.
 
-Done when:
+Use a small shared owner, called `BindlessResources` in this roadmap, for set 2.
+It composes:
 
-- there is one written shader-facing layout for material and texture indices
-- fallback texture behavior is explicit
-- the ownership boundary between `SceneAsset` and bindless registry is clear
+- a texture table responsible for binding 0, texture slots, and generations
+- a material table responsible for binding 1 and material indices
+- the descriptor set and layout used by raster and RTGI pipelines
 
-Recommendation:
+`BindlessResources` does not own the underlying textures. Assets continue to
+own texture objects and source material data.
 
-- Start with global permanent slots for default textures.
-- Use asset-scoped registration for glTF textures.
-- Keep the first texture table fixed-size and simple.
+### Handles
 
-## Milestone 1: Vulkan Descriptor Indexing Support
+Use a CPU-side typed handle:
 
-Estimated time: 1-2 weekends.
+```cpp
+struct BindlessTexture2DHandle
+{
+    uint32_t index = InvalidBindlessIndex;
+    uint32_t generation = 0;
+};
+```
 
-Goal: make the Vulkan wrapper capable of binding arrays of sampled textures.
+The generation detects stale CPU handles after slot reuse. Shaders receive only
+the validated `index`; GPU-side generation checking is not needed for v1.
 
-Tasks:
+Do not include a runtime resource-type field in the handle yet. A typed
+`BindlessTexture2DHandle` cannot accidentally be used as a future cube or
+storage-image handle.
 
-- Enable required Vulkan 1.2 descriptor indexing features:
-  - `shaderSampledImageArrayNonUniformIndexing`
-  - `descriptorBindingPartiallyBound`
-  - `runtimeDescriptorArray` if using unsized arrays
-  - `descriptorBindingVariableDescriptorCount` if using variable-sized arrays
-  - `descriptorBindingUpdateAfterBind` if descriptors may be updated after command buffers bind them
-- Add descriptor set layout support for descriptor counts greater than one.
-- Add descriptor binding flags through `VkDescriptorSetLayoutBindingFlagsCreateInfo`.
-- Add descriptor pool support for large sampled image counts.
-- Add helper methods for writing one texture slot and writing a range of texture slots.
-- Add debug names for bindless layouts, descriptor sets, and texture slots where useful.
+### Unregistration and synchronization
 
-Done when:
+V1 may call `waitDeviceIdle()` before clearing/reusing a descriptor slot and
+before the texture destroys its image view. This is slow but matches the
+existing hot-reload workflow and makes lifetime correctness explicit.
 
-- a shader can sample from `sampler2D Textures[N]` using a non-constant index
-- validation layers are clean for partially populated fallback slots
-- descriptor helper APIs can still serve normal non-bindless descriptors
+Deferred destruction and fence/submit-serial retirement can replace this later.
+Do not implement an arbitrary "wait N frames" policy without also retaining the
+old image and image view for the same period.
 
-Likely pain points:
+### Defaults
 
-- `nonuniformEXT` requirements in GLSL
-- descriptor pool exhaustion
-- layout cache equality ignoring binding flags
-- update-after-bind rules requiring matching pool and layout flags
+Register permanent default textures first and reserve known indices:
 
-Guardrail:
+- white: missing albedo and ORM
+- black: missing emissive and empty descriptor slots
+- default normal: missing normal map
 
-- Prefer fixed-size descriptor arrays first if they simplify setup. Runtime arrays can come later.
+Material creation chooses the semantically correct fallback. A generic lookup
+failure returning black is not sufficient for all material channels.
 
-## Milestone 2: Bindless Texture Registry
+### Shader access
 
-Estimated time: 1-3 weekends.
-
-Goal: assign stable GPU texture indices to live `Texture2D` objects.
-
-Tasks:
-
-- Add a `BindlessTextureRegistry` or similarly small renderer-owned component.
-- Reserve slots for `_white`, `_black`, and `_defaultNormal`.
-- Register `Texture2D` objects and return `uint32_t` texture indices.
-- Unregister asset-owned textures when the asset unloads.
-- Keep released slots reusable, but avoid recycling a slot while the GPU might still reference old descriptors.
-- Update bindless sampled image descriptors when textures are registered or removed.
-- Fill empty slots with `_black` or another explicit fallback texture.
-- Add debug logging for slot assignment, release, and fallback use.
-
-Done when:
-
-- loaded glTF textures have bindless texture indices
-- hot reload can unload and reload a scene without stale texture descriptors
-- released slots do not crash frames that are already in flight
-
-Likely pain points:
-
-- asset hot reload while frames are in flight
-- duplicate texture names from multiple glTF assets
-- deciding whether a texture object's destructor should unregister itself or whether `SceneAsset` should do it explicitly
-
-Recommendation:
-
-- Let `SceneAsset` continue owning `Texture2D*`.
-- Let `SceneAsset` register textures after creation and unregister them before deletion.
-- Avoid hiding bindless lifetime changes inside `Texture2D` destructors until the ownership story is proven.
-
-## Milestone 3: Bindless Material Table
-
-Estimated time: 2-4 weekends.
-
-Goal: turn glTF material info into shader-readable material records with texture indices.
-
-Tasks:
-
-- Add a `GpuMaterial` struct shared between C++ and GLSL layout definitions.
-- Store base color, emissive, ORM factors, normal strength, alpha clip threshold, flags, and texture indices.
-- Build material records from `GltfMaterialInfo`.
-- Add a storage buffer containing all active material records.
-- Add a material registry that maps material identity to material index.
-- Handle duplicate material names and hot-reload versioning explicitly.
-- Keep material records renderer-independent where possible.
-
-Done when:
-
-- shaders can read material constants from a storage buffer by material index
-- material records contain bindless texture indices for albedo, normal, ORM, and emissive
-- default texture indices are used when glTF omits a texture
-
-Likely pain points:
-
-- current `GltfMaterialInfo` is name-keyed, but bindless needs stable indices
-- duplicate material names can collide across assets
-- CPU-side struct packing must match GLSL `std430`
-
-Guardrail:
-
-- Do not make the material registry responsible for owning textures. It should reference texture indices assigned elsewhere.
-
-## Milestone 4: Scene Instance And Geometry Tables
-
-Estimated time: 2-4 weekends.
-
-Goal: let ray hits and raster draws map scene instances to material and geometry data.
-
-Tasks:
-
-- Add a GPU scene instance table with material index, mesh index, vertex offset, index offset, and transform-related data if needed.
-- Make TLAS `instanceCustomIndex` point to a durable scene instance table entry.
-- Add mesh/primitive metadata needed to fetch triangle vertices and UVs in shaders.
-- Ensure combined vertex/index buffers can be used as storage buffers or buffer references.
-- Add storage-buffer usage to vertex and index buffer creation if needed.
-- Decide whether geometry lookup uses storage buffers or buffer device addresses first.
-
-Done when:
-
-- RTGI can get instance index and primitive index from ray query
-- RTGI can fetch material index for the hit instance
-- RTGI can compute hit UVs or at least fetch per-triangle attributes needed for texture sampling
-
-Likely pain points:
-
-- current vertex/index buffers are created for vertex/index/AS input/device-address usage, not general storage-buffer usage
-- multi-primitive glTF meshes need primitive-level material identity
-- scene traversal order must match TLAS instance table order
-
-Guardrail:
-
-- Keep the scene instance table as shared infrastructure. Do not bury it inside `GI`.
-
-## Milestone 5: Raster Uses Material Indices
-
-Estimated time: 2-5 weekends.
-
-Goal: migrate raster material shading to the bindless material table without breaking the deferred renderer.
-
-Tasks:
-
-- Pass material index to raster shaders, probably via push constant or per-draw data.
-- Bind global material and texture tables in the geometry pass.
-- Update `geometry.frag`, `simple_gltf.frag`, and translucent material shaders to read `GpuMaterial`.
-- Replace per-material texture descriptors with bindless texture lookup.
-- Keep old material descriptor path temporarily behind a small compatibility branch while validating output.
-- Remove old per-material descriptor sets once raster and RTGI both use bindless material data.
-
-Done when:
-
-- deferred G-buffer output matches the old material path for common scenes
-- shader hot reload still works
-- material sorting and pipeline binding still behave sensibly
-- material texture changes from asset reload appear through the bindless path
-
-Likely pain points:
-
-- deciding where material index lives for raster draw calls
-- alpha clip and translucent behavior using bindless albedo alpha
-- normal map sampling and tangent-space reconstruction consistency
-
-Guardrail:
-
-- Do not try to optimize draw call binding yet. The point of this milestone is shared material access, not GPU-driven rendering.
-
-## Milestone 6: RTGI Minimal Hit Shading With Textures
-
-Estimated time: 3-6 weeks.
-
-Goal: make RTGI ray hits return scene-aware material color using the bindless path.
-
-Tasks:
-
-- Extend `rtgi_generate.comp` to retain committed ray query hit information.
-- Read instance custom index and primitive index from the committed hit.
-- Fetch scene instance, material, and geometry data.
-- Interpolate UVs at the hit point.
-- Sample bindless albedo texture and multiply by base color factor.
-- Optionally sample emissive texture and factor.
-- Return simple diffuse albedo/emissive contribution before attempting full BSDF correctness.
-- Add debug views for material index, texture index, UV, albedo, and emissive.
-
-Done when:
-
-- colored textured objects affect nearby indirect lighting
-- emissive objects can be identified or contribute a simple signal
-- missing textures and unloaded slots resolve to defaults instead of crashing
-
-Likely pain points:
-
-- barycentric coordinates from ray query
-- coordinate-space mistakes around transformed normals
-- alpha-tested geometry versus `gl_RayFlagsOpaqueEXT`
-- texture derivatives are unavailable in ray/compute hit shading, so explicit LOD may be needed
-
-Guardrail:
-
-- Keep first RTGI hit shading diffuse and approximate. Bindless texture access is the infrastructure win.
-
-## Milestone 7: Hot Reload And Lifetime Hardening
-
-Estimated time: 2-4 weeks.
-
-Goal: make bindless resources survive normal `niar` iteration.
-
-Tasks:
-
-- Stress test scene hot reload while RTGI is enabled.
-- Stress test deleting and reloading a scene with different texture counts.
-- Add frame-latency handling for descriptor slot reuse.
-- Add asserts or debug UI for live texture slots and material records.
-- Add clear fallback behavior for stale material indices during reload.
-- Ensure descriptor updates happen at a safe point relative to command buffer recording.
-
-Done when:
-
-- repeated hot reload does not leak descriptors, stale image views, or invalid material indices
-- RenderDoc captures show understandable bindless descriptors and material buffers
-- validation layers remain quiet during reload and renderer switching
-
-Likely pain points:
-
-- resources deleted while descriptors still reference their image views
-- stale material indices inside cached renderer objects
-- renderer mode switches while asset reload is in progress
-
-## Milestone 8: Cleanup And Shared Material Model
-
-Estimated time: 2-6 weeks.
-
-Goal: remove temporary compatibility code and make bindless the normal material path.
-
-Tasks:
-
-- Remove old per-material descriptor allocation for glTF materials.
-- Fold duplicate material parameter structs into the shared `GpuMaterial` definition.
-- Make material debug UI inspect bindless material records and texture slots.
-- Document shader set/binding conventions for bindless resources.
-- Reassess descriptor set layout organization after raster and RTGI both use the path.
-- Reassess whether material/instance tables should move into a broader scene GPU data component.
-
-Done when:
-
-- glTF materials have one primary GPU representation
-- raster and RTGI use the same material constants and texture indices
-- bindless descriptor code is small, named, and isolated enough to maintain
-
-## Suggested Descriptor Set Shape
-
-Keep the existing update-frequency convention, but add a shared scene/material set:
-
-- Set 0: frame-global data, G-buffer inputs where relevant, lights, TLAS
-- Set 1: independent feature data such as sky
-- Set 2: bindless scene data
-- Set 3: per-object or legacy dynamic data during migration
-
-Possible set 2 layout:
-
-- binding 0: `storage buffer GpuMaterial[]`
-- binding 1: `storage buffer GpuSceneInstance[]`
-- binding 2: `storage buffer GpuMesh[]` or geometry metadata
-- binding 3: `sampler2D BindlessTextures[]`
-- binding 4: optional vertex data buffer
-- binding 5: optional index data buffer
-
-Exact bindings can change, but the important rule is that material texture access lives in one shared set instead of per-material descriptor sets.
-
-## Shader Sketch
+Put bindless declarations and helpers in one shared GLSL include:
 
 ```glsl
 #extension GL_EXT_nonuniform_qualifier : require
 
-struct GpuMaterial {
-    vec4 baseColorFactor;
-    vec4 emissiveFactor_clipThreshold;
-    vec4 orm_normalStrengths_flags;
-    uvec4 textureIndices; // albedo, normal, orm, emissive
-};
+layout(set = 2, binding = 0) uniform sampler2D BindlessTextures[1024];
 
-layout(set = 2, binding = 0, std430) readonly buffer MaterialTable {
-    GpuMaterial Materials[];
-};
-
-layout(set = 2, binding = 3) uniform sampler2D BindlessTextures[];
-
-vec4 sampleAlbedo(uint materialIndex, vec2 uv)
+vec4 sampleBindlessTexture2D(uint index, vec2 uv)
 {
-    GpuMaterial material = Materials[materialIndex];
-    uint textureIndex = material.textureIndices.x;
-    return texture(BindlessTextures[nonuniformEXT(textureIndex)], uv) * material.baseColorFactor;
+    return texture(BindlessTextures[nonuniformEXT(index)], uv);
+}
+
+vec4 sampleBindlessTexture2DLod(uint index, vec2 uv, float lod)
+{
+    return textureLod(BindlessTextures[nonuniformEXT(index)], uv, lod);
 }
 ```
 
-For RTGI, use `textureLod(..., 0.0)` or an explicit LOD policy until there is a better roughness/distance-aware choice.
+RTGI has no implicit fragment derivatives, so its first material lookup should
+use the explicit-LOD helper. `lod = 0` is acceptable for the first working hit.
 
-## Asset Ownership Notes
+## V1 Non-Goals
 
-`SceneAsset` is already close to the right model:
+- Bindless storage images.
+- Bindless render targets unless sampled indexing is immediately useful.
+- 3D textures or cube textures.
+- Separate image and sampler arrays.
+- glTF sampler fidelity.
+- Variable descriptor counts or unsized descriptor arrays.
+- Descriptor update-after-bind.
+- Deferred GPU resource destruction.
+- GPU-driven draws.
+- A general bindless buffer registry.
+- Alpha-tested ray traversal.
+- Full PBR or normal-map evaluation at the secondary hit.
 
-- it creates glTF textures as part of scene loading
-- it stores the resulting `Texture2D*` objects in `asset_textures`
-- it deletes those textures in `release_resources`
-- it owns combined mesh buffers and BLAS collections in the same asset lifetime
+## Phase 0: Confirm Limits and Interfaces
 
-Bindless should build on that:
+Estimated time: 1-2 evenings.
 
-- register each asset texture with the bindless texture registry after creation
-- store returned texture indices where material building can use them
-- unregister texture slots before deleting `Texture2D` objects
-- update material records after texture indices are assigned
-- keep default textures registered globally for fallback use
+Goal: lock the concrete constants and interfaces before changing Vulkan setup.
 
-This preserves hot-reload friendliness while giving shaders stable integer handles for the duration of a loaded asset.
+Tasks:
 
-## ReSTIR GI Impact
+- Query and log the relevant sampled-image descriptor limits.
+- Assert that the selected capacity, initially 1024, is supported.
+- Reserve descriptor set 2 for shared bindless textures and materials.
+- Add a named `DSET_BINDLESS`/`DSET_MATERIALS` constant for set 2 rather than
+  scattering the literal index.
+- Define `MAX_BINDLESS_TEXTURES_2D` in one C++ location mirrored by one GLSL
+  definition.
+- Define `InvalidBindlessIndex`.
+- Define `BindlessTexture2DHandle`.
+- Decide how `Texture2D` opts into registration.
 
-Bindless helps ReSTIR GI once rays need real hit shading:
+Suggested constructor shape:
 
-- local candidates can evaluate textured diffuse albedo
-- emissive hits can become real candidates
-- temporal and spatial validation can use material IDs
-- reservoir debug views can show selected material and texture identity
+```cpp
+struct BindlessTexture2DInfo
+{
+    bool registerTexture = false;
+    VkSamplerCreateInfo samplerInfo = SamplerCache::defaultInfo();
+};
+```
 
-Bindless does not solve:
+Alternatively, use an optional pointer/reference to sampler info. Avoid adding
+several positional boolean and sampler arguments to every constructor.
 
-- ray bias
-- noise
-- temporal reprojection
-- reservoir weighting
-- denoising
-- motion vectors
-- alpha-tested ray traversal correctness
+Done when:
 
-The right success criterion is not "the renderer is modern." The right success criterion is that both raster and RTGI can ask the same question: given a material index and UV, what material response do I get?
+- the capacity and required device limits are visible at startup
+- the handle and optional registration API are agreed upon
+- existing non-bindless texture constructors remain easy to call
 
-## Recommended Next Commit
+## Phase 1: Descriptor Array Support
 
-Start with a small foundation commit:
+Estimated time: 1-2 weekends.
 
-- add a bindless roadmap document
-- add descriptor layout support for descriptor counts and binding flags
-- enable descriptor indexing features
-- create a fixed-size bindless sampled texture set
-- register default textures into permanent slots
-- add one tiny debug shader or compute path that samples a texture by integer index
+Goal: create and bind a fixed array of combined image samplers.
 
-Do not migrate glTF materials in the same commit. First prove that indexed texture sampling works cleanly under validation.
+Tasks:
 
-## Reading Order
+- Extend `DescriptorSetLayout::addBinding` to accept `descriptorCount`.
+- Include descriptor count in layout-cache behavior, which it already compares.
+- Increase or separate the descriptor pool capacity for the bindless set.
+- Add a descriptor write helper accepting:
+  - destination binding
+  - destination array element
+  - image view
+  - sampler
+  - image layout
+- Enable `shaderSampledImageArrayNonUniformIndexing` in Vulkan 1.2 features.
+- Do not enable runtime arrays, variable descriptor counts, partially-bound
+  bindings, or update-after-bind unless validation proves one is necessary.
+- Allocate one persistent bindless descriptor set.
+- Bootstrap the defaults before any pipeline can use the set:
+  - allocate the table and descriptor set
+  - create the default texture objects without automatic registration
+  - install them into reserved slots explicitly
+  - fill every remaining array element with the black descriptor
 
-Suggested order, from most immediately useful to more architectural:
+Suggested ownership:
 
-1. Vulkan descriptor indexing feature and layout rules.
-2. `GL_EXT_nonuniform_qualifier` and non-uniform resource indexing.
-3. NVIDIA/AMD examples of bindless texture arrays in Vulkan.
-4. glTF material texture/sampler model.
-5. Ray query hit attribute and barycentric coordinate access.
-6. GPU-driven rendering and meshlet material tables, later reference only.
+```cpp
+class BindlessResources
+{
+public:
+    static BindlessResources* Instance;
+
+    void init();
+    void release();
+    const DescriptorSet& descriptorSet() const;
+    const DescriptorSetLayout& layout() const;
+
+    BindlessTexture2DHandle addTexture2D(
+        VkImageView imageView,
+        const VkSamplerCreateInfo& samplerInfo);
+
+    void removeTexture2D(BindlessTexture2DHandle handle);
+    uint32_t validate(BindlessTexture2DHandle handle) const;
+
+    uint32_t addMaterial(const GpuMaterial& material);
+    void updateMaterial(uint32_t index, const GpuMaterial& material);
+    void removeMaterial(uint32_t index);
+};
+```
+
+The texture-table portion owns descriptor slots, generation counters, and the
+free-list. The material-table portion owns the GPU material buffer and material
+indices. Neither owns textures, image views, or asset source data.
+
+Create binding 1 as part of the final set 2 layout from the beginning. Point it
+at a small valid placeholder material buffer until the real material table is
+implemented, so pipeline layouts do not change midway through migration.
+
+Done when:
+
+- a test shader samples two textures selected by a non-constant integer
+- all 1024 descriptors are valid
+- validation layers are quiet
+- ordinary descriptor sets still work unchanged
+
+Likely pain points:
+
+- descriptor pool exhaustion
+- placing the Vulkan 1.2 feature struct correctly in the device feature chain
+- forgetting `nonuniformEXT`
+- trying to create defaults before `BindlessResources` is initialized
+
+## Phase 2: Optional Texture Registration
+
+Estimated time: 1 weekend.
+
+Goal: make bindless registration part of a sampled texture's optional lifetime.
+
+Tasks:
+
+- Add an optional `BindlessTexture2DHandle` to `Texture2D`.
+- Register only after image creation, image-view creation, and initial layout
+  transitions are complete.
+- Store the caller-selected sampler used for the combined descriptor.
+- Expose a const getter for the handle or validated shader index.
+- On destruction:
+  - if registered, ask `BindlessResources` to unregister it
+  - `BindlessResources` waits for device idle in v1
+  - replace the slot descriptor with black
+  - increment its generation
+  - return the slot to the free-list
+  - then destroy the image view and image
+- Keep `resource`, `imageView`, dimensions, and format available to renderer
+  code.
+- Keep `Texture::texturePool` temporarily, but remove entries when pooled
+  textures are destroyed so it cannot return dangling pointers.
+
+Initialization order:
+
+1. Create Vulkan device and descriptor infrastructure.
+2. Initialize the empty `BindlessResources` allocation.
+3. Create default texture objects without automatic registration.
+4. Install defaults into reserved bindless slots.
+5. Fill all remaining descriptors with black.
+6. Load normal assets.
+
+Shutdown order:
+
+1. Release assets and their registered textures.
+2. Destroy default textures.
+3. Assert that no non-default bindless registrations remain.
+4. Release `BindlessResources`.
+5. Destroy the Vulkan device.
+
+Done when:
+
+- a registered texture receives a stable valid index
+- a non-registered render target consumes no slot
+- destroying a registered texture safely restores and frees its slot
+- stale CPU handles fail generation validation
+- repeated scene hot reload does not leave stale image views in descriptors
+
+## Phase 3: Register glTF Material Textures
+
+Estimated time: 1-2 weekends.
+
+Goal: make all textures used by current glTF materials addressable through
+bindless indices.
+
+Tasks:
+
+- Construct `SceneAsset` image textures with bindless registration enabled.
+- Use the default sampler for all imported textures in v1.
+- Keep `asset_textures` as the owning collection.
+- Build an asset-local mapping from tinygltf image/texture indices to
+  `BindlessTexture2DHandle` or validated shader index.
+- Stop relying on globally unique image names when building new GPU material
+  records.
+- Keep the existing name-based `GltfMaterialInfo` fields temporarily while the
+  raster shaders and CPU path tracer still consume them.
+- Register `EnvironmentMapAsset` only if a bindless consumer needs it. RTGI can
+  continue using its existing fixed descriptor for now.
+
+Done when:
+
+- every glTF albedo, normal, ORM, and emissive texture has a valid bindless index
+- missing channels map to the appropriate permanent default index
+- two assets with duplicate image names do not collide in the new mapping
+- scene reload removes old registrations before deleting image views
+
+Guardrail:
+
+- Asset-local glTF indices are the loading identity. Names are debug labels and
+  temporary compatibility lookup only.
+
+## Phase 4: GPU Material Table
+
+Estimated time: 1-2 weekends.
+
+Goal: give all renderer paths one GPU representation of glTF material parameters
+and bindless texture indices.
+
+Define a std430-friendly record, for example:
+
+```cpp
+struct GpuMaterial
+{
+    glm::vec4 baseColorFactor;
+    glm::vec4 emissiveFactorAndClipThreshold;
+    glm::vec4 ormAndNormalStrength;
+    glm::uvec4 textureIndices; // albedo, normal, orm, emissive
+};
+```
+
+Tasks:
+
+- Add matching C++ and GLSL definitions.
+- Add size/alignment assertions on the C++ struct.
+- Build material records directly while `SceneAsset` still has tinygltf
+  material and texture-index context.
+- Store the material records in asset-local CPU data.
+- Upload active records through the material-table portion of
+  `BindlessResources`.
+- Point set 2 binding 1 at the material storage buffer.
+- Give each loaded material a stable material index for the lifetime of the
+  loaded scene.
+- Put the material index somewhere existing `GltfMaterial` objects can obtain
+  it during raster migration.
+- Continue producing `GltfMaterialInfo` temporarily for material construction,
+  CPU path tracing, and compatibility while raster migration is in progress.
+- On hot reload, rebuild the material table after new textures have registered.
+
+Relevant descriptor shape:
+
+- set 2, binding 0: `sampler2D BindlessTextures[1024]`
+- set 2, binding 1: `readonly storage buffer GpuMaterial[]`
+
+Done when:
+
+- a compute debug pass can select a material index and display its bindless
+  albedo texture
+- all material records contain valid texture indices
+- albedo, ORM, normal, and emissive defaults are correct
+- scene reload rebuilds records without retaining old texture indices
+
+## Phase 5: Prove Bindless In Deferred Opaque
+
+Estimated time: 1-2 weekends.
+
+Goal: make the primary deferred opaque glTF path use set 2 instead of its
+per-material UBO and texture descriptors.
+
+This is the proving step for the shared material representation. Deferred opaque
+is the primary visibility path, exercises all four current material textures,
+and shades the same opaque surfaces RTGI will hit.
+
+Tasks:
+
+- Add a shared GLSL material include containing:
+  - `GpuMaterial`
+  - set 2 declarations
+  - material lookup by index
+  - bindless sampling helpers
+- Pass `materialIndex` to raster shaders.
+- The simplest current path is to extend the existing push constants:
+  - keep the model matrix at offset 0
+  - add a `uint materialIndex` at offset 64
+  - use a vertex-stage range for the matrix and a fragment-stage range for the
+    material index
+- Add the material-index push-constant range to all glTF pipeline layouts during
+  the migration bridge, even if SimpleRenderer and translucency do not consume
+  it yet. This keeps the shared `GltfMaterial::setPerDrawParameters` call valid.
+- Update `GltfMaterial::setPerDrawParameters` to push both model matrix and
+  material index, preferably as two explicit `vkCmdPushConstants` calls with
+  the matching offsets and stage flags.
+- Add set 2 to `PbrGltfMaterial`'s pipeline layout.
+- Bind set 2 for the deferred geometry pass.
+- Update `geometry.frag` to consume `GpuMaterial` and bindless textures.
+- Replace `materialParams`, `AlbedoMap`, `NormalMap`, `ORMMap`, and
+  `EmissiveMap` in the deferred opaque shader with `GpuMaterial` plus bindless
+  samples.
+- Preserve current alpha clipping, normal-map strength, ORM factors, emissive
+  packing, and G-buffer output behavior.
+- Compare the old and new paths in representative scenes before deleting the
+  deferred opaque bindings.
+- Keep the legacy `GltfMaterial::dynamicSet` and material UBO alive because
+  SimpleRenderer and translucent materials still use them.
+- Stop binding set 3 only for the deferred opaque pipeline once its layout no
+  longer declares that set.
+- Keep material/pipeline sorting if it remains useful. Bindless material access
+  does not require changing draw submission yet.
+
+Potential CPU-side push-constant definitions:
+
+```cpp
+constexpr uint32_t GltfModelMatrixOffset = 0;
+constexpr uint32_t GltfMaterialIndexOffset = sizeof(glm::mat4);
+```
+
+Respect `VkPhysicalDeviceLimits::maxPushConstantsSize` and use explicit offsets
+and stage flags in C++ and GLSL. Avoid relying on C++ tail padding for a combined
+struct. If extending push constants becomes awkward, use a small per-draw
+dynamic buffer instead; do not keep the old per-material texture descriptor set
+merely to transport the integer.
+
+Done when:
+
+- deferred G-buffer output matches the old material path
+- alpha clipping still works
+- deferred opaque glTF draws bind no per-material texture descriptors
+- SimpleRenderer and translucent materials remain unchanged and working
+- scene hot reload updates deferred material textures through set 2
+- shader hot reload still works
+
+Likely pain points:
+
+- pipeline layouts must include set 2 even if set 1 is unused
+- push-constant range stage flags and offsets
+- material-table index changes during asset reload
+- avoiding a generic material bind call that tries to bind set 3 against the new
+  deferred opaque pipeline layout
+
+Guardrail:
+
+- Do not combine this with GPU-driven drawing, indirect draws, or removal of
+  material sorting. The milestone is shared material lookup, not draw-system
+  modernization.
+
+## Phase 6: Ray-Hit Instance and Geometry Data
+
+Estimated time: 2-4 weekends.
+
+Goal: map a committed ray-query hit to a material and interpolated UV.
+
+The required chain is:
+
+```text
+committed hit
+  -> instanceCustomIndex
+  -> GpuSceneInstance
+  -> materialIndex
+  -> GpuMaterial
+  -> bindless texture index
+
+committed hit
+  -> primitiveIndex + instance geometry offsets
+  -> triangle indices
+  -> vertex UVs
+  -> barycentric interpolation
+```
+
+Suggested records:
+
+```cpp
+struct GpuSceneInstance
+{
+    uint32_t materialIndex;
+    uint32_t vertexOffset;
+    uint32_t indexOffset;
+    uint32_t reserved;
+};
+```
+
+Add more geometry metadata only when the shader actually needs it.
+
+Tasks:
+
+- Build `GpuSceneInstance` entries in exactly the order used to build TLAS
+  instances.
+- Set `instanceCustomIndex` to the corresponding table index.
+- Preserve a stable table-to-TLAS mapping for the recorded frame.
+- Expose vertex and index data to compute shaders:
+  - simplest path: add `VK_BUFFER_USAGE_STORAGE_BUFFER_BIT` and bind the
+    combined buffers as storage buffers
+  - alternative: use buffer device address and GLSL buffer references
+- Prefer storage buffers first unless buffer references remove a concrete
+  multi-asset binding problem.
+- Add instance, vertex, and index buffers to the existing RTGI set 0.
+- Bind the shared material set 2 alongside RTGI sets 0 and 1.
+- In `rtgi_generate.comp`, retrieve committed:
+  - instance custom index
+  - primitive index
+  - barycentric coordinates
+- Fetch the triangle and interpolate UVs.
+- Add debug output modes for instance index, material index, primitive index,
+  barycentrics, and UVs before sampling textures.
+
+Possible descriptor layout after this phase:
+
+- set 0: existing RTGI resources, then scene instance, vertex, and index storage
+  buffers
+- set 1: existing sky resources
+- set 2, binding 0: global combined sampled texture array
+- set 2, binding 1: shared material storage buffer
+
+Done when:
+
+- each ray hit resolves to the correct material index
+- a UV checker sampled at the secondary hit follows the mesh UVs
+- multi-primitive meshes retain the correct primitive material
+- TLAS rebuilds and scene reloads cannot silently reorder data incorrectly
+
+Likely pain points:
+
+- one global vertex/index binding does not naturally cover multiple independent
+  asset buffers
+- current combined buffers belong to individual assets
+- 16-bit index decoding in GLSL
+- matching the CPU `Vertex` memory layout in GLSL
+- preserving per-primitive material identity
+
+Decision checkpoint:
+
+- If multiple scene assets must be active simultaneously, either consolidate
+  their geometry into renderer-owned scene buffers or use device-address-based
+  geometry records. Do not create one descriptor binding per asset.
+
+## Phase 7: Resume RTGI Milestone 2
+
+Estimated time: 1-3 weekends after geometry lookup works.
+
+Goal: replace the current hit-is-black result with minimal textured hit shading.
+
+Tasks:
+
+- Change the ray-query helper to retain the committed query instead of returning
+  only hit/miss.
+- On miss, keep the existing environment/sky result.
+- On hit:
+  - resolve instance and material
+  - interpolate UV
+  - sample albedo with `textureLod(..., 0.0)`
+  - multiply by base color factor
+  - sample emissive and multiply by emissive factor
+- Begin with a deliberately simple result:
+
+```glsl
+hitRadiance = emissive + debugBounceScale * albedo;
+```
+
+- Keep normal map, ORM, direct lighting at the secondary hit, and recursive
+  visibility out of the first version.
+- Add debug modes for raw albedo, emissive, texture index, and material index.
+
+Done when:
+
+- textured colored objects affect the indirect-lighting buffer
+- emissive materials can be identified and contribute
+- default textures produce sensible values
+- miss lighting remains unchanged
+- direct lighting and RT shadows remain unchanged
+
+This is the handoff back to Milestone 2 of `path-to-restir.md`. Continue material
+fidelity only as needed. Finish the remaining raster migration before calling
+bindless materials v1 complete; RTGI temporal work does not need to wait if the
+remaining migration is straightforward and isolated.
+
+## Phase 8: Finish Raster Migration and Remove Legacy Descriptors
+
+Estimated time: 1-3 weekends.
+
+Goal: move the remaining glTF raster consumers onto the shared material set and
+remove the duplicated per-material GPU representation.
+
+Tasks:
+
+- Add set 2 to `SimpleGltfMaterial` and `PbrTranslucentGltfMaterial` pipeline
+  layouts.
+- Bind set 2 in:
+  - `SimpleRenderer`
+  - the deferred translucency pass
+- Update:
+  - `simple_gltf.frag`
+  - `translucency_lit.frag`
+- Preserve simple-renderer output, alpha behavior, normal mapping, ORM factors,
+  emissive shading, and translucent blending.
+- Confirm all glTF raster shaders now read `GpuMaterial`.
+- Remove the old set 3 glTF material declarations.
+- Remove `GltfMaterial::dynamicSet`.
+- Remove the per-material material-parameter UBO.
+- Remove or simplify `bindMaterialDescriptors` for glTF materials.
+- Remove name-based texture lookup from GPU raster material construction where
+  it is no longer needed. Keep it only for CPU consumers or debug compatibility.
+- Reassess material sorting after the migration, but retain it unless removing
+  it has a concrete benefit.
+
+Done when:
+
+- deferred, simple, and translucent output matches the old path
+- no glTF raster pipeline allocates or binds per-material texture descriptors
+- `GpuMaterial` is the sole GPU material representation for glTF materials
+- scene and shader hot reload work across all migrated paths
+- deleting the legacy descriptors does not affect RTGI
+
+Guardrail:
+
+- This phase removes migration scaffolding. It should not expand into a general
+  material-system rewrite or GPU-driven renderer.
+
+## Suggested Commit Sequence
+
+1. `bindless: add fixed sampled texture descriptor array`
+2. `bindless: add optional Texture2D registration`
+3. `assets: register glTF material textures`
+4. `materials: upload GPU material table`
+5. `materials: migrate deferred opaque to bindless materials`
+6. `rt: add scene instance material mapping`
+7. `rt: expose triangle geometry and interpolate hit UV`
+8. `rtgi: sample bindless material textures at ray hits`
+9. `materials: migrate simple and translucent shaders`
+10. `materials: remove per-material glTF descriptors`
+
+Each commit should build `ellyn`. Shader-related commits should also compile all
+Vulkan shaders and run with validation layers enabled.
+
+## Validation Checkpoints
+
+Before starting RTGI-specific instance and geometry work:
+
+- Startup reports the selected capacity and device limits.
+- Default indices are stable and documented.
+- Every descriptor array element contains a valid descriptor.
+- Texture registration exhaustion fails loudly.
+- Double unregistration and stale-handle use assert in debug builds.
+- Slot reuse increments generation.
+- Registered texture destruction waits for GPU idle before destroying its view.
+- Scene hot reload works repeatedly with validation enabled.
+- Duplicate image names across assets do not affect GPU material lookup.
+- RenderDoc shows the expected image/sampler in selected descriptor slots.
+- Deferred opaque output matches the old path.
+- Deferred opaque glTF materials no longer bind their per-material texture set.
+
+Before considering the RTGI Milestone 2 bindless handoff complete:
+
+- Ray hits resolve the expected instance and material.
+- Barycentric UV interpolation follows the hit mesh.
+- RTGI debug views correctly show instance, material, UV, albedo, and emissive.
+- Textured albedo and emissive hits contribute to the indirect buffer.
+
+Before calling bindless materials v1 complete:
+
+- SimpleRenderer output matches the old path.
+- Translucent output and blending match the old path.
+- No glTF raster path allocates or binds per-material texture descriptors.
+- `GpuMaterial` is the sole GPU representation used by glTF raster shaders.
+- Hot reload works across deferred, simple, translucent, and RTGI paths.
+
+## Follow-Up Work After V1
+
+These are useful after raster and RTGI both consume the v1 material path:
+
+- remove legacy name-based texture lookup from asset/material compatibility code
+- honor glTF sampler objects
+- use separate image and sampler arrays if useful
+- add bindless cube textures
+- allow sampled render targets to opt into the same 2D table
+- add a separate bindless storage-image table
+- replace `waitDeviceIdle()` with fence/submit-serial retirement
+- add better explicit LOD selection for ray-hit texture sampling
+- support alpha-tested ray traversal
+- consider bindless or device-address-based general buffer access
