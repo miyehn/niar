@@ -197,6 +197,12 @@ void Texture2D::createDefaultTextures()
 	BindlessResources::Instance->setTexture2DFiller(
 		blackTexture->imageView,
 		defaultSamplerInfo);
+
+#ifdef DEBUG
+	BindlessResources::Instance->runDebugSelfTest(
+		whiteTexture->bindlessHandle,
+		blackTexture->bindlessHandle);
+#endif
 }
 
 void Texture2D::unregisterDefaultTextures()

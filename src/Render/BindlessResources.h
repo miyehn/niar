@@ -50,6 +50,11 @@ public:
 		VkImageView imageView,
 		const VkSamplerCreateInfo& samplerInfo);
 
+#ifdef DEBUG
+	void runDebugSelfTest(
+		BindlessTexture2DHandle whiteHandle,
+		BindlessTexture2DHandle blackHandle);
+#endif
 
 private:
 	struct Texture2DSlot

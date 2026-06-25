@@ -1,5 +1,6 @@
 #include "BindlessResources.h"
 
+#include "Render/Materials/ComputeShader.h"
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Utils/myn/Log.h"
@@ -25,6 +26,59 @@ VkDescriptorImageInfo textureDescriptor(
 		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 	};
 }
+
+#ifdef DEBUG
+class BindlessSelfTestCS : public ComputeShader
+{
+public:
+	const DescriptorSet* testDescriptorSet = nullptr;
+	const DescriptorSet* bindlessDescriptorSet = nullptr;
+
+	void dispatch(
+		VkCommandBuffer cmdbuf,
+		int groupCountX,
+		int groupCountY,
+		int groupCountZ) override
+	{
+		ASSERT(cmdbuf != VK_NULL_HANDLE)
+		ASSERT(testDescriptorSet != nullptr)
+		ASSERT(bindlessDescriptorSet != nullptr)
+
+		const auto& pipeline = getPipeline();
+		vkCmdBindPipeline(
+			cmdbuf,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			pipeline.pipeline);
+		testDescriptorSet->bind(
+			cmdbuf,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			DSET_FRAMEGLOBAL,
+			pipeline.layout);
+		bindlessDescriptorSet->bind(
+			cmdbuf,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			DSET_BINDLESS,
+			pipeline.layout);
+		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
+	}
+
+protected:
+	void configurePipeline(ComputePipelineBuilder& builder) override
+	{
+		ASSERT(testDescriptorSet != nullptr)
+		ASSERT(bindlessDescriptorSet != nullptr)
+
+		builder.shaderDef =
+			ShaderModuleDef("shaders/bindless_self_test.comp", "main", SS_Compute);
+		builder.useDescriptorSetLayout(
+			DSET_FRAMEGLOBAL,
+			testDescriptorSet->getLayout());
+		builder.useDescriptorSetLayout(
+			DSET_BINDLESS,
+			bindlessDescriptorSet->getLayout());
+	}
+};
+#endif
 
 }
 
@@ -187,7 +241,6 @@ void BindlessResources::setTexture2DFiller(
 {
 	ASSERT(Instance == this)
 	ASSERT(imageView != VK_NULL_HANDLE)
-	if (Instance != this || imageView == VK_NULL_HANDLE) return;
 
 	fillerTexture2DDescriptor = textureDescriptor(imageView, samplerInfo);
 	for (uint32_t i = 0; i < MAX_BINDLESS_TEXTURES_2D; ++i)
@@ -200,6 +253,106 @@ void BindlessResources::setTexture2DFiller(
 			{&fillerTexture2DDescriptor, 1});
 	}
 }
+
+#ifdef DEBUG
+void BindlessResources::runDebugSelfTest(
+	BindlessTexture2DHandle whiteHandle,
+	BindlessTexture2DHandle blackHandle)
+{
+	std::array<uint32_t, 2> textureIndices = {
+		validate(whiteHandle),
+		validate(blackHandle),
+	};
+	ASSERT(textureIndices[0] != INVALID_BINDLESS_INDEX)
+	ASSERT(textureIndices[1] != INVALID_BINDLESS_INDEX)
+
+	VmaBuffer inputBuffer({
+		.allocator = &Vulkan::Instance->memoryAllocator,
+		.strideSize = sizeof(textureIndices),
+		.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+		.debugName = "Bindless self-test input",
+	});
+	inputBuffer.writeData(textureIndices.data(), sizeof(textureIndices));
+
+	VmaBuffer outputBuffer({
+		.allocator = &Vulkan::Instance->memoryAllocator,
+		.strideSize = sizeof(float) * 8,
+		.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		.memoryUsage = VMA_MEMORY_USAGE_GPU_TO_CPU,
+		.debugName = "Bindless self-test output",
+	});
+
+	DescriptorSetLayout testSetLayout;
+	testSetLayout.addBinding(
+		0,
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	testSetLayout.addBinding(
+		1,
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	DescriptorSet testDescriptorSet(testSetLayout);
+	testDescriptorSet.pointToBuffer(
+		inputBuffer,
+		0,
+		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	testDescriptorSet.pointToBuffer(
+		outputBuffer,
+		1,
+		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+	auto* selfTest = ComputeShader::getInstance<BindlessSelfTestCS>();
+	selfTest->testDescriptorSet = &testDescriptorSet;
+	selfTest->bindlessDescriptorSet = &bindlessDescriptorSet;
+	Vulkan::Instance->immediateSubmit([selfTest](VkCommandBuffer cmdbuf)
+	{
+		selfTest->dispatch(cmdbuf, 1, 1, 1);
+
+		const VkMemoryBarrier computeToHostBarrier = {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_HOST_READ_BIT,
+		};
+		vkCmdPipelineBarrier(
+			cmdbuf,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_HOST_BIT,
+			0,
+			1,
+			&computeToHostBarrier,
+			0,
+			nullptr,
+			0,
+			nullptr);
+	});
+
+	std::array<float, 8> sampledColors{};
+	outputBuffer.readData(sampledColors.data(), sizeof(sampledColors));
+
+	const auto approximately = [](float actual, float expected)
+	{
+		return std::abs(actual - expected) <= 0.01f;
+	};
+	for (uint32_t channel = 0; channel < 4; ++channel)
+	{
+		ASSERT_M(
+			approximately(sampledColors[channel], 1.0f),
+			"Bindless self-test expected white channel %u, got %f",
+			channel,
+			sampledColors[channel])
+		ASSERT_M(
+			approximately(sampledColors[4 + channel], 0.0f),
+			"Bindless self-test expected black channel %u, got %f",
+			channel,
+			sampledColors[4 + channel])
+	}
+
+	outputBuffer.release();
+	inputBuffer.release();
+	LOG("Bindless texture self-test passed")
+}
+#endif
 
 uint32_t BindlessResources::validate(BindlessTexture2DHandle handle) const
 {
