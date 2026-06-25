@@ -114,16 +114,14 @@ void GI::init(const InitInfo& info)
 		giDescriptorSets[i].pointToImageView(
 			info.sceneDepth->imageView,
 			1,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			&samplerInfo);
 		giDescriptorSets[i].pointToImageView(
 			info.GNormal->imageView,
 			2,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			&samplerInfo);
 		giDescriptorSets[i].pointToAccelerationStructure(info.tlas, 3);
 		giDescriptorSets[i].pointToRWImageView(indirectLighting->imageView, 4);
-		giDescriptorSets[i].pointToImageView(info.environmentMap->imageView, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		giDescriptorSets[i].pointToImageView(info.environmentMap->imageView, 5);
 	}
 }
 

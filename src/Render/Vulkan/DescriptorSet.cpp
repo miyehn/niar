@@ -94,13 +94,18 @@ VkDescriptorSetLayout DescriptorSetLayoutCache::get(VkDescriptorSetLayoutCreateI
 
 //================ END descriptor set layout cache =================
 
-void DescriptorSetLayout::addBinding(uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type)
+void DescriptorSetLayout::addBinding(
+	uint32_t bindingIndex,
+	VkShaderStageFlags shaderStages,
+	VkDescriptorType type,
+	uint32_t descriptorCount)
 {
 	EXPECT_M(layout, VK_NULL_HANDLE, "Should only add bindings before layout is committed")
+	ASSERT(descriptorCount > 0)
 	bindings.push_back({
 		.binding = bindingIndex,
 		.descriptorType = type,
-		.descriptorCount = 1,
+		.descriptorCount = descriptorCount,
 		.stageFlags = shaderStages,
 		.pImmutableSamplers = nullptr,
 	});
@@ -122,178 +127,156 @@ VkDescriptorSetLayout DescriptorSetLayout::getLayout()
 
 VkDescriptorPool DescriptorSet::descriptorPool = VK_NULL_HANDLE;
 
-DescriptorSet::DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances) : layout(layout)
+DescriptorSet::DescriptorSet(
+	DescriptorSetLayout& layout,
+	VkDescriptorPool inDescriptorPool)
+	: layout(layout)
 {
-	// create the pool first if it isn't created yet
-	if (descriptorPool == VK_NULL_HANDLE)
+	VkDescriptorPool pool = inDescriptorPool;
+	if (pool == VK_NULL_HANDLE)
 	{
-		// TODO: make more reliable
-		std::vector<VkDescriptorPoolSize> poolSizes = {
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 64 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 64 },
-			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 },
-			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 16 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 16 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16 },
-			{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 16 },
-		};
-		VkDescriptorPoolCreateInfo poolInfo = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.maxSets = static_cast<uint32_t>(256),
-			.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-			.pPoolSizes = poolSizes.data()
-		};
-		EXPECT(vkCreateDescriptorPool(Vulkan::Instance->device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
-		Vulkan::Instance->destructionQueue.emplace_back([](){
-			vkDestroyDescriptorPool(Vulkan::Instance->device, descriptorPool, nullptr);
-		});
+		// Create the shared pool the first time a normal descriptor set needs it.
+		if (descriptorPool == VK_NULL_HANDLE)
+		{
+			// TODO: make more reliable
+			std::vector<VkDescriptorPoolSize> poolSizes = {
+				{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 64 },
+				{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 64 },
+				{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 },
+				{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 16 },
+				{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 16 },
+				{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16 },
+				{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 16 },
+			};
+			VkDescriptorPoolCreateInfo poolInfo = {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+				.maxSets = static_cast<uint32_t>(256),
+				.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+				.pPoolSizes = poolSizes.data()
+			};
+			EXPECT(vkCreateDescriptorPool(Vulkan::Instance->device, &poolInfo, nullptr, &descriptorPool), VK_SUCCESS)
+			Vulkan::Instance->destructionQueue.emplace_back([](){
+				vkDestroyDescriptorPool(Vulkan::Instance->device, descriptorPool, nullptr);
+			});
+		}
+		pool = descriptorPool;
 	}
 
-	std::vector<VkDescriptorSetLayout> layouts(numInstances, layout.getLayout());
+	VkDescriptorSetLayout vkLayout = layout.getLayout();
 	VkDescriptorSetAllocateInfo allocInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.descriptorPool = descriptorPool,
-		.descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-		.pSetLayouts = layouts.data()
+		.descriptorPool = pool,
+		.descriptorSetCount = 1,
+		.pSetLayouts = &vkLayout
 	};
-	descriptorSets.resize(layouts.size());
-	EXPECT(vkAllocateDescriptorSets(Vulkan::Instance->device, &allocInfo, descriptorSets.data()), VK_SUCCESS)
+	EXPECT(vkAllocateDescriptorSets(Vulkan::Instance->device, &allocInfo, &descriptorSet), VK_SUCCESS)
 }
 
 void DescriptorSet::pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType)
 {
-	uint32_t numInstances = descriptorSets.size();
-	ASSERT(numInstances != 0)
-
-	for (auto i = 0; i < numInstances; i++)
-	{
-		VkDescriptorBufferInfo bufferInfo = {
-			.buffer = buffer.buffer,
-			.offset = 0,
-			.range = buffer.strideSize
-		};
-		// "Structure specifying the parameters of a descriptor set write operation"
-		VkWriteDescriptorSet descriptorWrite = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = descriptorSets[i],
-			.dstBinding = binding,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = descriptorType,
-			// actual write data (one of three)
-			.pImageInfo = nullptr,
-			.pBufferInfo = &bufferInfo, // where in which buffer
-			.pTexelBufferView = nullptr,
-		};
-		vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
-	}
+	ASSERT(descriptorSet != VK_NULL_HANDLE)
+	VkDescriptorBufferInfo bufferInfo = {
+		.buffer = buffer.buffer,
+		.offset = 0,
+		.range = buffer.strideSize
+	};
+	// "Structure specifying the parameters of a descriptor set write operation"
+	VkWriteDescriptorSet descriptorWrite = {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = descriptorSet,
+		.dstBinding = binding,
+		.dstArrayElement = 0,
+		.descriptorCount = 1,
+		.descriptorType = descriptorType,
+		// actual write data (one of three)
+		.pImageInfo = nullptr,
+		.pBufferInfo = &bufferInfo, // where in which buffer
+		.pTexelBufferView = nullptr,
+	};
+	vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
 }
 
 void DescriptorSet::pointToImageView(
 	VkImageView imageView,
 	uint32_t binding,
-	VkDescriptorType descriptorType,
 	const VkSamplerCreateInfo* samplerInfoPtr)
 {
-	// sampling method; pass in something else if default (here) is not desired
-	VkSamplerCreateInfo samplerInfo;
-	if (samplerInfoPtr) samplerInfo = *samplerInfoPtr;
-	else samplerInfo = {
-		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-		.magFilter = VK_FILTER_LINEAR,
-		.minFilter = VK_FILTER_LINEAR,
-		.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-		.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		.mipLodBias = 0,
-		.minLod = 0,
-		.maxLod = VK_LOD_CLAMP_NONE,
-	};
+	// Sampling method; pass in something else if the default is not desired.
+	VkSamplerCreateInfo samplerInfo = samplerInfoPtr
+		? *samplerInfoPtr
+		: SamplerCache::defaultInfo();
 	VkSampler sampler = SamplerCache::get(samplerInfo);
 
-	uint32_t numInstances = descriptorSets.size();
-	ASSERT(numInstances != 0)
-	for (auto i = 0; i < numInstances; i++)
-	{
-		VkDescriptorImageInfo imageInfo = {
-			.sampler = sampler,
-			.imageView = imageView,
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		};
+	const VkDescriptorImageInfo imageInfo = {
+		.sampler = sampler,
+		.imageView = imageView,
+		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+	};
+	pointToImageViews(
+		binding,
+		0,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		{&imageInfo, 1});
+}
 
-		// "Structure specifying the parameters of a descriptor set write operation"
-		VkWriteDescriptorSet descriptorWrite = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = descriptorSets[i],
-			.dstBinding = binding,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = descriptorType,
-			// actual write data (one of three)
-			.pImageInfo = &imageInfo,
-			.pBufferInfo = nullptr,
-			.pTexelBufferView = nullptr,
-		};
-		vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
-	}
+void DescriptorSet::pointToImageViews(
+	uint32_t binding,
+	uint32_t firstArrayElement,
+	VkDescriptorType descriptorType,
+	std::span<const VkDescriptorImageInfo> imageInfos)
+{
+	ASSERT(!imageInfos.empty())
+	if (imageInfos.empty()) return;
+
+	ASSERT(descriptorSet != VK_NULL_HANDLE)
+	// "Structure specifying the parameters of a descriptor set write operation"
+	VkWriteDescriptorSet descriptorWrite = {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = descriptorSet,
+		.dstBinding = binding,
+		.dstArrayElement = firstArrayElement,
+		.descriptorCount = static_cast<uint32_t>(imageInfos.size()),
+		.descriptorType = descriptorType,
+		// actual write data (one of three)
+		.pImageInfo = imageInfos.data(),
+		.pBufferInfo = nullptr,
+		.pTexelBufferView = nullptr,
+	};
+	vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
 }
 
 void DescriptorSet::pointToRWImageView(VkImageView imageView, uint32_t binding)
 {
-	uint32_t numInstances = descriptorSets.size();
-	ASSERT(numInstances != 0)
-
-	for (auto i = 0; i < numInstances; i++)
-	{
-		VkDescriptorImageInfo imageInfo = {
-			.sampler = {},
-			.imageView = imageView,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL
-		};
-		VkWriteDescriptorSet descriptorWrite = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = descriptorSets[i],
-			.dstBinding = binding,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			// actual write data (one of three)
-			.pImageInfo = &imageInfo,
-			.pBufferInfo = nullptr,
-			.pTexelBufferView = nullptr,
-		};
-		vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
-	}
+	const VkDescriptorImageInfo imageInfo = {
+		.sampler = VK_NULL_HANDLE,
+		.imageView = imageView,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+	};
+	pointToImageViews(binding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {&imageInfo, 1});
 }
 
 void DescriptorSet::pointToAccelerationStructure(VkAccelerationStructureKHR accelerationStructure, uint32_t binding)
 {
-	uint32_t numInstances = descriptorSets.size();
-	ASSERT(numInstances != 0)
-
-	for (auto i = 0; i < numInstances; i++)
-	{
-		VkWriteDescriptorSetAccelerationStructureKHR asWrite = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-			.accelerationStructureCount = 1,
-			.pAccelerationStructures = &accelerationStructure
-		};
-		VkWriteDescriptorSet descriptorWrite = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.pNext = &asWrite,
-			.dstSet = descriptorSets[i],
-			.dstBinding = binding,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-			// actual write data (one of three)
-			.pImageInfo = nullptr,
-			.pBufferInfo = nullptr,
-			.pTexelBufferView = nullptr,
-		};
-		vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
-	}
+	ASSERT(descriptorSet != VK_NULL_HANDLE)
+	VkWriteDescriptorSetAccelerationStructureKHR asWrite = {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &accelerationStructure
+	};
+	VkWriteDescriptorSet descriptorWrite = {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.pNext = &asWrite,
+		.dstSet = descriptorSet,
+		.dstBinding = binding,
+		.dstArrayElement = 0,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+		// actual write data is provided through pNext for acceleration structures
+		.pImageInfo = nullptr,
+		.pBufferInfo = nullptr,
+		.pTexelBufferView = nullptr,
+	};
+	vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
 }
 
 void DescriptorSet::bind(
@@ -301,16 +284,16 @@ void DescriptorSet::bind(
 	VkPipelineBindPoint pipelineBindPoint,
 	uint32_t setIndex,
 	VkPipelineLayout pipelineLayout,
-	uint32_t instanceId,
 	uint32_t numDynamicOffsets,
 	const uint32_t* pDynamicOffsets) const
 {
+	ASSERT(descriptorSet != VK_NULL_HANDLE)
 	vkCmdBindDescriptorSets(
 		cmdbuf, pipelineBindPoint,
 		pipelineLayout,
 		setIndex, // firstSet : uint32_t
 		1, // descriptorSetCount : uint32_t
-		&descriptorSets[instanceId],
+		&descriptorSet,
 		numDynamicOffsets,
 		pDynamicOffsets);
 }

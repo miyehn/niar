@@ -4,6 +4,11 @@
 
 **niar** is a C++20 Vulkan rendering playground with multiple rendering paths: simple unlit forward, PBR deferred G-buffer, hardware ray tracing (RTX), and a CPU multi-threaded path tracer with optional SIMD via Intel ISPC.
 
+The current project direction is ReSTIR GI, following
+`.github/path-to-restir.md`. Work is currently focused on the bindless material
+infrastructure described in `.github/bindless.md` before continuing RTGI
+Milestone 2.
+
 ## Build System
 
 CMake 3.1+ with Ninja generator, targeting x64-Debug on Windows.
@@ -70,6 +75,16 @@ Use `SamplerCache` for Vulkan sampler setup. When a descriptor needs non-default
 ### Overall
 
 Prefer code that makes ownership and data flow visible at the call site. Keep abstractions small, remove redundant state, and place responsibilities at the layer that has the relevant context.
+
+- Remove unused abstraction left behind by older architecture.
+- Do not expose parameters when all valid callers pass the same value.
+- Inline helpers that have one caller and do not clarify a meaningful phase boundary.
+- Do not add an extra blank line at the end of a file.
+
+Preserve existing explanatory comments written by the user. When refactoring
+the code they describe, move or adapt those comments to the new structure
+instead of deleting them. Remove one only when it is no longer accurate or
+useful, and make that reason explicit when reporting the change.
 
 ### Header Extensions
 `.h` and `.hpp` are both used with no strict rule. `.inl` files hold inline implementations included at the bottom of headers (e.g., `PathtracerBufferOperations.inl`).

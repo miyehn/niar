@@ -59,8 +59,8 @@ private:
 		dynamicSet = DescriptorSet(dynamicSetLayout);
 
 		// assign values
-		dynamicSet.pointToImageView(sceneColor->imageView, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(sceneDepth->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(sceneColor->imageView, 0);
+		dynamicSet.pointToImageView(sceneDepth->imageView, 1);
 	}
 
 	VkRenderPass postProcessPass;
@@ -642,15 +642,15 @@ DeferredRenderer::DeferredRenderer()
 			auto& fd = gpuFrameData[i];
 			fd.frameGlobalDescriptorSet = DescriptorSet(frameGlobalSetLayout);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			fd.frameGlobalDescriptorSet.pointToImageView(sceneDepth->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
-			fd.frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
-			fd.frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
-			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(sceneDepth->imageView, 1, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(GNormal->imageView, 2, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(GColor->imageView, 3, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(GORM->imageView, 4, &gbufferSamplerInfo);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			fd.frameGlobalDescriptorSet.pointToImageView(envmap->imageView, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			fd.frameGlobalDescriptorSet.pointToImageView(envmap->imageView, 7);
 			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
-			fd.frameGlobalDescriptorSet.pointToImageView(gi.getIndirectLighting()->imageView, 9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToImageView(gi.getIndirectLighting()->imageView, 9, &gbufferSamplerInfo);
 		}
 	}
 

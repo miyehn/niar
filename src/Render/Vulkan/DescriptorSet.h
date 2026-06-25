@@ -1,5 +1,6 @@
 #pragma once
 #include <vulkan/vulkan.h>
+#include <span>
 #include <vector>
 #include "Buffer.h"
 
@@ -11,7 +12,11 @@
 class DescriptorSetLayout
 {
 public:
-	void addBinding(uint32_t bindingIndex, VkShaderStageFlags shaderStages, VkDescriptorType type);
+	void addBinding(
+		uint32_t bindingIndex,
+		VkShaderStageFlags shaderStages,
+		VkDescriptorType type,
+		uint32_t descriptorCount = 1);
 	VkDescriptorSetLayout getLayout();
 
 private:
@@ -24,17 +29,24 @@ class DescriptorSet
 public:
 	DescriptorSet() = default;
 
-	explicit DescriptorSet(DescriptorSetLayout &layout, uint32_t numInstances = 1);
+	explicit DescriptorSet(
+		DescriptorSetLayout& layout,
+		VkDescriptorPool descriptorPool = VK_NULL_HANDLE);
 
-	VkDescriptorSet getInstance(uint32_t index = 0) const { return descriptorSets[index]; }
+	VkDescriptorSet get() const { return descriptorSet; }
 
 	void pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkDescriptorType descriptorType);
 
 	void pointToImageView(
 		VkImageView imageView,
 		uint32_t binding,
-		VkDescriptorType descriptorType,
 		const VkSamplerCreateInfo* samplerInfoPtr = nullptr);
+
+	void pointToImageViews(
+		uint32_t binding,
+		uint32_t firstArrayElement,
+		VkDescriptorType descriptorType,
+		std::span<const VkDescriptorImageInfo> imageInfos);
 
 	void pointToRWImageView(VkImageView imageView, uint32_t binding);
 
@@ -45,7 +57,6 @@ public:
 		VkPipelineBindPoint pipelineBindPoint,
 		uint32_t setIndex,
 		VkPipelineLayout pipelineLayout,
-		uint32_t instanceId = 0,
 		uint32_t numDynamicOffsets = 0,
 		const uint32_t* pDynamicOffsets = nullptr) const;
 
@@ -55,7 +66,7 @@ private:
 
 	DescriptorSetLayout layout;
 
-	std::vector<VkDescriptorSet> descriptorSets;
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
 	static VkDescriptorPool descriptorPool;
 };
