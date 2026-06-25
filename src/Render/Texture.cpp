@@ -5,6 +5,11 @@
 
 std::unordered_map<std::string, Texture *> Texture::texturePool;
 
+namespace
+{
+bool defaultTexturesCreated = false;
+}
+
 Texture::~Texture()
 {
 	for (auto it = texturePool.begin(); it != texturePool.end();)
@@ -130,18 +135,15 @@ Texture2D::Texture2D(
 
 void Texture2D::createDefaultTextures()
 {
-	static bool createdDefaultTextures = false;
-
-	if (createdDefaultTextures)
+	if (defaultTexturesCreated)
 	{
 		WARN("Trying to re-create default textures. Skipping..")
 		return;
 	}
-	createdDefaultTextures = true;
+	defaultTexturesCreated = true;
 
 	ASSERT(BindlessResources::Instance != nullptr)
 
-	std::vector<Texture2D*> global_textures;
 	const VkSamplerCreateInfo defaultSamplerInfo = SamplerCache::defaultInfo();
 	const BindlessTexture2DInfo defaultBindlessInfo = {
 		.registerTexture = true,
@@ -178,17 +180,6 @@ void Texture2D::createDefaultTextures()
 		false,
 		defaultBindlessInfo);
 
-	global_textures = {
-		whiteTexture,
-		blackTexture,
-		defaultNormal,
-	};
-
-	Vulkan::Instance->destructionQueue.emplace_back([global_textures](){
-		for (auto tex : global_textures)
-			delete tex;
-	});
-
 	BindlessResources::Instance->setTexture2DFiller(
 		blackTexture->imageView,
 		defaultSamplerInfo);
@@ -200,16 +191,18 @@ void Texture2D::createDefaultTextures()
 		blackTexture->imageView,
 		defaultSamplerInfo);
 
-	Texture2D::runBindlessLifetimeSelfTest();
+	runBindlessLifetimeSelfTest();
 #endif
 }
 
-void Texture2D::unregisterDefaultTextures()
+void Texture2D::cleanupDefaultTextures()
 {
+	ASSERT(defaultTexturesCreated)
+
 	const char* defaultTextureNames[] = {
 		"_white",
-		"_black",
 		"_defaultNormal",
+		"_black",
 	};
 	for (const char* name : defaultTextureNames)
 	{
@@ -218,8 +211,9 @@ void Texture2D::unregisterDefaultTextures()
 
 		auto* texture = dynamic_cast<Texture2D*>(it->second);
 		ASSERT(texture != nullptr)
-		texture->unregisterBindless();
+		delete texture;
 	}
+	defaultTexturesCreated = false;
 }
 
 #if TMP_BINDLESS_DEBUG

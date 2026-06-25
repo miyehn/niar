@@ -47,7 +47,7 @@ public:
 	const DescriptorSet& descriptorSet() const { return bindlessDescriptorSet; }
 	const DescriptorSetLayout& layout() const { return bindlessSetLayout; }
 
-	// todo [myn][bindless]: this is to be removed in later phases of bindless
+	// this can stay as a safety feature
 	void setTexture2DFiller(
 		VkImageView imageView,
 		const VkSamplerCreateInfo& samplerInfo);
