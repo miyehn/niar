@@ -34,6 +34,8 @@ The implementation must preserve this behavior:
 
 ## 2. Descriptor Wrapper Support
 
+Status: complete.
+
 - Extend `DescriptorSetLayout::addBinding(...)` with a defaulted
   `descriptorCount = 1`.
 - Keep descriptor count in descriptor-layout cache identity.

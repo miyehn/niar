@@ -132,13 +132,13 @@ void SkyAtmosphereRender::init()
 		fd.descriptorSet.pointToBuffer(fd.parametersBuffer, SkyAtmosphere::Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToRWImageView(transmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutRW);
 		fd.descriptorSet.pointToRWImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutRW);
-		fd.descriptorSet.pointToImageView(transmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
-		fd.descriptorSet.pointToImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		fd.descriptorSet.pointToImageView(transmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutR, &samplerInfo);
+		fd.descriptorSet.pointToImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutR);
 
 		fd.dummyDescriptorSet = DescriptorSet(skySetLayout);
 		fd.dummyDescriptorSet.pointToBuffer(fd.parametersBuffer, SkyAtmosphere::Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		fd.dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_TransmittanceLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
-		fd.dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_SkyViewLutR, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &samplerInfo);
+		fd.dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_TransmittanceLutR, &samplerInfo);
+		fd.dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_SkyViewLutR, &samplerInfo);
 	}
 }
 

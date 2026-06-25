@@ -67,10 +67,10 @@ GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 		materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
 
 		dynamicSet.pointToBuffer(materialParamsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		dynamicSet.pointToImageView(albedo->imageView, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(normal->imageView, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(orm->imageView, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet.pointToImageView(emissive->imageView, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		dynamicSet.pointToImageView(albedo->imageView, 1);
+		dynamicSet.pointToImageView(normal->imageView, 2);
+		dynamicSet.pointToImageView(orm->imageView, 3);
+		dynamicSet.pointToImageView(emissive->imageView, 4);
 	}
 }
 
