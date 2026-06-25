@@ -1,5 +1,6 @@
 #include "Texture.h"
 #include <stb_image.h>
+#include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
 
 std::unordered_map<std::string, Texture *> Texture::texturePool;
@@ -124,8 +125,12 @@ void Texture2D::createDefaultTextures()
 		WARN("Trying to re-create default textures. Skipping..")
 		return;
 	}
+	createdDefaultTextures = true;
+
+	ASSERT(BindlessResources::Instance != nullptr)
 
 	std::vector<Texture2D*> global_textures;
+	const VkSamplerCreateInfo defaultSamplerInfo = SamplerCache::defaultInfo();
 
 	auto* whiteTexture = new Texture2D();
 	whiteTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -142,6 +147,9 @@ void Texture2D::createDefaultTextures()
 	texturePool["_white"] = whiteTexture;
 	global_textures.push_back(whiteTexture);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, whiteTexture->resource.image, "_white")
+	whiteTexture->bindlessHandle = BindlessResources::Instance->addTexture2D(
+		whiteTexture->imageView,
+		defaultSamplerInfo);
 
 	auto* blackTexture = new Texture2D();
 	blackTexture->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -158,6 +166,9 @@ void Texture2D::createDefaultTextures()
 	texturePool["_black"] = blackTexture;
 	global_textures.push_back(blackTexture);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, blackTexture->resource.image, "_black")
+	blackTexture->bindlessHandle = BindlessResources::Instance->addTexture2D(
+		blackTexture->imageView,
+		defaultSamplerInfo);
 
 	auto* defaultNormal = new Texture2D();
 	defaultNormal->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -174,11 +185,37 @@ void Texture2D::createDefaultTextures()
 	texturePool["_defaultNormal"] = defaultNormal;
 	global_textures.push_back(defaultNormal);
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, defaultNormal->resource.image, "_defaultNormal")
+	defaultNormal->bindlessHandle = BindlessResources::Instance->addTexture2D(
+		defaultNormal->imageView,
+		defaultSamplerInfo);
 
 	Vulkan::Instance->destructionQueue.emplace_back([global_textures](){
 		for (auto tex : global_textures)
 			delete tex;
 	});
+
+	BindlessResources::Instance->setTexture2DFiller(
+		blackTexture->imageView,
+		defaultSamplerInfo);
+}
+
+void Texture2D::unregisterDefaultTextures()
+{
+	const char* defaultTextureNames[] = {
+		"_white",
+		"_black",
+		"_defaultNormal",
+	};
+	for (const char* name : defaultTextureNames)
+	{
+		auto it = texturePool.find(name);
+		ASSERT(it != texturePool.end())
+		//if (it == texturePool.end()) continue;
+
+		auto* texture = dynamic_cast<Texture2D*>(it->second);
+		ASSERT(texture != nullptr)
+		texture->unregisterBindless();
+	}
 }
 
 Texture2D::Texture2D(ImageCreator &imageCreator)
@@ -209,6 +246,16 @@ Texture2D::Texture2D(const std::string &name, uint8_t *data, uint32_t width, uin
 
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")
+}
+
+void Texture2D::unregisterBindless()
+{
+	ASSERT(BindlessResources::Instance != nullptr)
+
+	if (bindlessHandle.index == INVALID_BINDLESS_INDEX) return;
+
+	BindlessResources::Instance->removeTexture2D(bindlessHandle);
+	bindlessHandle = {};
 }
 
 Texture2D::~Texture2D()

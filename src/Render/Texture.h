@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include "Render/BindlessResources.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/ImageCreator.h"
 
@@ -104,14 +105,19 @@ public:
 
 	uint32_t getWidth() const { return width; }
 	uint32_t getHeight() const { return height; }
+	BindlessTexture2DHandle getBindlessHandle() const { return bindlessHandle; }
 
 	~Texture2D() override;
 
 	static void createDefaultTextures(); // (POOLED)
+	static void unregisterDefaultTextures();
 
 protected:
 	uint32_t width;
 	uint32_t height;
+	BindlessTexture2DHandle bindlessHandle;
+
+	void unregisterBindless();
 
 	Texture2D() = default;
 
