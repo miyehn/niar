@@ -7,6 +7,8 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#define TMP_BINDLESS_DEBUG 1
+
 constexpr uint32_t MAX_BINDLESS_TEXTURES_2D = 1024;
 constexpr uint32_t INVALID_BINDLESS_INDEX = UINT32_MAX;
 
@@ -50,7 +52,7 @@ public:
 		VkImageView imageView,
 		const VkSamplerCreateInfo& samplerInfo);
 
-#ifdef DEBUG
+#if TMP_BINDLESS_DEBUG
 	// todo [myn][bindless]: this is to be removed in later phases of bindless
 	void runDebugSelfTest(
 		BindlessTexture2DHandle whiteHandle,

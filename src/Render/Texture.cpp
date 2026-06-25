@@ -198,7 +198,7 @@ void Texture2D::createDefaultTextures()
 		blackTexture->imageView,
 		defaultSamplerInfo);
 
-#ifdef DEBUG
+#if TMP_BINDLESS_DEBUG
 	BindlessResources::Instance->runDebugSelfTest(
 		whiteTexture->bindlessHandle,
 		blackTexture->bindlessHandle,
