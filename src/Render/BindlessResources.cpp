@@ -144,6 +144,7 @@ void BindlessResources::init()
 			placeholderMaterialBuffer,
 			MaterialBufferBinding,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		ASSERT(placeholderMaterialBuffer.buffer != VK_NULL_HANDLE)
 	}
 
 	ASSERT(freeTexture2DSlots.empty())
@@ -255,16 +256,30 @@ void BindlessResources::setTexture2DFiller(
 }
 
 #ifdef DEBUG
+// note [myn]: this function is not reviewed
 void BindlessResources::runDebugSelfTest(
 	BindlessTexture2DHandle whiteHandle,
-	BindlessTexture2DHandle blackHandle)
+	BindlessTexture2DHandle blackHandle,
+	VkImageView blackImageView,
+	const VkSamplerCreateInfo& samplerInfo)
 {
-	std::array<uint32_t, 2> textureIndices = {
-		validate(whiteHandle),
-		validate(blackHandle),
+	const uint32_t whiteIndex = validate(whiteHandle);
+	const uint32_t blackIndex = validate(blackHandle);
+	ASSERT(whiteIndex != INVALID_BINDLESS_INDEX)
+	ASSERT(blackIndex != INVALID_BINDLESS_INDEX)
+
+	const BindlessTexture2DHandle temporaryHandle =
+		addTexture2D(blackImageView, samplerInfo);
+	const uint32_t temporaryIndex = temporaryHandle.index;
+	const uint32_t temporaryGeneration = temporaryHandle.generation;
+	removeTexture2D(temporaryHandle);
+	ASSERT(!texture2DSlots[temporaryIndex].occupied)
+	ASSERT(texture2DSlots[temporaryIndex].generation == temporaryGeneration + 1)
+
+	std::array textureIndices = {
+		whiteIndex,
+		temporaryIndex,
 	};
-	ASSERT(textureIndices[0] != INVALID_BINDLESS_INDEX)
-	ASSERT(textureIndices[1] != INVALID_BINDLESS_INDEX)
 
 	VmaBuffer inputBuffer({
 		.allocator = &Vulkan::Instance->memoryAllocator,
@@ -347,6 +362,13 @@ void BindlessResources::runDebugSelfTest(
 			channel,
 			sampledColors[4 + channel])
 	}
+
+	const BindlessTexture2DHandle reusedHandle =
+		addTexture2D(blackImageView, samplerInfo);
+	ASSERT(reusedHandle.index == temporaryIndex)
+	ASSERT(reusedHandle.generation == temporaryGeneration + 1)
+	ASSERT(temporaryHandle.generation != reusedHandle.generation)
+	removeTexture2D(reusedHandle);
 
 	outputBuffer.release();
 	inputBuffer.release();
