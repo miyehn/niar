@@ -45,6 +45,12 @@ public:
 	const DescriptorSet& descriptorSet() const { return bindlessDescriptorSet; }
 	const DescriptorSetLayout& layout() const { return bindlessSetLayout; }
 
+	// todo [myn][bindless]: this is to be removed in later phases of bindless
+	void setTexture2DFiller(
+		VkImageView imageView,
+		const VkSamplerCreateInfo& samplerInfo);
+
+
 private:
 	struct Texture2DSlot
 	{
@@ -55,6 +61,10 @@ private:
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 	DescriptorSetLayout bindlessSetLayout;
 	DescriptorSet bindlessDescriptorSet;
+
+	// todo [myn][bindless]: these are to be removed in later phases of bindless
+	VmaBuffer placeholderMaterialBuffer;
+	VkDescriptorImageInfo fillerTexture2DDescriptor{};
 
 	std::array<Texture2DSlot, MAX_BINDLESS_TEXTURES_2D> texture2DSlots{};
 	std::vector<uint32_t> freeTexture2DSlots;

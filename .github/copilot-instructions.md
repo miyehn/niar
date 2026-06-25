@@ -18,7 +18,7 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-Shaders must be compiled separately (this is also a CMake custom target):
+Shaders can be compiled separately for validation purposes (this is also a CMake custom target):
 ```bash
 ./scripts/compile_vulkan_shaders.sh <shaders_src_dir> <shaders_bin_dir>
 ```
@@ -79,6 +79,9 @@ Prefer code that makes ownership and data flow visible at the call site. Keep ab
 - Remove unused abstraction left behind by older architecture.
 - Do not expose parameters when all valid callers pass the same value.
 - Inline helpers that have one caller and do not clarify a meaningful phase boundary.
+- When a function asserts a programmer invariant, proceed directly with the
+  implementation. Do not repeat the asserted condition as an early return or
+  fallback check immediately afterward.
 - Do not add an extra blank line at the end of a file.
 
 Preserve existing explanatory comments written by the user. When refactoring
@@ -131,7 +134,8 @@ Wrap compute shader dispatches in a small class derived from `ComputeShader`. Us
 ### Descriptor Set Layout Convention
 Vulkan descriptor sets are organized by update frequency:
 - Set 0: Frame-global data (camera, lights)
-- Set 1–2: Material-specific
+- Set 1: Material-specific
+- Set 2: Bindless
 - Set 3: Per-object (model matrix UBO)
 
 Descriptor set layouts may include bindings that are reserved for near-term shader work, but avoid fake shader declarations unless the resource is intentionally part of that shader interface. When a resource is part of the interface, keep the C++ descriptor layout and GLSL binding declarations aligned.

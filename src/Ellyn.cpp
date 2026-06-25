@@ -7,6 +7,7 @@
 #include "Assets/ShaderModuleAsset.h"
 #include "Render/Renderers/RayTracingRenderer.h"
 #include "Render/Renderers/SimpleRenderer.h"
+#include "Render/BindlessResources.h"
 #include "Render/Texture.h"
 
 #include "Render/Vulkan/VulkanUtils.h"
@@ -59,6 +60,7 @@ namespace
 	} renderer_index = e_renderer::deferred;
 
 	std::vector<Renderer*> renderers{};
+	BindlessResources bindlessResources;
 
 }// fileprivate
 
@@ -91,6 +93,7 @@ static void init()
 	{// shared resources
 		LOG("loading resources (vulkan)...");
 		ShaderModuleAsset::compile_all();
+		bindlessResources.init();
 		Texture2D::createDefaultTextures();
 
 		const libconfig::Setting& asset_paths = Config->lookupRaw("AdditionalAssets");
@@ -304,6 +307,8 @@ static void cleanup()
 	Asset::delete_all();
 
 	delete Scene::Active;
+	Texture2D::unregisterDefaultTextures();
+	bindlessResources.release();
 	delete Vulkan::Instance;
 
 	SDL_DestroyWindow(window);

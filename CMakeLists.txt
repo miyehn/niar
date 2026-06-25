@@ -72,6 +72,7 @@ set(ELLYN_SRC
     src/Render/Vulkan/RenderPassBuilder.cpp
     src/Render/Vulkan/Buffer.cpp
     src/Render/Vulkan/DescriptorSet.cpp
+    src/Render/BindlessResources.cpp
     src/Render/Texture.cpp
     src/Render/RendererComponents/SceneTlas.cpp
     src/Render/RendererComponents/SkyAtmosphereRender.cpp

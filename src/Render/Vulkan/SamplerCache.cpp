@@ -48,7 +48,7 @@ namespace std
 
 std::unordered_map<VkSamplerCreateInfo, VkSampler> SamplerCache::pool;
 
-VkSampler SamplerCache::get(VkSamplerCreateInfo &createInfo)
+VkSampler SamplerCache::get(const VkSamplerCreateInfo &createInfo)
 {
 	auto it = pool.find(createInfo);
 	if (it != pool.end()) {
