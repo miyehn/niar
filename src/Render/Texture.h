@@ -88,7 +88,8 @@ public:
 	explicit Texture2D(
 		const std::string &name,
 		const std::string &path,
-		ImageFormat textureFormat={4,8,1});
+		ImageFormat textureFormat={4,8,1},
+		const BindlessTexture2DInfo& bindlessInfo = {});
 
 	// create with code but provide pixel data (ie. gltf) (POOLED)
 	explicit Texture2D(
@@ -97,11 +98,14 @@ public:
 		uint32_t width,
 		uint32_t height,
 		ImageFormat format,
-		bool generateMips = true
+		bool generateMips = true,
+		const BindlessTexture2DInfo& bindlessInfo = {}
 		);
 
 	// allocate programmatically (NOT POOLED)
-	explicit Texture2D(ImageCreator &imageCreator);
+	explicit Texture2D(
+		ImageCreator &imageCreator,
+		const BindlessTexture2DInfo& bindlessInfo = {});
 
 	uint32_t getWidth() const { return width; }
 	uint32_t getHeight() const { return height; }
@@ -112,13 +116,16 @@ public:
 	static void createDefaultTextures(); // (POOLED)
 	static void unregisterDefaultTextures();
 
-protected:
+private:
 	uint32_t width;
 	uint32_t height;
+
 	BindlessTexture2DHandle bindlessHandle;
 
+	void registerBindless(const BindlessTexture2DInfo& bindlessInfo);
 	void unregisterBindless();
 
-	Texture2D() = default;
-
+#if TMP_BINDLESS_DEBUG
+	static void runBindlessLifetimeSelfTest();
+#endif
 };
