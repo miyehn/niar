@@ -27,7 +27,7 @@ VkDescriptorImageInfo textureDescriptor(
 	};
 }
 
-#ifdef DEBUG
+#if TMP_BINDLESS_DEBUG
 class BindlessSelfTestCS : public ComputeShader
 {
 public:
@@ -255,7 +255,7 @@ void BindlessResources::setTexture2DFiller(
 	}
 }
 
-#ifdef DEBUG
+#if TMP_BINDLESS_DEBUG
 // note [myn]: this function is not reviewed
 void BindlessResources::runDebugSelfTest(
 	BindlessTexture2DHandle whiteHandle,
