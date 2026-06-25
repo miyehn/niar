@@ -19,6 +19,7 @@ public:
 	VmaBuffer(const CreateInfo &createInfo);
 
 	void writeData(void* inData, size_t writeSize, uint32_t strideIndex = 0);
+	void readData(void* outData, size_t readSize, uint32_t strideIndex = 0) const;
 
 	void release();
 

@@ -20,9 +20,18 @@ VmaBuffer::VmaBuffer(const CreateInfo &info) :
 		.usage = info.bufferUsage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
-	const bool hostVisible = (info.memoryUsage & VMA_MEMORY_USAGE_CPU_ONLY) || (info.memoryUsage & VMA_MEMORY_USAGE_CPU_TO_GPU);
-	VmaAllocationCreateFlags createFlags = hostVisible ?
-		(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT) : 0;
+	const bool hostVisible =
+		info.memoryUsage == VMA_MEMORY_USAGE_CPU_ONLY ||
+		info.memoryUsage == VMA_MEMORY_USAGE_CPU_TO_GPU ||
+		info.memoryUsage == VMA_MEMORY_USAGE_GPU_TO_CPU;
+	VmaAllocationCreateFlags createFlags = 0;
+	if (hostVisible)
+	{
+		createFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
+			(info.memoryUsage == VMA_MEMORY_USAGE_GPU_TO_CPU
+				? VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+				: VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+	}
 	VmaAllocationCreateInfo vmaAllocCreateInfo {
 		.flags = createFlags,
 		.usage = info.memoryUsage,
@@ -78,4 +87,18 @@ void VmaBuffer::writeData(void *inData, size_t writeSize, uint32_t strideIndex)
 	auto dstAddress = (uint8_t*) getAllocationInfo().pMappedData + (strideIndex * strideSize);
 	ASSERT(dstAddress != nullptr)
 	memcpy(dstAddress, inData, writeSize);
+}
+
+void VmaBuffer::readData(void *outData, size_t readSize, uint32_t strideIndex) const
+{
+	ASSERT(allocator != nullptr)
+	ASSERT(outData != nullptr)
+	if (readSize == 0) readSize = (size_t)strideSize;
+
+	const VkDeviceSize offset = strideIndex * strideSize;
+	EXPECT(vmaInvalidateAllocation(*allocator, allocation, offset, readSize), VK_SUCCESS)
+
+	auto srcAddress = (uint8_t*) getAllocationInfo().pMappedData + offset;
+	ASSERT(srcAddress != nullptr)
+	memcpy(outData, srcAddress, readSize);
 }
