@@ -51,9 +51,12 @@ public:
 		const VkSamplerCreateInfo& samplerInfo);
 
 #ifdef DEBUG
+	// todo [myn][bindless]: this is to be removed in later phases of bindless
 	void runDebugSelfTest(
 		BindlessTexture2DHandle whiteHandle,
-		BindlessTexture2DHandle blackHandle);
+		BindlessTexture2DHandle blackHandle,
+		VkImageView blackImageView,
+		const VkSamplerCreateInfo& samplerInfo);
 #endif
 
 private:

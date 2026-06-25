@@ -201,7 +201,9 @@ void Texture2D::createDefaultTextures()
 #ifdef DEBUG
 	BindlessResources::Instance->runDebugSelfTest(
 		whiteTexture->bindlessHandle,
-		blackTexture->bindlessHandle);
+		blackTexture->bindlessHandle,
+		blackTexture->imageView,
+		defaultSamplerInfo);
 #endif
 }
 
@@ -216,7 +218,6 @@ void Texture2D::unregisterDefaultTextures()
 	{
 		auto it = texturePool.find(name);
 		ASSERT(it != texturePool.end())
-		//if (it == texturePool.end()) continue;
 
 		auto* texture = dynamic_cast<Texture2D*>(it->second);
 		ASSERT(texture != nullptr)
