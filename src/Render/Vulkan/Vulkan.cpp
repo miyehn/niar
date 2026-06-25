@@ -627,6 +627,7 @@ void Vulkan::createLogicalDevice() {
 	VkPhysicalDeviceVulkan12Features features12 = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 		.pNext = nullptr,
+		.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
 		.hostQueryReset = VK_TRUE,
 		.bufferDeviceAddress = VK_TRUE,
 	};
