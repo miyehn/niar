@@ -307,7 +307,7 @@ static void cleanup()
 	Asset::delete_all();
 
 	delete Scene::Active;
-	Texture2D::unregisterDefaultTextures();
+	Texture2D::cleanupDefaultTextures();
 	bindlessResources.release();
 	delete Vulkan::Instance;
 
@@ -323,7 +323,7 @@ int main(int argc, const char * argv[])
 
 	init();
 
-	while(true)
+	while (true)
 	{
 		TimePoint current_time = std::chrono::high_resolution_clock::now();
 		float elapsed = std::chrono::duration<float>(current_time - previous_time).count();

@@ -114,7 +114,7 @@ public:
 	~Texture2D() override;
 
 	static void createDefaultTextures(); // (POOLED)
-	static void unregisterDefaultTextures();
+	static void cleanupDefaultTextures();
 
 private:
 	uint32_t width;
