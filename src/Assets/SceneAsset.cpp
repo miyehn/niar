@@ -18,6 +18,7 @@
 #include "Scene/MeshObject.h"
 
 #if GRAPHICS_DISPLAY
+#include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Render/Texture.h"
 #endif
@@ -176,6 +177,14 @@ bool findMaterialProperty(const tinygltf::Material& mat, const std::string& prop
 		 return true;
 	}
 	return false;
+}
+
+std::string gltfImageCompatibilityName(
+	const std::string& relative_path,
+	const std::string& image_name,
+	int imageIndex)
+{
+	return relative_path + "::image[" + std::to_string(imageIndex) + "](" + image_name + ")";
 }
 
 }// anonymous namespace
@@ -462,43 +471,74 @@ SceneAsset::SceneAsset(
 		//====================
 
 #if GRAPHICS_DISPLAY
+#if TMP_BINDLESS_DEBUG
+		const uint32_t occupiedSlotsBeforeSceneImages =
+			BindlessResources::Instance->occupiedTexture2DSlotCount();
+#endif
 		{ // images (textures)
-			struct ImageInfo {
-				ImageFormat format;
-				Texture2D* texture;
-			};
-			std::vector<ImageInfo> image_infos(model.images.size());
+			std::vector<ImageFormat> image_formats(model.images.size());
 
 			// fill in format
 			for (int i = 0; i < model.images.size(); i++) {
 				auto& img = model.images[i];
-				image_infos[i].format = { img.component, img.bits, 0 };
+				image_formats[i] = { img.component, img.bits, 0 };
 			}
-			// mark albedo and emissive textures as sRGB
+			// iterate materials to find all the images that are used as albedo or emissive textures. Mark them as SRGB
 			for (int i = 0; i < model.materials.size(); i++) {
 				auto& mat = model.materials[i];
 				int albedo_tex_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
 				if (albedo_tex_idx >= 0) {
+					ASSERT(static_cast<size_t>(albedo_tex_idx) < model.textures.size())
 					int albedo_img_idx = model.textures[albedo_tex_idx].source;
-					image_infos[albedo_img_idx].format.SRGB = 1;
+					ASSERT(albedo_img_idx >= 0)
+					ASSERT(static_cast<size_t>(albedo_img_idx) < image_formats.size())
+					image_formats[albedo_img_idx].SRGB = 1;
 				}
 				int emissive_tex_idx = mat.emissiveTexture.index;
 				if (emissive_tex_idx >= 0) {
+					ASSERT(static_cast<size_t>(emissive_tex_idx) < model.textures.size())
 					int emissive_img_idx = model.textures[emissive_tex_idx].source;
-					image_infos[emissive_img_idx].format.SRGB = 1;
+					ASSERT(emissive_img_idx >= 0)
+					ASSERT(static_cast<size_t>(emissive_img_idx) < image_formats.size())
+					image_formats[emissive_img_idx].SRGB = 1;
 				}
 			}
-			// actually create the textures
+			// actually create the images (Texture2D)
+			const BindlessTexture2DInfo bindlessInfo = {
+				.registerTexture = true,
+				.samplerInfo = SamplerCache::defaultInfo(),
+			};
+			asset_images.reserve(model.images.size());
 			for (int i = 0; i < model.images.size(); i++) {
 				auto& img = model.images[i];
-				auto tex = new Texture2D(
-					img.name + " [gltf]",
+				auto* tex = new Texture2D(
+					gltfImageCompatibilityName(relative_path, img.name, i),
 					img.image.data(),
 					img.width, img.height,
-					image_infos[i].format);
-				image_infos[i].texture = tex;
-				asset_textures.push_back(tex);
+					image_formats[i],
+					true,
+					bindlessInfo);
+				asset_images.push_back(tex);
 			}
+		}
+
+#if TMP_BINDLESS_DEBUG
+		ASSERT(
+			BindlessResources::Instance->occupiedTexture2DSlotCount() ==
+			occupiedSlotsBeforeSceneImages + model.images.size())
+#endif
+
+		asset_texture_handles.resize(model.textures.size());
+		for (int i = 0; i < model.textures.size(); i++) {
+			const int sourceImageIdx = model.textures[i].source;
+			ASSERT(sourceImageIdx >= 0)
+			ASSERT(static_cast<size_t>(sourceImageIdx) < asset_images.size())
+
+			Texture2D* texture = asset_images[sourceImageIdx];
+			ASSERT(texture != nullptr)
+			const BindlessTexture2DHandle handle = texture->getBindlessHandle();
+			ASSERT(BindlessResources::Instance->validate(handle) == handle.index)
+			asset_texture_handles[i] = handle;
 		}
 #endif
 
@@ -507,9 +547,36 @@ SceneAsset::SceneAsset(
 		{
 			std::vector<std::string> texture_names(model.textures.size());
 			for (int i = 0; i < model.textures.size(); i++) {
-				texture_names[i] = model.images[model.textures[i].source].name;
+				const int sourceImageIdx = model.textures[i].source;
+				ASSERT(sourceImageIdx >= 0)
+				ASSERT(static_cast<size_t>(sourceImageIdx) < model.images.size())
+				texture_names[i] = gltfImageCompatibilityName(relative_path, model.images[i].name, sourceImageIdx);
 			}
 
+#if GRAPHICS_DISPLAY
+			asset_material_texture_handle_sets.resize(model.materials.size());
+			const auto materialTextureHandle = [this](int textureIndex, const char* defaultTextureName)
+			{
+				if (textureIndex < 0)
+				{
+					auto* texture = Texture::get<Texture2D>(defaultTextureName);
+					const BindlessTexture2DHandle handle =
+						texture->getBindlessHandle();
+					ASSERT(
+						BindlessResources::Instance->validate(handle) ==
+						handle.index)
+					return handle;
+				}
+
+				ASSERT(static_cast<size_t>(textureIndex) < asset_texture_handles.size())
+				const BindlessTexture2DHandle handle =
+					asset_texture_handles[textureIndex];
+				ASSERT(
+					BindlessResources::Instance->validate(handle) ==
+					handle.index)
+				return handle;
+			};
+#endif
 			for (int i = 0; i < model.materials.size(); i++) {
 				auto& mat = model.materials[i];
 				material_names[i] = mat.name;
@@ -530,6 +597,15 @@ SceneAsset::SceneAsset(
 
 				int emissive_idx = mat.emissiveTexture.index;
 				auto emissiveTexName = emissive_idx >= 0 ? texture_names[emissive_idx] : "_black";
+
+#if GRAPHICS_DISPLAY
+				asset_material_texture_handle_sets[i] = {
+					.albedo = materialTextureHandle(albedo_idx, "_white"),
+					.normal = materialTextureHandle(normal_idx, "_defaultNormal"),
+					.orm = materialTextureHandle(mr_idx, "_white"),
+					.emissive = materialTextureHandle(emissive_idx, "_black"),
+				};
+#endif
 
 				auto bc = mat.pbrMetallicRoughness.baseColorFactor;
 				auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
@@ -724,10 +800,25 @@ SceneAsset::SceneAsset(
 void SceneAsset::release_resources()
 {
 #if GRAPHICS_DISPLAY
-	for (auto tex : asset_textures) {
+#if TMP_BINDLESS_DEBUG
+	ASSERT(BindlessResources::Instance != nullptr)
+	const uint32_t releasedTextureCount =
+		static_cast<uint32_t>(asset_images.size());
+	const uint32_t occupiedSlotsBeforeRelease =
+		BindlessResources::Instance->occupiedTexture2DSlotCount();
+#endif
+	for (auto tex : asset_images) {
 		delete tex;
 	}
-	asset_textures.clear();
+	asset_images.clear();
+	asset_texture_handles.clear();
+	asset_material_texture_handle_sets.clear();
+#if TMP_BINDLESS_DEBUG
+	ASSERT(
+		BindlessResources::Instance->occupiedTexture2DSlotCount() +
+		releasedTextureCount ==
+		occupiedSlotsBeforeRelease)
+#endif
 
 	combined_vertices.clear();
 	combined_indices.clear();

@@ -256,6 +256,14 @@ void BindlessResources::setTexture2DFiller(
 }
 
 #if TMP_BINDLESS_DEBUG
+uint32_t BindlessResources::occupiedTexture2DSlotCount() const
+{
+	return static_cast<uint32_t>(std::count_if(
+		texture2DSlots.begin(),
+		texture2DSlots.end(),
+		[](const Texture2DSlot& slot) { return slot.occupied; }));
+}
+
 // note [myn]: this function is not reviewed
 void BindlessResources::runDebugSelfTest(
 	BindlessTexture2DHandle whiteHandle,

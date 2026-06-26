@@ -53,6 +53,8 @@ public:
 		const VkSamplerCreateInfo& samplerInfo);
 
 #if TMP_BINDLESS_DEBUG
+	uint32_t occupiedTexture2DSlotCount() const;
+
 	// todo [myn][bindless]: this is to be removed in later phases of bindless
 	void runDebugSelfTest(
 		BindlessTexture2DHandle whiteHandle,

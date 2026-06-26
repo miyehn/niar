@@ -307,6 +307,9 @@ static void cleanup()
 	Asset::delete_all();
 
 	delete Scene::Active;
+#if TMP_BINDLESS_DEBUG
+	ASSERT(bindlessResources.occupiedTexture2DSlotCount() == 3)
+#endif
 	Texture2D::cleanupDefaultTextures();
 	bindlessResources.release();
 	delete Vulkan::Instance;
