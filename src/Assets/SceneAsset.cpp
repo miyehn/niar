@@ -360,19 +360,19 @@ void load_mesh_buffers(
 }
 
 #if GRAPHICS_DISPLAY
-static void build_blas(const Mesh& m, BLASInfo& out_info)
+static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAccessor& gpu_data, BLASInfo& out_info)
 {
-	VkDeviceAddress vbAddr = m.gpu_data.vertexBuffer->getDeviceAddress();
-	VkDeviceAddress ibAddr = m.gpu_data.indexBuffer->getDeviceAddress();
+	VkDeviceAddress vbAddr = gpu_data.vertexBuffer->getDeviceAddress();
+	VkDeviceAddress ibAddr = gpu_data.indexBuffer->getDeviceAddress();
 
 	VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
 		.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-		.vertexData = {.deviceAddress = vbAddr + m.gpu_data.vertexBufferOffsetBytes},
+		.vertexData = {.deviceAddress = vbAddr + gpu_data.vertexBufferOffsetBytes},
 		.vertexStride = sizeof(Vertex),
-		.maxVertex = m.cpu_data.num_vertices - 1,
+		.maxVertex = cpu_data.num_vertices - 1,
 		.indexType = VK_INDEX_TYPE,
-		.indexData = {.deviceAddress = ibAddr + m.gpu_data.indexBufferOffsetBytes},
+		.indexData = {.deviceAddress = ibAddr + gpu_data.indexBufferOffsetBytes},
 	};
 	VkAccelerationStructureGeometryKHR geom = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -381,7 +381,7 @@ static void build_blas(const Mesh& m, BLASInfo& out_info)
 		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
 	};
 	VkAccelerationStructureBuildRangeInfoKHR range = {
-		.primitiveCount = m.cpu_data.num_indices / 3,
+		.primitiveCount = cpu_data.num_indices / 3,
 		.primitiveOffset = 0,
 		.firstVertex = 0,
 		.transformOffset = 0
@@ -393,6 +393,14 @@ static void build_blas(const Mesh& m, BLASInfo& out_info)
 		VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
 		out_info.blas,
 		out_info.blasBuffer);
+
+	gpu_data.blasHandle = out_info.blas;
+	const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+		.accelerationStructure = gpu_data.blasHandle
+	};
+	gpu_data.blasAddress =
+		Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(Vulkan::Instance->device, &addrInfo);
 }
 #endif
 
@@ -403,7 +411,7 @@ std::vector<Mesh> load_gltf_meshes(
 	const std::vector<std::string>& material_names,
 	const std::unordered_map<PrimitiveBufferIndex, Mesh::CpuDataAccessor>& cpu_buffer_indices
 #if GRAPHICS_DISPLAY
-	, const std::unordered_map<PrimitiveBufferIndex, Mesh::GpuDataAccessor>& gpu_buffer_indices
+	, std::unordered_map<PrimitiveBufferIndex, Mesh::GpuDataAccessor>& gpu_buffer_indices
 	, std::vector<BLASInfo>& blas_collection
 #endif
 	)
@@ -427,15 +435,12 @@ std::vector<Mesh> load_gltf_meshes(
 		m.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
 		m.gpu_data = gpu_buffer_indices.at(buf_idx);
-		blas_collection.push_back({});
-		build_blas(m, blas_collection.back());
-		m.gpu_data.blasHandle = blas_collection.back().blas;
-		const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-			.accelerationStructure = m.gpu_data.blasHandle
-		};
-		m.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
-			Vulkan::Instance->device, &addrInfo);
+		if (m.gpu_data.blasHandle == VK_NULL_HANDLE)
+		{
+			// only create new blas and build if hasn't been built yet
+			blas_collection.push_back({});
+			build_blas(m.cpu_data, m.gpu_data, blas_collection.back());
+		}
 #endif
 	}
 	return output;
@@ -874,7 +879,6 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 #endif
 		);
 
-
 		for (auto & in_mesh : model.meshes) {
 
 			if (in_mesh.primitives.size() != 1) {
@@ -891,15 +895,11 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 			mesh.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
 			mesh.gpu_data = gpu_buffer_indices.at(buf_idx);
-			blas_collection.push_back({});
-			build_blas(mesh, blas_collection.back());
-			mesh.gpu_data.blasHandle = blas_collection.back().blas;
-			const VkAccelerationStructureDeviceAddressInfoKHR addrInfo = {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-				.accelerationStructure = mesh.gpu_data.blasHandle
-			};
-			mesh.gpu_data.blasAddress = Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(
-				Vulkan::Instance->device, &addrInfo);
+			if (mesh.gpu_data.blasHandle == VK_NULL_HANDLE)
+			{
+				blas_collection.push_back({});
+				build_blas(mesh.cpu_data, mesh.gpu_data, blas_collection.back());
+			}
 #endif
 			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())
 		}
