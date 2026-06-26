@@ -44,7 +44,7 @@ RayTracingRenderer::RayTracingRenderer()
 		auto& fd = gpuFrameData[i];
 		fd.viewInfoUbo = VmaBuffer({
 			&Vulkan::Instance->memoryAllocator,
-			sizeof(ViewInfo),
+			sizeof(glm::ViewInfo),
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
 			"RTX view info UBO"});
@@ -100,7 +100,7 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 			meshObjects.size(), MAX_RTX_INSTANCES)
 	}
 
-	ViewInfo viewInfo = getCameraViewInfo();
+	glm::ViewInfo viewInfo = getCameraViewInfo();
 	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
 	{// rebuild TLAS in the command buffer

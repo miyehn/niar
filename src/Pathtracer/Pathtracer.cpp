@@ -445,15 +445,20 @@ void Pathtracer::on_selected() {
 	camera->lock();
 
 	// update view info to buffer (write all frame copies so any next frame has up-to-date data)
-	ViewInfo.ViewMatrix = camera->world_to_object();
-	ViewInfo.ProjectionMatrix = camera->camera_to_clip();
-	ViewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+	viewInfo = {};
+	viewInfo.ViewMatrix = camera->world_to_object();
+	viewInfo.ProjectionMatrix = camera->camera_to_clip();
+	viewInfo.ProjectionMatrix[1][1] *= -1; // so it's not upside down
+	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
 
-	ViewInfo.CameraPosition = camera->world_position();
-	ViewInfo.ViewDir = camera->forward();
+	viewInfo.CameraPosition = camera->world_position();
+	viewInfo.ViewDir = camera->forward();
+	viewInfo.AspectRatio = camera->aspect_ratio;
+	viewInfo.HalfVFovRadians = camera->fov * 0.5f;
+	viewInfo.RenderSize = glm::vec2(width, height);
 
 	for (auto& fd : gpuFrameData) {
-		fd.viewInfoUbo.writeData(&ViewInfo, sizeof(ViewInfo));
+		fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 	}
 }
 

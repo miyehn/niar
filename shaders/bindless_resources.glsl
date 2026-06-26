@@ -3,6 +3,8 @@
 
 #extension GL_EXT_nonuniform_qualifier : require
 
+#include "cshared/cshared_common.glsl"
+
 layout(set = DSET_BINDLESS, binding = 0)
 uniform sampler2D BindlessTextures[MAX_BINDLESS_TEXTURES_2D];
 

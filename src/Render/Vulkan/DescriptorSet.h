@@ -4,11 +4,6 @@
 #include <vector>
 #include "Buffer.h"
 
-#define DSET_FRAMEGLOBAL 0 // shared throughout the main rendering pipeline
-#define DSET_INDEPENDENT 1 // independent features (sky)
-#define DSET_BINDLESS 2 // shared bindless textures and materials
-#define DSET_DYNAMIC 3 // mostly per-drawcall
-
 class DescriptorSetLayout
 {
 public:

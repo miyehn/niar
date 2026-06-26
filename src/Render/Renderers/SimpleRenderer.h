@@ -1,3 +1,4 @@
+#pragma once
 #include "Render/Vulkan/DescriptorSet.h"
 #include "DeferredRenderer.h"
 

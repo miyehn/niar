@@ -115,11 +115,14 @@ set(NIAR_COMMON_DEFINES
     ROOT_DIR="${CMAKE_SOURCE_DIR}"
     DEBUG=1
     GLM_ENABLE_EXPERIMENTAL)
+set(NIAR_CSHARED_INCLUDE_DIR
+    ${CMAKE_SOURCE_DIR}/shaders/cshared)
 
 # ellyn - interactive Vulkan GUI application
 add_executable(ellyn ${ELLYN_SRC} ${SHARED_SRC})
 target_include_directories(ellyn PRIVATE
     src
+    ${NIAR_CSHARED_INCLUDE_DIR}
     external/imgui
     external/renderdoc
     ${Vulkan_INCLUDE_DIRS}
@@ -156,6 +159,7 @@ add_custom_command(TARGET ellyn POST_BUILD
 add_executable(asz ${ASZELEA_SRC} ${SHARED_SRC})
 target_include_directories(asz PRIVATE
     src
+    ${NIAR_CSHARED_INCLUDE_DIR}
     ${Stb_INCLUDE_DIR})
 target_link_libraries(asz PRIVATE
     Threads::Threads
@@ -171,6 +175,7 @@ target_compile_definitions(asz PRIVATE
 add_executable(vin ${VINCENT_SRC})
 target_include_directories(vin PRIVATE
     src
+    ${NIAR_CSHARED_INCLUDE_DIR}
     ${Stb_INCLUDE_DIR})
 target_link_libraries(vin PRIVATE
     cxxopts::cxxopts)
