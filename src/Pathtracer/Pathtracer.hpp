@@ -177,17 +177,7 @@ private:
 	// vulkan
 	Texture2D* window_surface = nullptr;
 
-	struct {
-		glm::mat4 ViewMatrix;
-		glm::mat4 ProjectionMatrix;
-
-		glm::vec3 CameraPosition;
-		float _pad0 = 2.333f;
-
-		glm::vec3 ViewDir;
-		float _pad1 = 2.333f;
-
-	} ViewInfo;
+	ViewInfo viewInfo;
 
 	struct GpuFrameData {
 		VmaBuffer viewInfoUbo;

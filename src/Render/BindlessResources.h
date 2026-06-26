@@ -1,16 +1,13 @@
 #pragma once
 
 #include "Render/Vulkan/DescriptorSet.h"
+#include "cshared_common.glsl"
 
 #include <array>
-#include <cstdint>
 #include <vector>
 #include <vulkan/vulkan.h>
 
 #define TMP_BINDLESS_DEBUG 1
-
-constexpr uint32_t MAX_BINDLESS_TEXTURES_2D = 1024;
-constexpr uint32_t INVALID_BINDLESS_INDEX = UINT32_MAX;
 
 struct BindlessTexture2DHandle
 {

@@ -610,7 +610,7 @@ DeferredRenderer::DeferredRenderer()
 			auto& fd = gpuFrameData[i];
 
 			fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								   sizeof(ViewInfo),
+								   sizeof(glm::ViewInfo),
 								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								   VMA_MEMORY_USAGE_CPU_TO_GPU,
 								   "View info uniform buffer (deferred renderer)"});
@@ -730,7 +730,7 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	ViewInfo viewInfo = getCameraViewInfo();
+	glm::ViewInfo viewInfo = getCameraViewInfo();
 	viewInfo.RenderSize = glm::vec2(renderExtent.width, renderExtent.height);
 	{
         int numPointLights = 0;

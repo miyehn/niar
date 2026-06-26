@@ -5,9 +5,9 @@
 #include "Renderer.h"
 #include "Utils/myn/Sample.h"
 
-Renderer::ViewInfo Renderer::getCameraViewInfo()
+glm::ViewInfo Renderer::getCameraViewInfo() const
 {
-    ViewInfo viewInfo = {};
+    glm::ViewInfo viewInfo = {};
 
 	// update whatever's needed
 	viewInfo.ViewMatrix = camera->world_to_object();

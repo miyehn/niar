@@ -2,7 +2,6 @@
 #include "../Render/Vulkan/Vulkan.hpp"
 #include "../Render/Vulkan/VulkanUtils.h"
 #include "Render/BindlessResources.h"
-#include "Render/Vulkan/DescriptorSet.h"
 #include "Utils/myn/Log.h"
 #include "Utils/myn/Misc.h"
 #include "Utils/myn/ThreadSafeQueue.h"
@@ -32,7 +31,9 @@ ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
 	{ "shaders/sky_transmittance_lut.comp", "main", SS_Compute },
 	{ "shaders/sky_view_lut.comp",          "main", SS_Compute },
 	{ "shaders/rtgi_generate.comp",         "main", SS_Compute },
+#if TMP_BINDLESS_DEBUG
 	{ "shaders/bindless_self_test.comp",    "main", SS_Compute },
+#endif
 	{ "shaders/ray_gen.rgen",               "main", SS_RayGen },
 	{ "shaders/ray_chit.rchit",             "main", SS_ClosestHit },
 	{ "shaders/ray_chit2.rchit",            "main", SS_ClosestHit },
@@ -178,11 +179,6 @@ static bool compile_shader(
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
 	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
-	// todo [myn]: find a better way to keep cpp and shader defnes in sync?
-	options.AddMacroDefinition(
-		"MAX_BINDLESS_TEXTURES_2D",
-		std::to_string(MAX_BINDLESS_TEXTURES_2D));
-	options.AddMacroDefinition("DSET_BINDLESS", std::to_string(DSET_BINDLESS));
 
 	auto includer = std::make_unique<TrackingIncluder>();
 	includer->tracked_paths = &new_deps;

@@ -1,31 +1,22 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-layout(set = 0, binding = 0) uniform ViewInfoUBO {
-	mat4 ViewMatrix;
-	mat4 ProjectionMatrix;
-	mat4 InverseProjectionMatrix;
-	vec3 CameraPosition;
-	int NumPointLights;
-	vec3 ViewDir;
-	int NumDirectionalLights;
-	float Exposure;
-	float AspectRatio;
-	float HalfVFovRadians;
-	int ToneMappingOption;
-	int BackgroundOption;
-	uint FrameIndex;
-	uint _pad0;
-	uint _pad1;
-	vec4 FrameRandom;
-} viewInfo;
+#include "cshared/cshared_common.glsl"
 
-layout(set = 0, binding = 1) uniform accelerationStructureEXT Scene;
-layout(set = 0, binding = 2, rgba8) uniform image2D ResultImage;
+layout(set = DSET_FRAMEGLOBAL, binding = 0) uniform ViewInfoUBO
+{
+	ViewInfo data;
+}
+_ViewInfo;
+
+layout(set = DSET_FRAMEGLOBAL, binding = 1) uniform accelerationStructureEXT Scene;
+layout(set = DSET_FRAMEGLOBAL, binding = 2, rgba8) uniform image2D ResultImage;
 
 layout(location = 0) rayPayloadEXT vec3 ResultColor;
 
 void main() {
+	ViewInfo viewInfo = _ViewInfo.data;
+
 	// Pixel center in NDC [-1, 1]
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);

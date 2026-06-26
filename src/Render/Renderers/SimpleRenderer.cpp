@@ -104,7 +104,7 @@ SimpleRenderer::SimpleRenderer()
 			auto& fd = gpuFrameData[i];
 
 			fd.viewInfoUbo = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-								   sizeof(ViewInfo),
+								   sizeof(glm::ViewInfo),
 								   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 								   VMA_MEMORY_USAGE_CPU_TO_GPU,
 								   "View info uniform buffer (simple renderer)"});
@@ -162,7 +162,7 @@ DescriptorSetLayout SimpleRenderer::getFrameGlobalLayout()
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
 	// prepare frameglobals
-	ViewInfo viewInfo = getCameraViewInfo();
+	glm::ViewInfo viewInfo = getCameraViewInfo();
 	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
 	std::vector<SceneObject*> drawables;

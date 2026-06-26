@@ -1,4 +1,5 @@
 #pragma once
+#include "cshared_common.glsl"
 #include "Scene/Camera.hpp"
 #include "Scene/Scene.hpp"
 #if GRAPHICS_DISPLAY
@@ -9,28 +10,7 @@ class Renderer
 {
 protected:
 
-	// ViewInfo is optional for renderers, some don't use it (path tracer), but still common enough
-	struct ViewInfo {
-		glm::mat4 ViewMatrix;
-		glm::mat4 ProjectionMatrix;
-		glm::mat4 InverseProjectionMatrix;
-
-		glm::vec3 CameraPosition;
-		int NumPointLights;
-
-		glm::vec3 ViewDir;
-		int NumDirectionalLights;
-
-		float Exposure;
-		float AspectRatio;
-		float HalfVFovRadians;
-		int ToneMappingOption;
-		int BackgroundOption;
-		uint32_t FrameIndex;
-		glm::vec2 RenderSize;
-		glm::vec4 FrameRandom;
-	};
-	ViewInfo getCameraViewInfo();
+	[[nodiscard]] glm::ViewInfo getCameraViewInfo() const;
 
 	Renderer() = default;
 public:
