@@ -60,7 +60,7 @@ private:
 
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
-	std::vector<BLASInfo> blas_collection; // for each primitive in each mesh. todo [myn]: are instanced meshes duplicated?
+	std::vector<BLASInfo> blas_collection; // one per unique primitive buffer
 #endif
 };
 
