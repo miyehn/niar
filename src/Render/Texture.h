@@ -70,11 +70,15 @@ public:
 	}
 	virtual ~Texture();
 
+	std::string getName() const { return name; }
+
 	VmaAllocatedImage resource;
 
 protected:
 	Texture() = default;
 	static std::unordered_map<std::string, Texture *> texturePool;
+
+	std::string name;
 };
 
 class Texture2D : public Texture
