@@ -1,5 +1,7 @@
 #include "GltfMaterial.h"
+#include "Scene/MeshObject.h"
 #include "Scene/SceneObject.hpp"
+#include "Render/BindlessResources.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/Pipeline.h"
 #include "Render/Renderers/DeferredRenderer.h"
@@ -13,6 +15,16 @@ void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *dra
 	// per-object model matrix via push constants
 	glm::mat4 modelMatrix = drawable->object_to_world();
 	vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
+
+	const auto* meshObject = dynamic_cast<const MeshObject*>(drawable);
+	// todo [myn]: currently seems like drawable passed in here is always a MeshObject anyway.
+	ASSERT(meshObject != nullptr)
+	const uint32_t bindlessMaterialIndex = meshObject->mesh.bindlessMaterialIndex;
+	ASSERT(bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+#if TMP_BINDLESS_DEBUG
+	BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
+#endif
+	(void)bindlessMaterialIndex;
 }
 
 void GltfMaterial::bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout)

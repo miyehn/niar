@@ -331,6 +331,19 @@ uint32_t BindlessResources::activeMaterialCount() const
 		[](uint8_t occupied) { return occupied != 0; }));
 }
 
+void BindlessResources::assertMaterialIndexOccupied(uint32_t index) const
+{
+	ASSERT(index != INVALID_BINDLESS_INDEX)
+	ASSERT_M(
+		index < materialSlotOccupied.size(),
+		"Bindless material index %u is out of range",
+		index)
+	ASSERT_M(
+		materialSlotOccupied[index] != 0,
+		"Bindless material index %u refers to a free slot",
+		index)
+}
+
 // note [myn]: this function is not reviewed
 void BindlessResources::runDebugSelfTest(
 	BindlessTexture2DHandle whiteHandle,
@@ -355,19 +368,31 @@ void BindlessResources::runDebugSelfTest(
 		whiteIndex,
 		temporaryIndex,
 	};
+	const glm::GpuMaterial debugMaterial = {
+		.baseColorFactor = glm::vec4(0.25f, 0.5f, 0.75f, 1.0f),
+		.emissiveFactorAndClipThreshold = glm::vec4(0.1f, 0.2f, 0.3f, 0.4f),
+		.ormAndNormalStrength = glm::vec4(1.0f, 0.8f, 0.6f, 0.5f),
+		.textureIndices = glm::uvec4(whiteIndex, blackIndex, whiteIndex, blackIndex),
+	};
+	const uint32_t debugMaterialIndex = addMaterial(debugMaterial);
+	std::array selfTestInput = {
+		textureIndices[0],
+		textureIndices[1],
+		debugMaterialIndex,
+	};
 
 	VmaBuffer inputBuffer({
 		.allocator = &Vulkan::Instance->memoryAllocator,
-		.strideSize = sizeof(textureIndices),
+		.strideSize = sizeof(selfTestInput),
 		.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
 		.debugName = "Bindless self-test input",
 	});
-	inputBuffer.writeData(textureIndices.data(), sizeof(textureIndices));
+	inputBuffer.writeData(selfTestInput.data(), sizeof(selfTestInput));
 
 	VmaBuffer outputBuffer({
 		.allocator = &Vulkan::Instance->memoryAllocator,
-		.strideSize = sizeof(float) * 8,
+		.strideSize = sizeof(glm::vec4) * 6,
 		.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		.memoryUsage = VMA_MEMORY_USAGE_GPU_TO_CPU,
 		.debugName = "Bindless self-test output",
@@ -417,8 +442,8 @@ void BindlessResources::runDebugSelfTest(
 			nullptr);
 	});
 
-	std::array<float, 8> sampledColors{};
-	outputBuffer.readData(sampledColors.data(), sizeof(sampledColors));
+	std::array<glm::vec4, 6> outputValues{};
+	outputBuffer.readData(outputValues.data(), sizeof(outputValues));
 
 	const auto approximately = [](float actual, float expected)
 	{
@@ -427,16 +452,41 @@ void BindlessResources::runDebugSelfTest(
 	for (uint32_t channel = 0; channel < 4; ++channel)
 	{
 		ASSERT_M(
-			approximately(sampledColors[channel], 1.0f),
+			approximately(outputValues[0][channel], 1.0f),
 			"Bindless self-test expected white channel %u, got %f",
 			channel,
-			sampledColors[channel])
+			outputValues[0][channel])
 		ASSERT_M(
-			approximately(sampledColors[4 + channel], 0.0f),
+			approximately(outputValues[1][channel], 0.0f),
 			"Bindless self-test expected black channel %u, got %f",
 			channel,
-			sampledColors[4 + channel])
+			outputValues[1][channel])
+		ASSERT_M(
+			approximately(outputValues[2][channel], debugMaterial.baseColorFactor[channel]),
+			"Bindless self-test expected material albedo channel %u to be %f, got %f",
+			channel,
+			debugMaterial.baseColorFactor[channel],
+			outputValues[2][channel])
+		ASSERT_M(
+			approximately(outputValues[3][channel], debugMaterial.baseColorFactor[channel]),
+			"Bindless self-test expected material base-color channel %u to be %f, got %f",
+			channel,
+			debugMaterial.baseColorFactor[channel],
+			outputValues[3][channel])
+		ASSERT_M(
+			approximately(outputValues[4][channel], debugMaterial.emissiveFactorAndClipThreshold[channel]),
+			"Bindless self-test expected material emissive/clip channel %u to be %f, got %f",
+			channel,
+			debugMaterial.emissiveFactorAndClipThreshold[channel],
+			outputValues[4][channel])
+		ASSERT_M(
+			approximately(outputValues[5][channel], static_cast<float>(debugMaterial.textureIndices[channel])),
+			"Bindless self-test expected material texture index channel %u to be %f, got %f",
+			channel,
+			static_cast<float>(debugMaterial.textureIndices[channel]),
+			outputValues[5][channel])
 	}
+	removeMaterial(debugMaterialIndex);
 
 	const BindlessTexture2DHandle reusedHandle =
 		addTexture2D(blackImageView, samplerInfo);
@@ -447,7 +497,7 @@ void BindlessResources::runDebugSelfTest(
 
 	outputBuffer.release();
 	inputBuffer.release();
-	LOG("Bindless texture self-test passed")
+	LOG("Bindless resources self-test passed")
 }
 #endif
 
