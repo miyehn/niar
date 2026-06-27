@@ -404,7 +404,7 @@ static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAcces
 }
 #endif
 
-// load from glTF data
+// load all the glTF primitives in this tinygltf::Mesh. Called when constructing scene tree.
 std::vector<Mesh> load_gltf_meshes(
 	const std::string& node_name,
 	const tinygltf::Mesh* in_mesh,
@@ -413,6 +413,7 @@ std::vector<Mesh> load_gltf_meshes(
 #if GRAPHICS_DISPLAY
 	, std::unordered_map<PrimitiveBufferIndex, Mesh::GpuDataAccessor>& gpu_buffer_indices
 	, std::vector<BLASInfo>& blas_collection
+	, const std::vector<uint32_t>& material_indices
 #endif
 	)
 {
@@ -434,6 +435,12 @@ std::vector<Mesh> load_gltf_meshes(
 		Mesh& m = output.back();
 		m.cpu_data = cpu_buffer_indices.at(buf_idx);
 #if GRAPHICS_DISPLAY
+		if (prim.material >= 0)
+		{
+			ASSERT(static_cast<size_t>(prim.material) < material_indices.size())
+			m.bindlessMaterialIndex = material_indices[prim.material];
+			ASSERT(m.bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+		}
 		m.gpu_data = gpu_buffer_indices.at(buf_idx);
 		if (m.gpu_data.blasHandle == VK_NULL_HANDLE)
 		{
@@ -746,6 +753,7 @@ SceneAsset::SceneAsset(
 #if GRAPHICS_DISPLAY
 					, gpu_buffer_indices
 					, blas_collection
+					, asset_material_indices
 #endif
 					);
 				if (in_mesh->primitives.size() > 1) {

@@ -3,6 +3,7 @@
 #include "Render/Vertex.h"
 #include <unordered_map>
 #if GRAPHICS_DISPLAY
+#include "cshared_common.glsl"
 #include "Render/Vulkan/Buffer.h"
 #endif
 
@@ -62,6 +63,11 @@ struct Mesh {
 	[[nodiscard]] uint32_t get_num_indices() const;
 
 	std::string materialName;
+#if GRAPHICS_DISPLAY
+	// Migration bridge: SceneAsset fills this from its glTF material-index mapping.
+	// Future bindless draw paths can read it per mesh without consulting GltfMaterialInfo.
+	uint32_t bindlessMaterialIndex = INVALID_BINDLESS_INDEX;
+#endif
 
 	CpuDataAccessor cpu_data{};
 #if GRAPHICS_DISPLAY
