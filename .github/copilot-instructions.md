@@ -65,29 +65,38 @@ The `#define GRAPHICS_DISPLAY` flag gates all Vulkan, SDL2, and ImGui code. Alwa
 ### Vulkan Abstraction
 `src/Render/Vulkan/` contains low-level wrappers. VulkanMemoryAllocator (VMA 3.0.1) handles GPU memory. Validation layers (`VK_LAYER_KHRONOS_validation`) are enabled in DEBUG builds. RenderDoc integration available via `src/Utils/myn/RenderDoc.h`.
 
-Use `SamplerCache` for Vulkan sampler setup. When a descriptor needs non-default sampler behavior, start from `SamplerCache::defaultInfo()` and override only the fields that matter, then pass that `VkSamplerCreateInfo` to descriptor helpers such as `DescriptorSet::pointToImageView(...)`. Let descriptor helpers use their default sampler path when the default behavior is intentional.
-
 ### Pathtracer
 `src/Pathtracer/` contains a tile-based multi-threaded CPU path tracer with a BVH (`BVH.hpp`), BSDF (`BSDF.hpp`), and an optional ISPC SIMD kernel. Config-driven via `config/pathtracer.ini` (hot reloaded at runtime).
 
 ## Key Conventions
 
-### Overall
+### Guiding Principles
 
 Prefer code that makes ownership and data flow visible at the call site. Keep abstractions small, remove redundant state, and place responsibilities at the layer that has the relevant context.
 
-- Remove unused abstraction left behind by older architecture.
-- Do not expose parameters when all valid callers pass the same value.
-- Inline helpers that have one caller and do not clarify a meaningful phase boundary.
-- When a function asserts a programmer invariant, proceed directly with the
-  implementation. Do not repeat the asserted condition as an early return or
-  fallback check immediately afterward.
+- Remove unused abstractions, stale branches, and redundant state left behind by older architecture.
+- Prefer direct code over thin helpers when the helper has one caller and does not clarify a real phase boundary.
+- When a function asserts a programmer invariant, proceed directly with the implementation. Do not repeat the asserted condition as an early return or fallback check immediately afterward.
+- Keep explanatory comments written by the user. When refactoring the code they describe, move or adapt those comments to the new structure instead of deleting them. Remove one only when it is no longer accurate or useful, and make that reason explicit when reporting the change.
 - Do not add an extra blank line at the end of a file.
 
-Preserve existing explanatory comments written by the user. When refactoring
-the code they describe, move or adapt those comments to the new structure
-instead of deleting them. Remove one only when it is no longer accurate or
-useful, and make that reason explicit when reporting the change.
+### State, Ownership, And Lifetime
+
+Prefer lean class/struct declarations, especially in headers. Public surfaces should express intended use without exposing implementation details.
+
+- Expose only the members that callers need. Keep implementation state private or protected.
+- Use const getters, pointers, and references when callers or dependencies only need read/query/bind access.
+- Store only durable ownership, externally observable state, or cleanup tokens that must survive construction. For example, an asset should keep GPU/material table indices if release needs them, but should not keep temporary texture-handle arrays or GPU-record staging arrays after upload.
+- Keep construction scratch local to the function or loading phase that needs it. Before adding a member, check whether it is read after initialization or needed for ownership/lifetime cleanup.
+- Do not store transient call inputs, such as `VkCommandBuffer`, on persistent objects. Pass them through the function that uses them.
+- Keep implementation-only helper types out of the public namespace when possible. Prefer `.cpp`-local types, or private nested types when they must stay close to the owning type.
+
+### Interfaces And Helpers
+
+- Do not expose parameters when all valid callers pass the same value.
+- Inline small glue helpers that only obscure a single call site.
+- Keep a helper or abstraction when it is reused, owns a meaningful responsibility, or marks a phase boundary that makes the caller easier to understand.
+- Put responsibilities at the layer that owns the context. For example, render components that own frame context should own synchronization and pass ordering; low-level shader wrappers should focus on binding and dispatch.
 
 ### Header Extensions
 `.h` and `.hpp` are both used with no strict rule. `.inl` files hold inline implementations included at the bottom of headers (e.g., `PathtracerBufferOperations.inl`).
@@ -109,25 +118,21 @@ Use the macros from `Utils/myn/Log.h` (color-coded terminal output) rather than 
 - Namespaces: lowercase (`myn`, `myn::sky`)
 - Shader files: `.vert`, `.frag`, `.comp`, `.rgen`, `.rchit`, `.rmiss`
 
-### Class/Struct Members
+### Config Files
+`config/global.ini` is loaded once at startup. `config/pathtracer.ini`, `config/skyAtmosphere.ini` and others are hot-reload during execution. Use the `Config->lookup<T>("Key.Subkey")` pattern to read values.
 
-Prefer lean class/struct declarations, especially in headers. The public surface should make intended use clear without exposing implementation details.
-- Expose only the members that callers need. Keep implementation state private or protected.
-- Use const getters when callers only need read-only access.
-- Store only essential state. Do not add cached fields or boolean flags when the value can be trivially inferred from existing members.
-- Keep construction scratch local to the function or loading phase that needs
-  it. Before adding or keeping a class member, check whether it is read after
-  initialization or needed for ownership/lifetime cleanup. Intermediate arrays,
-  temporary handle mappings, and helper structs used only to build another
-  persistent resource should usually be local variables, not members.
-- Persistent members should represent durable ownership, externally observable
-  state, or cleanup tokens that must survive past construction. For example, an
-  asset should keep GPU/material table indices if release needs them, but not
-  keep temporary texture-handle arrays or GPU-record staging arrays after upload.
-- Do not store transient call inputs, such as `VkCommandBuffer`, on persistent objects. Pass them through the function that uses them.
-- Prefer `const` pointers/references for dependencies that are only read, queried for layout, or bound.
-- Keep implementation-only helper types out of the public namespace when possible. Prefer `.cpp`-local types, or private nested types when they must stay close to the owning type.
-- Avoid thin private helper functions that only obscure a single call site. Fold small glue code into the owning function unless it is reused or clarifies a real phase boundary.
+Use config options for choices that are genuinely supported at runtime. When the project direction makes one path mandatory, remove the old option and fold code to the active path instead of keeping dead branches, shader defines, or inactive descriptor layouts.
+
+### Vulkan Descriptor And Sampler Setup
+Vulkan descriptor sets are organized by update frequency:
+- Set 0: Frame-global data (camera, lights)
+- Set 1: Material-specific
+- Set 2: Bindless
+- Set 3: Per-object (model matrix UBO)
+
+Descriptor set layouts may include bindings that are reserved for near-term shader work, but avoid fake shader declarations unless the resource is intentionally part of that shader interface. When a resource is part of the interface, keep the C++ descriptor layout and GLSL binding declarations aligned.
+
+Use `SamplerCache` for Vulkan sampler setup. When a descriptor needs non-default sampler behavior, start from `SamplerCache::defaultInfo()` and override only the fields that matter, then pass that `VkSamplerCreateInfo` to descriptor helpers such as `DescriptorSet::pointToImageView(...)`. Let descriptor helpers use their default sampler path when the default behavior is intentional.
 
 ### Compute Shaders
 
@@ -140,27 +145,12 @@ Wrap compute shader dispatches in a small class derived from `ComputeShader`. Us
 - Keep shader wrapper setup focused on shader-specific pipeline configuration. Do not expose wrapper classes from headers unless multiple components need them.
 - If several compute passes follow the same pattern, make their call sites consistent before adding new abstractions.
 
-### Descriptor Set Layout Convention
-Vulkan descriptor sets are organized by update frequency:
-- Set 0: Frame-global data (camera, lights)
-- Set 1: Material-specific
-- Set 2: Bindless
-- Set 3: Per-object (model matrix UBO)
-
-Descriptor set layouts may include bindings that are reserved for near-term shader work, but avoid fake shader declarations unless the resource is intentionally part of that shader interface. When a resource is part of the interface, keep the C++ descriptor layout and GLSL binding declarations aligned.
-
 ### Render Passes And Synchronization
 Keep logically separate rendering/debug work in separate passes when it makes ownership and toggling clearer. Do not force work into subpasses only to reduce object counts.
 - Prefer explicit render/compute pass ordering over hidden side effects inside material or shader wrappers.
 - Put image barriers at the producer/consumer boundary owned by the render component, not inside low-level dispatch helpers.
 - If a previous pass's outgoing dependency already covers a consumer pass, do not add redundant consumer-side external dependencies.
 - Framebuffer/render pass objects are cheap enough that clarity and correct attachment ownership should win over aggressive reuse.
-
-### Config Files
-`config/global.ini` is loaded once at startup. `config/pathtracer.ini`, `config/skyAtmosphere.ini` and others are hot-reload during execution. Use the `Config->lookup<T>("Key.Subkey")` pattern to read values.
-
-### Config And Branches
-Use config options for choices that are genuinely supported at runtime. When the project direction makes one path mandatory, remove the old option and fold code to the active path instead of keeping dead branches, shader defines, or inactive descriptor layouts.
 
 ## Key Dependencies
 
