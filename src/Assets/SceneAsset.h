@@ -34,7 +34,7 @@ public:
 		SceneObject* outer_root,
 		const std::string& relative_path);
 
-	SceneObject* get_root() { return asset_root; }
+	SceneObject* get_root() const { return asset_root; }
 
 protected:
 	void release_resources() override;
@@ -47,19 +47,12 @@ private:
 	std::vector<VERTEX_INDEX_TYPE> combined_indices;
 
 #if GRAPHICS_DISPLAY
-	struct MaterialTextureHandleSet {
-		BindlessTexture2DHandle albedo;
-		BindlessTexture2DHandle normal;
-		BindlessTexture2DHandle orm;
-		BindlessTexture2DHandle emissive;
-	};
-
 	std::vector<Texture2D*> asset_images; // same size as model.images
-	std::vector<BindlessTexture2DHandle> asset_texture_handles; // same size as model.textures (may reuse images)
-	std::vector<MaterialTextureHandleSet> asset_material_texture_handle_sets; // same size as model.materials
+	std::vector<uint32_t> asset_material_indices; // same size as model.materials
 
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
+
 	std::vector<BLASInfo> blas_collection; // one per unique primitive buffer
 #endif
 };

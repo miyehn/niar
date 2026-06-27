@@ -480,7 +480,7 @@ SceneAsset::SceneAsset(
 		const uint32_t occupiedSlotsBeforeSceneImages =
 			BindlessResources::Instance->occupiedTexture2DSlotCount();
 #endif
-		{ // images (textures)
+		{ // populate asset_images
 			std::vector<ImageFormat> image_formats(model.images.size());
 
 			// fill in format
@@ -533,84 +533,37 @@ SceneAsset::SceneAsset(
 			occupiedSlotsBeforeSceneImages + model.images.size())
 #endif
 
-		asset_texture_handles.resize(model.textures.size());
-		for (int i = 0; i < model.textures.size(); i++) {
-			const int sourceImageIdx = model.textures[i].source;
-			ASSERT(sourceImageIdx >= 0)
-			ASSERT(static_cast<size_t>(sourceImageIdx) < asset_images.size())
-
-			Texture2D* texture = asset_images[sourceImageIdx];
-			ASSERT(texture != nullptr)
-			const BindlessTexture2DHandle handle = texture->getBindlessHandle();
-			ASSERT(BindlessResources::Instance->validate(handle) == handle.index)
-			asset_texture_handles[i] = handle;
-		}
 #endif
 
-		// materials
 		std::vector<std::string> material_names(model.materials.size());
-		{
-			std::vector<std::string> texture_names(model.textures.size());
+		{ // materials
+
+			// gather texture names for compatibility material records
+			std::vector<std::string> textureNames(model.textures.size());
 			for (int i = 0; i < model.textures.size(); i++) {
 				const int sourceImageIdx = model.textures[i].source;
 				ASSERT(sourceImageIdx >= 0)
 				ASSERT(static_cast<size_t>(sourceImageIdx) < model.images.size())
-				texture_names[i] = gltfImageCompatibilityName(relative_path, model.images[i].name, sourceImageIdx);
+				textureNames[i] = gltfImageCompatibilityName(relative_path, model.images[i].name, sourceImageIdx);
 			}
 
 #if GRAPHICS_DISPLAY
-			asset_material_texture_handle_sets.resize(model.materials.size());
-			const auto materialTextureHandle = [this](int textureIndex, const char* defaultTextureName)
-			{
-				if (textureIndex < 0)
-				{
-					auto* texture = Texture::get<Texture2D>(defaultTextureName);
-					const BindlessTexture2DHandle handle =
-						texture->getBindlessHandle();
-					ASSERT(
-						BindlessResources::Instance->validate(handle) ==
-						handle.index)
-					return handle;
-				}
+			// gather the bindless textures for GPU material records
+			std::vector<Texture2D*> textures(model.textures.size());
+			for (int i = 0; i < model.textures.size(); i++) {
+				const int sourceImageIdx = model.textures[i].source;
+				ASSERT(sourceImageIdx >= 0)
+				ASSERT(static_cast<size_t>(sourceImageIdx) < asset_images.size())
+				textures[i] = asset_images[sourceImageIdx];
+			}
 
-				ASSERT(static_cast<size_t>(textureIndex) < asset_texture_handles.size())
-				const BindlessTexture2DHandle handle =
-					asset_texture_handles[textureIndex];
-				ASSERT(
-					BindlessResources::Instance->validate(handle) ==
-					handle.index)
-				return handle;
-			};
+			std::vector<glm::GpuMaterial> gpuMaterials(model.materials.size());
 #endif
 			for (int i = 0; i < model.materials.size(); i++) {
 				auto& mat = model.materials[i];
 				material_names[i] = mat.name;
 
-				// create mat info and add it to the mapping
-
-				int albedo_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
-				auto albedo = albedo_idx >= 0 ? texture_names[albedo_idx] : "_white";
-
-				int normal_idx = mat.normalTexture.index;
-				auto normal = normal_idx >= 0 ? texture_names[normal_idx] : "_defaultNormal";
-
-				int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
-				auto orm = mr_idx >= 0 ? texture_names[mr_idx] : "_white";
-
-				int ao_idx = mat.occlusionTexture.index;
-				auto ao = ao_idx >= 0 ? texture_names[ao_idx] : "_white";
-
-				int emissive_idx = mat.emissiveTexture.index;
-				auto emissiveTexName = emissive_idx >= 0 ? texture_names[emissive_idx] : "_black";
-
-#if GRAPHICS_DISPLAY
-				asset_material_texture_handle_sets[i] = {
-					.albedo = materialTextureHandle(albedo_idx, "_white"),
-					.normal = materialTextureHandle(normal_idx, "_defaultNormal"),
-					.orm = materialTextureHandle(mr_idx, "_white"),
-					.emissive = materialTextureHandle(emissive_idx, "_black"),
-				};
-#endif
+				// create mat info
 
 				auto bc = mat.pbrMetallicRoughness.baseColorFactor;
 				auto baseColorFactor = glm::vec4(bc[0], bc[1], bc[2], bc[3]);
@@ -632,14 +585,47 @@ SceneAsset::SceneAsset(
 				// clip threshold
 				float clipThreshold = mat.alphaMode == "OPAQUE" ? -1.0f : (float)mat.alphaCutoff;
 
+				// textures (indices are for accessing textures[..])
+				int albedo_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
+				auto albedoTexName = albedo_idx >= 0 ? textureNames[albedo_idx] : "_white";
+
+				int normal_idx = mat.normalTexture.index;
+				auto normalTexName = normal_idx >= 0 ? textureNames[normal_idx] : "_defaultNormal";
+
+				int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+				auto ormTexName = mr_idx >= 0 ? textureNames[mr_idx] : "_white";
+
+				int ao_idx = mat.occlusionTexture.index;
+				auto aoTexName = ao_idx >= 0 ? textureNames[ao_idx] : "_white";
+
+				int emissive_idx = mat.emissiveTexture.index;
+				auto emissiveTexName = emissive_idx >= 0 ? textureNames[emissive_idx] : "_black";
+
+#if GRAPHICS_DISPLAY
+				auto albedo = albedo_idx >= 0 ? textures[albedo_idx] : Texture::get<Texture2D>("_white");
+				auto normal = normal_idx >= 0 ? textures[normal_idx] : Texture::get<Texture2D>("_defaultNormal");
+				auto orm = mr_idx >= 0 ? textures[mr_idx] : Texture::get<Texture2D>("_white");
+				auto emissive = emissive_idx >= 0 ? textures[emissive_idx] : Texture::get<Texture2D>("_black");
+				gpuMaterials[i] = {
+					.baseColorFactor = baseColorFactor,
+					.emissiveFactorAndClipThreshold = glm::vec4(emissiveFactor, clipThreshold),
+					.ormAndNormalStrength = strengths,
+					.textureIndices = glm::uvec4(
+						BindlessResources::Instance->validate(albedo->getBindlessHandle()),
+						BindlessResources::Instance->validate(normal->getBindlessHandle()),
+						BindlessResources::Instance->validate(orm->getBindlessHandle()),
+						BindlessResources::Instance->validate(emissive->getBindlessHandle())),
+				};
+#endif
+
 				GltfMaterialInfo info = {
 					._version = 0,
 					.type = MaterialType::MT_Surface,
 					.name = mat.name,
-					.albedoTexName = albedo,
-					.normalTexName = normal,
-					.ormTexName = orm,
-					.aoTexName = ao,
+					.albedoTexName = albedoTexName,
+					.normalTexName = normalTexName,
+					.ormTexName = ormTexName,
+					.aoTexName = aoTexName,
 					.emissiveTexName = emissiveTexName,
 					.BaseColorFactor = baseColorFactor,
 					.EmissiveFactor = emissiveFactor,
@@ -669,6 +655,15 @@ SceneAsset::SceneAsset(
 				}
 				GltfMaterialInfo::add(info);
 			}
+#if GRAPHICS_DISPLAY
+			asset_material_indices.reserve(gpuMaterials.size());
+			for (const auto& gpuMaterial : gpuMaterials) {
+				asset_material_indices.push_back(BindlessResources::Instance->addMaterial(gpuMaterial));
+			}
+#if TMP_BINDLESS_DEBUG
+			ASSERT(asset_material_indices.size() == model.materials.size())
+#endif
+#endif
 		}
 
 		//====================
@@ -805,6 +800,28 @@ SceneAsset::SceneAsset(
 void SceneAsset::release_resources()
 {
 #if GRAPHICS_DISPLAY
+	if (!asset_material_indices.empty())
+	{
+		ASSERT(BindlessResources::Instance != nullptr)
+#if TMP_BINDLESS_DEBUG
+		const uint32_t releasedMaterialCount =
+			static_cast<uint32_t>(asset_material_indices.size());
+		const uint32_t activeMaterialsBeforeRelease =
+			BindlessResources::Instance->activeMaterialCount();
+#endif
+		for (const uint32_t materialIndex : asset_material_indices)
+		{
+			BindlessResources::Instance->removeMaterial(materialIndex);
+		}
+#if TMP_BINDLESS_DEBUG
+		ASSERT(
+			BindlessResources::Instance->activeMaterialCount() +
+			releasedMaterialCount ==
+			activeMaterialsBeforeRelease)
+#endif
+	}
+	asset_material_indices.clear();
+
 #if TMP_BINDLESS_DEBUG
 	ASSERT(BindlessResources::Instance != nullptr)
 	const uint32_t releasedTextureCount =
@@ -816,8 +833,6 @@ void SceneAsset::release_resources()
 		delete tex;
 	}
 	asset_images.clear();
-	asset_texture_handles.clear();
-	asset_material_texture_handle_sets.clear();
 #if TMP_BINDLESS_DEBUG
 	ASSERT(
 		BindlessResources::Instance->occupiedTexture2DSlotCount() +

@@ -85,7 +85,7 @@ private:
 
 	// material table
 	VmaBuffer materialTableBuffer;
-	std::vector<glm::GpuMaterial> materialRecords;
+	std::vector<glm::GpuMaterial> materialRecords; // data that gets uploaded to materialTableBuffer
 	std::vector<uint8_t> materialSlotOccupied;
 	std::vector<uint32_t> freeMaterialSlots;
 	void uploadMaterialTable();

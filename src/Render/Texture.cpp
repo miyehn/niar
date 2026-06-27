@@ -116,6 +116,7 @@ Texture2D::Texture2D(
 
 	ASSERT(pixels != nullptr)
 
+	this->name = name;
 	imageFormat = getFormatFromMap(textureFormat);
 
 	width = iwidth;
@@ -300,6 +301,7 @@ Texture2D::Texture2D(
 {
 	LOG("loading texture '%s'..", name.c_str())
 
+	this->name = name;
 	imageFormat = getFormatFromMap(format);
 	this->width = width;
 	this->height = height;
