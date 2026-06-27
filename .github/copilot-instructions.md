@@ -115,6 +115,15 @@ Prefer lean class/struct declarations, especially in headers. The public surface
 - Expose only the members that callers need. Keep implementation state private or protected.
 - Use const getters when callers only need read-only access.
 - Store only essential state. Do not add cached fields or boolean flags when the value can be trivially inferred from existing members.
+- Keep construction scratch local to the function or loading phase that needs
+  it. Before adding or keeping a class member, check whether it is read after
+  initialization or needed for ownership/lifetime cleanup. Intermediate arrays,
+  temporary handle mappings, and helper structs used only to build another
+  persistent resource should usually be local variables, not members.
+- Persistent members should represent durable ownership, externally observable
+  state, or cleanup tokens that must survive past construction. For example, an
+  asset should keep GPU/material table indices if release needs them, but not
+  keep temporary texture-handle arrays or GPU-record staging arrays after upload.
 - Do not store transient call inputs, such as `VkCommandBuffer`, on persistent objects. Pass them through the function that uses them.
 - Prefer `const` pointers/references for dependencies that are only read, queried for layout, or bound.
 - Keep implementation-only helper types out of the public namespace when possible. Prefer `.cpp`-local types, or private nested types when they must stay close to the owning type.
