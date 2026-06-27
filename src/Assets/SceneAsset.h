@@ -48,7 +48,7 @@ private:
 
 #if GRAPHICS_DISPLAY
 	std::vector<Texture2D*> asset_images; // same size as model.images
-	std::vector<uint32_t> asset_material_indices; // same size as model.materials
+	std::vector<uint32_t> asset_material_indices; // same size as model.materials; cleanup tokens and mesh bridge source
 
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
