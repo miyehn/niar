@@ -57,6 +57,7 @@ public:
 #if TMP_BINDLESS_DEBUG
 	uint32_t occupiedTexture2DSlotCount() const;
 	uint32_t activeMaterialCount() const;
+	void assertMaterialIndexOccupied(uint32_t index) const;
 
 	// todo [myn][bindless]: this is to be removed in later phases of bindless
 	void runDebugSelfTest(

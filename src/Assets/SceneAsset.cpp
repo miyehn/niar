@@ -440,6 +440,9 @@ std::vector<Mesh> load_gltf_meshes(
 			ASSERT(static_cast<size_t>(prim.material) < material_indices.size())
 			m.bindlessMaterialIndex = material_indices[prim.material];
 			ASSERT(m.bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+#if TMP_BINDLESS_DEBUG
+			BindlessResources::Instance->assertMaterialIndexOccupied(m.bindlessMaterialIndex);
+#endif
 		}
 		m.gpu_data = gpu_buffer_indices.at(buf_idx);
 		if (m.gpu_data.blasHandle == VK_NULL_HANDLE)

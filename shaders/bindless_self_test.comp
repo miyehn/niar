@@ -5,20 +5,36 @@
 layout(set = 0, binding = 0, std430) readonly buffer BindlessSelfTestInput
 {
     uint TextureIndices[2];
+    uint MaterialIndex;
 };
 
 layout(set = 0, binding = 1, std430) writeonly buffer BindlessSelfTestOutput
 {
-    vec4 SampledColors[2];
+    vec4 SampledColors[3];
+    vec4 MaterialBaseColorFactor;
+    vec4 MaterialEmissiveFactorAndClipThreshold;
+    vec4 MaterialTextureIndices;
 };
 
-layout(local_size_x = 2, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 3, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
     uint invocation = gl_GlobalInvocationID.x;
-    SampledColors[invocation] = sampleBindlessTexture2DLod(
-        TextureIndices[invocation],
+    if (invocation < 2) {
+        SampledColors[invocation] = sampleBindlessTexture2DLod(
+            TextureIndices[invocation],
+            vec2(0.5),
+            0.0);
+        return;
+    }
+
+    GpuMaterial material = BindlessMaterials[MaterialIndex];
+    SampledColors[2] = sampleBindlessTexture2DLod(
+        material.textureIndices.x,
         vec2(0.5),
-        0.0);
+        0.0) * material.baseColorFactor;
+    MaterialBaseColorFactor = material.baseColorFactor;
+    MaterialEmissiveFactorAndClipThreshold = material.emissiveFactorAndClipThreshold;
+    MaterialTextureIndices = vec4(material.textureIndices);
 }
