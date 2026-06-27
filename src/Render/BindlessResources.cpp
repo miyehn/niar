@@ -128,24 +128,8 @@ void BindlessResources::init()
 		bindlessDescriptorSet = DescriptorSet(bindlessSetLayout, descriptorPool);
 	}
 
-	{ // create placeholder material buffer and put to slot 1
-		placeholderMaterialBuffer = VmaBuffer({
-			.allocator = &Vulkan::Instance->memoryAllocator,
-			.strideSize = 16,
-			.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-			.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-			.debugName = "Bindless placeholder material buffer",
-		});
-		std::array<uint8_t, 16> zeroPlaceholder{};
-		placeholderMaterialBuffer.writeData(
-			zeroPlaceholder.data(),
-			zeroPlaceholder.size());
-		bindlessDescriptorSet.pointToBuffer(
-			placeholderMaterialBuffer,
-			MaterialBufferBinding,
-			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		ASSERT(placeholderMaterialBuffer.buffer != VK_NULL_HANDLE)
-	}
+	// put material table to slot 1
+	uploadMaterialTable();
 
 	ASSERT(freeTexture2DSlots.empty())
 	freeTexture2DSlots.reserve(MAX_BINDLESS_TEXTURES_2D);
@@ -159,15 +143,24 @@ void BindlessResources::init()
 void BindlessResources::release()
 {
 	ASSERT(Instance == this)
-
-	const uint32_t occupiedCount = static_cast<uint32_t>(std::count_if(
-		texture2DSlots.begin(),
-		texture2DSlots.end(),
-		[](const Texture2DSlot& slot) { return slot.occupied; }));
-	ASSERT_M(
-		occupiedCount == 0,
-		"BindlessResources still has %u texture registration(s)",
-		occupiedCount)
+	{ // validation: bindless resources are all unregistered
+		const uint32_t occupiedCount = static_cast<uint32_t>(std::count_if(
+			texture2DSlots.begin(),
+			texture2DSlots.end(),
+			[](const Texture2DSlot& slot) { return slot.occupied; }));
+		ASSERT_M(
+			occupiedCount == 0,
+			"BindlessResources still has %u texture registration(s)",
+			occupiedCount)
+		const uint32_t materialCount = static_cast<uint32_t>(std::count_if(
+			materialSlotOccupied.begin(),
+			materialSlotOccupied.end(),
+			[](uint8_t occupied) { return occupied != 0; }));
+		ASSERT_M(
+			materialCount == 0,
+			"BindlessResources still has %u material registration(s)",
+			materialCount)
+	}
 
 	vkDestroyDescriptorPool(Vulkan::Instance->device, descriptorPool, nullptr);
 	descriptorPool = VK_NULL_HANDLE;
@@ -175,10 +168,13 @@ void BindlessResources::release()
 	bindlessSetLayout = {};
 	fillerTexture2DDescriptor = {};
 
-	placeholderMaterialBuffer.release();
+	materialTableBuffer.release();
 
 	for (auto& slot : texture2DSlots) slot = {};
 	freeTexture2DSlots.clear();
+	materialRecords.clear();
+	materialSlotOccupied.clear();
+	freeMaterialSlots.clear();
 	Instance = nullptr;
 }
 
@@ -236,6 +232,69 @@ void BindlessResources::removeTexture2D(BindlessTexture2DHandle handle)
 	freeTexture2DSlots.push_back(slotIndex);
 }
 
+uint32_t BindlessResources::addMaterial(const glm::GpuMaterial& material)
+{
+	ASSERT(Instance == this)
+
+	uint32_t materialIndex;
+	if (freeMaterialSlots.empty())
+	{
+		// no empty slots: push to the end of the list
+		materialIndex = static_cast<uint32_t>(materialRecords.size());
+		materialRecords.push_back(material);
+		materialSlotOccupied.push_back(1);
+	}
+	else
+	{
+		// added to an existing empty slot
+		materialIndex = freeMaterialSlots.back();
+		freeMaterialSlots.pop_back();
+		ASSERT(materialIndex < materialRecords.size())
+		ASSERT(materialSlotOccupied[materialIndex] == 0)
+		materialRecords[materialIndex] = material;
+		materialSlotOccupied[materialIndex] = 1;
+	}
+
+	uploadMaterialTable();
+	return materialIndex;
+}
+
+void BindlessResources::updateMaterial(
+	uint32_t index,
+	const glm::GpuMaterial& material)
+{
+	ASSERT(Instance == this)
+	ASSERT(index < materialRecords.size())
+	ASSERT(materialSlotOccupied[index] != 0)
+
+	materialRecords[index] = material;
+	uploadMaterialTable();
+}
+
+void BindlessResources::removeMaterial(uint32_t index)
+{
+	ASSERT(Instance == this)
+	ASSERT(index < materialRecords.size())
+	ASSERT(materialSlotOccupied[index] != 0)
+
+	Vulkan::Instance->waitDeviceIdle();
+	materialRecords[index] = {};
+	materialSlotOccupied[index] = 0;
+	freeMaterialSlots.push_back(index);
+	uploadMaterialTable();
+}
+
+void BindlessResources::clearMaterials()
+{
+	ASSERT(Instance == this)
+
+	Vulkan::Instance->waitDeviceIdle();
+	materialRecords.clear();
+	materialSlotOccupied.clear();
+	freeMaterialSlots.clear();
+	uploadMaterialTable();
+}
+
 void BindlessResources::setTexture2DFiller(
 	VkImageView imageView,
 	const VkSamplerCreateInfo& samplerInfo)
@@ -262,6 +321,14 @@ uint32_t BindlessResources::occupiedTexture2DSlotCount() const
 		texture2DSlots.begin(),
 		texture2DSlots.end(),
 		[](const Texture2DSlot& slot) { return slot.occupied; }));
+}
+
+uint32_t BindlessResources::activeMaterialCount() const
+{
+	return static_cast<uint32_t>(std::count_if(
+		materialSlotOccupied.begin(),
+		materialSlotOccupied.end(),
+		[](uint8_t occupied) { return occupied != 0; }));
 }
 
 // note [myn]: this function is not reviewed
@@ -383,6 +450,51 @@ void BindlessResources::runDebugSelfTest(
 	LOG("Bindless texture self-test passed")
 }
 #endif
+
+void BindlessResources::uploadMaterialTable()
+{
+	ASSERT(Instance == this)
+	ASSERT(bindlessDescriptorSet.get() != VK_NULL_HANDLE)
+
+	// avoid potential issues from synchronized gpu read & cpu write
+	if (materialTableBuffer.buffer != VK_NULL_HANDLE) {
+		Vulkan::Instance->waitDeviceIdle();
+	}
+
+	// material buffer needs to be recreated if it hasn't been created before, or if size doesn't match
+	const uint32_t materialCapacity =
+		static_cast<uint32_t>(std::max<size_t>(materialRecords.size(), 1));
+	if (materialTableBuffer.buffer == VK_NULL_HANDLE || materialTableBuffer.numStrides != materialCapacity)
+	{
+		if (materialTableBuffer.buffer != VK_NULL_HANDLE) {
+			materialTableBuffer.release();
+		}
+		materialTableBuffer = VmaBuffer({
+			.allocator = &Vulkan::Instance->memoryAllocator,
+			.strideSize = sizeof(glm::GpuMaterial),
+			.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+			.debugName = "Bindless material table buffer",
+			.numStrides = materialCapacity,
+		});
+		bindlessDescriptorSet.pointToBuffer(
+			materialTableBuffer,
+			MaterialBufferBinding,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		ASSERT(materialTableBuffer.buffer != VK_NULL_HANDLE)
+	}
+
+	// actual write
+	if (materialRecords.empty())
+	{
+		glm::GpuMaterial emptyMaterial{};
+		materialTableBuffer.writeData(&emptyMaterial, sizeof(emptyMaterial));
+	}
+	else
+	{
+		materialTableBuffer.writeData(materialRecords.data(), sizeof(glm::GpuMaterial) * materialRecords.size());
+	}
+}
 
 uint32_t BindlessResources::validate(BindlessTexture2DHandle handle) const
 {

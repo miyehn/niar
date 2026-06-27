@@ -178,7 +178,7 @@ void DescriptorSet::pointToBuffer(const VmaBuffer &buffer, uint32_t binding, VkD
 	VkDescriptorBufferInfo bufferInfo = {
 		.buffer = buffer.buffer,
 		.offset = 0,
-		.range = buffer.strideSize
+		.range = buffer.strideSize * buffer.numStrides
 	};
 	// "Structure specifying the parameters of a descriptor set write operation"
 	VkWriteDescriptorSet descriptorWrite = {

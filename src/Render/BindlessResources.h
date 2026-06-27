@@ -38,6 +38,11 @@ public:
 		const VkSamplerCreateInfo& samplerInfo);
 	void removeTexture2D(BindlessTexture2DHandle handle);
 
+	uint32_t addMaterial(const glm::GpuMaterial& material);
+	void updateMaterial(uint32_t index, const glm::GpuMaterial& material);
+	void removeMaterial(uint32_t index);
+	void clearMaterials();
+
 	// Returns the shader-visible index. Invalid or stale handles are errors.
 	uint32_t validate(BindlessTexture2DHandle handle) const;
 
@@ -51,6 +56,7 @@ public:
 
 #if TMP_BINDLESS_DEBUG
 	uint32_t occupiedTexture2DSlotCount() const;
+	uint32_t activeMaterialCount() const;
 
 	// todo [myn][bindless]: this is to be removed in later phases of bindless
 	void runDebugSelfTest(
@@ -61,20 +67,26 @@ public:
 #endif
 
 private:
-	struct Texture2DSlot
-	{
-		uint32_t generation = 0;
-		bool occupied = false;
-	};
 
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 	DescriptorSetLayout bindlessSetLayout;
 	DescriptorSet bindlessDescriptorSet;
 
-	// todo [myn][bindless]: these are to be removed in later phases of bindless
-	VmaBuffer placeholderMaterialBuffer;
+	// this can stay as a safety feature
 	VkDescriptorImageInfo fillerTexture2DDescriptor{};
 
+	// bindless textures
+	struct Texture2DSlot {
+		uint32_t generation = 0;
+		bool occupied = false;
+	};
 	std::array<Texture2DSlot, MAX_BINDLESS_TEXTURES_2D> texture2DSlots{};
 	std::vector<uint32_t> freeTexture2DSlots;
+
+	// material table
+	VmaBuffer materialTableBuffer;
+	std::vector<glm::GpuMaterial> materialRecords;
+	std::vector<uint8_t> materialSlotOccupied;
+	std::vector<uint32_t> freeMaterialSlots;
+	void uploadMaterialTable();
 };
