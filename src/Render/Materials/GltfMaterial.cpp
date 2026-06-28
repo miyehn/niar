@@ -14,7 +14,8 @@ void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *dra
 {
 	// per-object model matrix via push constants
 	glm::mat4 modelMatrix = drawable->object_to_world();
-	vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
+	vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT,
+		GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE, &modelMatrix);
 
 	const auto* meshObject = dynamic_cast<const MeshObject*>(drawable);
 	// todo [myn]: currently seems like drawable passed in here is always a MeshObject anyway.
@@ -24,7 +25,8 @@ void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *dra
 #if TMP_BINDLESS_DEBUG
 	BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
 #endif
-	(void)bindlessMaterialIndex;
+	vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+		GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE, &bindlessMaterialIndex);
 }
 
 void GltfMaterial::bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout)
@@ -107,7 +109,8 @@ const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
+		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
 
 		// 3 color outputs; store by value so the pointer stays valid for deferred rebuilds
 		auto singleBlend = b.pipelineState.colorBlendAttachmentInfo;
@@ -137,7 +140,8 @@ const GraphicsPipeline& PbrTranslucentGltfMaterial::getPipeline()
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
+		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
 
 		b.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
 
@@ -177,7 +181,8 @@ const GraphicsPipeline& SimpleGltfMaterial::getPipeline()
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
-		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)});
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
+		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
 
 		b.pipelineState.colorBlendAttachments = { b.pipelineState.colorBlendAttachmentInfo };
 
