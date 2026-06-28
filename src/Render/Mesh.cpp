@@ -29,7 +29,7 @@ Mesh::Mesh(const std::string &in_name,
 {
 	name = in_name;
 	if (in_material_name.length() > 0) {
-		materialName = in_material_name;
+		surface.materialName = in_material_name;
 		set_material_name(in_name, in_material_name);
 	}
 }

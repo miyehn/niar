@@ -18,7 +18,7 @@ void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *dra
 	const auto* meshObject = dynamic_cast<const MeshObject*>(drawable);
 	// todo [myn]: currently seems like drawable passed in here is always a MeshObject anyway.
 	ASSERT(meshObject != nullptr)
-	const uint32_t bindlessMaterialIndex = meshObject->mesh.bindlessMaterialIndex;
+	const uint32_t bindlessMaterialIndex = meshObject->mesh.surface.bindlessMaterialIndex;
 	ASSERT(bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
 #if TMP_BINDLESS_DEBUG
 	BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
