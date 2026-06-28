@@ -1,6 +1,7 @@
 #include "DeferredRenderer.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
 #include "Render/Vulkan/Pipeline.h"
+#include "Render/BindlessResources.h"
 #include "Render/Texture.h"
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
@@ -857,8 +858,14 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
 			if (!last_pipeline || pipeline != *last_pipeline) {
 				vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-				if (!last_pipeline || pipeline.layout != last_pipeline->layout)
+				if (!last_pipeline || pipeline.layout != last_pipeline->layout) {
 					bindFrameGlobal(pipeline.layout);
+					BindlessResources::Instance->descriptorSet().bind(
+						cmdbuf,
+						VK_PIPELINE_BIND_POINT_GRAPHICS,
+						DSET_BINDLESS,
+						pipeline.layout);
+				}
 				last_pipeline = &pipeline;
 			}
 
