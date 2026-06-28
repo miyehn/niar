@@ -551,15 +551,6 @@ SceneAsset::SceneAsset(
 		std::vector<GltfMaterialInfo> material_infos(model.materials.size());
 		{ // materials
 
-			// gather texture names for compatibility material records
-			std::vector<std::string> textureNames(model.textures.size());
-			for (int i = 0; i < model.textures.size(); i++) {
-				const int sourceImageIdx = model.textures[i].source;
-				ASSERT(sourceImageIdx >= 0)
-				ASSERT(static_cast<size_t>(sourceImageIdx) < model.images.size())
-				textureNames[i] = gltfImageCompatibilityName(relative_path, model.images[i].name, sourceImageIdx);
-			}
-
 #if GRAPHICS_DISPLAY
 			// gather the bindless textures for GPU material records
 			std::vector<Texture2D*> textures(model.textures.size());
@@ -597,27 +588,17 @@ SceneAsset::SceneAsset(
 				// clip threshold
 				float clipThreshold = mat.alphaMode == "OPAQUE" ? -1.0f : (float)mat.alphaCutoff;
 
+#if GRAPHICS_DISPLAY
 				// textures (indices are for accessing textures[..])
 				int albedo_idx = mat.pbrMetallicRoughness.baseColorTexture.index;
-				auto albedoTexName = albedo_idx >= 0 ? textureNames[albedo_idx] : "_white";
-
 				int normal_idx = mat.normalTexture.index;
-				auto normalTexName = normal_idx >= 0 ? textureNames[normal_idx] : "_defaultNormal";
-
 				int mr_idx = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
-				auto ormTexName = mr_idx >= 0 ? textureNames[mr_idx] : "_white";
-
-				int ao_idx = mat.occlusionTexture.index;
-				auto aoTexName = ao_idx >= 0 ? textureNames[ao_idx] : "_white";
-
 				int emissive_idx = mat.emissiveTexture.index;
-				auto emissiveTexName = emissive_idx >= 0 ? textureNames[emissive_idx] : "_black";
 
-#if GRAPHICS_DISPLAY
-				auto albedo = albedo_idx >= 0 ? textures[albedo_idx] : Texture::get<Texture2D>("_white");
-				auto normal = normal_idx >= 0 ? textures[normal_idx] : Texture::get<Texture2D>("_defaultNormal");
-				auto orm = mr_idx >= 0 ? textures[mr_idx] : Texture::get<Texture2D>("_white");
-				auto emissive = emissive_idx >= 0 ? textures[emissive_idx] : Texture::get<Texture2D>("_black");
+				auto albedo = albedo_idx >= 0 ? textures[albedo_idx] : Texture2D::white();
+				auto normal = normal_idx >= 0 ? textures[normal_idx] : Texture2D::defaultNormal();
+				auto orm = mr_idx >= 0 ? textures[mr_idx] : Texture2D::white();
+				auto emissive = emissive_idx >= 0 ? textures[emissive_idx] : Texture2D::black();
 				gpuMaterials[i] = {
 					.baseColorFactor = baseColorFactor,
 					.emissiveFactorAndClipThreshold = glm::vec4(emissiveFactor, clipThreshold),
@@ -634,11 +615,6 @@ SceneAsset::SceneAsset(
 					._version = 0,
 					.type = MaterialType::MT_Surface,
 					.name = mat.name,
-					.albedoTexName = albedoTexName,
-					.normalTexName = normalTexName,
-					.ormTexName = ormTexName,
-					.aoTexName = aoTexName,
-					.emissiveTexName = emissiveTexName,
 					.BaseColorFactor = baseColorFactor,
 					.EmissiveFactor = emissiveFactor,
 					.OcclusionRoughnessMetallicNormalStrengths = strengths,

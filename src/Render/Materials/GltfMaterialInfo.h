@@ -4,7 +4,6 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
 #include <glm/glm.hpp>
 
 enum MaterialType {
@@ -23,11 +22,12 @@ struct GltfMaterialInfo {
 	uint32_t _version;
 	MaterialType type;
 	std::string name;
-	std::string albedoTexName;
-	std::string normalTexName;
-	std::string ormTexName;
-	std::string aoTexName;
-	std::string emissiveTexName;
+	// re-enable them when needed.
+	// std::string albedoTexName;
+	// std::string normalTexName;
+	// std::string ormTexName;
+	// std::string aoTexName;
+	// std::string emissiveTexName;
 	glm::vec4 BaseColorFactor;
 	glm::vec3 EmissiveFactor;
 	glm::vec4 OcclusionRoughnessMetallicNormalStrengths;

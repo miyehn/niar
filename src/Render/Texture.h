@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include <unordered_map>
 #include "Render/BindlessResources.h"
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/ImageCreator.h"
@@ -54,20 +53,9 @@ Buffers can probably go bindless in a similar fashion too, but for later.
 
 */
 
-/*
- * Pooled textures: textures loaded from file / gltf asset;
- */
 class Texture
 {
 public:
-	template<typename T>
-	static T* get(const std::string &path) {
-		auto it = texturePool.find(path);
-		if (it != texturePool.end()) return dynamic_cast<T*>((*it).second);
-
-		WARN("retrieving texture '%s' before it is added to the pool. Returning black dummy..", path.c_str())
-		return dynamic_cast<T*>(texturePool.find("_black")->second);
-	}
 	virtual ~Texture();
 
 	std::string getName() const { return name; }
@@ -76,7 +64,6 @@ public:
 
 protected:
 	Texture() = default;
-	static std::unordered_map<std::string, Texture *> texturePool;
 
 	std::string name;
 };
@@ -88,14 +75,14 @@ public:
 	VkImageView imageView;
 	VkFormat imageFormat;
 
-	// load from file (POOLED)
+	// load from file
 	explicit Texture2D(
 		const std::string &name,
 		const std::string &path,
 		ImageFormat textureFormat={4,8,1},
 		const BindlessTexture2DInfo& bindlessInfo = {});
 
-	// create with code but provide pixel data (ie. gltf) (POOLED)
+	// create with code but provide pixel data (ie. gltf)
 	explicit Texture2D(
 		const std::string &name,
 		uint8_t* data,
@@ -117,8 +104,11 @@ public:
 
 	~Texture2D() override;
 
-	static void createDefaultTextures(); // (POOLED)
+	static void createDefaultTextures();
 	static void cleanupDefaultTextures();
+	static Texture2D* white();
+	static Texture2D* black();
+	static Texture2D* defaultNormal();
 
 private:
 	uint32_t width;

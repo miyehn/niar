@@ -137,8 +137,8 @@ void SkyAtmosphereRender::init()
 
 		fd.dummyDescriptorSet = DescriptorSet(skySetLayout);
 		fd.dummyDescriptorSet.pointToBuffer(fd.parametersBuffer, SkyAtmosphere::Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		fd.dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_TransmittanceLutR, &samplerInfo);
-		fd.dummyDescriptorSet.pointToImageView(Texture::get<Texture2D>("_black")->imageView, SkyAtmosphere::Slot_SkyViewLutR, &samplerInfo);
+		fd.dummyDescriptorSet.pointToImageView(Texture2D::black()->imageView, SkyAtmosphere::Slot_TransmittanceLutR, &samplerInfo);
+		fd.dummyDescriptorSet.pointToImageView(Texture2D::black()->imageView, SkyAtmosphere::Slot_SkyViewLutR, &samplerInfo);
 	}
 }
 

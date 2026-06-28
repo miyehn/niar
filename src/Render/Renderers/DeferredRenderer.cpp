@@ -691,7 +691,7 @@ DeferredRenderer::DeferredRenderer()
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 		const Texture2D* envmap = loadedEnvironmentMap
 			? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D
-			: Texture::get<Texture2D>("_black");
+			: Texture2D::black();
 
 		auto gbufferSamplerInfo = SamplerCache::defaultInfo();
 		gbufferSamplerInfo.magFilter = VK_FILTER_NEAREST;
