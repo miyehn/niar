@@ -40,6 +40,9 @@ struct Vulkan {
 	void endSwapChainRenderPass(VkCommandBuffer cmdbuf);
 	void endFrame();
 
+	float getLastFrameWaitTimeMs() const { return frameTiming.waitTimeMs; }
+	bool getLastGpuFrameTimeMs(float& outTimeMs) const;
+
 	void immediateSubmit(std::function<void(VkCommandBuffer cmdbuf)> &&fn);
 
 	void initImGui();
@@ -146,6 +149,12 @@ private:
 	std::vector<VkFence> imagesInFlight; // per swap chain image
 	VkFence immediateSubmitFence;
 
+	struct FrameTiming {
+		VkQueryPool timestampQueryPool = VK_NULL_HANDLE;
+		float waitTimeMs = 0.0f;
+		std::optional<float> gpuTimeMs;
+	} frameTiming;
+
 	VkDescriptorPool imguiPool = VK_NULL_HANDLE;
 
 	#ifdef DEBUG
@@ -202,6 +211,10 @@ private:
 	void createMemoryAllocator();
 
 	void createSynchronizationObjects();
+
+	void createFrameTimestampQueries();
+
+	void readFrameTimestampResult(size_t frameIndex);
 
 	//======== RTX ========
 

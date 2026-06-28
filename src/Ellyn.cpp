@@ -12,6 +12,7 @@
 
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Utils/DebugUI.h"
+#include "Utils/FpsMeter.h"
 
 #include "Utils/myn/RenderDoc.h"
 
@@ -53,37 +54,7 @@ namespace
 	bool show_imgui_demo = false;
 
 	// other potentially temporary globals
-#if IMGUI
-	constexpr float fps_update_interval = 0.5f;
-
-	struct FpsMeter
-	{
-		float accumulated_time = 0.0f;
-		int accumulated_frames = 0;
-		float fps = 0.0f;
-		float frame_time_ms = 0.0f;
-
-		void update(float elapsed)
-		{
-			accumulated_time += elapsed;
-			accumulated_frames++;
-
-			if (accumulated_time >= fps_update_interval)
-			{
-				fps = accumulated_frames / accumulated_time;
-				frame_time_ms = accumulated_time * 1000.0f / accumulated_frames;
-				accumulated_time = 0.0f;
-				accumulated_frames = 0;
-			}
-		}
-
-		void draw() const
-		{
-			ImGui::Text("FPS: %.1f (%.2f ms)", fps, frame_time_ms);
-			ImGui::Separator();
-		}
-	} fps_meter;
-#endif
+	FpsMeter fps_meter;
 
 	enum e_renderer {
 		simple = 0,
@@ -365,16 +336,15 @@ int main(int argc, const char * argv[])
 		elapsed = std::min(0.1f, elapsed);
 		previous_time = current_time;
 
+		fps_meter.beginFrame();
 		bool should_quit = process_input();
 		if (should_quit) break;
 
 		myn::RenderDoc::potentiallyStartCapture();
-#if IMGUI
-		fps_meter.update(elapsed);
-#endif
 		update(elapsed);
 		draw();
 		myn::RenderDoc::potentiallyEndCapture();
+		fps_meter.endFrame(elapsed);
 	}
 
 	cleanup();
