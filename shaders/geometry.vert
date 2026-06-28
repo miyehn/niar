@@ -2,7 +2,7 @@
 
 #include "scene_common.glsl"
 
-layout(push_constant) uniform PushConstants {
+layout(push_constant) uniform GltfVertexPushConstants {
   mat4 ModelMatrix;
 } pc;
 
