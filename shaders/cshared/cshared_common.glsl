@@ -10,10 +10,16 @@
 #define MAX_BINDLESS_TEXTURES_2D 1024u
 #define INVALID_BINDLESS_INDEX 0xffffffffu
 
+#define GLTF_MODEL_MATRIX_PUSH_OFFSET 0
+#define GLTF_MODEL_MATRIX_PUSH_SIZE 64
+#define GLTF_MATERIAL_INDEX_PUSH_OFFSET 64
+#define GLTF_MATERIAL_INDEX_PUSH_SIZE 4
+
 
 #ifdef __cplusplus
 
 #include <cstddef>
+#include <cstdint>
 #include <glm/glm.hpp>
 #define CSHARED_ALIGNAS_16 alignas(16)
 namespace glm {
@@ -63,6 +69,10 @@ static_assert(offsetof(glm::GpuMaterial, baseColorFactor) == 0);
 static_assert(offsetof(glm::GpuMaterial, emissiveFactorAndClipThreshold) == 16);
 static_assert(offsetof(glm::GpuMaterial, ormAndNormalStrength) == 32);
 static_assert(offsetof(glm::GpuMaterial, textureIndices) == 48);
+static_assert(GLTF_MODEL_MATRIX_PUSH_OFFSET == 0);
+static_assert(GLTF_MODEL_MATRIX_PUSH_SIZE == sizeof(glm::mat4));
+static_assert(GLTF_MATERIAL_INDEX_PUSH_OFFSET == sizeof(glm::mat4));
+static_assert(GLTF_MATERIAL_INDEX_PUSH_SIZE == sizeof(uint32_t));
 
 #endif // #ifdef __cplusplus
 
