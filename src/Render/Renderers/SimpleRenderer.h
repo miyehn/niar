@@ -4,7 +4,6 @@
 
 class Texture2D;
 class DebugLines;
-class GltfMaterial;
 
 class SimpleRenderer : public Renderer
 {
@@ -35,7 +34,4 @@ private:
 	Texture2D* sceneDepth;
 	VkFramebuffer frameBuffer;
 
-	// materials
-	std::unordered_map<std::string, GltfMaterial*> materials;
-	GltfMaterial* getOrCreateMeshMaterial(const std::string& materialName);
 };

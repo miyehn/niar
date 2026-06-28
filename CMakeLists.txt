@@ -84,7 +84,6 @@ set(ELLYN_SRC
     src/Render/Vulkan/ImageCreator.cpp
     src/Utils/DebugUI.cpp
     src/Utils/FpsMeter.cpp
-    src/Render/Materials/GltfMaterial.cpp
     src/Render/DebugDraw.cpp
     src/Render/Renderers/SimpleRenderer.cpp
     src/Scene/PathtracerController.cpp

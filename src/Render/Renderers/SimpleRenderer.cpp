@@ -2,7 +2,6 @@
 // Created by raind on 5/16/2022.
 //
 
-#include "Render/Materials/GltfMaterial.h"
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
 #include "Render/BindlessResources.h"
@@ -11,6 +10,74 @@
 #include "SimpleRenderer.h"
 #include "Render/Texture.h"
 #include "Render/DebugDraw.h"
+#include <memory>
+#include <unordered_map>
+
+namespace {
+
+struct SimpleGltfPipelineKey {
+	bool doubleSided = false;
+
+	explicit SimpleGltfPipelineKey(const MeshSurface& surface)
+		: doubleSided(surface.doubleSided)
+	{}
+
+	bool operator==(const SimpleGltfPipelineKey&) const = default;
+	bool operator<(const SimpleGltfPipelineKey& other) const {
+		return hash() < other.hash();
+	}
+
+	size_t hash() const noexcept {
+		return static_cast<size_t>(doubleSided);
+	}
+
+	struct Hash {
+		size_t operator()(const SimpleGltfPipelineKey& key) const noexcept {
+			return key.hash();
+		}
+	};
+};
+
+class SimpleGltfPipelineCache {
+public:
+	static const GraphicsPipeline& get(const SimpleGltfPipelineKey& key) {
+		auto it = pipelines.find(key);
+		if (it != pipelines.end()) return *it->second;
+
+		auto pipeline = std::make_unique<GraphicsPipeline>();
+		auto vk = Vulkan::Instance;
+		auto renderer = SimpleRenderer::get();
+		auto& b = pipeline->builder;
+		b.vertDef = "shaders/geometry.vert";
+		b.fragDef = "shaders/simple_gltf.frag";
+		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		b.pipelineState.rasterizationInfo.cullMode =
+			key.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+		b.compatibleRenderPass = renderer->renderPass;
+		b.compatibleSubpass = 0;
+
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, renderer->getFrameGlobalLayout());
+		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
+		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
+
+		b.pipelineState.colorBlendAttachments = { b.pipelineState.colorBlendAttachmentInfo };
+
+		pipeline->build(key.doubleSided ? "SimpleGltf DoubleSided" : "SimpleGltf");
+
+		auto [insertedIt, _] = pipelines.emplace(key, std::move(pipeline));
+		return *insertedIt->second;
+	}
+
+	static void release() {
+		pipelines.clear();
+	}
+
+private:
+	inline static std::unordered_map<SimpleGltfPipelineKey, std::unique_ptr<GraphicsPipeline>, SimpleGltfPipelineKey::Hash> pipelines;
+};
+
+}
 
 SimpleRenderer::SimpleRenderer()
 {
@@ -142,8 +209,7 @@ SimpleRenderer::~SimpleRenderer()
 	}
 	delete sceneColor;
 	delete sceneDepth;
-	for (const auto& p : materials) delete p.second;
-	SimpleGltfMaterial::destroyPipeline();
+	SimpleGltfPipelineCache::release();
 }
 
 SimpleRenderer *SimpleRenderer::get()
@@ -195,8 +261,8 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
 			{
-				auto mat = getOrCreateMeshMaterial(mo->mesh.surface.materialName);
-				auto& pipeline = mat->getPipeline();
+				auto key = SimpleGltfPipelineKey(mo->mesh.surface);
+				auto& pipeline = SimpleGltfPipelineCache::get(key);
 
 				// pipeline changed: re-bind; re-set frame globals if necessary
 				if (!last_pipeline || pipeline != *last_pipeline)
@@ -218,7 +284,21 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 					last_pipeline = &pipeline;
 				}
 
-				mat->setPerDrawParameters(cmdbuf, mo);
+				{ // each object's push constants
+					glm::mat4 modelMatrix = mo->object_to_world();
+					vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
+						GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE, &modelMatrix);
+
+					const uint32_t bindlessMaterialIndex = mo->mesh.surface.bindlessMaterialIndex;
+					ASSERT(bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+#if TMP_BINDLESS_DEBUG
+					BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
+#endif
+					vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+						GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE, &bindlessMaterialIndex);
+
+				}
+
 				mo->draw(cmdbuf);
 			}
 		}
@@ -235,36 +315,4 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		sceneColor->resource.image,
 		{0, 0, 0},
 		{(int32_t)renderExtent.width, (int32_t)renderExtent.height, 1});
-}
-
-/*
- * find if this material is in the pool. If it is, and its version matches with info, just return.
- * Otherwise need to create a new one:
- *  - if material is not in the pool at all, just create it.
- *  - if it IS in the pool but version doesn't match, the old one is obsolete and need to be cleaned up
- *    and then create a new one from the up-to-date info
- */
-GltfMaterial* SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialName)
-{
-	auto iter = materials.find(materialName);
-	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
-	ASSERT(info != nullptr)
-
-	if (iter != materials.end()) {
-		auto pooled_mat = iter->second;
-		if (pooled_mat->getVersion() == info->_version) {
-			// up to date; just return it
-			return pooled_mat;
-		}
-		else {
-			// pooled material is obsolete; delete it.
-			delete pooled_mat;
-		}
-	}
-
-	// create a new one
-	auto newMaterial = new SimpleGltfMaterial(*info);
-	materials[newMaterial->name] = newMaterial;
-
-	return newMaterial;
 }

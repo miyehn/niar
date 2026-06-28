@@ -14,7 +14,6 @@ class DebugPoints;
 class DebugLines;
 class DeferredLighting;
 class PostProcessing;
-class GltfMaterial;
 
 #define GNORMAL_ATTACHMENT 0
 #define GCOLOR_ATTACHMENT 1
@@ -123,11 +122,6 @@ private:
 	struct {
 		DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
 	} directionalLights;
-
-	// mesh materials
-
-	std::unordered_map<std::string, GltfMaterial*> materials;
-	GltfMaterial* getOrCreateMeshMaterial(const std::string& materialName);
 
 	GI gi;
 	SkyAtmosphereRender skyAtmosphereRender;
