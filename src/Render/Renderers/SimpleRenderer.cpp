@@ -189,7 +189,6 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		SCOPED_DRAW_EVENT(cmdbuf, "SimpleRenderer draw")
 		auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
 		// deferred base pass: draw the meshes with materials
-		Material* last_material = nullptr;
 		//VkPipeline last_pipeline = VK_NULL_HANDLE;
 		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto drawable : drawables) // TODO: material (pipeline) sorting, etc.
@@ -217,13 +216,6 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 							pipeline.layout);
 					}
 					last_pipeline = &pipeline;
-				}
-
-				// material changed: reset instance counter
-				if (mat != last_material)
-				{
-					mat->bindMaterialDescriptors(cmdbuf, pipeline.layout);
-					last_material = mat;
 				}
 
 				mat->setPerDrawParameters(cmdbuf, mo);

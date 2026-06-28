@@ -3,7 +3,7 @@
 #include "Render/Vertex.h"
 #include <unordered_map>
 #if GRAPHICS_DISPLAY
-#include "cshared_common.glsl"
+#include "cshared_common.h"
 #include "Render/Vulkan/Buffer.h"
 #endif
 

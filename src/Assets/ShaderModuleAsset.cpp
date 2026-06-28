@@ -27,7 +27,6 @@ ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
 	{ "shaders/debug_point.vert",           "main", SS_Vertex },
 	{ "shaders/debug_point.frag",           "main", SS_Fragment },
 	{ "shaders/envmap_visualizer.frag",     "main", SS_Fragment },
-	{ "shaders/sine.comp",                  "main", SS_Compute },
 	{ "shaders/sky_transmittance_lut.comp", "main", SS_Compute },
 	{ "shaders/sky_view_lut.comp",          "main", SS_Compute },
 	{ "shaders/rtgi_generate.comp",         "main", SS_Compute },

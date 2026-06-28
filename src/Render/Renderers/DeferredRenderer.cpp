@@ -34,9 +34,9 @@ public:
 			b.compatibleSubpass = DEFERRED_SUBPASS_POSTPROCESSING;
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
-			DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
+			DescriptorSetLayout postProcessSetLayout = postProcessSet.getLayout();
 			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
-			b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
+			b.useDescriptorSetLayout(DSET_INDEPENDENT, postProcessSetLayout);
 
 			graphicsPipeline.build("Post Processing");
 
@@ -54,18 +54,18 @@ private:
 
 		// set layouts and allocation
 		DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
-		DescriptorSetLayout dynamicSetLayout{};
-		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet = DescriptorSet(dynamicSetLayout);
+		DescriptorSetLayout postProcessSetLayout{};
+		postProcessSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		postProcessSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		postProcessSet = DescriptorSet(postProcessSetLayout);
 
 		// assign values
-		dynamicSet.pointToImageView(sceneColor->imageView, 0);
-		dynamicSet.pointToImageView(sceneDepth->imageView, 1);
+		postProcessSet.pointToImageView(sceneColor->imageView, 0);
+		postProcessSet.pointToImageView(sceneDepth->imageView, 1);
 	}
 
 	VkRenderPass postProcessPass;
-	DescriptorSet dynamicSet;
+	DescriptorSet postProcessSet;
 	GraphicsPipeline graphicsPipeline;
 
 	DeferredRenderer* renderer;
@@ -848,7 +848,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 
 	auto renderMeshes = [this, &cmdbuf, &bindFrameGlobal](const std::vector<MeshObject*>& meshes) {
-		Material* last_material = nullptr;
 		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto mo : meshes)
 		{
@@ -867,12 +866,6 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 						pipeline.layout);
 				}
 				last_pipeline = &pipeline;
-			}
-
-			// material changed
-			if (mat != last_material) {
-				mat->bindMaterialDescriptors(cmdbuf, pipeline.layout);
-				last_material = mat;
 			}
 
 			mat->setPerDrawParameters(cmdbuf, mo);
@@ -971,7 +964,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			auto& postProcessPipeline = postProcessing->getPipeline();
 			bindFrameGlobal(postProcessPipeline.layout); // 0
-			postProcessing->dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, postProcessPipeline.layout); // 3
+			postProcessing->postProcessSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, postProcessPipeline.layout);
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, postProcessPipeline.pipeline);
 			vk::drawFullscreenTriangle(cmdbuf);
 		}

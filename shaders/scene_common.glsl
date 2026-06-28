@@ -1,4 +1,4 @@
-#include "cshared/cshared_common.glsl"
+#include "cshared/cshared_common.h"
 
 layout (set = DSET_FRAMEGLOBAL, binding = 0) uniform _ViewInfoUBO
 {

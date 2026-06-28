@@ -5,9 +5,7 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/Pipeline.h"
 #include "Render/Renderers/DeferredRenderer.h"
-#include "Render/Texture.h"
 
-#include <tiny_gltf.h>
 #include "Render/Renderers/SimpleRenderer.h"
 
 void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *drawable)
@@ -29,63 +27,12 @@ void GltfMaterial::setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject *dra
 		GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE, &bindlessMaterialIndex);
 }
 
-void GltfMaterial::bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout)
-{
-	dynamicSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_DYNAMIC, layout);
-}
-
-GltfMaterial::~GltfMaterial()
-{
-	materialParamsBuffer.release();
-}
-
 GltfMaterial::GltfMaterial(const GltfMaterialInfo &info)
 {
 	cachedMaterialInfo = info;
 
 	this->name = info.name;
 	LOG("loading material '%s'..", name.c_str())
-
-	std::string bufferName = "Material renderingParams buffer (" + info.name + ")";
-	materialParamsBuffer = VmaBuffer({&Vulkan::Instance->memoryAllocator,
-									 sizeof(materialParams),
-									 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-									 VMA_MEMORY_USAGE_CPU_TO_GPU,
-									 bufferName});
-
-	{// pipeline and layouts
-
-		// set layouts and allocation
-		DescriptorSetLayout dynamicSetLayout{};
-		dynamicSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		dynamicSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSetLayout.addBinding(3, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSetLayout.addBinding(4, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		dynamicSet = DescriptorSet(dynamicSetLayout); // this commits the bindings
-
-		// assign actual values to them
-		auto albedo = Texture::get<Texture2D>(info.albedoTexName);
-		auto normal = Texture::get<Texture2D>(info.normalTexName);
-		auto orm = Texture::get<Texture2D>(info.ormTexName);
-		auto emissive = Texture::get<Texture2D>(info.emissiveTexName);
-
-		materialParams.BaseColorFactor = info.BaseColorFactor;
-		materialParams.OcclusionRoughnessMetallicNormalStrengths = info.OcclusionRoughnessMetallicNormalStrengths;
-		materialParams.EmissiveFactorClipThreshold = glm::vec4(
-			info.EmissiveFactor.r,
-			info.EmissiveFactor.g,
-			info.EmissiveFactor.b,
-			info.clipThreshold);
-		materialParams._pad0 = glm::vec4();
-		materialParamsBuffer.writeData(&materialParams, sizeof(materialParams));
-
-		dynamicSet.pointToBuffer(materialParamsBuffer, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		dynamicSet.pointToImageView(albedo->imageView, 1);
-		dynamicSet.pointToImageView(normal->imageView, 2);
-		dynamicSet.pointToImageView(orm->imageView, 3);
-		dynamicSet.pointToImageView(emissive->imageView, 4);
-	}
 }
 
 GraphicsPipeline PbrGltfMaterial::graphicsPipeline;
@@ -105,11 +52,8 @@ const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
 		b.compatibleRenderPass = DeferredRenderer::get()->basePass;
 
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
-		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, DeferredRenderer::get()->getFrameGlobalLayout());
 		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
-		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
 		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
 
@@ -137,11 +81,8 @@ const GraphicsPipeline& PbrTranslucentGltfMaterial::getPipeline()
 		b.compatibleRenderPass = DeferredRenderer::get()->lightingPass;
 		b.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
 
-		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
-		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, DeferredRenderer::get()->getFrameGlobalLayout());
 		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
-		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
 		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
 
@@ -179,11 +120,8 @@ const GraphicsPipeline& SimpleGltfMaterial::getPipeline()
 			cachedMaterialInfo.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
 		b.compatibleRenderPass = SimpleRenderer::get()->renderPass;
 
-		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->getFrameGlobalLayout();
-		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
-		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, SimpleRenderer::get()->getFrameGlobalLayout());
 		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
-		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
 		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Render/Vulkan/DescriptorSet.h"
-#include "cshared_common.glsl"
+#include "cshared_common.h"
 
 #include <array>
 #include <vector>
