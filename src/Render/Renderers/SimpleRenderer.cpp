@@ -5,6 +5,7 @@
 #include "Render/Materials/GltfMaterial.h"
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
+#include "Render/BindlessResources.h"
 #include "Render/Vulkan/RenderPassBuilder.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "SimpleRenderer.h"
@@ -208,6 +209,11 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 							cmdbuf,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							DSET_FRAMEGLOBAL,
+							pipeline.layout);
+						BindlessResources::Instance->descriptorSet().bind(
+							cmdbuf,
+							VK_PIPELINE_BIND_POINT_GRAPHICS,
+							DSET_BINDLESS,
 							pipeline.layout);
 					}
 					last_pipeline = &pipeline;

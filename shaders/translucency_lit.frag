@@ -5,23 +5,25 @@
 #include "scene_common.glsl"
 #include "lighting_common.glsl"
 
-#include "gltf_vertex_out_material_params.glsl"
+#include "gltf_bindless_material.glsl"
 
 layout(location=0) out vec4 outColor;
 
 void main() {
     vec2 uv = vf_uv;
+    GpuMaterial material = getGltfMaterial();
 
-    vec4 albedoSample = texture(AlbedoMap, uv);
-    vec4 baseColor = albedoSample * materialParams.BaseColorFactor;
+    vec4 albedoSample = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_ALBEDO, uv);
+    vec4 baseColor = albedoSample * material.baseColorFactor;
 
-    vec3 normal = texture(NormalMap, uv).rgb * 2 - 1.0f;
-    normal.rg *= materialParams.OcclusionRoughnessMetallicNormalStrengths.a;
+    vec3 normal = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_NORMAL, uv).rgb * 2 - 1.0f;
+    normal.rg *= material.ormAndNormalStrength.a;
     normal = normalize(TANGENT_TO_WORLD_ROT * normal);
 
-    vec3 orm = texture(ORMMap, uv).rgb * materialParams.OcclusionRoughnessMetallicNormalStrengths.rgb;
+    vec3 orm = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_ORM, uv).rgb * material.ormAndNormalStrength.rgb;
 
-    vec3 emission = materialParams.EmissiveFactorClipThreshold.rgb * texture(EmissiveMap, uv).rgb;
+    vec3 emission = material.emissiveFactorAndClipThreshold.rgb *
+        sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_EMISSIVE, uv).rgb;
 
     vec3 litResult = emission + accumulateLighting(
         vf_position.xyz + GetViewInfo().CameraPosition,

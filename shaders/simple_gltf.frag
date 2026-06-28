@@ -1,18 +1,19 @@
 #version 450 core
 
-#include "gltf_vertex_out_material_params.glsl"
+#include "gltf_bindless_material.glsl"
 
 layout(location=0) out vec4 outColor;
 
 void main() {
     vec2 uv = vf_uv;
+    GpuMaterial material = getGltfMaterial();
 
-    vec4 albedoSample = texture(AlbedoMap, uv);
-    if (albedoSample.a <= materialParams.EmissiveFactorClipThreshold.a) discard;
+    vec4 albedoSample = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_ALBEDO, uv);
+    if (albedoSample.a <= material.emissiveFactorAndClipThreshold.a) discard;
 
-    vec3 color = albedoSample.rgb * materialParams.BaseColorFactor.rgb;
+    vec3 color = albedoSample.rgb * material.baseColorFactor.rgb;
 
-    vec3 sampledNormal = texture(NormalMap, uv).rgb * 2 - 1.0;
+    vec3 sampledNormal = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_NORMAL, uv).rgb * 2 - 1.0;
     sampledNormal.rg = -sampledNormal.rg;
     vec3 normal = TANGENT_TO_WORLD_ROT * normalize(sampledNormal);
 

@@ -108,6 +108,7 @@ const GraphicsPipeline& PbrGltfMaterial::getPipeline()
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
 		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
@@ -139,6 +140,7 @@ const GraphicsPipeline& PbrTranslucentGltfMaterial::getPipeline()
 		DescriptorSetLayout frameGlobalSetLayout = DeferredRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
 		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
@@ -180,6 +182,7 @@ const GraphicsPipeline& SimpleGltfMaterial::getPipeline()
 		DescriptorSetLayout frameGlobalSetLayout = SimpleRenderer::get()->getFrameGlobalLayout();
 		DescriptorSetLayout dynamicSetLayout = dynamicSet.getLayout();
 		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
 		b.useDescriptorSetLayout(DSET_DYNAMIC, dynamicSetLayout);
 		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
 		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
