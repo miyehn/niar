@@ -793,12 +793,10 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawable->foreach_descendent_bfs([&](SceneObject* child) {
 			// meshes
 			if (auto mo = dynamic_cast<MeshObject*>(child)) {
-				if (auto mat = getOrCreateMeshMaterial(mo->mesh.surface.materialName)) {
-					if (mat->isOpaque()) { // opaque
-						opaqueMeshes.push_back(mo);
-					} else { // translucent
-						translucentMeshes.push_back(mo);
-					}
+				if (mo->mesh.surface.isOpaque()) {
+					opaqueMeshes.push_back(mo);
+				} else {
+					translucentMeshes.push_back(mo);
 				}
 			} else if (auto probe = dynamic_cast<Probe*>(child)) {
 				// probes
@@ -811,16 +809,15 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		}, [](SceneObject *obj){ return obj->enabled(); });
 
 		// opaque objects sorting
-		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
-			auto aMaterial = getOrCreateMeshMaterial(a->mesh.surface.materialName);
-			auto bMaterial = getOrCreateMeshMaterial(b->mesh.surface.materialName);
-			auto& aPipeline = aMaterial->getPipeline();
-			auto& bPipeline = bMaterial->getPipeline();
-			if (aPipeline != bPipeline) { // different pipeline -> sort by pipeline
-				return aPipeline < bPipeline;
-			} else { // same pipeline -> compare material name
-				return aMaterial->name < bMaterial->name;
+		auto materialSortFn = [](MeshObject* a, MeshObject* b) {
+			const auto& aSurface = a->mesh.surface;
+			const auto& bSurface = b->mesh.surface;
+			if (aSurface.blendMode != bSurface.blendMode) return aSurface.blendMode < bSurface.blendMode;
+			if (aSurface.doubleSided != bSurface.doubleSided) return aSurface.doubleSided < bSurface.doubleSided;
+			if (aSurface.bindlessMaterialIndex != bSurface.bindlessMaterialIndex) {
+				return aSurface.bindlessMaterialIndex < bSurface.bindlessMaterialIndex;
 			}
+			return aSurface.materialName < bSurface.materialName;
 		};
 		std::sort(opaqueMeshes.begin(), opaqueMeshes.end(), materialSortFn);
 
