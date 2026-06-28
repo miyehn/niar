@@ -53,11 +53,13 @@ void SceneTlas::init(const std::string& inDebugNamePrefix)
 	NAME_OBJECT(VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, tlas, (debugNamePrefix + " TLAS").c_str())
 
 	scratchBuffer = VmaBuffer({
-		&Vulkan::Instance->memoryAllocator,
-		tlasBuildSizeInfo.buildScratchSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY,
-		debugNamePrefix + " TLAS scratch buffer"});
+		.allocator = &Vulkan::Instance->memoryAllocator,
+		.strideSize = tlasBuildSizeInfo.buildScratchSize,
+		.bufferUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+		.debugName = debugNamePrefix + " TLAS scratch buffer",
+		.minAllocationAlignment = Vulkan::Instance->minAccelerationStructureScratchOffsetAlignment,
+	});
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		instancesBuffers[i] = VmaBuffer({

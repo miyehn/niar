@@ -97,10 +97,12 @@ static void buildBlas(
 
 	// create scratch buffer of size buildScratchSize, get its device address
 	VmaBuffer scratchBuffer = VmaBuffer({
-		&Vulkan::Instance->memoryAllocator,
-		buildSizesInfo.buildScratchSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY});
+		.allocator = &Vulkan::Instance->memoryAllocator,
+		.strideSize = buildSizesInfo.buildScratchSize,
+		.bufferUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+		.minAllocationAlignment = Vulkan::Instance->minAccelerationStructureScratchOffsetAlignment,
+	});
 	VkDeviceAddress scratchAddress = scratchBuffer.getDeviceAddress();
 
 	// for compaction

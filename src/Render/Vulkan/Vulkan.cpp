@@ -1006,8 +1006,12 @@ void Vulkan::readFrameTimestampResult(size_t frameIndex)
 
 void Vulkan::initRayTracing()
 {
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR asProperties{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR
+	};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{
-		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+		.pNext = &asProperties
 	};
 	VkPhysicalDeviceProperties2 prop2{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
@@ -1017,6 +1021,7 @@ void Vulkan::initRayTracing()
 	shaderGroupBaseAlignment = rtProperties.shaderGroupBaseAlignment;
 	shaderGroupHandleAlignment = rtProperties.shaderGroupHandleAlignment;
 	shaderGroupHandleSize = rtProperties.shaderGroupHandleSize;
+	minAccelerationStructureScratchOffsetAlignment = asProperties.minAccelerationStructureScratchOffsetAlignment;
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan::debugCallback(

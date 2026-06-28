@@ -323,10 +323,12 @@ void vk::buildBlas(
 		Vulkan::Instance->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildGeometryInfo, &primitiveCount, &buildSizesInfo);
 
 	VmaBuffer scratchBuffer = VmaBuffer({
-		&Vulkan::Instance->memoryAllocator,
-		buildSizesInfo.buildScratchSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY});
+		.allocator = &Vulkan::Instance->memoryAllocator,
+		.strideSize = buildSizesInfo.buildScratchSize,
+		.bufferUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+		.minAllocationAlignment = Vulkan::Instance->minAccelerationStructureScratchOffsetAlignment,
+	});
 
 	VkQueryPool queryPool{VK_NULL_HANDLE};
 	VkQueryPoolCreateInfo qpCreateInfo = {
