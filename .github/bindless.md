@@ -289,8 +289,8 @@ Tasks:
   - then destroy the image view and image
 - Keep `resource`, `imageView`, dimensions, and format available to renderer
   code.
-- Keep `Texture::texturePool` temporarily, but remove entries when pooled
-  textures are destroyed so it cannot return dangling pointers.
+- Keep permanent default textures owned by `Texture2D` static lifetime helpers
+  instead of by a global string lookup pool.
 
 Initialization order:
 
@@ -333,8 +333,8 @@ Tasks:
   `BindlessTexture2DHandle` or validated shader index.
 - Stop relying on globally unique image names when building new GPU material
   records.
-- Keep the existing name-based `GltfMaterialInfo` fields temporarily while the
-  raster shaders and CPU path tracer still consume them.
+- Keep texture references out of `GltfMaterialInfo` until a CPU consumer needs
+  them again in a suitable non-global form.
 - Register `EnvironmentMapAsset` only if a bindless consumer needs it. RTGI can
   continue using its existing fixed descriptor for now.
 
@@ -348,7 +348,7 @@ Done when:
 Guardrail:
 
 - Asset-local glTF indices are the loading identity. Names are debug labels and
-  temporary compatibility lookup only.
+  not texture lookup keys.
 
 ## Phase 4: GPU Material Table
 

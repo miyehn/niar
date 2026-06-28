@@ -3,22 +3,16 @@
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
 
-std::unordered_map<std::string, Texture *> Texture::texturePool;
-
 namespace
 {
 bool defaultTexturesCreated = false;
+Texture2D* defaultWhiteTexture = nullptr;
+Texture2D* defaultBlackTexture = nullptr;
+Texture2D* defaultNormalTexture = nullptr;
 }
 
 Texture::~Texture()
 {
-	for (auto it = texturePool.begin(); it != texturePool.end();)
-	{
-		if (it->second == this)
-			it = texturePool.erase(it);
-		else
-			++it;
-	}
 	vmaDestroyImage(Vulkan::Instance->memoryAllocator, resource.image, resource.allocation);
 }
 
@@ -96,8 +90,6 @@ Texture2D::Texture2D(
 	const BindlessTexture2DInfo& bindlessInfo)
 {
 #ifdef DEBUG
-	auto it = texturePool.find(path);
-	if (it != texturePool.end()) WARN("trying to load texture '%s' that's already in the pool. Overriding..", path.c_str())
 	ASSERT(textureFormat.channelDepth % 8 == 0)
 #endif
 
@@ -130,8 +122,6 @@ Texture2D::Texture2D(
 
 	stbi_image_free(pixels);
 	registerBindless(bindlessInfo);
-
-	//texturePool()[name] = this;
 }
 
 void Texture2D::createDefaultTextures()
@@ -152,7 +142,7 @@ void Texture2D::createDefaultTextures()
 	};
 
 	uint8_t whitePixel[] = {255, 255, 255, 255};
-	auto* whiteTexture = new Texture2D(
+	defaultWhiteTexture = new Texture2D(
 		"_white",
 		whitePixel,
 		1,
@@ -162,7 +152,7 @@ void Texture2D::createDefaultTextures()
 		defaultBindlessInfo);
 
 	uint8_t blackPixel[] = {0, 0, 0, 0};
-	auto* blackTexture = new Texture2D(
+	defaultBlackTexture = new Texture2D(
 		"_black",
 		blackPixel,
 		1,
@@ -172,7 +162,7 @@ void Texture2D::createDefaultTextures()
 		defaultBindlessInfo);
 
 	uint8_t defaultNormalPixel[] = {127, 127, 255, 0};
-	auto* defaultNormal = new Texture2D(
+	defaultNormalTexture = new Texture2D(
 		"_defaultNormal",
 		defaultNormalPixel,
 		1,
@@ -182,14 +172,14 @@ void Texture2D::createDefaultTextures()
 		defaultBindlessInfo);
 
 	BindlessResources::Instance->setTexture2DFiller(
-		blackTexture->imageView,
+		defaultBlackTexture->imageView,
 		defaultSamplerInfo);
 
 #if TMP_BINDLESS_DEBUG
 	BindlessResources::Instance->runDebugSelfTest(
-		whiteTexture->bindlessHandle,
-		blackTexture->bindlessHandle,
-		blackTexture->imageView,
+		defaultWhiteTexture->bindlessHandle,
+		defaultBlackTexture->bindlessHandle,
+		defaultBlackTexture->imageView,
 		defaultSamplerInfo);
 
 	runBindlessLifetimeSelfTest();
@@ -200,21 +190,32 @@ void Texture2D::cleanupDefaultTextures()
 {
 	ASSERT(defaultTexturesCreated)
 
-	const char* defaultTextureNames[] = {
-		"_white",
-		"_defaultNormal",
-		"_black",
-	};
-	for (const char* name : defaultTextureNames)
-	{
-		auto it = texturePool.find(name);
-		ASSERT(it != texturePool.end())
+	delete defaultWhiteTexture;
+	delete defaultNormalTexture;
+	delete defaultBlackTexture;
 
-		auto* texture = dynamic_cast<Texture2D*>(it->second);
-		ASSERT(texture != nullptr)
-		delete texture;
-	}
+	defaultWhiteTexture = nullptr;
+	defaultNormalTexture = nullptr;
+	defaultBlackTexture = nullptr;
 	defaultTexturesCreated = false;
+}
+
+Texture2D* Texture2D::white()
+{
+	ASSERT(defaultWhiteTexture != nullptr)
+	return defaultWhiteTexture;
+}
+
+Texture2D* Texture2D::black()
+{
+	ASSERT(defaultBlackTexture != nullptr)
+	return defaultBlackTexture;
+}
+
+Texture2D* Texture2D::defaultNormal()
+{
+	ASSERT(defaultNormalTexture != nullptr)
+	return defaultNormalTexture;
 }
 
 #if TMP_BINDLESS_DEBUG
@@ -238,7 +239,6 @@ void Texture2D::runBindlessLifetimeSelfTest()
 		unregisteredTexture->getBindlessHandle().index ==
 		INVALID_BINDLESS_INDEX)
 	delete unregisteredTexture;
-	ASSERT(texturePool.find(unregisteredName) == texturePool.end())
 
 	const BindlessTexture2DInfo bindlessInfo = {
 		.registerTexture = true,
@@ -258,7 +258,6 @@ void Texture2D::runBindlessLifetimeSelfTest()
 		BindlessResources::Instance->validate(firstHandle) ==
 		firstHandle.index)
 	delete firstRegisteredTexture;
-	ASSERT(texturePool.find(registeredName) == texturePool.end())
 
 	auto* secondRegisteredTexture = new Texture2D(
 		registeredName,
@@ -273,7 +272,6 @@ void Texture2D::runBindlessLifetimeSelfTest()
 	ASSERT(secondHandle.index == firstHandle.index)
 	ASSERT(secondHandle.generation == firstHandle.generation + 1)
 	delete secondRegisteredTexture;
-	ASSERT(texturePool.find(registeredName) == texturePool.end())
 	LOG("Texture bindless lifetime self-test passed")
 }
 #endif
@@ -313,7 +311,6 @@ Texture2D::Texture2D(
 		generateMips,
 		resource,
 		imageView);
-	texturePool[name] = this;
 
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE, resource.image, name)
 	NAME_OBJECT(VK_OBJECT_TYPE_IMAGE_VIEW, imageView, name + "_defaultView")

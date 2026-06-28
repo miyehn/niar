@@ -5,6 +5,8 @@
 #include "GltfMaterialInfo.h"
 #include "Utils/myn/Log.h"
 
+#include <unordered_map>
+
 namespace
 {
 std::unordered_map<std::string, GltfMaterialInfo> gltfMaterialInfos;
