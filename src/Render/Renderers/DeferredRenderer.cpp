@@ -6,7 +6,6 @@
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
 #include "Scene/Probe.h"
-#include "Render/Materials/GltfMaterial.h"
 #include "Render/DebugDraw.h"
 #include "Scene/Light.hpp"
 #include "Render/Vulkan/SamplerCache.h"
@@ -16,6 +15,8 @@
 #include "../../Scene/SkyAtmosphere.h"
 #include <imgui.h>
 #include <algorithm>
+#include <memory>
+#include <unordered_map>
 
 class PostProcessing
 {
@@ -107,6 +108,103 @@ private:
 
 	friend class DeferredRenderer;
 };
+
+namespace {
+
+enum class DeferredGltfPass {
+	OpaqueGBuffer,
+	TranslucentLighting,
+};
+
+struct DeferredGltfPipelineKey {
+	DeferredGltfPass pass;
+	bool doubleSided = false;
+
+	explicit DeferredGltfPipelineKey(const MeshSurface& surface)
+		: pass(surface.isOpaque() ? DeferredGltfPass::OpaqueGBuffer : DeferredGltfPass::TranslucentLighting)
+		, doubleSided(surface.doubleSided)
+	{}
+
+	bool operator==(const DeferredGltfPipelineKey&) const = default;
+	bool operator<(const DeferredGltfPipelineKey& other) const {
+		return hash() < other.hash();
+	}
+
+	size_t hash() const noexcept {
+		return (static_cast<size_t>(pass) << 1) | static_cast<size_t>(doubleSided);
+	}
+
+	struct Hash {
+		size_t operator()(const DeferredGltfPipelineKey& key) const noexcept {
+			return key.hash();
+		}
+	};
+};
+
+class DeferredGltfPipelineCache {
+public:
+	static const GraphicsPipeline& get(const DeferredGltfPipelineKey& key) {
+		auto it = pipelines.find(key);
+		if (it != pipelines.end()) return *it->second;
+
+		auto pipeline = std::make_unique<GraphicsPipeline>();
+		auto vk = Vulkan::Instance;
+		auto renderer = DeferredRenderer::get();
+		auto& b = pipeline->builder;
+
+		b.vertDef = "shaders/geometry.vert";
+		b.pipelineState.setExtent(vk->swapChainExtent.width, vk->swapChainExtent.height);
+		b.pipelineState.rasterizationInfo.cullMode =
+			key.doubleSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+
+		if (key.pass == DeferredGltfPass::OpaqueGBuffer) {
+			b.fragDef = "shaders/geometry.frag";
+			b.compatibleRenderPass = renderer->basePass;
+			b.compatibleSubpass = DEFERRED_SUBPASS_GEOMETRY;
+
+			auto singleBlend = b.pipelineState.colorBlendAttachmentInfo;
+			b.pipelineState.colorBlendAttachments = {singleBlend, singleBlend, singleBlend};
+		}
+		else {
+			b.fragDef = "shaders/translucency_lit.frag";
+			b.compatibleRenderPass = renderer->lightingPass;
+			b.compatibleSubpass = DEFERRED_SUBPASS_TRANSLUCENCY;
+			b.pipelineState.depthStencilInfo.depthWriteEnable = VK_FALSE;
+			b.pipelineState.colorBlendAttachments = {{
+				.blendEnable = VK_TRUE,
+				.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+				.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+				.colorBlendOp = VK_BLEND_OP_ADD,
+				.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+				.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+				.alphaBlendOp = VK_BLEND_OP_ADD,
+				.colorWriteMask = 15
+			}};
+		}
+
+		b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, renderer->getFrameGlobalLayout());
+		b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
+		b.usePushConstantRange({VK_SHADER_STAGE_VERTEX_BIT, GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE});
+		b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE});
+
+		const std::string debugName = key.pass == DeferredGltfPass::OpaqueGBuffer
+			? (key.doubleSided ? "PbrGltf DoubleSided" : "PbrGltf")
+			: (key.doubleSided ? "PbrTranslucent DoubleSided" : "PbrTranslucent");
+		pipeline->build(debugName);
+
+		auto [insertedIt, _] = pipelines.emplace(key, std::move(pipeline));
+		return *insertedIt->second;
+	}
+
+	static void release() {
+		pipelines.clear();
+	}
+
+private:
+	inline static std::unordered_map<DeferredGltfPipelineKey, std::unique_ptr<GraphicsPipeline>, DeferredGltfPipelineKey::Hash> pipelines;
+};
+
+}
 
 DeferredRenderer::DeferredRenderer()
 {
@@ -715,15 +813,12 @@ DeferredRenderer::~DeferredRenderer()
 	delete deferredLighting;
 	delete postProcessing;
 
-	PbrGltfMaterial::destroyPipeline();
-	PbrTranslucentGltfMaterial::destroyPipeline();
+	DeferredGltfPipelineCache::release();
 
 	std::vector<Texture2D*> images = {
 		GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
-
-	for (const auto& p : materials) delete p.second;
 }
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
@@ -812,8 +907,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		auto materialSortFn = [](MeshObject* a, MeshObject* b) {
 			const auto& aSurface = a->mesh.surface;
 			const auto& bSurface = b->mesh.surface;
-			if (aSurface.blendMode != bSurface.blendMode) return aSurface.blendMode < bSurface.blendMode;
-			if (aSurface.doubleSided != bSurface.doubleSided) return aSurface.doubleSided < bSurface.doubleSided;
+			const auto aKey = DeferredGltfPipelineKey(aSurface);
+			const auto bKey = DeferredGltfPipelineKey(bSurface);
+			if (aKey != bKey) return aKey < bKey;
 			if (aSurface.bindlessMaterialIndex != bSurface.bindlessMaterialIndex) {
 				return aSurface.bindlessMaterialIndex < bSurface.bindlessMaterialIndex;
 			}
@@ -845,8 +941,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto mo : meshes)
 		{
-			auto mat = getOrCreateMeshMaterial(mo->mesh.surface.materialName);
-			auto& pipeline = mat->getPipeline();
+			auto key = DeferredGltfPipelineKey(mo->mesh.surface);
+			auto& pipeline = DeferredGltfPipelineCache::get(key);
 
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
 			if (!last_pipeline || pipeline != *last_pipeline) {
@@ -862,7 +958,21 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 				last_pipeline = &pipeline;
 			}
 
-			mat->setPerDrawParameters(cmdbuf, mo);
+			{ // each object has its push constants
+				glm::mat4 modelMatrix = mo->object_to_world();
+				vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
+					GLTF_MODEL_MATRIX_PUSH_OFFSET, GLTF_MODEL_MATRIX_PUSH_SIZE, &modelMatrix);
+
+				const uint32_t bindlessMaterialIndex = mo->mesh.surface.bindlessMaterialIndex;
+				ASSERT(bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+#if TMP_BINDLESS_DEBUG
+				BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
+#endif
+				vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+					GLTF_MATERIAL_INDEX_PUSH_OFFSET, GLTF_MATERIAL_INDEX_PUSH_SIZE, &bindlessMaterialIndex);
+			}
+
+
 			mo->draw(cmdbuf);
 		}
 	};
@@ -1014,42 +1124,6 @@ DescriptorSetLayout DeferredRenderer::getFrameGlobalLayout()
 DescriptorSet& DeferredRenderer::getSkyDescriptorSet()
 {
 	return skyAtmosphereRender.get_descriptor_set(SkyAtmosphere::getInstance());
-}
-
-/*
- * find if this material is in the pool. If it is, and its version matches with info, just return.
- * Otherwise need to create a new one:
- *  - if material is not in the pool at all, just create it.
- *  - if it IS in the pool but version doesn't match, the old one is obsolete and need to be cleaned up
- *    and then create a new one from the up-to-date info
- */
-GltfMaterial* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)
-{
-	auto iter = materials.find(materialName);
-	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
-	ASSERT(info != nullptr)
-
-	if (iter != materials.end()) {
-		auto pooled_mat = iter->second;
-		if (pooled_mat->getVersion() == info->_version) {
-			// up to date
-			return pooled_mat;
-		} else {
-			// obsolete; delete and create a new one below
-			delete pooled_mat;
-		}
-	}
-
-	// create a new one
-	GltfMaterial* newMaterial;
-	if (info->blendMode == BM_OpaqueOrClip) {
-		newMaterial = new PbrGltfMaterial(*info);
-	} else {
-		newMaterial = new PbrTranslucentGltfMaterial(*info);
-	}
-	materials[newMaterial->name] = newMaterial;
-
-	return newMaterial;
 }
 
 void DeferredRenderer::draw_config_ui() {
