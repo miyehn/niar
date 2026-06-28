@@ -13,7 +13,6 @@ class Texture2D;
 class DebugPoints;
 class DebugLines;
 class DeferredLighting;
-class Material;
 class PostProcessing;
 class GltfMaterial;
 
@@ -128,7 +127,7 @@ private:
 	// mesh materials
 
 	std::unordered_map<std::string, GltfMaterial*> materials;
-	Material* getOrCreateMeshMaterial(const std::string& materialName);
+	GltfMaterial* getOrCreateMeshMaterial(const std::string& materialName);
 
 	GI gi;
 	SkyAtmosphereRender skyAtmosphereRender;

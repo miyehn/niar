@@ -5,14 +5,13 @@
 
 #include "SceneObject.hpp"
 
-class ProbeMaterial;
-
 class Probe : public SceneObject {
 public:
 	Probe();
 
 #if GRAPHICS_DISPLAY
-	static Material* get_material();
+	static VkPipelineLayout bind_envmap_visualization_pipeline(VkCommandBuffer cmdbuf);
+	void set_envmap_visualization_draw_params(VkCommandBuffer cmdbuf);
 	void draw(VkCommandBuffer cmdbuf) override;
 #endif
 };
