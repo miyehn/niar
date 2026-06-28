@@ -1,5 +1,5 @@
 #pragma once
-#include "cshared_common.glsl"
+#include "cshared_common.h"
 #include "Scene/Camera.hpp"
 #include "Scene/Scene.hpp"
 #if GRAPHICS_DISPLAY

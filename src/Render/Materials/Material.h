@@ -10,9 +10,8 @@ class Material
 public:
 	std::string name;
 
-	// aka should only just be push constants?
+	// aka should only just be push constants
 	virtual void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* drawable) {};
-	virtual void bindMaterialDescriptors(VkCommandBuffer cmdbuf, VkPipelineLayout layout) {};
 
 	virtual ~Material() = default;
 
