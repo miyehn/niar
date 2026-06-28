@@ -15,47 +15,47 @@ struct PipelineState
 
 	VkGraphicsPipelineCreateInfo getPipelineInfoTemplate();
 
-	VkExtent2D targetExtent;
+	VkExtent2D targetExtent{};
 
 	// vertex input
 	bool useVertexInput;
-	VkVertexInputBindingDescription bindingDescription;
+	VkVertexInputBindingDescription bindingDescription{};
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo;
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 
 	// input assembly
 	bool useInputAssembly;
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
 
 	// viewport
 	bool useViewport;
-	VkViewport viewport;
-	VkRect2D scissor;
-	VkPipelineViewportStateCreateInfo viewportInfo;
+	VkViewport viewport{};
+	VkRect2D scissor{};
+	VkPipelineViewportStateCreateInfo viewportInfo{};
 
 	// rasterization
 	bool useRasterization;
-	VkPipelineRasterizationStateCreateInfo rasterizationInfo;
+	VkPipelineRasterizationStateCreateInfo rasterizationInfo{};
 
 	// multisampling (along edges for anti aliasing)
 	bool useMultisampling;
-	VkPipelineMultisampleStateCreateInfo multisamplingInfo;
+	VkPipelineMultisampleStateCreateInfo multisamplingInfo{};
 
 	// depth stencil
 	bool useDepthStencil;
-	VkPipelineDepthStencilStateCreateInfo depthStencilInfo;
+	VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
 
 	// color blending
 	bool useColorBlending;
-	VkPipelineColorBlendAttachmentState colorBlendAttachmentInfo;
-	VkPipelineColorBlendStateCreateInfo colorBlendInfo;
+	VkPipelineColorBlendAttachmentState colorBlendAttachmentInfo{};
+	VkPipelineColorBlendStateCreateInfo colorBlendInfo{};
 	// Override for multiple attachments — stored by value so pointers remain valid for deferred builds.
 	// When non-empty, colorBlendInfo.attachmentCount and pAttachments are set from this vector.
 	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
 
 	// dynamic state
 	bool useDynamicState;
-	VkPipelineDynamicStateCreateInfo dynamicStateInfo;
+	VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
 };
 
 struct GraphicsPipelineBuilder
@@ -159,7 +159,7 @@ struct GraphicsPipeline: PipelineBase
 struct ComputePipeline: PipelineBase
 {
 	ComputePipelineBuilder builder = {};
-
+	// also registers shader-reload callbacks.
 	void build(const std::string& debugName) override;
 };
 
@@ -171,5 +171,6 @@ struct RayTracingPipeline: PipelineBase
 
 	std::function<void()> onRebuilt;
 
+	// also registers shader-reload callbacks.
 	void build(const std::string& debugName) override;
 };
