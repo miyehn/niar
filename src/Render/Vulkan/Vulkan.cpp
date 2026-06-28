@@ -8,6 +8,7 @@
 #include <imgui_impl_vulkan.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <chrono>
 
 // #define MYN_VK_VERBOSE
 
@@ -37,6 +38,7 @@ Vulkan::Vulkan(SDL_Window* window) {
 	createSwapChainRenderPass();
 	createFramebuffers();
 	createCommandBuffers();
+	createFrameTimestampQueries();
 
 	initRayTracing();
 
@@ -65,6 +67,9 @@ Vulkan::~Vulkan() {
 		vkDestroySemaphore(device, sem, nullptr);
 	}
 	vkDestroyFence(device, immediateSubmitFence, nullptr);
+	if (frameTiming.timestampQueryPool != VK_NULL_HANDLE) {
+		vkDestroyQueryPool(device, frameTiming.timestampQueryPool, nullptr);
+	}
 
 	vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyCommandPool(device, shortLivedCommandsPool, nullptr);
@@ -87,17 +92,28 @@ VkCommandBuffer Vulkan::beginFrame()
 {
 	ASSERT(!isFrameStarted)
 	isFrameStarted = true;
+	frameTiming.waitTimeMs = 0.0f;
 
 	// inFlightFences: no other access when commands are being submitted for operations on this image.
 
+	auto waitStart = std::chrono::high_resolution_clock::now();
 	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+	auto waitEnd = std::chrono::high_resolution_clock::now();
+	frameTiming.waitTimeMs += std::chrono::duration<float, std::milli>(waitEnd - waitStart).count();
+	readFrameTimestampResult(currentFrame);
 
+	waitStart = std::chrono::high_resolution_clock::now();
 	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &currentImageIndex);
+	waitEnd = std::chrono::high_resolution_clock::now();
+	frameTiming.waitTimeMs += std::chrono::duration<float, std::milli>(waitEnd - waitStart).count();
 	auto cmdbuf = getCurrentCommandBuffer();
 
 	// check if a prev frame is using this image
 	if (imagesInFlight[currentImageIndex] != VK_NULL_HANDLE) {
+		waitStart = std::chrono::high_resolution_clock::now();
 		vkWaitForFences(device, 1, &imagesInFlight[currentImageIndex], VK_TRUE, UINT64_MAX);
+		waitEnd = std::chrono::high_resolution_clock::now();
+		frameTiming.waitTimeMs += std::chrono::duration<float, std::milli>(waitEnd - waitStart).count();
 	}
 	// now mark this image as being used by this frame
 	imagesInFlight[currentImageIndex] = inFlightFences[currentFrame];
@@ -111,6 +127,9 @@ VkCommandBuffer Vulkan::beginFrame()
 		.pInheritanceInfo = nullptr
 	};
 	EXPECT(vkBeginCommandBuffer(cmdbuf, &beginInfo), VK_SUCCESS)
+	uint32_t timestampQuery = static_cast<uint32_t>(currentFrame) * 2;
+	vkCmdResetQueryPool(cmdbuf, frameTiming.timestampQueryPool, timestampQuery, 2);
+	vkCmdWriteTimestamp(cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frameTiming.timestampQueryPool, timestampQuery);
 	return cmdbuf;
 }
 
@@ -119,6 +138,8 @@ void Vulkan::endFrame()
 	ASSERT(isFrameStarted)
 
 	auto cmdbuf = getCurrentCommandBuffer();
+	uint32_t timestampQuery = static_cast<uint32_t>(currentFrame) * 2 + 1;
+	vkCmdWriteTimestamp(cmdbuf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameTiming.timestampQueryPool, timestampQuery);
 	EXPECT(vkEndCommandBuffer(cmdbuf), VK_SUCCESS)
 
 	// submit to queue
@@ -150,11 +171,23 @@ void Vulkan::endFrame()
 		.pImageIndices = &currentImageIndex,
 		.pResults = nullptr // can just use the function return value when there's just one swap chain
 	};
+	auto waitStart = std::chrono::high_resolution_clock::now();
 	vkQueuePresentKHR(presentQueue, &presentInfo);
+	auto waitEnd = std::chrono::high_resolution_clock::now();
+	frameTiming.waitTimeMs += std::chrono::duration<float, std::milli>(waitEnd - waitStart).count();
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	globalFrameIndex++;
 	isFrameStarted = false;
+}
+
+bool Vulkan::getLastGpuFrameTimeMs(float& outTimeMs) const
+{
+	if (!frameTiming.gpuTimeMs.has_value()) {
+		return false;
+	}
+	outTimeMs = *frameTiming.gpuTimeMs;
+	return true;
 }
 
 void Vulkan::beginSwapChainRenderPass(VkCommandBuffer cmdbuf)
@@ -935,6 +968,40 @@ void Vulkan::createSynchronizationObjects() {
 
 	fenceInfo.flags = 0;
 	EXPECT(vkCreateFence(device, &fenceInfo, nullptr, &immediateSubmitFence), VK_SUCCESS)
+}
+
+void Vulkan::createFrameTimestampQueries()
+{
+	VkQueryPoolCreateInfo queryPoolInfo = {
+		.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+		.queryType = VK_QUERY_TYPE_TIMESTAMP,
+		.queryCount = MAX_FRAMES_IN_FLIGHT * 2
+	};
+	EXPECT(vkCreateQueryPool(device, &queryPoolInfo, nullptr, &frameTiming.timestampQueryPool), VK_SUCCESS)
+}
+
+void Vulkan::readFrameTimestampResult(size_t frameIndex)
+{
+	if (globalFrameIndex < MAX_FRAMES_IN_FLIGHT) {
+		return;
+	}
+
+	uint64_t timestamps[2] = {};
+	VkResult result = vkGetQueryPoolResults(
+		device,
+		frameTiming.timestampQueryPool,
+		static_cast<uint32_t>(frameIndex) * 2,
+		2,
+		sizeof(timestamps),
+		timestamps,
+		sizeof(uint64_t),
+		VK_QUERY_RESULT_64_BIT);
+
+	if (result == VK_SUCCESS && timestamps[1] >= timestamps[0]) {
+		const uint64_t elapsedTicks = timestamps[1] - timestamps[0];
+		frameTiming.gpuTimeMs =
+			elapsedTicks * physicalDeviceProperties.limits.timestampPeriod / 1000000.0f;
+	}
 }
 
 void Vulkan::initRayTracing()
