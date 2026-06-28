@@ -296,7 +296,7 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 	{
 		if (auto* mo = dynamic_cast<MeshObject*>(drawable)) {
 
-			BSDF* bsdf = get_or_create_mesh_bsdf(mo->mesh.materialName);
+			BSDF* bsdf = get_or_create_mesh_bsdf(mo->mesh.surface.materialName);
 			mo->bsdf = bsdf;
 			meshes_count++;
 

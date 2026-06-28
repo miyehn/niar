@@ -793,7 +793,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawable->foreach_descendent_bfs([&](SceneObject* child) {
 			// meshes
 			if (auto mo = dynamic_cast<MeshObject*>(child)) {
-				if (auto mat = getOrCreateMeshMaterial(mo->mesh.materialName)) {
+				if (auto mat = getOrCreateMeshMaterial(mo->mesh.surface.materialName)) {
 					if (mat->isOpaque()) { // opaque
 						opaqueMeshes.push_back(mo);
 					} else { // translucent
@@ -812,8 +812,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		// opaque objects sorting
 		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
-			auto aMaterial = getOrCreateMeshMaterial(a->mesh.materialName);
-			auto bMaterial = getOrCreateMeshMaterial(b->mesh.materialName);
+			auto aMaterial = getOrCreateMeshMaterial(a->mesh.surface.materialName);
+			auto bMaterial = getOrCreateMeshMaterial(b->mesh.surface.materialName);
 			auto& aPipeline = aMaterial->getPipeline();
 			auto& bPipeline = bMaterial->getPipeline();
 			if (aPipeline != bPipeline) { // different pipeline -> sort by pipeline
@@ -848,7 +848,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto mo : meshes)
 		{
-			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);
+			auto mat = getOrCreateMeshMaterial(mo->mesh.surface.materialName);
 			auto& pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary

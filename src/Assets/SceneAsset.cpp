@@ -408,12 +408,12 @@ static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAcces
 std::vector<Mesh> load_gltf_meshes(
 	const std::string& node_name,
 	const tinygltf::Mesh* in_mesh,
-	const std::vector<std::string>& material_names,
+	const std::vector<GltfMaterialInfo>& material_infos,
 	const std::unordered_map<PrimitiveBufferIndex, Mesh::CpuDataAccessor>& cpu_buffer_indices
 #if GRAPHICS_DISPLAY
 	, std::unordered_map<PrimitiveBufferIndex, Mesh::GpuDataAccessor>& gpu_buffer_indices
 	, std::vector<BLASInfo>& blas_collection
-	, const std::vector<uint32_t>& material_indices
+	, const std::vector<uint32_t>& material_bindless_indices
 #endif
 	)
 {
@@ -428,7 +428,8 @@ std::vector<Mesh> load_gltf_meshes(
 			continue;
 		}
 		auto in_name = node_name + " | " + in_mesh->name + "[" + std::to_string(i) + "]";
-		auto in_material_name = prim.material >= 0 ? material_names[prim.material] : "";
+		if (prim.material >= 0) ASSERT(static_cast<size_t>(prim.material) < material_infos.size())
+		auto in_material_name = prim.material >= 0 ? material_infos[prim.material].name : "";
 
 		auto buf_idx = primitive_buffer_indices(prim);
 		output.emplace_back(in_name, in_material_name);
@@ -437,11 +438,13 @@ std::vector<Mesh> load_gltf_meshes(
 #if GRAPHICS_DISPLAY
 		if (prim.material >= 0)
 		{
-			ASSERT(static_cast<size_t>(prim.material) < material_indices.size())
-			m.bindlessMaterialIndex = material_indices[prim.material];
-			ASSERT(m.bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+			ASSERT(static_cast<size_t>(prim.material) < material_bindless_indices.size())
+			m.surface.bindlessMaterialIndex = material_bindless_indices[prim.material];
+			m.surface.blendMode = material_infos[prim.material].blendMode;
+			m.surface.doubleSided = material_infos[prim.material].doubleSided != 0;
+			ASSERT(m.surface.bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
 #if TMP_BINDLESS_DEBUG
-			BindlessResources::Instance->assertMaterialIndexOccupied(m.bindlessMaterialIndex);
+			BindlessResources::Instance->assertMaterialIndexOccupied(m.surface.bindlessMaterialIndex);
 #endif
 		}
 		m.gpu_data = gpu_buffer_indices.at(buf_idx);
@@ -545,7 +548,7 @@ SceneAsset::SceneAsset(
 
 #endif
 
-		std::vector<std::string> material_names(model.materials.size());
+		std::vector<GltfMaterialInfo> material_infos(model.materials.size());
 		{ // materials
 
 			// gather texture names for compatibility material records
@@ -571,7 +574,6 @@ SceneAsset::SceneAsset(
 #endif
 			for (int i = 0; i < model.materials.size(); i++) {
 				auto& mat = model.materials[i];
-				material_names[i] = mat.name;
 
 				// create mat info
 
@@ -664,6 +666,7 @@ SceneAsset::SceneAsset(
 					info.volumeDensity = (float)volumeDensity.GetNumberAsDouble();
 				}
 				GltfMaterialInfo::add(info);
+				material_infos[i] = info;
 			}
 #if GRAPHICS_DISPLAY
 			asset_material_indices.reserve(gpuMaterials.size());
@@ -751,7 +754,7 @@ SceneAsset::SceneAsset(
 				std::vector<Mesh> meshes = load_gltf_meshes(
 					node->name,
 					in_mesh,
-					material_names,
+					material_infos,
 					cpu_buffer_indices
 #if GRAPHICS_DISPLAY
 					, gpu_buffer_indices

@@ -1,5 +1,6 @@
 #pragma once
 #include "Scene/SceneObject.hpp"
+#include "Render/Materials/GltfMaterialInfo.h"
 #include "Render/Vertex.h"
 #include <unordered_map>
 #if GRAPHICS_DISPLAY
@@ -47,6 +48,18 @@ namespace tinygltf
 #define VERTEX_INDEX_TYPE uint16_t
 #define VK_INDEX_TYPE VK_INDEX_TYPE_UINT16
 
+struct MeshSurface {
+	std::string materialName;
+
+#if GRAPHICS_DISPLAY
+	uint32_t bindlessMaterialIndex = INVALID_BINDLESS_INDEX;
+	BlendMode blendMode = BM_OpaqueOrClip;
+	bool doubleSided = false;
+
+	bool isOpaque() const { return blendMode == BM_OpaqueOrClip; }
+#endif
+};
+
 // is really just a mesh instance; it doesn't own anything. Assets own the data.
 struct Mesh {
 
@@ -88,12 +101,7 @@ struct Mesh {
 	[[nodiscard]] const VERTEX_INDEX_TYPE* get_indices() const;
 	[[nodiscard]] uint32_t get_num_indices() const;
 
-	std::string materialName;
-#if GRAPHICS_DISPLAY
-	// Migration bridge: SceneAsset fills this from its glTF material-index mapping.
-	// Future bindless draw paths can read it per mesh without consulting GltfMaterialInfo.
-	uint32_t bindlessMaterialIndex = INVALID_BINDLESS_INDEX;
-#endif
+	MeshSurface surface;
 
 	CpuDataAccessor cpu_data{};
 #if GRAPHICS_DISPLAY

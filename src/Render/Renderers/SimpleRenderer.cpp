@@ -195,7 +195,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			if (auto* mo = dynamic_cast<MeshObject*>(drawable))
 			{
-				auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);
+				auto mat = getOrCreateMeshMaterial(mo->mesh.surface.materialName);
 				auto& pipeline = mat->getPipeline();
 
 				// pipeline changed: re-bind; re-set frame globals if necessary
