@@ -7,12 +7,6 @@
 
 using namespace glm;
 
-std::unordered_map<std::string, std::string> Mesh::material_assignment;
-
-void Mesh::set_material_name(const std::string& mesh_name, const std::string& mat_name) {
-	material_assignment[mesh_name] = mat_name;
-}
-
 #if GRAPHICS_DISPLAY
 void Mesh::draw(VkCommandBuffer cmdbuf)
 {
@@ -30,7 +24,6 @@ Mesh::Mesh(const std::string &in_name,
 	name = in_name;
 	if (in_material_name.length() > 0) {
 		surface.materialName = in_material_name;
-		set_material_name(in_name, in_material_name);
 	}
 }
 

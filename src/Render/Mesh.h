@@ -2,7 +2,6 @@
 #include "Scene/SceneObject.hpp"
 #include "Render/Materials/GltfMaterialInfo.h"
 #include "Render/Vertex.h"
-#include <unordered_map>
 #if GRAPHICS_DISPLAY
 #include "cshared_common.h"
 #include "Render/Vulkan/Buffer.h"
@@ -108,11 +107,4 @@ struct Mesh {
 	GpuDataAccessor gpu_data{};
 #endif
 
-	static void set_material_name(const std::string& mesh_name, const std::string& mat_name);
-
-private:
-
-	static std::unordered_map<std::string, std::string> material_assignment;
-
-	bool locked = false;
 };
