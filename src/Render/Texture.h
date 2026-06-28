@@ -10,48 +10,6 @@ struct ImageFormat {
 	int SRGB;
 };
 
-/*
-
-Let textures go bindless:
-
-use a global texture registry that keeps account of all textures that can possibly be sampled: binding 0 for 2D textures, other bindings for 3D textures, cubemaps, etc.
-such textures would include all material textures and possibly also rendertargets
-
-struct BindlessHandle: stores resource type, index, version/generation
-
-struct BindlessTable
-- responsible for actually updating the bindless resources on the gpu
-- maintain a record that keeps track of which array indices are taken, which ones are free.
-- having a fixed max texture count is fine for now (1024?)
-- every time a texture is added, add it to an available descriptor array index.
-- every time a texture is removed, waitDeviceIdle(), and mark its descriptor array index as free.
-- API would basically include adding texture(s) and removing texture(s).
-
-Texture class should still maintain its name -> Texture* mapping (through texturePool) for now while bindless is in development. Hopefully this mapping will eventually get removed
-Texture class (and subclasses) would also still expose access to VkImageView, VmaAllocatedImage etc.
-- Texture class (and/or its subclass) should be responsible for bindless registration/unregistration. Register combined image + caller-given sampler pair. Ignore glTF samplers for now
-- but let registration be optional and default to false. Only register bindless if it's told to, through constructor argument.
-
-SceneAsset, EnvironmentMapAsset, or any other asset that contains textures
-- when loaded, would add the texture(s) to BindlessTable
-- when unloaded, would remove the texture(s) from BindlessTable, which internally does waitDeviceIdle and marks the slot(s) as free
-- they transitively "own" bindless registrations
-
-On program exit, because all resources are unloaded (and unregisters their textures), BindlessTable should eventually become empty.
-
-if trying to get a nonexistent bindless texture, return one of the global defaults instead (probably just _black for now)
-
-In the shader would need a few macros like
-#define SAMPLE_BINDLESS_TEX2D(index, uv) ...
-#define SAMPLE_BINDLESS_TEX3D(index, uv) ...
-#define SAMPLE_BINDLESS_CUBE(index, uv) ...
-...
-
-Places that store texture references by name can continue to do so for now (GltfMaterialInfo, etc.)
-
-Buffers can probably go bindless in a similar fashion too, but for later.
-
-*/
 
 class Texture
 {

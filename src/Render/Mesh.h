@@ -10,36 +10,9 @@
 struct BSDF;
 struct aiMesh;
 
-/*
-
-glTF material data is represented by GpuMaterial on the GPU, or GltfMaterialInfo on the CPU.
-They contain only data and should be generic enough for any consumer of glTF surface renderer, rasterization or not.
-- the only separation for cpu/gpu is because gpu uses bindless texture table but cpu doesn't
-
-Subpasses are "function signatures". They describe input & output count and their formats
-Render passes are like graphs connecting subpasses and specifying dependencies.
-
-Pipelines are "function bodies" that implement a subpass "signature" (w other constraints: dset layout & push constants)
-Pipelines consist of:
-fixed-function operations (blend op, cull mode, depth test, etc.) and programmed behaviors (shaders)
-- Pipelines accessing material data through descriptors is like functions reading from external (global) variables.
-
-The next cleanup should separate material data (assume glTF surface material for now) and pipeline selection.
-Pipeline selection should be based on functionality which does come from material,
-but not all material data decides functionality. Some data are just pure data (which specific texture to use etc.)
-For this repo, pipeline selection cares about:
-- opaque? (decides which pass/stage as well as alpha behavior)
-- cull back face?
-- (maybe) vertex layout
-
-In the future there could also be non-surface materials that use data blobs different from GltfMaterialInfo.
-For example volume materials, particle (VFX) materials. Will deal with them later.
-
-*/
 
 namespace tinygltf
 {
-	struct Mesh;
 	struct Primitive;
 	struct Model;
 }
