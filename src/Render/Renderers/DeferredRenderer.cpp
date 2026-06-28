@@ -17,10 +17,10 @@
 #include <imgui.h>
 #include <algorithm>
 
-class PostProcessing : public Material
+class PostProcessing
 {
 public:
-	const GraphicsPipeline& getPipeline() override
+	const GraphicsPipeline& getPipeline()
 	{
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
@@ -49,7 +49,6 @@ private:
 	explicit PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth)
 	{
 		this->renderer = renderer;
-		name = "Post Processing";
 		postProcessPass = renderer->postProcessPass;
 
 		// set layouts and allocation
@@ -73,11 +72,11 @@ private:
 	friend class DeferredRenderer;
 };
 
-class DeferredLighting : public Material
+class DeferredLighting
 {
 public:
 
-	const GraphicsPipeline& getPipeline() override
+	const GraphicsPipeline& getPipeline()
 	{
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
@@ -101,9 +100,7 @@ public:
 
 private:
 
-	explicit DeferredLighting(DeferredRenderer* renderer) : renderer(renderer) {
-		name = "Deferred Lighting";
-	}
+	explicit DeferredLighting(DeferredRenderer* renderer) : renderer(renderer) {}
 
 	DeferredRenderer* renderer;
 	GraphicsPipeline graphicsPipeline;
@@ -796,7 +793,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawable->foreach_descendent_bfs([&](SceneObject* child) {
 			// meshes
 			if (auto mo = dynamic_cast<MeshObject*>(child)) {
-				if (auto mat = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(mo->mesh.materialName))) {
+				if (auto mat = getOrCreateMeshMaterial(mo->mesh.materialName)) {
 					if (mat->isOpaque()) { // opaque
 						opaqueMeshes.push_back(mo);
 					} else { // translucent
@@ -815,8 +812,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		// opaque objects sorting
 		auto materialSortFn = [this](MeshObject* a, MeshObject* b) {
-			auto aMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(a->mesh.materialName));
-			auto bMaterial = dynamic_cast<GltfMaterial*>(getOrCreateMeshMaterial(b->mesh.materialName));
+			auto aMaterial = getOrCreateMeshMaterial(a->mesh.materialName);
+			auto bMaterial = getOrCreateMeshMaterial(b->mesh.materialName);
 			auto& aPipeline = aMaterial->getPipeline();
 			auto& bPipeline = bMaterial->getPipeline();
 			if (aPipeline != bPipeline) { // different pipeline -> sort by pipeline
@@ -851,7 +848,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		const GraphicsPipeline* last_pipeline = nullptr;
 		for (auto mo : meshes)
 		{
-			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);//mo->get_material();
+			auto mat = getOrCreateMeshMaterial(mo->mesh.materialName);
 			auto& pipeline = mat->getPipeline();
 
 			// pipeline changed: re-bind pipeline; re-set frame globals if necessary
@@ -935,14 +932,13 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
 			bool firstInstance = true;
-			auto mat = Probe::get_material();
 			for (auto probe : probes) // TODO: material (pipeline) sorting, etc.
 			{
 				if (firstInstance) {
-					vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mat->getPipeline().pipeline);
-					bindFrameGlobal(mat->getPipeline().layout);
+					auto layout = Probe::bind_envmap_visualization_pipeline(cmdbuf);
+					bindFrameGlobal(layout);
 				}
-				mat->setPerDrawParameters(cmdbuf, probe);
+				probe->set_envmap_visualization_draw_params(cmdbuf);
 				probe->draw(cmdbuf);
 				firstInstance = false;
 			}
@@ -1030,7 +1026,7 @@ DescriptorSet& DeferredRenderer::getSkyDescriptorSet()
  *  - if it IS in the pool but version doesn't match, the old one is obsolete and need to be cleaned up
  *    and then create a new one from the up-to-date info
  */
-Material* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)
+GltfMaterial* DeferredRenderer::getOrCreateMeshMaterial(const std::string &materialName)
 {
 	auto iter = materials.find(materialName);
 	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);

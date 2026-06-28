@@ -5,7 +5,6 @@
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/EnvironmentMapAsset.h"
 #include "Render/Texture.h"
-#include "Render/Materials/Material.h"
 #include "Probe.h"
 #include "Assets/SceneAsset.h"
 #include "Utils/myn/Log.h"
@@ -14,13 +13,12 @@
 #include "Render/Renderers/DeferredRenderer.h"
 #include "SkyAtmosphere.h"
 
-class ProbeMaterial : public Material {
+#if GRAPHICS_DISPLAY
+namespace {
+
+class ProbeMaterial {
 public:
-	ProbeMaterial() {
-		name = "probe material";
-	}
-	~ProbeMaterial() override = default;
-	const GraphicsPipeline& getPipeline() override {
+	const GraphicsPipeline& getPipeline() {
 		if (!graphicsPipeline.valid()) {
 			auto vk = Vulkan::Instance;
 			auto& b = graphicsPipeline.builder;
@@ -42,14 +40,30 @@ public:
 		}
 		return graphicsPipeline;
 	}
-	void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* obj) override {
+
+	void setPerDrawParameters(VkCommandBuffer cmdbuf, SceneObject* obj) {
 		glm::mat4 modelMatrix = obj->object_to_world();
 		vkCmdPushConstants(cmdbuf, getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 		DeferredRenderer::get()->getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, getPipeline().layout);
 	}
+
 private:
 	GraphicsPipeline graphicsPipeline;
 };
+
+ProbeMaterial* get_probe_material() {
+	static ProbeMaterial* material = nullptr;
+	if (!material) {
+		material = new ProbeMaterial();
+		Vulkan::Instance->destructionQueue.emplace_back([]() {
+			delete material;
+		});
+	}
+	return material;
+}
+
+}
+#endif
 
 Probe::Probe()
 {
@@ -64,15 +78,14 @@ void Probe::draw(VkCommandBuffer cmdbuf) {
 	m->draw(cmdbuf);
 }
 
-Material* Probe::get_material(){
-	static ProbeMaterial* material = nullptr;
-	if (!material) {
-		material = new ProbeMaterial();
-		Vulkan::Instance->destructionQueue.emplace_back([]() {
-			delete material;
-		});
-	}
-	return material;
+VkPipelineLayout Probe::bind_envmap_visualization_pipeline(VkCommandBuffer cmdbuf) {
+	auto& pipeline = get_probe_material()->getPipeline();
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+	return pipeline.layout;
+}
+
+void Probe::set_envmap_visualization_draw_params(VkCommandBuffer cmdbuf) {
+	get_probe_material()->setPerDrawParameters(cmdbuf, this);
 }
 
 #endif

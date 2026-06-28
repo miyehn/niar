@@ -1,5 +1,5 @@
 #pragma once
-#include "Render/Materials/Material.h"
+#include "Render/Vulkan/Pipeline.h"
 #include <glm/glm.hpp>
 
 class DeferredRenderer;

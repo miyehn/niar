@@ -244,7 +244,7 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
  *  - if it IS in the pool but version doesn't match, the old one is obsolete and need to be cleaned up
  *    and then create a new one from the up-to-date info
  */
-Material *SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialName)
+GltfMaterial* SimpleRenderer::getOrCreateMeshMaterial(const std::string &materialName)
 {
 	auto iter = materials.find(materialName);
 	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);

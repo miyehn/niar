@@ -3,7 +3,6 @@
 #include "DeferredRenderer.h"
 
 class Texture2D;
-class Material;
 class DebugLines;
 class GltfMaterial;
 
@@ -38,5 +37,5 @@ private:
 
 	// materials
 	std::unordered_map<std::string, GltfMaterial*> materials;
-	Material* getOrCreateMeshMaterial(const std::string& materialName);
+	GltfMaterial* getOrCreateMeshMaterial(const std::string& materialName);
 };

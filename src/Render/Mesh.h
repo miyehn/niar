@@ -9,7 +9,6 @@
 
 struct BSDF;
 struct aiMesh;
-class Material;
 
 namespace tinygltf
 {
