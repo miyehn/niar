@@ -36,6 +36,8 @@ using namespace myn;
 Camera* Camera::Active;
 Scene* Scene::Active;
 
+#define IMGUI 1
+
 namespace
 {
 	uint32_t width = 1280;
@@ -51,6 +53,37 @@ namespace
 	bool show_imgui_demo = false;
 
 	// other potentially temporary globals
+#if IMGUI
+	constexpr float fps_update_interval = 0.5f;
+
+	struct FpsMeter
+	{
+		float accumulated_time = 0.0f;
+		int accumulated_frames = 0;
+		float fps = 0.0f;
+		float frame_time_ms = 0.0f;
+
+		void update(float elapsed)
+		{
+			accumulated_time += elapsed;
+			accumulated_frames++;
+
+			if (accumulated_time >= fps_update_interval)
+			{
+				fps = accumulated_frames / accumulated_time;
+				frame_time_ms = accumulated_time * 1000.0f / accumulated_frames;
+				accumulated_time = 0.0f;
+				accumulated_frames = 0;
+			}
+		}
+
+		void draw() const
+		{
+			ImGui::Text("FPS: %.1f (%.2f ms)", fps, frame_time_ms);
+			ImGui::Separator();
+		}
+	} fps_meter;
+#endif
 
 	enum e_renderer {
 		simple = 0,
@@ -243,8 +276,6 @@ static void update(float elapsed)
 	}
 }
 
-#define IMGUI 1
-
 static void draw()
 {
 	// Skip rendering while the window is minimized (no valid swapchain extent)
@@ -259,6 +290,7 @@ static void draw()
 
 	if (show_imgui_demo) ImGui::ShowDemoWindow();
 
+	fps_meter.draw();
 	ui::drawUI();
 #endif
 
@@ -337,6 +369,9 @@ int main(int argc, const char * argv[])
 		if (should_quit) break;
 
 		myn::RenderDoc::potentiallyStartCapture();
+#if IMGUI
+		fps_meter.update(elapsed);
+#endif
 		update(elapsed);
 		draw();
 		myn::RenderDoc::potentiallyEndCapture();
