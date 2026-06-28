@@ -90,6 +90,7 @@ struct Vulkan {
 	VkExtent2D swapChainExtent;
 
 	VkDeviceSize minUniformBufferOffsetAlignment;
+	VkDeviceSize minAccelerationStructureScratchOffsetAlignment = 0;
 	uint32_t shaderGroupHandleSize = 0;
 	uint32_t shaderGroupBaseAlignment = 0;
 	uint32_t shaderGroupHandleAlignment = 0;

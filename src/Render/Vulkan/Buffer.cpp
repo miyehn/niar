@@ -36,13 +36,27 @@ VmaBuffer::VmaBuffer(const CreateInfo &info) :
 		.flags = createFlags,
 		.usage = info.memoryUsage,
 	};
-	EXPECT(vmaCreateBuffer(
-		*allocator,
-		&bufferCreateInfo,
-		&vmaAllocCreateInfo,
-		&buffer,
-		&allocation,
-		&allocationInfo), VK_SUCCESS);
+	if (info.minAllocationAlignment > 0)
+	{
+		EXPECT(vmaCreateBufferWithAlignment(
+			*allocator,
+			&bufferCreateInfo,
+			&vmaAllocCreateInfo,
+			info.minAllocationAlignment,
+			&buffer,
+			&allocation,
+			&allocationInfo), VK_SUCCESS);
+	}
+	else
+	{
+		EXPECT(vmaCreateBuffer(
+			*allocator,
+			&bufferCreateInfo,
+			&vmaAllocCreateInfo,
+			&buffer,
+			&allocation,
+			&allocationInfo), VK_SUCCESS);
+	}
 	if (info.debugName.length() > 0) {
 		NAME_OBJECT(VK_OBJECT_TYPE_BUFFER, buffer, info.debugName)
 	}

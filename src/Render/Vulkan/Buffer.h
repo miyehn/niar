@@ -14,6 +14,7 @@ public:
 		// below: optional
 		std::string debugName;
 		uint32_t numStrides = 1;
+		VkDeviceSize minAllocationAlignment = 0;
 	};
 	VmaBuffer() = default;
 	VmaBuffer(const CreateInfo &createInfo);
