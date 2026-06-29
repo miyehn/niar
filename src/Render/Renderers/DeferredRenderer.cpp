@@ -211,7 +211,7 @@ DeferredRenderer::DeferredRenderer()
 	renderExtent = Vulkan::Instance->swapChainExtent;
 
 	// init the components
-	shadowTlas.init("Deferred");
+	sceneTlas.init("Deferred");
 
 	{// images
 		ImageCreator GNormalCreator(
@@ -728,8 +728,9 @@ DeferredRenderer::DeferredRenderer()
 			giInitInfo.GNormal = GNormal;
 			for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 				giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
+				giInitInfo.sceneInstanceRecordBuffers[i] = &sceneTlas.getSceneInstanceRecordBuffer(i);
 			}
-			giInitInfo.tlas = shadowTlas.get();
+			giInitInfo.tlas = sceneTlas.get();
 			giInitInfo.environmentMap = envmap;
 			gi.init(giInitInfo);
 		}
@@ -745,7 +746,7 @@ DeferredRenderer::DeferredRenderer()
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.pointLightsBuffer, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToBuffer(fd.directionalLightsBuffer, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			fd.frameGlobalDescriptorSet.pointToImageView(envmap->imageView, 7);
-			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(shadowTlas.get(), 8);
+			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(sceneTlas.get(), 8);
 			fd.frameGlobalDescriptorSet.pointToImageView(gi.getIndirectLighting()->imageView, 9, &gbufferSamplerInfo);
 		}
 	}
@@ -800,7 +801,7 @@ DeferredRenderer::~DeferredRenderer()
 	vkDestroyFramebuffer(vk->device, debugDrawFramebuffer, nullptr);
 	gi.release();
 	skyAtmosphereRender.release();
-	shadowTlas.release();
+	sceneTlas.release();
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		auto& fd = gpuFrameData[i];
 		fd.viewInfoUbo.release();
@@ -930,7 +931,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "rebuild deferred scene TLAS")
-		shadowTlas.build_from_meshes(
+		sceneTlas.build_from_meshes(
 			cmdbuf,
 			Vulkan::Instance->getCurrentFrameIndex(),
 			opaqueMeshes,

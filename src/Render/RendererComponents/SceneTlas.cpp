@@ -1,8 +1,10 @@
 #include "SceneTlas.h"
 #include "Scene/MeshObject.h"
+#include "Render/BindlessResources.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Utils/myn/Log.h"
 #include <algorithm>
+#include <array>
 
 void SceneTlas::init(const std::string& inDebugNamePrefix)
 {
@@ -62,12 +64,20 @@ void SceneTlas::init(const std::string& inDebugNamePrefix)
 	});
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		instancesBuffers[i] = VmaBuffer({
+		frameData[i].instancesBuffer = VmaBuffer({
 			&Vulkan::Instance->memoryAllocator,
 			MAX_RTX_INSTANCES * sizeof(VkAccelerationStructureInstanceKHR),
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
 			debugNamePrefix + " TLAS instances buffer (" + std::to_string(i) + ")"});
+		frameData[i].sceneInstanceRecordBuffer = VmaBuffer({
+			.allocator = &Vulkan::Instance->memoryAllocator,
+			.strideSize = sizeof(glm::GpuSceneInstanceRecord),
+			.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+			.debugName = debugNamePrefix + " scene instance records buffer (" + std::to_string(i) + ")",
+			.numStrides = MAX_RTX_INSTANCES,
+		});
 	}
 }
 
@@ -79,8 +89,10 @@ void SceneTlas::release()
 
 	tlasBuffer.release();
 	scratchBuffer.release();
-	for (auto& instancesBuffer : instancesBuffers) {
-		instancesBuffer.release();
+	for (auto& fd : frameData) {
+		fd.instancesBuffer.release();
+		fd.sceneInstanceRecordBuffer.release();
+		fd.sceneInstanceRecordCount = 0;
 	}
 
 	debugNamePrefix.clear();
@@ -91,6 +103,18 @@ VkAccelerationStructureKHR SceneTlas::get() const
 	return tlas;
 }
 
+const VmaBuffer& SceneTlas::getSceneInstanceRecordBuffer(uint32_t frameIndex) const
+{
+	ASSERT(frameIndex < MAX_FRAMES_IN_FLIGHT)
+	return frameData[frameIndex].sceneInstanceRecordBuffer;
+}
+
+uint32_t SceneTlas::getSceneInstanceRecordCount(uint32_t frameIndex) const
+{
+	ASSERT(frameIndex < MAX_FRAMES_IN_FLIGHT)
+	return frameData[frameIndex].sceneInstanceRecordCount;
+}
+
 void SceneTlas::build_from_meshes(
 	VkCommandBuffer cmdbuf,
 	uint32_t frameIndex,
@@ -99,14 +123,35 @@ void SceneTlas::build_from_meshes(
 {
 	ASSERT(frameIndex < MAX_FRAMES_IN_FLIGHT)
 	ASSERT(tlas != VK_NULL_HANDLE)
+	auto& fd = frameData[frameIndex];
 
+	// scene instances
 	std::vector<VkAccelerationStructureInstanceKHR> instances;
 	instances.reserve(std::min(meshObjects.size(), static_cast<size_t>(MAX_RTX_INSTANCES)));
+
+	// scene instance records, in the exact order of scene instances: material and geometry record of each instance
+	std::array<glm::GpuSceneInstanceRecord, MAX_RTX_INSTANCES> sceneInstanceTable;
+	sceneInstanceTable.fill({
+		.bindlessMaterialIndex = INVALID_BINDLESS_INDEX,
+		.geometryRecordIndex = INVALID_SCENE_GEOMETRY_INDEX,
+		.reserved = {0u, 0u},
+	});
 
 	for (const MeshObject* mo : meshObjects)
 	{
 		if (mo == nullptr || mo->mesh.gpu_data.blasAddress == 0) continue;
-		if (instances.size() >= MAX_RTX_INSTANCES) break;
+		if (instances.size() >= MAX_RTX_INSTANCES)
+		{
+			WARN("Too many RTX instances in scene (%llu). Please bump MAX_RTX_INSTANCES", instances.size())
+			break;
+		}
+		const uint32_t sceneInstanceIndex = static_cast<uint32_t>(instances.size());
+		const uint32_t bindlessMaterialIndex = mo->mesh.surface.bindlessMaterialIndex;
+		ASSERT(bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+#if TMP_BINDLESS_DEBUG
+		ASSERT(BindlessResources::Instance != nullptr)
+		BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
+#endif
 
 		glm::mat4 t = mo->object_to_world();
 		VkTransformMatrixKHR transform{};
@@ -118,24 +163,33 @@ void SceneTlas::build_from_meshes(
 
 		instances.push_back({
 			.transform = transform,
-			// can use .instanceCustomIndex to know in shader what index it's hitting
-			.instanceCustomIndex = static_cast<uint32_t>(instances.size()),
+			// can use .instanceCustomIndex to know in shader what instance it's hitting
+			.instanceCustomIndex = sceneInstanceIndex,
 			.mask = 0xFF,
 			.instanceShaderBindingTableRecordOffset = 0,
 			.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
 			.accelerationStructureReference = mo->mesh.gpu_data.blasAddress,
 		});
+		sceneInstanceTable[sceneInstanceIndex] = {
+			.bindlessMaterialIndex = bindlessMaterialIndex,
+			.geometryRecordIndex = INVALID_SCENE_GEOMETRY_INDEX,
+			.reserved = {0u, 0u},
+		};
 	}
+	fd.sceneInstanceRecordCount = static_cast<uint32_t>(instances.size());
+	fd.sceneInstanceRecordBuffer.writeData(
+		sceneInstanceTable.data(),
+		sizeof(glm::GpuSceneInstanceRecord) * sceneInstanceTable.size());
 
 	if (!instances.empty()) {
-		instancesBuffers[frameIndex].writeData(
+		fd.instancesBuffer.writeData(
 			instances.data(),
 			instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 	}
 
 	vk::buildTlas(
 		cmdbuf,
-		instancesBuffers[frameIndex],
+		fd.instancesBuffer,
 		static_cast<uint32_t>(instances.size()),
 		scratchBuffer,
 		dstStageMask,

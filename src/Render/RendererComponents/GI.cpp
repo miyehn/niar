@@ -4,6 +4,7 @@
 
 #include "GI.h"
 #include "Assets/ConfigAsset.hpp"
+#include "Render/BindlessResources.h"
 #include "Render/Texture.h"
 #include "Render/Materials/ComputeShader.h"
 #include "Render/Vulkan/ImageCreator.h"
@@ -34,17 +35,20 @@ class RtgiGenerateCS : public ComputeShader
 public:
 	const DescriptorSet* giDescriptorSetPtr = nullptr;
 	const DescriptorSet* skyDescriptorSetPtr = nullptr;
+	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
 		ASSERT(cmdbuf != VK_NULL_HANDLE)
 		ASSERT(giDescriptorSetPtr != nullptr)
 		ASSERT(skyDescriptorSetPtr != nullptr)
+		ASSERT(bindlessDescriptorSetPtr != nullptr)
 
 		auto& pipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
 		giDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipeline.layout);
 		skyDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
+		bindlessDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_BINDLESS, pipeline.layout);
 		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 	}
 
@@ -53,9 +57,11 @@ protected:
 	{
 		ASSERT(giDescriptorSetPtr != nullptr)
 		ASSERT(skyDescriptorSetPtr != nullptr)
+		ASSERT(bindlessDescriptorSetPtr != nullptr)
 		builder.shaderDef = ShaderModuleDef("shaders/rtgi_generate.comp", "main", SS_Compute);
 		builder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, giDescriptorSetPtr->getLayout());
 		builder.useDescriptorSetLayout(DSET_INDEPENDENT, skyDescriptorSetPtr->getLayout());
+		builder.useDescriptorSetLayout(DSET_BINDLESS, bindlessDescriptorSetPtr->getLayout());
 	}
 };
 
@@ -98,6 +104,7 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(3, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 	giSetLayout.addBinding(4, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(5, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	giSetLayout.addBinding(6, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -109,19 +116,15 @@ void GI::init(const InitInfo& info)
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		ASSERT(info.viewInfoUbos[i] != nullptr)
+		ASSERT(info.sceneInstanceRecordBuffers[i] != nullptr)
 		giDescriptorSets[i] = DescriptorSet(giSetLayout);
 		giDescriptorSets[i].pointToBuffer(*info.viewInfoUbos[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		giDescriptorSets[i].pointToImageView(
-			info.sceneDepth->imageView,
-			1,
-			&samplerInfo);
-		giDescriptorSets[i].pointToImageView(
-			info.GNormal->imageView,
-			2,
-			&samplerInfo);
+		giDescriptorSets[i].pointToImageView(info.sceneDepth->imageView, 1, &samplerInfo);
+		giDescriptorSets[i].pointToImageView(info.GNormal->imageView, 2, &samplerInfo);
 		giDescriptorSets[i].pointToAccelerationStructure(info.tlas, 3);
 		giDescriptorSets[i].pointToRWImageView(indirectLighting->imageView, 4);
 		giDescriptorSets[i].pointToImageView(info.environmentMap->imageView, 5);
+		giDescriptorSets[i].pointToBuffer(*info.sceneInstanceRecordBuffers[i], 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 	}
 }
 
@@ -213,8 +216,10 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 			VK_IMAGE_LAYOUT_GENERAL);
 
 		auto* generateCS = ComputeShader::getInstance<RtgiGenerateCS>();
+		ASSERT(BindlessResources::Instance != nullptr)
 		generateCS->giDescriptorSetPtr = &giDescriptorSet;
 		generateCS->skyDescriptorSetPtr = &skyDescriptorSet;
+		generateCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();
 		generateCS->dispatch(cmdbuf, groupCountX, groupCountY, 1);
 
 		vk::insertImageBarrier(

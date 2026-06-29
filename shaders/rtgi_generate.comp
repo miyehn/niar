@@ -3,6 +3,7 @@
 
 #include "scene_common.glsl"
 #include "sky_common.glsl"
+#include "bindless_resources.glsl"
 
 // (set 0, binding 0) is view info from scene_common.glsl
 layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
@@ -10,6 +11,9 @@ layout(set = 0, binding = 2) uniform sampler2D GNormal;
 layout(set = 0, binding = 3) uniform accelerationStructureEXT SceneTLAS;
 layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D IndirectLighting;
 layout(set = 0, binding = 5) uniform sampler2D EnvironmentMap;
+layout(set = 0, binding = 6, std430) readonly buffer SceneInstanceRecordTable {
+    GpuSceneInstanceRecord SceneInstanceRecords[];
+};
 
 // (set 1, binding 0) sky parameters
 // (set 1, binding 8) transmittance
@@ -106,6 +110,22 @@ RayHitResult traceRay(vec3 origin, vec3 direction)
     return result;
 }
 
+vec3 shadeCommittedHit(RayHitResult hitResult)
+{
+    if (hitResult.instanceCustomIndex == ~0u) {
+        return vec3(0.0);
+    }
+
+    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
+    if (sceneInstance.bindlessMaterialIndex == INVALID_BINDLESS_INDEX) {
+        return vec3(0.0);
+    }
+
+    GpuMaterial material = BindlessMaterials[sceneInstance.bindlessMaterialIndex];
+    // DEBUG: now basically using baseColorFactor as emission
+    return material.baseColorFactor.rgb * 0.05;
+}
+
 void main()
 {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -132,6 +152,6 @@ void main()
     vec3 rayOrigin = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo) + normal * EPSILON;
 
     RayHitResult hitResult = traceRay(rayOrigin, rayDir);
-    vec3 indirect = hitResult.committed ? vec3(0.0) : sampleBackground(viewInfo, rayDir);
+    vec3 indirect = hitResult.committed ? shadeCommittedHit(hitResult) : sampleBackground(viewInfo, rayDir);
     imageStore(IndirectLighting, pixel, vec4(indirect, 1.0));
 }

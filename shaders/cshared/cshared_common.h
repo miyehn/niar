@@ -8,6 +8,7 @@
 
 #define MAX_BINDLESS_TEXTURES_2D 1024u
 #define INVALID_BINDLESS_INDEX 0xffffffffu
+#define INVALID_SCENE_GEOMETRY_INDEX 0xffffffffu
 
 #define GLTF_MODEL_MATRIX_PUSH_OFFSET 0
 #define GLTF_MODEL_MATRIX_PUSH_SIZE 64
@@ -57,6 +58,13 @@ struct CSHARED_ALIGNAS_16 GpuMaterial
 	uvec4 textureIndices; // albedo, normal, orm, emissive
 };
 
+struct CSHARED_ALIGNAS_16 GpuSceneInstanceRecord
+{
+	uint bindlessMaterialIndex;
+	uint geometryRecordIndex;
+	uvec2 reserved; // reserved for scene lookup metadata without changing stride
+};
+
 #undef CSHARED_ALIGNAS_16
 
 #ifdef __cplusplus
@@ -68,6 +76,11 @@ static_assert(offsetof(glm::GpuMaterial, baseColorFactor) == 0);
 static_assert(offsetof(glm::GpuMaterial, emissiveFactorAndClipThreshold) == 16);
 static_assert(offsetof(glm::GpuMaterial, ormAndNormalStrength) == 32);
 static_assert(offsetof(glm::GpuMaterial, textureIndices) == 48);
+static_assert(sizeof(glm::GpuSceneInstanceRecord) == 16);
+static_assert(alignof(glm::GpuSceneInstanceRecord) == 16);
+static_assert(offsetof(glm::GpuSceneInstanceRecord, bindlessMaterialIndex) == 0);
+static_assert(offsetof(glm::GpuSceneInstanceRecord, geometryRecordIndex) == 4);
+static_assert(offsetof(glm::GpuSceneInstanceRecord, reserved) == 8);
 static_assert(GLTF_MODEL_MATRIX_PUSH_OFFSET == 0);
 static_assert(GLTF_MODEL_MATRIX_PUSH_SIZE == sizeof(glm::mat4));
 static_assert(GLTF_MATERIAL_INDEX_PUSH_OFFSET == sizeof(glm::mat4));

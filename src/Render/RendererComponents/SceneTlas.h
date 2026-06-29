@@ -18,7 +18,10 @@ struct SceneTlas
 	void init(const std::string& debugNamePrefix);
 	void release();
 
+	// todo [myn]: might want to make just one get function that returns framedata
 	VkAccelerationStructureKHR get() const;
+	const VmaBuffer& getSceneInstanceRecordBuffer(uint32_t frameIndex) const;
+	uint32_t getSceneInstanceRecordCount(uint32_t frameIndex) const;
 
 	void build_from_meshes(
 		VkCommandBuffer cmdbuf,
@@ -31,5 +34,11 @@ private:
 	VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
 	VmaBuffer tlasBuffer;
 	VmaBuffer scratchBuffer;
-	VmaBuffer instancesBuffers[MAX_FRAMES_IN_FLIGHT];
+
+	struct FrameData {
+		VmaBuffer instancesBuffer;
+		VmaBuffer sceneInstanceRecordBuffer;
+		uint32_t sceneInstanceRecordCount = 0;
+	};
+	FrameData frameData[MAX_FRAMES_IN_FLIGHT];
 };

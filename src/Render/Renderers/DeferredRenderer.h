@@ -126,5 +126,5 @@ private:
 	GI gi;
 	SkyAtmosphereRender skyAtmosphereRender;
 	// Shared TLAS for RTX shadows and GI.
-	SceneTlas shadowTlas;
+	SceneTlas sceneTlas;
 };
