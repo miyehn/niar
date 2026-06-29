@@ -31,8 +31,12 @@ void main() {
         baseColor.rgb,
         orm
     );
+    /*
+    todo [myn]: indirect for translucent surfaces
     vec2 screenUv = gl_FragCoord.xy / GetViewInfo().RenderSize;
-    litResult += sampleIndirectLighting(screenUv);
+    vec3 indirectDiffuse = sampleIndirectLighting(screenUv) * baseColor.rgb;
+    litResult += indirectDiffuse;
+    */
 
     outColor = vec4(litResult, baseColor.a);
 }

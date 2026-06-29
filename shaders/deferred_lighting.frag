@@ -39,7 +39,8 @@ void main() {
 			GColor.rgb,
 			GORM.rgb
 		);
-		FragColor.rgb += sampleIndirectLighting(vf_uv);
+		vec3 indirectDiffuse = sampleIndirectLighting(vf_uv) * GColor.rgb;
+		FragColor.rgb += indirectDiffuse;
 	}
 	else if (viewInfo.BackgroundOption > 0)
 	{
