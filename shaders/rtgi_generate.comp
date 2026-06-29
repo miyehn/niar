@@ -45,20 +45,65 @@ vec3 sampleBackground(ViewInfo viewInfo, vec3 rayDir)
     return vec3(0.0);
 }
 
-bool rayMissedScene(vec3 origin, vec3 direction)
+struct RayHitResult
+{
+    bool committed;
+    uint intersectionType;
+    uint instanceCustomIndex;
+    uint primitiveIndex;
+    vec2 barycentrics;
+    float hitT;
+};
+
+RayHitResult makeMissHitResult()
+{
+    return RayHitResult(false, gl_RayQueryCommittedIntersectionNoneEXT, ~0u, ~0u, vec2(-1.0), -1.0);
+}
+
+RayHitResult traceRay(vec3 origin, vec3 direction)
 {
     rayQueryEXT rq;
     rayQueryInitializeEXT(
         rq,
         SceneTLAS,
-        gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsOpaqueEXT,
-        0xFF,
+        // ray flags:
+        0
+        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
+        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
+        | gl_RayFlagsOpaqueEXT,
+        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
+              // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
         origin,
-        0.001,
+        0.001, // tmin
         direction,
-        10000.0);
+        10000.0); // tmax
     rayQueryProceedEXT(rq);
-    return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT;
+
+    // the second boolean arg being true: want the final committed intersection
+    // hit opaque triangle (forced by gl_RayFlagsOpaqueEXT, or VK_GEOMETRY_OPAQUE_BIT_KHR when building BLAS) -> internally confirmed
+    // hit non-opaque triangle -> shader must confirm the hit
+    // hit AABB (need BLAS to be built as procedural geometry not triangle geometry) -> shader must generate an intersection
+    uint intersectionType = rayQueryGetIntersectionTypeEXT(rq, true);
+
+    RayHitResult result = makeMissHitResult();
+    if (intersectionType == gl_RayQueryCommittedIntersectionNoneEXT) {
+        // it's a miss
+        return result;
+    }
+
+    // it's a hit
+    result.committed = true;
+
+    // intersection types can be: None (miss), Triangle (triangle geometry), or Generated (AABB geometry), which is used for shader-defined procedural geometry
+    result.intersectionType = intersectionType;
+
+    result.instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
+    result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, true);
+    result.hitT = rayQueryGetIntersectionTEXT(rq, true);
+    if (intersectionType == gl_RayQueryCommittedIntersectionTriangleEXT) {
+        result.barycentrics = rayQueryGetIntersectionBarycentricsEXT(rq, true);
+    }
+    return result;
 }
 
 void main()
@@ -86,6 +131,7 @@ void main()
     vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
     vec3 rayOrigin = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo) + normal * EPSILON;
 
-    vec3 indirect = rayMissedScene(rayOrigin, rayDir) ? sampleBackground(viewInfo, rayDir) : vec3(0.0);
+    RayHitResult hitResult = traceRay(rayOrigin, rayDir);
+    vec3 indirect = hitResult.committed ? vec3(0.0) : sampleBackground(viewInfo, rayDir);
     imageStore(IndirectLighting, pixel, vec4(indirect, 1.0));
 }
