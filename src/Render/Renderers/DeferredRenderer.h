@@ -5,6 +5,7 @@
 #include "Render/RendererComponents/SkyAtmosphereRender.h"
 #include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/Buffer.h"
+#include "lights.h"
 #include <vulkan/vulkan.h>
 
 #include "Render/RendererComponents/GI.h"
@@ -27,9 +28,6 @@ class PostProcessing;
 
 // post process
 #define DEFERRED_SUBPASS_POSTPROCESSING 0
-
-// lighting related
-#define MAX_LIGHTS_PER_PASS 128 // 4KB if each light takes { vec4, vec4 }. Must not exceed definition in shader.
 
 enum BackgroundOption {
 	BG_None,
@@ -105,22 +103,12 @@ private:
 
 	// light buffers
 
-	struct PointLightInfo {
-		alignas(16) glm::vec3 position;
-		alignas(16) glm::vec3 color;
-	};
-
-	struct DirectionalLightInfo {
-		alignas(16) glm::vec3 direction;
-		alignas(16) glm::vec3 color;
-	};
-
 	struct {
-		PointLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
+		glm::PointLightInfo Data[MAX_LIGHTS_PER_PASS];
 	} pointLights;
 
 	struct {
-		DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS]; // need to match shader
+		glm::DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 	} directionalLights;
 
 	GI gi;

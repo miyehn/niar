@@ -105,6 +105,8 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(4, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(5, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(6, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	giSetLayout.addBinding(7, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	giSetLayout.addBinding(8, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -117,6 +119,8 @@ void GI::init(const InitInfo& info)
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		ASSERT(info.viewInfoUbos[i] != nullptr)
 		ASSERT(info.sceneInstanceRecordBuffers[i] != nullptr)
+		ASSERT(info.pointLightBuffers[i] != nullptr)
+		ASSERT(info.directionalLightBuffers[i] != nullptr)
 		giDescriptorSets[i] = DescriptorSet(giSetLayout);
 		giDescriptorSets[i].pointToBuffer(*info.viewInfoUbos[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		giDescriptorSets[i].pointToImageView(info.sceneDepth->imageView, 1, &samplerInfo);
@@ -125,6 +129,8 @@ void GI::init(const InitInfo& info)
 		giDescriptorSets[i].pointToRWImageView(indirectLighting->imageView, 4);
 		giDescriptorSets[i].pointToImageView(info.environmentMap->imageView, 5);
 		giDescriptorSets[i].pointToBuffer(*info.sceneInstanceRecordBuffers[i], 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		giDescriptorSets[i].pointToBuffer(*info.pointLightBuffers[i], 7, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		giDescriptorSets[i].pointToBuffer(*info.directionalLightBuffers[i], 8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	}
 }
 

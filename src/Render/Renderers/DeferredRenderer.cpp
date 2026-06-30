@@ -729,6 +729,8 @@ DeferredRenderer::DeferredRenderer()
 			for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 				giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
 				giInitInfo.sceneInstanceRecordBuffers[i] = &sceneTlas.getSceneInstanceRecordBuffer(i);
+				giInitInfo.pointLightBuffers[i] = &gpuFrameData[i].pointLightsBuffer;
+				giInitInfo.directionalLightBuffers[i] = &gpuFrameData[i].directionalLightsBuffer;
 			}
 			giInitInfo.tlas = sceneTlas.get();
 			giInitInfo.environmentMap = envmap;
@@ -870,8 +872,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
         auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
         fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
-        fd.pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(PointLightInfo));
-        fd.directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(DirectionalLightInfo));
+        fd.pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(glm::PointLightInfo));
+        fd.directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(glm::DirectionalLightInfo));
 	}
 
 	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];

@@ -19,6 +19,8 @@ struct GI
         const Texture2D* GNormal = nullptr;
         const VmaBuffer* viewInfoUbos[MAX_FRAMES_IN_FLIGHT] = {};
         const VmaBuffer* sceneInstanceRecordBuffers[MAX_FRAMES_IN_FLIGHT] = {};
+        const VmaBuffer* pointLightBuffers[MAX_FRAMES_IN_FLIGHT] = {};
+        const VmaBuffer* directionalLightBuffers[MAX_FRAMES_IN_FLIGHT] = {};
         VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
         const Texture2D* environmentMap = nullptr;
     };

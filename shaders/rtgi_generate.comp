@@ -6,6 +6,7 @@
 #include "scene_common.glsl"
 #include "sky_common.glsl"
 #include "bindless_resources.glsl"
+#include "cshared/lights.h"
 
 // (set 0, binding 0) is view info from scene_common.glsl
 layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
@@ -16,6 +17,12 @@ layout(set = 0, binding = 5) uniform sampler2D EnvironmentMap;
 layout(set = 0, binding = 6, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
 };
+layout(set = 0, binding = 7) uniform RtgiPointLightsInfo {
+    PointLightInfo Data[MAX_LIGHTS_PER_PASS];
+} PointLights;
+layout(set = 0, binding = 8) uniform RtgiDirectionalLightsInfo {
+    DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
+} DirectionalLights;
 
 // (set 1, binding 0) sky parameters
 // (set 1, binding 8) transmittance
