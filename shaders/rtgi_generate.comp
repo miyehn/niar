@@ -238,13 +238,14 @@ vec3 shadeCommittedHit(RayHitResult hitResult)
         return shadeInvalid();
     }
 
+    // unused for now
     uint albedoTextureIndex = material.textureIndices.x;
-    if (albedoTextureIndex == INVALID_BINDLESS_INDEX) {
-        return shadeInvalid();
-    }
+    vec3 albedo = sampleBindlessTexture2DLod(albedoTextureIndex, uv, 0.0).rgb * material.baseColorFactor.rgb;
 
-    vec3 albedo = sampleBindlessTexture2DLod(albedoTextureIndex, uv, 0.0).rgb;
-    return albedo * material.baseColorFactor.rgb * 0.05;
+    uint emissiveTextureIndex = material.textureIndices.w;
+    vec3 emission = sampleBindlessTexture2DLod(emissiveTextureIndex, uv, 0.0).rgb * material.emissiveFactorAndClipThreshold.rgb;
+
+    return emission;
 }
 
 void main()
