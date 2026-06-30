@@ -59,11 +59,12 @@ struct RayHitResult
     uint primitiveIndex;
     vec2 barycentrics;
     float hitT;
+    mat4x3 worldToObject;
 };
 
 RayHitResult makeMissHitResult()
 {
-    return RayHitResult(false, gl_RayQueryCommittedIntersectionNoneEXT, ~0u, ~0u, vec2(-1.0), -1.0);
+    return RayHitResult(false, gl_RayQueryCommittedIntersectionNoneEXT, ~0u, ~0u, vec2(-1.0), -1.0, mat4x3(0.0));
 }
 
 RayHitResult traceRay(vec3 origin, vec3 direction)
@@ -106,6 +107,7 @@ RayHitResult traceRay(vec3 origin, vec3 direction)
     result.instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
     result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, true);
     result.hitT = rayQueryGetIntersectionTEXT(rq, true);
+    result.worldToObject = rayQueryGetIntersectionWorldToObjectEXT(rq, true);
     if (intersectionType == gl_RayQueryCommittedIntersectionTriangleEXT) {
         result.barycentrics = rayQueryGetIntersectionBarycentricsEXT(rq, true);
     }
@@ -129,6 +131,16 @@ vec3 shadeInvalid()
 {
     return vec3(1, 0, 1) * 0.05;
 }
+
+struct SecondaryHitSurface
+{
+    vec3 worldPosition;
+    vec3 objectPosition;
+    vec3 worldNormal;
+    vec2 uv;
+    vec3 outgoingDirection;
+    GpuMaterial material;
+};
 
 // read vertexIndex from index buffer. the result will be used to read into vertex buffer
 bool readGeometryIndex(GpuGeometryRecord geometry, uint elementIndex, out uint index)
@@ -160,6 +172,47 @@ bool readGeometryIndex(GpuGeometryRecord geometry, uint elementIndex, out uint i
     return false;
 }
 
+bool readTriangleVertexIndices(RayHitResult hitResult, GpuGeometryRecord geometry, out uvec3 indices)
+{
+    indices = uvec3(~0u);
+    if (hitResult.intersectionType != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return false;
+    }
+    if (geometry.indexCount < 3u || hitResult.primitiveIndex >= geometry.indexCount / 3u) {
+        return false;
+    }
+
+    uint firstIndex = hitResult.primitiveIndex * 3u;
+    return
+        readGeometryIndex(geometry, firstIndex, indices.x) &&
+        readGeometryIndex(geometry, firstIndex + 1u, indices.y) &&
+        readGeometryIndex(geometry, firstIndex + 2u, indices.z);
+}
+
+bool readVertexVec3(GpuGeometryRecord geometry, uint vertexIndex, uint attribOffset, out vec3 value)
+{
+    value = vec3(0.0);
+    if (vertexIndex >= geometry.vertexCount) {
+        return false;
+    }
+
+    uint byteOffset =
+        geometry.vertexBufferOffsetBytes +
+        vertexIndex * geometry.vertexStride +
+        attribOffset;
+    if ((byteOffset & 3u) != 0u) {
+        return false;
+    }
+
+    FloatBuffer vertexBuffer = FloatBuffer(geometry.vertexBufferAddress);
+    uint floatOffset = byteOffset >> 2u;
+    value = vec3(
+        vertexBuffer.values[floatOffset],
+        vertexBuffer.values[floatOffset + 1u],
+        vertexBuffer.values[floatOffset + 2u]);
+    return true;
+}
+
 bool readVertexUv(GpuGeometryRecord geometry, uint vertexIndex, out vec2 uv)
 {
     uv = vec2(0.0);
@@ -184,29 +237,17 @@ bool readVertexUv(GpuGeometryRecord geometry, uint vertexIndex, out vec2 uv)
 bool reconstructHitUv(RayHitResult hitResult, GpuGeometryRecord geometry, out vec2 uv)
 {
     uv = vec2(0.0);
-    if (hitResult.intersectionType != gl_RayQueryCommittedIntersectionTriangleEXT) {
-        return false;
-    }
-    if (geometry.indexCount < 3u || hitResult.primitiveIndex >= geometry.indexCount / 3u) {
-        return false;
-    }
-
-    uint index0;
-    uint index1;
-    uint index2;
-    uint firstIndex = hitResult.primitiveIndex * 3u;
-    if (!readGeometryIndex(geometry, firstIndex, index0) ||
-        !readGeometryIndex(geometry, firstIndex + 1u, index1) ||
-        !readGeometryIndex(geometry, firstIndex + 2u, index2)) {
+    uvec3 indices;
+    if (!readTriangleVertexIndices(hitResult, geometry, indices)) {
         return false;
     }
 
     vec2 uv0;
     vec2 uv1;
     vec2 uv2;
-    if (!readVertexUv(geometry, index0, uv0) ||
-        !readVertexUv(geometry, index1, uv1) ||
-        !readVertexUv(geometry, index2, uv2)) {
+    if (!readVertexUv(geometry, indices.x, uv0) ||
+        !readVertexUv(geometry, indices.y, uv1) ||
+        !readVertexUv(geometry, indices.z, uv2)) {
         return false;
     }
 
@@ -216,34 +257,89 @@ bool reconstructHitUv(RayHitResult hitResult, GpuGeometryRecord geometry, out ve
     return true;
 }
 
-vec3 shadeCommittedHit(RayHitResult hitResult)
+bool reconstructHitSurface(
+    RayHitResult hitResult,
+    GpuSceneInstanceRecord sceneInstance,
+    vec3 rayOrigin,
+    vec3 rayDir,
+    out SecondaryHitSurface surface)
+{
+    GpuMaterial material = BindlessMaterials[sceneInstance.bindlessMaterialIndex];
+    surface = SecondaryHitSurface(vec3(0.0), vec3(0.0), vec3(0.0, 0.0, 1.0), vec2(0.0), vec3(0.0), material);
+
+    GpuGeometryRecord geometry = BindlessGeometryRecords[sceneInstance.geometryRecordIndex];
+
+    uvec3 indices;
+    if (!readTriangleVertexIndices(hitResult, geometry, indices)) {
+        return false;
+    }
+
+    vec2 uv;
+    if (!reconstructHitUv(hitResult, geometry, uv)) {
+        return false;
+    }
+
+    vec3 objectPosition0;
+    vec3 objectPosition1;
+    vec3 objectPosition2;
+    if (!readVertexVec3(geometry, indices.x, geometry.positionAttribOffset, objectPosition0) ||
+        !readVertexVec3(geometry, indices.y, geometry.positionAttribOffset, objectPosition1) ||
+        !readVertexVec3(geometry, indices.z, geometry.positionAttribOffset, objectPosition2)) {
+        return false;
+    }
+
+    vec3 objectNormal0;
+    vec3 objectNormal1;
+    vec3 objectNormal2;
+    if (!readVertexVec3(geometry, indices.x, geometry.normalAttribOffset, objectNormal0) ||
+        !readVertexVec3(geometry, indices.y, geometry.normalAttribOffset, objectNormal1) ||
+        !readVertexVec3(geometry, indices.z, geometry.normalAttribOffset, objectNormal2)) {
+        return false;
+    }
+
+    vec2 barycentrics = hitResult.barycentrics;
+    float w0 = 1.0 - barycentrics.x - barycentrics.y;
+    vec3 objectPosition =
+        objectPosition0 * w0 +
+        objectPosition1 * barycentrics.x +
+        objectPosition2 * barycentrics.y;
+    vec3 objectNormal = normalize(
+        objectNormal0 * w0 +
+        objectNormal1 * barycentrics.x +
+        objectNormal2 * barycentrics.y);
+    mat3 worldToObjectLinear = mat3(
+        hitResult.worldToObject[0],
+        hitResult.worldToObject[1],
+        hitResult.worldToObject[2]);
+
+    surface.worldPosition = rayOrigin + rayDir * hitResult.hitT;
+    surface.objectPosition = objectPosition;
+    surface.worldNormal = normalize(transpose(worldToObjectLinear) * objectNormal);
+    surface.uv = uv;
+    surface.outgoingDirection = normalize(-rayDir);
+    surface.material = material;
+    return true;
+}
+
+vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir)
 {
     if (hitResult.instanceCustomIndex == ~0u) {
-        return vec3(0.0);
-    }
-
-    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
-    if (sceneInstance.bindlessMaterialIndex == INVALID_BINDLESS_INDEX) {
-        return vec3(0.0);
-    }
-
-    GpuMaterial material = BindlessMaterials[sceneInstance.bindlessMaterialIndex];
-    if (sceneInstance.geometryRecordIndex == INVALID_SCENE_GEOMETRY_INDEX) {
         return shadeInvalid();
     }
 
-    GpuGeometryRecord geometry = BindlessGeometryRecords[sceneInstance.geometryRecordIndex];
-    vec2 uv;
-    if (!reconstructHitUv(hitResult, geometry, uv)) {
+    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
+
+    SecondaryHitSurface surface;
+    if (!reconstructHitSurface(hitResult, sceneInstance, rayOrigin, rayDir, surface)) {
         return shadeInvalid();
     }
 
     // unused for now
-    uint albedoTextureIndex = material.textureIndices.x;
-    vec3 albedo = sampleBindlessTexture2DLod(albedoTextureIndex, uv, 0.0).rgb * material.baseColorFactor.rgb;
+    uint albedoTextureIndex = surface.material.textureIndices.x;
+    vec3 albedo = sampleBindlessTexture2DLod(albedoTextureIndex, surface.uv, 0.0).rgb * surface.material.baseColorFactor.rgb;
 
-    uint emissiveTextureIndex = material.textureIndices.w;
-    vec3 emission = sampleBindlessTexture2DLod(emissiveTextureIndex, uv, 0.0).rgb * material.emissiveFactorAndClipThreshold.rgb;
+    uint emissiveTextureIndex = surface.material.textureIndices.w;
+    vec3 emission = sampleBindlessTexture2DLod(emissiveTextureIndex, surface.uv, 0.0).rgb * surface.material.emissiveFactorAndClipThreshold.rgb;
 
     return emission;
 }
@@ -274,6 +370,6 @@ void main()
     vec3 rayOrigin = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo) + normal * EPSILON;
 
     RayHitResult hitResult = traceRay(rayOrigin, rayDir);
-    vec3 indirect = hitResult.committed ? shadeCommittedHit(hitResult) : sampleBackground(viewInfo, rayDir);
+    vec3 indirect = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
     imageStore(IndirectLighting, pixel, vec4(indirect, 1.0));
 }
