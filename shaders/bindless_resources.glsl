@@ -13,6 +13,11 @@ readonly buffer BindlessMaterialTable {
     GpuMaterial BindlessMaterials[];
 };
 
+layout(set = DSET_BINDLESS, binding = 2, std430)
+readonly buffer BindlessGeometryRecordTable {
+    GpuGeometryRecord BindlessGeometryRecords[];
+};
+
 vec4 sampleBindlessTexture2D(uint index, vec2 uv) {
     return texture(BindlessTextures[nonuniformEXT(index)], uv);
 }

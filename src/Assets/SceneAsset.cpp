@@ -13,6 +13,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <tiny_gltf.h>
 
+#include <limits>
 #include <unordered_map>
 #include <queue>
 #include "Scene/MeshObject.h"
@@ -402,6 +403,64 @@ static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAcces
 	gpu_data.blasAddress =
 		Vulkan::Instance->fn_vkGetAccelerationStructureDeviceAddressKHR(Vulkan::Instance->device, &addrInfo);
 }
+
+static glm::GpuGeometryRecord make_geometry_record(
+	const Mesh::CpuDataAccessor& cpu_data,
+	const Mesh::GpuDataAccessor& gpu_data)
+{
+	static_assert(sizeof(VERTEX_INDEX_TYPE) == sizeof(uint16_t), "RTGI geometry records currently assume 16-bit mesh indices");
+	ASSERT(gpu_data.vertexBuffer != nullptr)
+	ASSERT(gpu_data.indexBuffer != nullptr)
+	ASSERT(gpu_data.vertexBuffer->getDeviceAddress() != 0)
+	ASSERT(gpu_data.indexBuffer->getDeviceAddress() != 0)
+	ASSERT(gpu_data.vertexBufferOffsetBytes <= std::numeric_limits<uint32_t>::max())
+	ASSERT(gpu_data.indexBufferOffsetBytes <= std::numeric_limits<uint32_t>::max())
+	ASSERT(cpu_data.num_indices % 3 == 0)
+
+	const auto deviceAddressWords = [](VkDeviceAddress address) -> glm::uvec2 {
+		return {
+			static_cast<uint32_t>(address & 0xffffffffull),
+			static_cast<uint32_t>(address >> 32),
+		};
+	};
+
+	return {
+		.vertexBufferAddress = deviceAddressWords(gpu_data.vertexBuffer->getDeviceAddress()),
+		.vertexBufferOffsetBytes = static_cast<uint32_t>(gpu_data.vertexBufferOffsetBytes),
+		.vertexCount = cpu_data.num_vertices,
+		.vertexStride = static_cast<uint32_t>(sizeof(Vertex)),
+		.indexType = GPU_GEOMETRY_INDEX_TYPE_UINT16,
+		._pad0 = {0u, 0u},
+		.positionAttribOffset = static_cast<uint32_t>(offsetof(Vertex, position)),
+		.normalAttribOffset = static_cast<uint32_t>(offsetof(Vertex, normal)),
+		.tangentAttribOffset = static_cast<uint32_t>(offsetof(Vertex, tangent)),
+		.uvAttribOffset = static_cast<uint32_t>(offsetof(Vertex, uv)),
+		.indexBufferAddress = deviceAddressWords(gpu_data.indexBuffer->getDeviceAddress()),
+		.indexBufferOffsetBytes = static_cast<uint32_t>(gpu_data.indexBufferOffsetBytes),
+		.indexCount = cpu_data.num_indices,
+	};
+}
+
+static void register_geometry_records(
+	const std::unordered_map<PrimitiveBufferIndex, Mesh::CpuDataAccessor>& cpu_buffer_indices,
+	std::unordered_map<PrimitiveBufferIndex, Mesh::GpuDataAccessor>& gpu_buffer_indices,
+	std::vector<uint32_t>& asset_geometry_indices)
+{
+	ASSERT(BindlessResources::Instance != nullptr)
+	ASSERT(asset_geometry_indices.empty())
+	asset_geometry_indices.reserve(gpu_buffer_indices.size());
+	for (auto& [bufferIndex, gpu_data] : gpu_buffer_indices)
+	{
+		const auto& cpu_data = cpu_buffer_indices.at(bufferIndex);
+		const uint32_t geometryRecordIndex =
+			BindlessResources::Instance->addGeometryRecord(make_geometry_record(cpu_data, gpu_data));
+		gpu_data.geometryRecordIndex = geometryRecordIndex;
+		asset_geometry_indices.push_back(geometryRecordIndex);
+#if TMP_BINDLESS_DEBUG
+		BindlessResources::Instance->assertGeometryRecordIndexOccupied(geometryRecordIndex);
+#endif
+	}
+}
 #endif
 
 // load all the glTF primitives in this tinygltf::Mesh. Called when constructing scene tree.
@@ -672,6 +731,12 @@ SceneAsset::SceneAsset(
 			&combined_index_buffer
 #endif
 		);
+#if GRAPHICS_DISPLAY
+		register_geometry_records(
+			cpu_buffer_indices,
+			gpu_buffer_indices,
+			asset_geometry_indices);
+#endif
 
 		//====================
 
@@ -812,6 +877,28 @@ void SceneAsset::release_resources()
 	}
 	asset_material_indices.clear();
 
+	if (!asset_geometry_indices.empty())
+	{
+		ASSERT(BindlessResources::Instance != nullptr)
+#if TMP_BINDLESS_DEBUG
+		const uint32_t releasedGeometryRecordCount =
+			static_cast<uint32_t>(asset_geometry_indices.size());
+		const uint32_t activeGeometryRecordsBeforeRelease =
+			BindlessResources::Instance->activeGeometryRecordCount();
+#endif
+		for (const uint32_t geometryRecordIndex : asset_geometry_indices)
+		{
+			BindlessResources::Instance->removeGeometryRecord(geometryRecordIndex);
+		}
+#if TMP_BINDLESS_DEBUG
+		ASSERT(
+			BindlessResources::Instance->activeGeometryRecordCount() +
+			releasedGeometryRecordCount ==
+			activeGeometryRecordsBeforeRelease)
+#endif
+	}
+	asset_geometry_indices.clear();
+
 #if TMP_BINDLESS_DEBUG
 	ASSERT(BindlessResources::Instance != nullptr)
 	const uint32_t releasedTextureCount =
@@ -883,6 +970,12 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 			&combined_index_buffer
 #endif
 		);
+#if GRAPHICS_DISPLAY
+		register_geometry_records(
+			cpu_buffer_indices,
+			gpu_buffer_indices,
+			asset_geometry_indices);
+#endif
 
 		for (auto & in_mesh : model.meshes) {
 
@@ -925,6 +1018,16 @@ void MeshAsset::release_resources()
 	combined_vertices.clear();
 	combined_indices.clear();
 #if GRAPHICS_DISPLAY
+	if (!asset_geometry_indices.empty())
+	{
+		ASSERT(BindlessResources::Instance != nullptr)
+		for (const uint32_t geometryRecordIndex : asset_geometry_indices)
+		{
+			BindlessResources::Instance->removeGeometryRecord(geometryRecordIndex);
+		}
+	}
+	asset_geometry_indices.clear();
+
 	combined_vertex_buffer.release();
 	combined_index_buffer.release();
 

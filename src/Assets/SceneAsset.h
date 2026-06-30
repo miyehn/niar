@@ -49,6 +49,7 @@ private:
 #if GRAPHICS_DISPLAY
 	std::vector<Texture2D*> asset_images; // same size as model.images
 	std::vector<uint32_t> asset_material_indices; // same size as model.materials; cleanup tokens and mesh bridge source
+	std::vector<uint32_t> asset_geometry_indices; // cleanup tokens for registered GPU geometry records
 
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
@@ -77,6 +78,7 @@ private:
 #if GRAPHICS_DISPLAY
 	VmaBuffer combined_vertex_buffer;
 	VmaBuffer combined_index_buffer;
+	std::vector<uint32_t> asset_geometry_indices; // cleanup tokens
 	std::vector<BLASInfo> blas_collection;
 #endif
 };

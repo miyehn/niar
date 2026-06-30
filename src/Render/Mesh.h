@@ -60,6 +60,7 @@ struct Mesh {
 		VkDeviceSize indexBufferOffsetBytes;
 		VkAccelerationStructureKHR blasHandle = VK_NULL_HANDLE;
 		VkDeviceAddress blasAddress = 0;
+		uint32_t geometryRecordIndex = INVALID_SCENE_GEOMETRY_INDEX;
 	};
 
 	void draw(VkCommandBuffer cmdbuf);

@@ -64,7 +64,7 @@ void SceneTlas::init(const std::string& inDebugNamePrefix)
 	});
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		frameData[i].instancesBuffer = VmaBuffer({
+		frameData[i].tlasInstancesBuffer = VmaBuffer({
 			&Vulkan::Instance->memoryAllocator,
 			MAX_RTX_INSTANCES * sizeof(VkAccelerationStructureInstanceKHR),
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
@@ -90,7 +90,7 @@ void SceneTlas::release()
 	tlasBuffer.release();
 	scratchBuffer.release();
 	for (auto& fd : frameData) {
-		fd.instancesBuffer.release();
+		fd.tlasInstancesBuffer.release();
 		fd.sceneInstanceRecordBuffer.release();
 		fd.sceneInstanceRecordCount = 0;
 	}
@@ -147,10 +147,13 @@ void SceneTlas::build_from_meshes(
 		}
 		const uint32_t sceneInstanceIndex = static_cast<uint32_t>(instances.size());
 		const uint32_t bindlessMaterialIndex = mo->mesh.surface.bindlessMaterialIndex;
+		const uint32_t geometryRecordIndex = mo->mesh.gpu_data.geometryRecordIndex;
 		ASSERT(bindlessMaterialIndex != INVALID_BINDLESS_INDEX)
+		ASSERT(geometryRecordIndex != INVALID_SCENE_GEOMETRY_INDEX)
 #if TMP_BINDLESS_DEBUG
 		ASSERT(BindlessResources::Instance != nullptr)
 		BindlessResources::Instance->assertMaterialIndexOccupied(bindlessMaterialIndex);
+		BindlessResources::Instance->assertGeometryRecordIndexOccupied(geometryRecordIndex);
 #endif
 
 		glm::mat4 t = mo->object_to_world();
@@ -172,7 +175,7 @@ void SceneTlas::build_from_meshes(
 		});
 		sceneInstanceTable[sceneInstanceIndex] = {
 			.bindlessMaterialIndex = bindlessMaterialIndex,
-			.geometryRecordIndex = INVALID_SCENE_GEOMETRY_INDEX,
+			.geometryRecordIndex = geometryRecordIndex,
 			.reserved = {0u, 0u},
 		};
 	}
@@ -182,14 +185,14 @@ void SceneTlas::build_from_meshes(
 		sizeof(glm::GpuSceneInstanceRecord) * sceneInstanceTable.size());
 
 	if (!instances.empty()) {
-		fd.instancesBuffer.writeData(
+		fd.tlasInstancesBuffer.writeData(
 			instances.data(),
 			instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 	}
 
 	vk::buildTlas(
 		cmdbuf,
-		fd.instancesBuffer,
+		fd.tlasInstancesBuffer,
 		static_cast<uint32_t>(instances.size()),
 		scratchBuffer,
 		dstStageMask,

@@ -15,6 +15,7 @@ namespace
 
 constexpr uint32_t BindlessTextureBinding = 0;
 constexpr uint32_t MaterialBufferBinding = 1;
+constexpr uint32_t GeometryRecordBufferBinding = 2;
 
 VkDescriptorImageInfo textureDescriptor(
 	VkImageView imageView,
@@ -97,7 +98,7 @@ void BindlessResources::init()
 			},
 			{
 				.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				.descriptorCount = 1,
+				.descriptorCount = 2,
 			},
 		}};
 		const VkDescriptorPoolCreateInfo poolInfo = {
@@ -125,11 +126,17 @@ void BindlessResources::init()
 			MaterialBufferBinding,
 			bindlessStages,
 			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		bindlessSetLayout.addBinding(
+			GeometryRecordBufferBinding,
+			bindlessStages,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		bindlessDescriptorSet = DescriptorSet(bindlessSetLayout, descriptorPool);
 	}
 
 	// put material table to slot 1
 	uploadMaterialTable();
+	// geometry record table to slot 2
+	uploadGeometryRecordTable();
 
 	ASSERT(freeTexture2DSlots.empty())
 	freeTexture2DSlots.reserve(MAX_BINDLESS_TEXTURES_2D);
@@ -160,6 +167,14 @@ void BindlessResources::release()
 			materialCount == 0,
 			"BindlessResources still has %u material registration(s)",
 			materialCount)
+		const uint32_t geometryRecordCount = static_cast<uint32_t>(std::count_if(
+			geometryRecordSlotOccupied.begin(),
+			geometryRecordSlotOccupied.end(),
+			[](uint8_t occupied) { return occupied != 0; }));
+		ASSERT_M(
+			geometryRecordCount == 0,
+			"BindlessResources still has %u geometry record registration(s)",
+			geometryRecordCount)
 	}
 
 	vkDestroyDescriptorPool(Vulkan::Instance->device, descriptorPool, nullptr);
@@ -169,12 +184,19 @@ void BindlessResources::release()
 	fillerTexture2DDescriptor = {};
 
 	materialTableBuffer.release();
+	geometryRecordTableBuffer.release();
 
 	for (auto& slot : texture2DSlots) slot = {};
 	freeTexture2DSlots.clear();
+
 	materialRecords.clear();
 	materialSlotOccupied.clear();
 	freeMaterialSlots.clear();
+
+	geometryRecords.clear();
+	geometryRecordSlotOccupied.clear();
+	freeGeometryRecordSlots.clear();
+
 	Instance = nullptr;
 }
 
@@ -295,6 +317,67 @@ void BindlessResources::clearMaterials()
 	uploadMaterialTable();
 }
 
+uint32_t BindlessResources::addGeometryRecord(const glm::GpuGeometryRecord& geometryRecord)
+{
+	ASSERT(Instance == this)
+
+	uint32_t geometryRecordIndex;
+	if (freeGeometryRecordSlots.empty())
+	{
+		geometryRecordIndex = static_cast<uint32_t>(geometryRecords.size());
+		geometryRecords.push_back(geometryRecord);
+		geometryRecordSlotOccupied.push_back(1);
+	}
+	else
+	{
+		geometryRecordIndex = freeGeometryRecordSlots.back();
+		freeGeometryRecordSlots.pop_back();
+		ASSERT(geometryRecordIndex < geometryRecords.size())
+		ASSERT(geometryRecordSlotOccupied[geometryRecordIndex] == 0)
+		geometryRecords[geometryRecordIndex] = geometryRecord;
+		geometryRecordSlotOccupied[geometryRecordIndex] = 1;
+	}
+
+	uploadGeometryRecordTable();
+	return geometryRecordIndex;
+}
+
+void BindlessResources::updateGeometryRecord(
+	uint32_t index,
+	const glm::GpuGeometryRecord& geometryRecord)
+{
+	ASSERT(Instance == this)
+	ASSERT(index < geometryRecords.size())
+	ASSERT(geometryRecordSlotOccupied[index] != 0)
+
+	geometryRecords[index] = geometryRecord;
+	uploadGeometryRecordTable();
+}
+
+void BindlessResources::removeGeometryRecord(uint32_t index)
+{
+	ASSERT(Instance == this)
+	ASSERT(index < geometryRecords.size())
+	ASSERT(geometryRecordSlotOccupied[index] != 0)
+
+	Vulkan::Instance->waitDeviceIdle();
+	geometryRecords[index] = {};
+	geometryRecordSlotOccupied[index] = 0;
+	freeGeometryRecordSlots.push_back(index);
+	uploadGeometryRecordTable();
+}
+
+void BindlessResources::clearGeometryRecords()
+{
+	ASSERT(Instance == this)
+
+	Vulkan::Instance->waitDeviceIdle();
+	geometryRecords.clear();
+	geometryRecordSlotOccupied.clear();
+	freeGeometryRecordSlots.clear();
+	uploadGeometryRecordTable();
+}
+
 void BindlessResources::setTexture2DFiller(
 	VkImageView imageView,
 	const VkSamplerCreateInfo& samplerInfo)
@@ -331,6 +414,14 @@ uint32_t BindlessResources::activeMaterialCount() const
 		[](uint8_t occupied) { return occupied != 0; }));
 }
 
+uint32_t BindlessResources::activeGeometryRecordCount() const
+{
+	return static_cast<uint32_t>(std::count_if(
+		geometryRecordSlotOccupied.begin(),
+		geometryRecordSlotOccupied.end(),
+		[](uint8_t occupied) { return occupied != 0; }));
+}
+
 void BindlessResources::assertMaterialIndexOccupied(uint32_t index) const
 {
 	ASSERT(index != INVALID_BINDLESS_INDEX)
@@ -341,6 +432,19 @@ void BindlessResources::assertMaterialIndexOccupied(uint32_t index) const
 	ASSERT_M(
 		materialSlotOccupied[index] != 0,
 		"Bindless material index %u refers to a free slot",
+		index)
+}
+
+void BindlessResources::assertGeometryRecordIndexOccupied(uint32_t index) const
+{
+	ASSERT(index != INVALID_SCENE_GEOMETRY_INDEX)
+	ASSERT_M(
+		index < geometryRecordSlotOccupied.size(),
+		"Bindless geometry record index %u is out of range",
+		index)
+	ASSERT_M(
+		geometryRecordSlotOccupied[index] != 0,
+		"Bindless geometry record index %u refers to a free slot",
 		index)
 }
 
@@ -543,6 +647,51 @@ void BindlessResources::uploadMaterialTable()
 	else
 	{
 		materialTableBuffer.writeData(materialRecords.data(), sizeof(glm::GpuMaterial) * materialRecords.size());
+	}
+}
+
+void BindlessResources::uploadGeometryRecordTable()
+{
+	ASSERT(Instance == this)
+	ASSERT(bindlessDescriptorSet.get() != VK_NULL_HANDLE)
+
+	if (geometryRecordTableBuffer.buffer != VK_NULL_HANDLE) {
+		Vulkan::Instance->waitDeviceIdle();
+	}
+
+	const uint32_t geometryRecordCapacity =
+		static_cast<uint32_t>(std::max<size_t>(geometryRecords.size(), 1));
+	if (geometryRecordTableBuffer.buffer == VK_NULL_HANDLE ||
+		geometryRecordTableBuffer.numStrides != geometryRecordCapacity)
+	{
+		if (geometryRecordTableBuffer.buffer != VK_NULL_HANDLE) {
+			geometryRecordTableBuffer.release();
+		}
+		geometryRecordTableBuffer = VmaBuffer({
+			.allocator = &Vulkan::Instance->memoryAllocator,
+			.strideSize = sizeof(glm::GpuGeometryRecord),
+			.bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+			.debugName = "Bindless geometry record table buffer",
+			.numStrides = geometryRecordCapacity,
+		});
+		bindlessDescriptorSet.pointToBuffer(
+			geometryRecordTableBuffer,
+			GeometryRecordBufferBinding,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		ASSERT(geometryRecordTableBuffer.buffer != VK_NULL_HANDLE)
+	}
+
+	if (geometryRecords.empty())
+	{
+		glm::GpuGeometryRecord emptyGeometryRecord{};
+		geometryRecordTableBuffer.writeData(&emptyGeometryRecord, sizeof(emptyGeometryRecord));
+	}
+	else
+	{
+		geometryRecordTableBuffer.writeData(
+			geometryRecords.data(),
+			sizeof(glm::GpuGeometryRecord) * geometryRecords.size());
 	}
 }
 

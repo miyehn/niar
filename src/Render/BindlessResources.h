@@ -43,6 +43,11 @@ public:
 	void removeMaterial(uint32_t index);
 	void clearMaterials();
 
+	uint32_t addGeometryRecord(const glm::GpuGeometryRecord& geometryRecord);
+	void updateGeometryRecord(uint32_t index, const glm::GpuGeometryRecord& geometryRecord);
+	void removeGeometryRecord(uint32_t index);
+	void clearGeometryRecords();
+
 	// Returns the shader-visible index. Invalid or stale handles are errors.
 	uint32_t validate(BindlessTexture2DHandle handle) const;
 
@@ -57,7 +62,9 @@ public:
 #if TMP_BINDLESS_DEBUG
 	uint32_t occupiedTexture2DSlotCount() const;
 	uint32_t activeMaterialCount() const;
+	uint32_t activeGeometryRecordCount() const;
 	void assertMaterialIndexOccupied(uint32_t index) const;
+	void assertGeometryRecordIndexOccupied(uint32_t index) const;
 
 	// todo [myn][bindless]: this is to be removed in later phases of bindless
 	void runDebugSelfTest(
@@ -90,4 +97,11 @@ private:
 	std::vector<uint8_t> materialSlotOccupied;
 	std::vector<uint32_t> freeMaterialSlots;
 	void uploadMaterialTable();
+
+	// geometry record table
+	VmaBuffer geometryRecordTableBuffer;
+	std::vector<glm::GpuGeometryRecord> geometryRecords; // data that gets uploaded to geometryRecordTableBuffer
+	std::vector<uint8_t> geometryRecordSlotOccupied;
+	std::vector<uint32_t> freeGeometryRecordSlots;
+	void uploadGeometryRecordTable();
 };

@@ -1,5 +1,7 @@
 #version 460 core
 #extension GL_EXT_ray_query : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference_uvec2 : require
 
 #include "scene_common.glsl"
 #include "sky_common.glsl"
@@ -110,6 +112,110 @@ RayHitResult traceRay(vec3 origin, vec3 direction)
     return result;
 }
 
+layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer FloatBuffer {
+    float values[];
+};
+
+layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer UintBuffer {
+    uint values[];
+};
+
+vec3 shadeBaseColorFactor(GpuMaterial material)
+{
+    return material.baseColorFactor.rgb * 0.05;
+}
+
+vec3 shadeInvalid()
+{
+    return vec3(1, 0, 1) * 0.05;
+}
+
+// read vertexIndex from index buffer. the result will be used to read into vertex buffer
+bool readGeometryIndex(GpuGeometryRecord geometry, uint elementIndex, out uint index)
+{
+    index = ~0u;
+    if (elementIndex >= geometry.indexCount) {
+        return false;
+    }
+
+    UintBuffer indexBuffer = UintBuffer(geometry.indexBufferAddress);
+    if (geometry.indexType == GPU_GEOMETRY_INDEX_TYPE_UINT16) {
+        uint byteOffset = geometry.indexBufferOffsetBytes + elementIndex * 2u;
+        uint packedIndices = indexBuffer.values[byteOffset >> 2u]; // if each index is 16 bits, packedIndices contains 2
+        index = (byteOffset & 2u) == 0u
+            ? packedIndices & 0xffffu
+            : packedIndices >> 16u;
+        return true;
+    }
+
+    if (geometry.indexType == GPU_GEOMETRY_INDEX_TYPE_UINT32) {
+        uint byteOffset = geometry.indexBufferOffsetBytes + elementIndex * 4u;
+        if ((byteOffset & 3u) != 0u) { // basically says byte offset should be multiply of 4
+            return false;
+        }
+        index = indexBuffer.values[byteOffset >> 2u];
+        return true;
+    }
+
+    return false;
+}
+
+bool readVertexUv(GpuGeometryRecord geometry, uint vertexIndex, out vec2 uv)
+{
+    uv = vec2(0.0);
+    if (vertexIndex >= geometry.vertexCount) {
+        return false;
+    }
+
+    uint byteOffset =
+        geometry.vertexBufferOffsetBytes +
+        vertexIndex * geometry.vertexStride +
+        geometry.uvAttribOffset;
+    if ((byteOffset & 3u) != 0u) {
+        return false;
+    }
+
+    FloatBuffer vertexBuffer = FloatBuffer(geometry.vertexBufferAddress);
+    uint floatOffset = byteOffset >> 2u;
+    uv = vec2(vertexBuffer.values[floatOffset], vertexBuffer.values[floatOffset + 1u]);
+    return true;
+}
+
+bool reconstructHitUv(RayHitResult hitResult, GpuGeometryRecord geometry, out vec2 uv)
+{
+    uv = vec2(0.0);
+    if (hitResult.intersectionType != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return false;
+    }
+    if (geometry.indexCount < 3u || hitResult.primitiveIndex >= geometry.indexCount / 3u) {
+        return false;
+    }
+
+    uint index0;
+    uint index1;
+    uint index2;
+    uint firstIndex = hitResult.primitiveIndex * 3u;
+    if (!readGeometryIndex(geometry, firstIndex, index0) ||
+        !readGeometryIndex(geometry, firstIndex + 1u, index1) ||
+        !readGeometryIndex(geometry, firstIndex + 2u, index2)) {
+        return false;
+    }
+
+    vec2 uv0;
+    vec2 uv1;
+    vec2 uv2;
+    if (!readVertexUv(geometry, index0, uv0) ||
+        !readVertexUv(geometry, index1, uv1) ||
+        !readVertexUv(geometry, index2, uv2)) {
+        return false;
+    }
+
+    vec2 barycentrics = hitResult.barycentrics;
+    float w0 = 1.0 - barycentrics.x - barycentrics.y;
+    uv = uv0 * w0 + uv1 * barycentrics.x + uv2 * barycentrics.y;
+    return true;
+}
+
 vec3 shadeCommittedHit(RayHitResult hitResult)
 {
     if (hitResult.instanceCustomIndex == ~0u) {
@@ -122,8 +228,23 @@ vec3 shadeCommittedHit(RayHitResult hitResult)
     }
 
     GpuMaterial material = BindlessMaterials[sceneInstance.bindlessMaterialIndex];
-    // DEBUG: now basically using baseColorFactor as emission
-    return material.baseColorFactor.rgb * 0.05;
+    if (sceneInstance.geometryRecordIndex == INVALID_SCENE_GEOMETRY_INDEX) {
+        return shadeInvalid();
+    }
+
+    GpuGeometryRecord geometry = BindlessGeometryRecords[sceneInstance.geometryRecordIndex];
+    vec2 uv;
+    if (!reconstructHitUv(hitResult, geometry, uv)) {
+        return shadeInvalid();
+    }
+
+    uint albedoTextureIndex = material.textureIndices.x;
+    if (albedoTextureIndex == INVALID_BINDLESS_INDEX) {
+        return shadeInvalid();
+    }
+
+    vec3 albedo = sampleBindlessTexture2DLod(albedoTextureIndex, uv, 0.0).rgb;
+    return albedo * material.baseColorFactor.rgb * 0.05;
 }
 
 void main()

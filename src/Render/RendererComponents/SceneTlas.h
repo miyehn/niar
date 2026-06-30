@@ -36,7 +36,7 @@ private:
 	VmaBuffer scratchBuffer;
 
 	struct FrameData {
-		VmaBuffer instancesBuffer;
+		VmaBuffer tlasInstancesBuffer;
 		VmaBuffer sceneInstanceRecordBuffer;
 		uint32_t sceneInstanceRecordCount = 0;
 	};
