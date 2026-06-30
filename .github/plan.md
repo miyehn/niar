@@ -323,6 +323,183 @@ Done when:
   - emissive objects, if present, can contribute or at least be identified
   - scene reloads cannot silently mismatch TLAS instance order and material data
 
+## Milestone 2.5: Direct-Lit Secondary Hit Shading
+
+Purpose: make the one-bounce RTGI sample physically more meaningful before
+temporal accumulation starts hiding raw one-sample behavior. Keep this milestone
+small: shade the secondary hit with emissive plus direct lighting, but do not add
+MIS, reservoir sampling, recursive bounces, primary-surface specular sampling,
+or temporal/spatial reuse.
+
+Working model:
+
+- Primary visible surfaces still sample one cosine-weighted diffuse ray.
+- Misses still return sky/environment radiance.
+- Committed secondary hits reconstruct hit position, normal, UV, and material.
+- Secondary hit contribution returns outgoing radiance toward the primary
+  surface: simple emissive plus direct lighting at the hit point.
+- The deferred composite can continue applying the primary surface albedo to the
+  RTGI buffer; do not silently change the RTGI output contract to final
+  BRDF-weighted primary-surface lighting in this milestone.
+
+## Review Chunk 13: Reconstruct Secondary Hit Surface Data
+
+Purpose: turn the committed ray hit into the minimum surface data needed for
+direct lighting at the hit point.
+
+Implementation scope:
+
+- Use `rayOrigin + rayDir * hitT` to reconstruct the secondary hit world
+  position.
+- Read hit triangle vertex positions and normals through the existing bindless
+  geometry record path.
+- Interpolate vertex normals using committed barycentric coordinates.
+- Transform the interpolated normal to world space. If the current TLAS/scene
+  instance data does not expose the needed transform cleanly, add the minimum
+  renderer-agnostic transform data to the scene instance record or a companion
+  table.
+- Keep UV reconstruction and albedo/emissive lookup from Milestone 2 intact.
+- Keep tangent-space normal maps out of this chunk; use vertex normals only.
+
+Review checklist:
+
+- World-space hit position matches the same ray origin and direction used for
+  traversal.
+- Normal interpolation follows the same triangle index and barycentric data as
+  UV interpolation.
+- Transform handling is explicit; no hidden dependency on current G-buffer
+  packing or raster draw order.
+- Invalid geometry or generated/AABB intersections fall back clearly instead of
+  reading triangle vertex data.
+
+Done when:
+
+- `rtgi_generate.comp` can build a secondary-hit shading input containing world
+  position, world normal, UV, material, and outgoing direction back toward the
+  primary surface.
+
+## Review Chunk 14: Share Direct-Light Inputs With RTGI
+
+Purpose: expose the same point and directional light buffers used by deferred
+lighting to the RTGI compute pass.
+
+Implementation scope:
+
+- Add RTGI descriptor bindings for the existing point-light and
+  directional-light buffers, or move the declarations into a shared frame-global
+  binding path if that is cleaner.
+- Keep binding numbers and GLSL declarations aligned with the existing
+  `ViewInfo.NumPointLights` and `ViewInfo.NumDirectionalLights` fields.
+- Prefer extracting layout-free lighting helper math from `lighting_common.glsl`
+  over including it directly if its current descriptor declarations conflict
+  with `rtgi_generate.comp`.
+- Do not add new light types, area-light sampling, or MIS.
+
+Review checklist:
+
+- RTGI and deferred read the same CPU-authored light data for the current frame.
+- Descriptor ownership remains in `GI`/deferred renderer code that already owns
+  frame context.
+- No shader include introduces duplicate or mismatched descriptor declarations.
+- Existing deferred lighting output is unchanged.
+
+Done when:
+
+- `rtgi_generate.comp` can iterate current point and directional lights without
+  duplicating CPU light upload logic.
+
+## Review Chunk 15: Shadow Rays From Secondary Hits
+
+Purpose: let direct lighting at the secondary hit respect scene visibility.
+
+Implementation scope:
+
+- Add an RTGI-local `shadowFactor` helper or share a descriptor-free helper with
+  deferred lighting.
+- Trace shadow rays from secondary hit position toward each light.
+- Offset the shadow ray origin along the secondary hit normal using the existing
+  small ray-bias convention.
+- Use `TerminateOnFirstHit`, `SkipClosestHitShader`, and opaque ray flags for
+  shadow visibility.
+- Use point-light distance as `tMax`; use a large directional-light `tMax`.
+
+Review checklist:
+
+- Shadow rays use the same TLAS already bound for RTGI ray queries.
+- Self-shadow acne is controlled by a small normal offset, not by arbitrary
+  large bias.
+- Point-light shadow rays cannot hit geometry behind the light.
+- This chunk does not change the primary indirect-ray sampling distribution.
+
+Done when:
+
+- Direct-light evaluation at secondary hits can be visibly occluded by scene
+  geometry.
+
+## Review Chunk 16: Direct-Lit Hit Contribution
+
+Purpose: replace emissive-only or albedo-only secondary hit return values with a
+simple physically motivated outgoing radiance estimate.
+
+Implementation scope:
+
+- Build a secondary-hit material record from albedo texture times
+  `baseColorFactor`, emissive texture times emissive factor, and ORM values
+  already available through `GpuMaterial`.
+- Evaluate direct lighting at the secondary hit using `-rayDir` as the outgoing
+  direction toward the primary surface.
+- Reuse the existing Cook-Torrance-style direct-light math where practical, but
+  keep the first implementation local and explicit if sharing would require
+  descriptor churn.
+- Return `emission + directLightingAtSecondaryHit`.
+- Preserve sky/environment-on-miss behavior.
+- Keep the primary-surface composite contract unchanged; do not multiply by the
+  primary surface BRDF inside RTGI in this chunk.
+
+Review checklist:
+
+- Non-emissive secondary hits are lit by actual scene lights rather than acting
+  like emission.
+- Emissive secondary hits still contribute even without direct lighting.
+- Metallic and roughness affect the secondary hit's direct-light response, but
+  primary ray directions remain diffuse cosine samples.
+- Energy scale is explainable from light/material inputs, not a debug color or
+  hidden arbitrary multiplier.
+
+Done when:
+
+- One-bounce RTGI produces noisy but recognizable direct-lit bounce color from
+  secondary surfaces.
+
+## Review Chunk 17: Milestone 2.5 Guardrails And Roadmap Update
+
+Purpose: lock the direct-lit secondary hit behavior as the pre-accumulation
+target and keep future work boundaries clear.
+
+Implementation scope:
+
+- Audit the RTGI shader for stale comments implying base color or emissive is
+  the whole hit contribution.
+- Document the current RTGI buffer contract: incoming indirect radiance-like
+  signal for the primary surface, not full primary BRDF-weighted final lighting.
+- Update `.github/path-to-restir.md` if Milestone 2.5 is complete.
+- Leave MIS, explicit light sampling at the primary surface, GGX primary-ray
+  sampling, recursive bounces, and temporal/spatial reuse for later milestones.
+
+Review checklist:
+
+- The code makes it clear which part is secondary-hit shading and which part is
+  primary-surface composition.
+- The roadmap still points to Milestone 3 temporal accumulation next.
+- Debug visualization remains optional and is not required to consider this
+  milestone complete.
+
+Done when:
+
+- The raw one-sample RTGI target is physically meaningful enough to accumulate:
+  miss radiance, emissive hit radiance, and direct-lit secondary hit radiance all
+  work in simple scenes.
+
 ## Suggested PR Grouping
 
 If the chunks feel too small as individual PRs, group them this way:
@@ -332,6 +509,8 @@ If the chunks feel too small as individual PRs, group them this way:
   shading.
 - PR 3: Chunks 7-9, geometry records, primitive/barycentric debug, UV debug.
 - PR 4: Chunks 10-12, textured albedo, emissive handling, cleanup.
+- PR 5: Chunks 13-17, secondary hit surface reconstruction and direct-lit hit
+  shading.
 
 Avoid grouping across the main risk boundaries:
 
@@ -339,3 +518,4 @@ Avoid grouping across the main risk boundaries:
 - descriptor and bindless material binding
 - geometry buffer/index decoding
 - texture and emissive material evaluation
+- secondary-hit direct lighting and shadow visibility

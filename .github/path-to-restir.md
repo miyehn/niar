@@ -18,18 +18,20 @@ The first RTGI foundation is already in place:
 - RTGI runs as a compute pass
 - stochastic diffuse rays are generated from visible G-buffer surfaces
 - misses sample the current sky/environment path
-- committed hits currently return a placeholder black result
+- committed hits resolve scene instance, material, geometry, UV, albedo, and
+  simple emissive data
 - scene and shader hot reload have been smoke-tested with the bindless raster
   material path
 - raster glTF shaders read `GpuMaterial` records from the global bindless
   material table
+- RTGI reads shared bindless material and geometry tables for hit shading
 - deferred opaque, deferred translucent, and simple forward glTF raster paths
   use the bindless material/texture table
 - raster renderers no longer need per-material glTF descriptor sets or
   per-frame material lookup by string
 
-The next missing bridge is RT-specific: ray hits need to resolve durable
-instance, primitive, material, and eventually UV data.
+The next missing bridge is temporal: the one-ray signal needs accumulation and
+history rejection before it can become a stable lighting buffer.
 
 ## Direction
 
@@ -116,57 +118,46 @@ Remaining issues can be handled while improving hit shading:
 
 ## Milestone 2: Minimal Hit Shading
 
-Estimated time: 2-5 weeks from the current state.
+Status: complete enough to move on.
 
 Goal: make ray hits return scene-aware material data instead of the current
 placeholder black result.
 
-Start with the smallest useful material result:
+Implemented:
 
 - committed hit resolves to a scene instance record
 - scene instance record resolves to a bindless material index
-- hit contribution can use `GpuMaterial.baseColorFactor`
-- textured albedo and emissive can follow once geometry/UV lookup exists
-
-Tasks:
-
-- Change the RTGI ray-query helper so it keeps committed hit details instead of
-  returning only hit/miss.
-- Add a GPU scene instance table built in the same order as the TLAS instance
-  array.
-- Store at least:
-  - bindless material index
-  - vertex/index offsets or geometry record index
-  - any padding/reserved fields needed to keep the layout stable
-- Set `instanceCustomIndex` to the corresponding scene instance table row.
-- Add debug modes for committed instance index and material index.
-- Shade first with `GpuMaterial.baseColorFactor` only.
-- Bind the shared bindless material set for RTGI once the shader needs material
-  access.
-- Add primitive index and barycentric debug modes.
-- Expose enough index/vertex data for UV interpolation.
-- Add UV debug output.
-- Sample albedo with explicit LOD 0 and multiply by base color factor.
-- Add emissive lookup if the material data is already available.
+- scene instance record resolves to a bindless geometry record
+- `instanceCustomIndex` maps to the corresponding scene instance table row
+- ray-query helper keeps committed hit details, including primitive index and
+  barycentrics
+- RTGI binds and reads the shared bindless material and geometry tables
+- geometry records provide buffer-device-address vertex/index lookup data
+- shader-side hit code reconstructs UVs from primitive index and barycentrics
+- hit contribution samples albedo with explicit LOD 0 and multiplies by base
+  color factor
+- emissive materials can contribute a simple emissive signal
 
 Done when:
 
 - bounced rays can return approximate diffuse scene color
 - simple colored objects affect nearby indirect lighting
-- ray-hit debug views show expected instance and material indices
 - textured albedo follows mesh UVs once UV lookup is enabled
 - emissive objects, if present, can contribute or at least be identified
 - scene reloads cannot silently mismatch TLAS instance order and material data
 
+Deferred:
+
+- dedicated ray-hit debug visualizations for instance index, material index,
+  primitive index, barycentrics, and UVs; add these later only if needed for
+  debugging
+
 Likely pain points:
 
-- `instanceCustomIndex` currently identifies TLAS instance order, but there is
-  not yet a durable GPU scene-instance table behind it
-- current combined vertex/index buffers belong to individual assets
-- multi-asset scenes may want either renderer-owned scene geometry buffers or
-  buffer-device-address geometry records
+- current combined vertex/index buffers belong to individual assets, so geometry
+  records use buffer-device-address lookups
 - GLSL-side vertex/index layout must match the CPU layout exactly
-- 16-bit index decoding may need explicit handling
+- 16-bit index decoding needs explicit handling
 - preserving per-primitive material identity matters if a mesh/asset build path
   ever batches multiple primitives into one acceleration-structure geometry
 
@@ -410,18 +401,18 @@ Rabbit-hole path:
 
 ## Recommended Next Commit
 
-Start Milestone 2 with the smallest durable hit-material bridge:
+Start Milestone 3 with the smallest temporal accumulation path:
 
-- add a GPU scene instance record layout
-- build scene instance records in TLAS instance order
-- set `instanceCustomIndex` to the scene instance row
-- expose the scene instance buffer to `rtgi_generate.comp`
-- retain committed ray-query hit data
-- add debug output for hit/miss, instance index, and bindless material index
-- shade hits with `GpuMaterial.baseColorFactor` before adding UV texture lookup
+- add ping-pong indirect lighting history textures
+- keep a per-pixel accumulated sample count or validity mask
+- reproject by stable screen position first, without making motion vectors a
+  prerequisite
+- reject history using depth and normal differences
+- expose a simple on/off comparison between raw one-sample RTGI and accumulated
+  RTGI
 
-That gives RTGI a real scene-aware signal while keeping texture sampling,
-emissive lookup, and fuller material evaluation as follow-up slices.
+That turns the now scene-aware RTGI signal into something that can converge
+while keeping motion vectors and more advanced rejection as follow-up slices.
 
 ## Reading Order
 
