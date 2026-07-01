@@ -1,17 +1,5 @@
 #include "cshared/lights.h"
 
-layout (set = 0, binding = 5) uniform PointLightsInfo {
-    PointLightInfo Data[MAX_LIGHTS_PER_PASS];
-} PointLights;
-
-layout (set = 0, binding = 6) uniform DirectionalLightsInfo {
-    DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
-} DirectionalLights;
-
-layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
-layout (set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
-layout (set = 0, binding = 9) uniform sampler2D IndirectLighting;
-
 vec3 fresnelSchlick(float VdotH, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(1 - VdotH, 5.0);
@@ -47,56 +35,12 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
-struct MaterialLightingInfo {
-// common
-    vec3 albedo;
-    float metallic;
-    vec3 normal;
-    float roughness;
-    vec3 dirToCam;
-    float NdotV;
-// light-specific
-    vec3 halfVec;
-    float NdotL;
-};
-
-vec3 lightingContrib(MaterialLightingInfo info)
-{
-    //---- specular ----
-
-    // Fresnel
-    vec3 F0 = vec3(0.04); // base reflectivity for non-metals
-    F0 = mix(F0, info.albedo, info.metallic); // if metal, use what's in albedo map for base reflectivity
-    vec3 F = fresnelSchlick( max(dot(info.halfVec, info.dirToCam), 0), F0 );
-
-    // Distribution
-    float D = distributionFn(info.normal, info.halfVec, info.roughness);
-
-    // Geometry
-    float G = geometrySmith(info.NdotL, info.NdotV, info.roughness);
-
-    // specular (cook tolerance)
-    vec3 num = F * D * G;
-    float denom = 4.0 * info.NdotV * info.NdotL;
-    vec3 specular = num / max(denom, 0.001);
-
-    //---- diffuse ----
-
-    vec3 kSpecular = F;
-    vec3 kDiffuse = vec3(1.0) - kSpecular;
-    kDiffuse *= 1.0 - info.metallic;
-    vec3 diffuse = kDiffuse * info.albedo / PI;
-
-    //---- contribution ----
-    return (diffuse + specular) * info.NdotL;
-}
-
-float shadowFactor(vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
+float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
 {
     rayQueryEXT rq;
     rayQueryInitializeEXT(
         rq,
-        SceneTLAS,
+        tlas,
         gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsOpaqueEXT,
         0xFF,
         worldPos + normal * 0.001,
@@ -107,41 +51,90 @@ float shadowFactor(vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
     return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
 }
 
-vec3 sampleIndirectLighting(vec2 screenUv)
+vec3 evaluateLight(
+    vec3 albedo,
+    float metallic,
+    vec3 normal,
+    float roughness,
+    vec3 outgoingDirection,
+    vec3 dirToLight,
+    vec3 radiance,
+    float visibility)
 {
-    return texture(IndirectLighting, screenUv).rgb;
+    float NdotL = max(dot(normal, dirToLight), 0);
+    float NdotV = max(0, dot(normal, outgoingDirection));
+    if (NdotL <= 0.0 || NdotV <= 0.0 || visibility <= 0.0) {
+        return vec3(0.0);
+    }
+
+    vec3 halfVec = normalize(outgoingDirection + dirToLight);
+
+    // Fresnel
+    vec3 F0 = vec3(0.04); // base reflectivity for non-metals
+    F0 = mix(F0, albedo, metallic); // if metal, use what's in albedo map for base reflectivity
+    vec3 F = fresnelSchlick(max(dot(halfVec, outgoingDirection), 0), F0);
+
+    // Distribution
+    float D = distributionFn(normal, halfVec, roughness);
+
+    // Geometry
+    float G = geometrySmith(NdotL, NdotV, roughness);
+
+    // specular (cook tolerance)
+    vec3 num = F * D * G;
+    float denom = 4.0 * NdotV * NdotL;
+    vec3 specular = num / max(denom, 0.001);
+
+    vec3 kSpecular = F;
+    vec3 kDiffuse = vec3(1.0) - kSpecular;
+    kDiffuse *= 1.0 - metallic;
+    vec3 diffuse = kDiffuse * albedo / PI;
+
+    return (diffuse + specular) * NdotL * radiance * visibility;
 }
 
-// assumes frameglobal stuff is available and fragment is visible
-vec3 accumulateLighting(vec3 worldPos, vec3 normal, vec3 albedo, vec3 orm)
+vec3 accumulateLighting(
+    accelerationStructureEXT tlas,
+    vec3 worldPos,
+    vec3 normal,
+    vec3 albedo,
+    vec3 orm,
+    vec3 outgoingDirection,
+    bool traceShadows)
 {
-    ViewInfo viewInfo = GetViewInfo();
-
-    MaterialLightingInfo info;
-    info.albedo = albedo;
-    info.metallic = orm.b;
-    info.normal = normal;
-    info.roughness = orm.g;
-    info.dirToCam = normalize(viewInfo.CameraPosition - worldPos);
-    info.NdotV = max(0, dot(normal, info.dirToCam));
+    float metallic = orm.b;
+    float roughness = orm.g;
+    vec3 normalizedOutgoingDirection = normalize(outgoingDirection);
 
     vec3 result = vec3(0, 0, 0);
+    ViewInfo viewInfo = GetViewInfo();
+
     // point lights
     for (int i = 0; i < viewInfo.NumPointLights; i++)
     {
         // some useful properties
         vec3 toLight = PointLights.Data[i].position - worldPos;
         float dist = length(toLight);
+        if (dist <= EPSILON) {
+            continue;
+        }
         vec3 dirToLight = toLight / dist;
         float atten = 1.0 / dot(toLight, toLight);
-        vec3 halfVec = normalize(info.dirToCam + dirToLight);
-        float NdotL = max(dot(normal, dirToLight), 0);
         vec3 radiance = PointLights.Data[i].color * atten;
-        float shadow = shadowFactor(worldPos, normal, dirToLight, dist - 0.01);
+        float shadow = 1.0;
+        if (traceShadows) {
+            shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - 0.01);
+        }
 
-        info.halfVec = halfVec;
-        info.NdotL = NdotL;
-        result += lightingContrib(info) * radiance * shadow;
+        result += evaluateLight(
+            albedo,
+            metallic,
+            normal,
+            roughness,
+            normalizedOutgoingDirection,
+            dirToLight,
+            radiance,
+            shadow);
     }
 
     // directional lights
@@ -149,16 +142,22 @@ vec3 accumulateLighting(vec3 worldPos, vec3 normal, vec3 albedo, vec3 orm)
     {
         vec3 lightDir = DirectionalLights.Data[i].direction;
         vec3 dirToLight = normalize(-lightDir);
-        vec3 halfVec = normalize(info.dirToCam + dirToLight);
-        float NdotL = max(dot(normal, dirToLight), 0);
         vec3 radiance = DirectionalLights.Data[i].color;
-        float shadow = shadowFactor(worldPos, normal, dirToLight, 10000.0);
+        float shadow = 1.0;
+        if (traceShadows) {
+            shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0);
+        }
 
-        info.halfVec = halfVec;
-        info.NdotL = NdotL;
-        result += lightingContrib(info) * radiance * shadow;
+        result += evaluateLight(
+            albedo,
+            metallic,
+            normal,
+            roughness,
+            normalizedOutgoingDirection,
+            dirToLight,
+            radiance,
+            shadow);
     }
 
     return result;
 }
-

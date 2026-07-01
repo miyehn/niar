@@ -6,13 +6,23 @@ layout(location = 0) out vec4 FragColor;
 
 #include "utils.glsl"
 #include "scene_common.glsl" // (set 0, binding 0) view info
-#include "lighting_common.glsl" // (set 0, bindings 5-9) pbr lighting functions
+#include "cshared/lights.h"
 
 layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
 layout(set = 0, binding = 2) uniform sampler2D GBUF1;
 layout(set = 0, binding = 3) uniform sampler2D GBUF2;
 layout(set = 0, binding = 4) uniform sampler2D GBUF3;
+layout(set = 0, binding = 5) uniform PointLightsInfo {
+    PointLightInfo Data[MAX_LIGHTS_PER_PASS];
+} PointLights;
+layout(set = 0, binding = 6) uniform DirectionalLightsInfo {
+    DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
+} DirectionalLights;
+layout(set = 0, binding = 7) uniform sampler2D EnvironmentMap;
+layout(set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
+layout(set = 0, binding = 9) uniform sampler2D IndirectLighting;
 
+#include "lighting_common.glsl" // pbr lighting functions
 #include "sky_common.glsl" // set 1, bindings 0-2; 8-9
 
 void main() {
@@ -34,12 +44,15 @@ void main() {
 		FragColor.rgb += vec3(GColor.a, GNormal.a, GORM.a);
 		// the rest of lighting
 		FragColor.rgb += accumulateLighting(
+			SceneTLAS,
 			worldPos,
 			GNormal.xyz,
 			GColor.rgb,
-			GORM.rgb
+			GORM.rgb,
+			normalize(viewInfo.CameraPosition - worldPos),
+			true
 		);
-		vec3 indirectDiffuse = sampleIndirectLighting(vf_uv) * GColor.rgb;
+		vec3 indirectDiffuse = texture(IndirectLighting, vf_uv).rgb * GColor.rgb;
 		FragColor.rgb += indirectDiffuse;
 	}
 	else if (viewInfo.BackgroundOption > 0)

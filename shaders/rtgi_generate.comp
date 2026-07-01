@@ -24,6 +24,8 @@ layout(set = 0, binding = 8) uniform RtgiDirectionalLightsInfo {
     DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 } DirectionalLights;
 
+#include "lighting_common.glsl"
+
 // (set 1, binding 0) sky parameters
 // (set 1, binding 8) transmittance
 // (set 1, binding 9) skyview
@@ -128,11 +130,6 @@ layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Flo
 layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer UintBuffer {
     uint values[];
 };
-
-vec3 shadeBaseColorFactor(GpuMaterial material)
-{
-    return material.baseColorFactor.rgb * 0.05;
-}
 
 vec3 shadeInvalid()
 {
@@ -324,6 +321,9 @@ bool reconstructHitSurface(
     surface.worldNormal = normalize(transpose(worldToObjectLinear) * objectNormal);
     surface.uv = uv;
     surface.outgoingDirection = normalize(-rayDir);
+    if (dot(surface.worldNormal, surface.outgoingDirection) < 0.0) {
+        surface.worldNormal = -surface.worldNormal;
+    }
     surface.material = material;
     return true;
 }
@@ -341,14 +341,26 @@ vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir)
         return shadeInvalid();
     }
 
-    // unused for now
-    uint albedoTextureIndex = surface.material.textureIndices.x;
-    vec3 albedo = sampleBindlessTexture2DLod(albedoTextureIndex, surface.uv, 0.0).rgb * surface.material.baseColorFactor.rgb;
+    vec3 albedo =
+        sampleBindlessTexture2DLod(surface.material.textureIndices.x, surface.uv, 0.0).rgb *
+        surface.material.baseColorFactor.rgb;
+    vec3 emission =
+        sampleBindlessTexture2DLod(surface.material.textureIndices.w, surface.uv, 0.0).rgb *
+        surface.material.emissiveFactorAndClipThreshold.rgb;
+    vec3 orm =
+        sampleBindlessTexture2DLod(surface.material.textureIndices.z, surface.uv, 0.0).rgb *
+        surface.material.ormAndNormalStrength.rgb;
+    orm.g = clamp(orm.g, 0.04, 1.0); // roughness
+    orm.b = clamp(orm.b, 0.0, 1.0); // metallic
 
-    uint emissiveTextureIndex = surface.material.textureIndices.w;
-    vec3 emission = sampleBindlessTexture2DLod(emissiveTextureIndex, surface.uv, 0.0).rgb * surface.material.emissiveFactorAndClipThreshold.rgb;
-
-    return emission;
+    return emission + accumulateLighting(
+        SceneTLAS,
+        surface.worldPosition,
+        surface.worldNormal,
+        albedo,
+        orm,
+        surface.outgoingDirection,
+        false);
 }
 
 void main()

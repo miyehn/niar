@@ -3,9 +3,21 @@
 
 #include "utils.glsl"
 #include "scene_common.glsl"
-#include "lighting_common.glsl"
+#include "cshared/lights.h"
 
 #include "gltf_bindless_material.glsl"
+
+layout(set = 0, binding = 5) uniform PointLightsInfo {
+    PointLightInfo Data[MAX_LIGHTS_PER_PASS];
+} PointLights;
+layout(set = 0, binding = 6) uniform DirectionalLightsInfo {
+    DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
+} DirectionalLights;
+layout(set = 0, binding = 7) uniform sampler2D EnvironmentMap;
+layout(set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
+layout(set = 0, binding = 9) uniform sampler2D IndirectLighting;
+
+#include "lighting_common.glsl"
 
 layout(location=0) out vec4 outColor;
 
@@ -24,17 +36,22 @@ void main() {
 
     vec3 emission = material.emissiveFactorAndClipThreshold.rgb *
         sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_EMISSIVE, uv).rgb;
+    ViewInfo viewInfo = GetViewInfo();
+    vec3 worldPos = vf_position.xyz + viewInfo.CameraPosition;
 
     vec3 litResult = emission + accumulateLighting(
-        vf_position.xyz + GetViewInfo().CameraPosition,
+        SceneTLAS,
+        worldPos,
         normal,
         baseColor.rgb,
-        orm
+        orm,
+        normalize(viewInfo.CameraPosition - worldPos),
+        true
     );
     /*
     todo [myn]: indirect for translucent surfaces
     vec2 screenUv = gl_FragCoord.xy / GetViewInfo().RenderSize;
-    vec3 indirectDiffuse = sampleIndirectLighting(screenUv) * baseColor.rgb;
+    vec3 indirectDiffuse = texture(IndirectLighting, screenUv).rgb * baseColor.rgb;
     litResult += indirectDiffuse;
     */
 
