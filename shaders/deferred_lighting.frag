@@ -49,8 +49,7 @@ void main() {
 			GNormal.xyz,
 			GColor.rgb,
 			GORM.rgb,
-			normalize(viewInfo.CameraPosition - worldPos),
-			true
+			normalize(viewInfo.CameraPosition - worldPos)
 		);
 		vec3 indirectDiffuse = texture(IndirectLighting, vf_uv).rgb * GColor.rgb;
 		FragColor.rgb += indirectDiffuse;

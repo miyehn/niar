@@ -359,8 +359,7 @@ vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir)
         surface.worldNormal,
         albedo,
         orm,
-        surface.outgoingDirection,
-        false);
+        surface.outgoingDirection);
 }
 
 void main()

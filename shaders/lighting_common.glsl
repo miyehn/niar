@@ -43,7 +43,7 @@ float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, ve
         tlas,
         gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsOpaqueEXT,
         0xFF,
-        worldPos + normal * 0.001,
+        worldPos + normal * EPSILON,
         0.0,
         dirToLight,
         tMax);
@@ -99,8 +99,7 @@ vec3 accumulateLighting(
     vec3 normal,
     vec3 albedo,
     vec3 orm,
-    vec3 outgoingDirection,
-    bool traceShadows)
+    vec3 outgoingDirection)
 {
     float metallic = orm.b;
     float roughness = orm.g;
@@ -121,10 +120,7 @@ vec3 accumulateLighting(
         vec3 dirToLight = toLight / dist;
         float atten = 1.0 / dot(toLight, toLight);
         vec3 radiance = PointLights.Data[i].color * atten;
-        float shadow = 1.0;
-        if (traceShadows) {
-            shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - 0.01);
-        }
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON);
 
         result += evaluateLight(
             albedo,
@@ -143,10 +139,7 @@ vec3 accumulateLighting(
         vec3 lightDir = DirectionalLights.Data[i].direction;
         vec3 dirToLight = normalize(-lightDir);
         vec3 radiance = DirectionalLights.Data[i].color;
-        float shadow = 1.0;
-        if (traceShadows) {
-            shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0);
-        }
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0);
 
         result += evaluateLight(
             albedo,

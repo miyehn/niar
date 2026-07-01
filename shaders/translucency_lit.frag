@@ -45,8 +45,7 @@ void main() {
         normal,
         baseColor.rgb,
         orm,
-        normalize(viewInfo.CameraPosition - worldPos),
-        true
+        normalize(viewInfo.CameraPosition - worldPos)
     );
     /*
     todo [myn]: indirect for translucent surfaces
