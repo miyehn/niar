@@ -328,6 +328,7 @@ int main(int argc, const char * argv[])
 	Config = new ConfigAsset("config/global.ini", false);
 
 	init();
+	previous_time = std::chrono::high_resolution_clock::now();
 
 	while (true)
 	{

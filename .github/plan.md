@@ -325,6 +325,8 @@ Done when:
 
 ## Milestone 2.5: Direct-Lit Secondary Hit Shading
 
+Status: complete enough to move on. Milestone 3 temporal accumulation is next.
+
 Purpose: make the one-bounce RTGI sample physically more meaningful before
 temporal accumulation starts hiding raw one-sample behavior. Keep this milestone
 small: shade the secondary hit with emissive plus direct lighting, but do not add
@@ -337,10 +339,19 @@ Working model:
 - Misses still return sky/environment radiance.
 - Committed secondary hits reconstruct hit position, normal, UV, and material.
 - Secondary hit contribution returns outgoing radiance toward the primary
-  surface: simple emissive plus direct lighting at the hit point.
+  surface: emissive plus shadowed direct lighting at the hit point.
 - The deferred composite can continue applying the primary surface albedo to the
   RTGI buffer; do not silently change the RTGI output contract to final
   BRDF-weighted primary-surface lighting in this milestone.
+
+Implemented:
+
+- secondary-hit world position, vertex normal, UV, and material reconstruction
+- shared point/directional light inputs for RTGI
+- shared direct-light BRDF math used by primary and secondary hit lighting
+- shadow rays from secondary hits through the current TLAS
+- secondary-hit contribution returns emissive plus shadowed direct lighting
+  toward the primary surface
 
 ## Review Chunk 13: Reconstruct Secondary Hit Surface Data
 

@@ -8,6 +8,7 @@
 #include <imgui_impl_vulkan.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <algorithm>
 #include <chrono>
 
 // #define MYN_VK_VERBOSE
@@ -717,7 +718,50 @@ VkPresentModeKHR Vulkan::chooseSwapPresentMode(const std::vector<VkPresentModeKH
 		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) return availablePresentMode;
 	}
 	*/
-	return VK_PRESENT_MODE_FIFO_KHR;
+	auto isAvailable = [&](VkPresentModeKHR mode) {
+		return std::find(availablePresentModes.begin(), availablePresentModes.end(), mode) != availablePresentModes.end();
+	};
+
+	auto modeName = [](VkPresentModeKHR mode) {
+		switch (mode) {
+		case VK_PRESENT_MODE_FIFO_KHR:
+			return "fifo";
+		case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+			return "fifo_relaxed";
+		case VK_PRESENT_MODE_MAILBOX_KHR:
+			return "mailbox";
+		case VK_PRESENT_MODE_IMMEDIATE_KHR:
+			return "immediate";
+		default:
+			return "unknown";
+		}
+	};
+
+	auto requestedMode = Config->lookup<std::string>("Debug.PresentMode");
+	std::transform(requestedMode.begin(), requestedMode.end(), requestedMode.begin(),
+		[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+	VkPresentModeKHR requestedVkMode = VK_PRESENT_MODE_FIFO_KHR;
+	if (requestedMode == "fifo") {
+		requestedVkMode = VK_PRESENT_MODE_FIFO_KHR;
+	} else if (requestedMode == "fifo_relaxed") {
+		requestedVkMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+	} else if (requestedMode == "mailbox") {
+		requestedVkMode = VK_PRESENT_MODE_MAILBOX_KHR;
+	} else if (requestedMode == "immediate") {
+		requestedVkMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+	} else {
+		VKWARN("Unknown Debug.PresentMode \"%s\". Falling back to fifo.", requestedMode.c_str())
+		requestedVkMode = VK_PRESENT_MODE_FIFO_KHR;
+	}
+
+	if (!isAvailable(requestedVkMode)) {
+		VKWARN("Debug.PresentMode \"%s\" is not available. Falling back to fifo.", modeName(requestedVkMode))
+		return VK_PRESENT_MODE_FIFO_KHR;
+	}
+
+	VKLOG("Using Vulkan present mode: %s", modeName(requestedVkMode))
+	return requestedVkMode;
 }
 
 VkExtent2D Vulkan::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {

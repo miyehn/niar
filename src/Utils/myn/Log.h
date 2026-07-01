@@ -91,7 +91,7 @@ namespace {
 #define VKLOG(...) { \
 	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_CYAN \
-	printf("[Vulkan validation] "); \
+	printf("[Vulkan] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
 	NEWLINE \
@@ -99,7 +99,7 @@ namespace {
 #define VKWARN(...) { \
 	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_YELLOW \
-	printf("[Vulkan validation] "); \
+	printf("[Vulkan] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
 	NEWLINE \
@@ -107,7 +107,7 @@ namespace {
 #define VKERR(...) { \
 	std::lock_guard<std::mutex> _log_guard(_log_mutex); \
 	COLOR_RED \
-	printf("[Vulkan validation] "); \
+	printf("[Vulkan] "); \
 	printf(__VA_ARGS__); \
 	COLOR_RESET \
 	NEWLINE \
