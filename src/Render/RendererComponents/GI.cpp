@@ -177,25 +177,25 @@ void GI::init(const InitInfo& info)
 		ASSERT(info.sceneInstanceRecordBuffers[i] != nullptr)
 		ASSERT(info.pointLightBuffers[i] != nullptr)
 		ASSERT(info.directionalLightBuffers[i] != nullptr)
-		giDescriptorSets[i] = DescriptorSet(giSetLayout);
-		const uint32_t writeHistoryIndex = i % 2;
-		const uint32_t readHistoryIndex = 1 - writeHistoryIndex;
-		giDescriptorSets[i].pointToBuffer(*info.viewInfoUbos[i], Slot_ViewInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		giDescriptorSets[i].pointToImageView(info.sceneDepth->imageView, Slot_SceneDepth, &samplerInfo);
-		giDescriptorSets[i].pointToImageView(info.GNormal->imageView, Slot_GNormal, &samplerInfo);
-		giDescriptorSets[i].pointToAccelerationStructure(info.tlas, Slot_Tlas);
-		giDescriptorSets[i].pointToRWImageView(indirectLighting->imageView, Slot_IndirectLighting);
-		giDescriptorSets[i].pointToImageView(info.environmentMap->imageView, Slot_EnvironmentMap);
-		giDescriptorSets[i].pointToBuffer(*info.sceneInstanceRecordBuffers[i], Slot_SceneInstanceRecords, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		giDescriptorSets[i].pointToBuffer(*info.pointLightBuffers[i], Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		giDescriptorSets[i].pointToBuffer(*info.directionalLightBuffers[i], Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		giDescriptorSets[i].pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
-		giDescriptorSets[i].pointToRWImageView(history[writeHistoryIndex]->imageView, Slot_WriteHistory);
-		giDescriptorSets[i].pointToRWImageView(sampleCount->imageView, Slot_SampleCount);
+		for (uint32_t historyWriteSlot = 0; historyWriteSlot < 2; historyWriteSlot++) {
+			const uint32_t readHistoryIndex = 1 - historyWriteSlot;
+			DescriptorSet& giDescriptorSet = giDescriptorSets[i][historyWriteSlot];
+			giDescriptorSet = DescriptorSet(giSetLayout);
+			giDescriptorSet.pointToBuffer(*info.viewInfoUbos[i], Slot_ViewInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			giDescriptorSet.pointToImageView(info.sceneDepth->imageView, Slot_SceneDepth, &samplerInfo);
+			giDescriptorSet.pointToImageView(info.GNormal->imageView, Slot_GNormal, &samplerInfo);
+			giDescriptorSet.pointToAccelerationStructure(info.tlas, Slot_Tlas);
+			giDescriptorSet.pointToRWImageView(indirectLighting->imageView, Slot_IndirectLighting);
+			giDescriptorSet.pointToImageView(info.environmentMap->imageView, Slot_EnvironmentMap);
+			giDescriptorSet.pointToBuffer(*info.sceneInstanceRecordBuffers[i], Slot_SceneInstanceRecords, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			giDescriptorSet.pointToBuffer(*info.pointLightBuffers[i], Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			giDescriptorSet.pointToBuffer(*info.directionalLightBuffers[i], Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+			giDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
+			giDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
+			giDescriptorSet.pointToRWImageView(sampleCount->imageView, Slot_SampleCount);
+		}
 	}
 }
-// otherwise history pingpong breaks. TODO [myn]: more robust implementation
-static_assert(MAX_FRAMES_IN_FLIGHT % 2 == 0);
 
 void GI::release()
 {
@@ -296,6 +296,7 @@ void GI::clear(VkCommandBuffer cmdbuf)
 		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL);
+	historyWriteIndex = 0;
 }
 
 void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
@@ -312,11 +313,10 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 	enabledLastFrame = true;
 
 	ASSERT(frameIndex < MAX_FRAMES_IN_FLIGHT)
-	auto& giDescriptorSet = giDescriptorSets[frameIndex];
 	const uint32_t groupCountX = (indirectLighting->getWidth() + RTGI_GROUPSIZE_X - 1) / RTGI_GROUPSIZE_X;
 	const uint32_t groupCountY = (indirectLighting->getHeight() + RTGI_GROUPSIZE_Y - 1) / RTGI_GROUPSIZE_Y;
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-	const uint32_t historyWriteIndex = frameIndex % 2;
+	auto& giDescriptorSet = giDescriptorSets[frameIndex][historyWriteIndex];
 	Texture2D* writeHistory = history[historyWriteIndex];
 
 	{
@@ -381,4 +381,5 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	historyWriteIndex = 1 - historyWriteIndex;
 }
