@@ -19,7 +19,12 @@ The first RTGI foundation is already in place:
 - stochastic diffuse rays are generated from visible G-buffer surfaces
 - misses sample the current sky/environment path
 - committed hits resolve scene instance, material, geometry, UV, albedo, and
-  simple emissive data
+  emissive data
+- committed hits reconstruct secondary-hit position and vertex normal
+- RTGI secondary-hit shading returns emissive plus direct-lit outgoing radiance
+  toward the primary surface
+- secondary-hit direct lighting uses the shared point/directional light buffers
+  and RT shadow visibility against the current TLAS
 - scene and shader hot reload have been smoke-tested with the bindless raster
   material path
 - raster glTF shaders read `GpuMaterial` records from the global bindless
@@ -169,6 +174,55 @@ Guardrails:
 - Keep the scene instance and geometry records renderer-agnostic enough that
   deferred RTGI and a future Forward+ renderer could share them.
 - Do not encode ray-hit shading around current G-buffer packing.
+
+## Milestone 2.5: Direct-Lit Secondary Hit Shading
+
+Status: complete enough to move on.
+
+Goal: make the raw one-sample RTGI signal physically meaningful enough to
+accumulate before temporal/spatial filtering hides the per-sample behavior.
+
+Implemented:
+
+- secondary-hit world position reconstructed from ray origin, direction, and hit
+  distance
+- secondary-hit normals reconstructed from hit triangle vertex normals and
+  barycentrics
+- secondary-hit UV/material lookup preserved from Milestone 2
+- RTGI binds and reads the same point and directional light buffers as deferred
+  lighting
+- direct-light BRDF evaluation is shared by deferred, translucent, and RTGI
+  lighting paths
+- secondary-hit contribution returns emissive plus direct-lit outgoing radiance
+  toward the primary surface
+- secondary-hit direct lighting uses ray-query shadow visibility through the
+  current TLAS
+- the deferred composite still treats the RTGI buffer as an incoming indirect
+  radiance-like signal for the primary surface, not as fully BRDF-weighted final
+  lighting
+
+Deferred:
+
+- MIS, explicit light sampling at the primary surface, recursive bounces, and
+  GGX/specular primary-ray sampling
+- tangent-space normal maps at secondary hits
+- dedicated debug visualization for secondary-hit primitive/material/UV/shadow
+  state
+
+Likely pain points:
+
+- raw one-sample output is now more meaningful, but still extremely noisy
+- secondary-hit shadow rays add traversal cost before temporal accumulation can
+  amortize the noise
+- self-shadow bias may still need tuning in real scenes
+
+Guardrails:
+
+- Keep the RTGI buffer contract stable while adding accumulation: miss radiance,
+  emissive hit radiance, and direct-lit secondary-hit radiance are all incoming
+  signals to be composited at the primary surface.
+- Leave higher-fidelity path sampling decisions for later milestones; Milestone
+  3 should focus on making the current signal converge.
 
 ## Milestone 3: Temporal Accumulation
 
@@ -413,6 +467,8 @@ Start Milestone 3 with the smallest temporal accumulation path:
 
 That turns the now scene-aware RTGI signal into something that can converge
 while keeping motion vectors and more advanced rejection as follow-up slices.
+The input signal now includes sky/environment misses, emissive secondary hits,
+and shadowed direct lighting at secondary-hit surfaces.
 
 ## Reading Order
 

@@ -5,8 +5,9 @@
 **niar** is a C++20 Vulkan rendering playground with multiple rendering paths: simple unlit forward, PBR deferred G-buffer, hardware ray tracing (RTX), and a CPU multi-threaded path tracer with optional SIMD via Intel ISPC.
 
 The current project direction is ReSTIR GI, following
-`.github/path-to-restir.md`. Minimal RTGI hit shading is complete enough to move
-on; work is now moving into Milestone 3's temporal accumulation path.
+`.github/path-to-restir.md`. Minimal RTGI hit shading and direct-lit
+secondary-hit shading are complete enough to move on; work is now moving into
+Milestone 3's temporal accumulation path.
 
 ## Build System
 
