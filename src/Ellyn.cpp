@@ -235,11 +235,11 @@ static bool process_input()
 static void update(float elapsed)
 {
 	// camera
-	if (Camera::Active &&
-		!ImGui::GetIO().WantCaptureMouse &&
-		!ImGui::GetIO().WantCaptureKeyboard)
-	{
-		Camera::Active->update_control(elapsed);
+	if (Camera::Active) {
+		Camera::Active->store_current_matrices_as_previous();
+		if (!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard) {
+			Camera::Active->update_control(elapsed);
+		}
 	}
 	// scenes (only the active one updates)
 	if (Scene::Active && Scene::Active->enabled()) {

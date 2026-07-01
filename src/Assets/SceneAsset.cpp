@@ -845,6 +845,12 @@ SceneAsset::SceneAsset(
 		asset_root->ui_default_open = true;
 #endif
 		if (outer_root) outer_root->add_child(asset_root);
+		asset_root->foreach_descendent_bfs([](SceneObject* object)
+		{
+			if (auto* camera = dynamic_cast<Camera*>(object)) {
+				camera->store_current_matrices_as_previous();
+			}
+		});
 
 		delete tree;
 	};

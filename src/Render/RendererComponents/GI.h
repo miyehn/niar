@@ -37,6 +37,8 @@ struct GI
 private:
     bool enabledLastFrame = false;
     Texture2D* indirectLighting = nullptr;
+    Texture2D* history[2] = {};
+    Texture2D* sampleCount = nullptr;
     DescriptorSet giDescriptorSets[MAX_FRAMES_IN_FLIGHT];
 
 };

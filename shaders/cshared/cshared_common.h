@@ -31,11 +31,13 @@ namespace glm {
 #define CSHARED_ALIGNAS_16
 #endif // #ifdef __cplusplus
 
-struct ViewInfo
+struct CSHARED_ALIGNAS_16 ViewInfo
 {
 	mat4 ViewMatrix;
 	mat4 ProjectionMatrix;
 	mat4 InverseProjectionMatrix;
+	mat4 PrevViewMatrix;
+	mat4 PrevProjectionMatrix;
 
 	vec3 CameraPosition;
 	int NumPointLights;
@@ -93,6 +95,25 @@ struct CSHARED_ALIGNAS_16 GpuGeometryRecord
 #ifdef __cplusplus
 }; // namespace glm
 
+static_assert(sizeof(glm::ViewInfo) == 400);
+static_assert(alignof(glm::ViewInfo) == 16);
+static_assert(offsetof(glm::ViewInfo, ViewMatrix) == 0);
+static_assert(offsetof(glm::ViewInfo, ProjectionMatrix) == 64);
+static_assert(offsetof(glm::ViewInfo, InverseProjectionMatrix) == 128);
+static_assert(offsetof(glm::ViewInfo, PrevViewMatrix) == 192);
+static_assert(offsetof(glm::ViewInfo, PrevProjectionMatrix) == 256);
+static_assert(offsetof(glm::ViewInfo, CameraPosition) == 320);
+static_assert(offsetof(glm::ViewInfo, NumPointLights) == 332);
+static_assert(offsetof(glm::ViewInfo, ViewDir) == 336);
+static_assert(offsetof(glm::ViewInfo, NumDirectionalLights) == 348);
+static_assert(offsetof(glm::ViewInfo, Exposure) == 352);
+static_assert(offsetof(glm::ViewInfo, AspectRatio) == 356);
+static_assert(offsetof(glm::ViewInfo, HalfVFovRadians) == 360);
+static_assert(offsetof(glm::ViewInfo, ToneMappingOption) == 364);
+static_assert(offsetof(glm::ViewInfo, BackgroundOption) == 368);
+static_assert(offsetof(glm::ViewInfo, FrameIndex) == 372);
+static_assert(offsetof(glm::ViewInfo, RenderSize) == 376);
+static_assert(offsetof(glm::ViewInfo, FrameRandom) == 384);
 static_assert(sizeof(glm::GpuMaterial) == 64);
 static_assert(alignof(glm::GpuMaterial) == 16);
 static_assert(offsetof(glm::GpuMaterial, baseColorFactor) == 0);

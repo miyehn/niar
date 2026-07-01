@@ -22,6 +22,8 @@ void Camera::set_scale(vec3 scale) {
 Camera::Camera(uint32_t w, uint32_t h, bool _ortho) :
 	_orthographic(_ortho), width(w), height(h) {
 
+	ASSERT(w > 0 && h > 0)
+
 	_local_position = vec3(0);
 	_rotation = glm::quat(1, 0, 0, 0);
 
@@ -148,15 +150,22 @@ vec4 Camera::ZBufferParams() {
 	return res;
 }
 
-mat4 Camera::camera_to_clip()
+mat4 Camera::camera_to_clip() const
 {
 	mat4 camera_to_clip = _orthographic ?
 						  ortho(-width/2, width/2, -height/2, height/2, cutoffNear, cutoffFar) :
 						  perspective(fov, aspect_ratio, cutoffNear, cutoffFar);
+	camera_to_clip[1][1] *= -1; // so it's not upside down
 	return camera_to_clip;
 }
 
-Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) : Camera(0, 0, false)
+void Camera::store_current_matrices_as_previous()
+{
+	previousViewMatrix = world_to_object();
+	previousProjectionMatrix = camera_to_clip();
+}
+
+Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) : Camera(1, 1, false)
 {
 	name = node_name + " | " + in_camera->name;
 	LOG("loading camera '%s'..", name.c_str())
@@ -183,6 +192,7 @@ Camera::Camera(const std::string& node_name, const tinygltf::Camera *in_camera) 
 	prev_mouse_y = 0;
 	_locked = false;
 	_orthographic = false;
+	store_current_matrices_as_previous();
 }
 
 #if GRAPHICS_DISPLAY

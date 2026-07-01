@@ -23,6 +23,9 @@ layout(set = 0, binding = 7) uniform RtgiPointLightsInfo {
 layout(set = 0, binding = 8) uniform RtgiDirectionalLightsInfo {
     DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 } DirectionalLights;
+layout(set = 0, binding = 9) uniform sampler2D RtgiReadHistory;
+layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D RtgiWriteHistory;
+layout(set = 0, binding = 11, r32ui) uniform uimage2D RtgiSampleCount;
 
 #include "lighting_common.glsl"
 

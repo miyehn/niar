@@ -50,12 +50,17 @@ struct Camera : SceneObject {
 	void setRotation(glm::quat _rotation) override;
 	void set_scale(glm::vec3 _scale) override;
 
-	glm::mat4 camera_to_clip();
+	glm::mat4 camera_to_clip() const;
 	glm::mat4 world_to_clip();
+	glm::mat4 previous_view_matrix() const { return previousViewMatrix; }
+	glm::mat4 previous_projection_matrix() const { return previousProjectionMatrix; }
+	void store_current_matrices_as_previous();
 
 	glm::vec4 ZBufferParams();
 
 private:
+	glm::mat4 previousViewMatrix = glm::mat4(1.0f);
+	glm::mat4 previousProjectionMatrix = glm::mat4(1.0f);
 	int prev_mouse_x;
 	int prev_mouse_y;
 	bool _locked;

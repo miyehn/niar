@@ -1,532 +1,313 @@
-# Milestone 2 Review Plan: Minimal Hit Shading
+# Milestone 3 Review Plan: Temporal Accumulation
 
-Source roadmap: `.github/path-to-restir.md`, Milestone 2.
+Source roadmap: `.github/path-to-restir.md`, Milestone 3.
 
-Goal: make RTGI ray hits return scene-aware material data instead of the current
-placeholder black result, while keeping each step small enough to review as a
-focused change.
+Goal: convert the noisy one-ray RTGI result into a temporally accumulated
+indirect signal. The signal is already physically meaningful: sky/environment
+misses, emissive secondary hits, and shadowed direct-lit bounce color all work.
+The missing piece is convergence. Each chunk keeps one concern isolated so each
+is reviewable and testable on its own.
 
-## Review Chunk 1: Keep Committed Hit Data
+## Review Chunk 1: Previous-Frame View Matrices In ViewInfo
 
-Purpose: change the RTGI ray-query path from "hit or miss" to "miss, or a
-committed hit with enough identifiers to debug."
-
-Implementation scope:
-
-- Replace the boolean-only `rayMissedScene` result with a compact hit result
-  struct in `rtgi_generate.comp`.
-- Preserve current behavior for misses: sample sky/environment.
-- Preserve current behavior for hits: return black for now.
-- Capture committed hit fields that are available directly from ray query:
-  instance custom index, primitive index, barycentrics if available, and hit
-  distance if useful for debug.
-- Add a temporary debug/output mode only if there is already a nearby config or
-  shader pattern for selecting RTGI debug output. Otherwise keep the captured
-  data local and use the next chunk for visible debug.
-
-Review checklist:
-
-- Miss path is unchanged apart from naming/struct plumbing.
-- Hit path still contributes black, so visual output should not materially
-  change except for intentional debug output.
-- The new hit result has clear invalid values for miss/no-data cases.
-- No scene/material binding is introduced yet.
-
-Done when:
-
-- The compute shader can distinguish miss from committed hit and retain the hit
-  identifiers needed by later chunks.
-- Existing skylight-on-miss behavior still works.
-
-## Review Chunk 2: GPU Scene Instance Record Layout
-
-Purpose: define the durable CPU/GPU bridge from TLAS instance row to scene
-material metadata, without changing RTGI shading yet.
+Purpose: give the GPU both the current and previous frame's view and projection
+matrices so that any shader can reproject a screen-space position to its
+previous-frame screen-space location.
 
 Implementation scope:
 
-- Add a GPU scene instance record type in shared C++/GLSL-facing layout.
-- Store at least:
-  - bindless material index
-  - geometry record index or reserved geometry fields
-  - padding/reserved fields so the layout can grow without churn
-- Add `static_assert`s for size and offsets on the C++ side.
-- Keep the record renderer-agnostic; do not bake in current G-buffer packing.
+- Add `PrevViewMatrix` and `PrevProjectionMatrix` fields to the `ViewInfo`
+  struct in `shaders/cshared/cshared_common.h`.
+- Ensure the layout stays 16-byte aligned. Add `static_assert`s for the new
+  fields.
+- On the CPU side, copy the current frame's view and projection matrices into
+  the previous-frame fields at the end of each frame, before uploading the next
+  frame's `ViewInfo` UBO.
+- No shader reads the new fields yet; this chunk is purely infrastructure.
 
 Review checklist:
 
-- Field names describe scene lookup responsibilities, not one current shader.
-- Layout alignment is explicit and checked.
-- Reserved fields are intentional and documented lightly.
-- No TLAS build behavior changes are mixed into this chunk.
+- `ViewInfo` layout is alignment-safe and the `static_assert`s confirm offsets
+  for the new fields.
+- The CPU upload path writes `PrevViewMatrix` and `PrevProjectionMatrix` from
+  the just-submitted frame, not from two frames ago.
+- No other ViewInfo consumers are broken by the struct growth.
+- No rendering changes; visual output is identical.
 
 Done when:
 
-- There is a stable scene instance record definition ready to be filled in TLAS
-  order.
+- Every frame's `ViewInfo` UBO contains valid previous-frame matrices ready to
+  use for reprojection.
 
-## Review Chunk 3: Build Scene Instance Records In TLAS Order
 
-Purpose: populate the scene instance table in exactly the same order used to
-build the TLAS instances.
+## Review Chunk 2: Ping-Pong History Textures In GI
+
+Purpose: give the GI component the persistent per-frame state needed for
+temporal accumulation: two history textures that alternate roles each frame, and
+a per-pixel sample count texture.
 
 Implementation scope:
 
-- Build one scene instance record per TLAS instance.
-- Fill each record's bindless material index from the mesh/surface already used
-  by raster glTF rendering.
-- Set each TLAS instance's `instanceCustomIndex` to the matching scene instance
-  record row.
-- Assert that every record has a valid bindless material index.
-- Keep reload/rebuild paths from silently diverging: table rebuild and TLAS
-  rebuild should happen from the same source ordering.
+- Add two history textures to `GI` in the same `R16G16B16A16_SFLOAT` format as
+  `indirectLighting`. The RGB channels will hold the accumulated indirect
+  radiance. The alpha channel will hold the linearized depth of the primary
+  surface at that pixel, so the accumulation pass can detect disocclusion
+  without keeping a separate previous-depth buffer.
+- Add a per-pixel sample count texture (`R32_UINT`) that tracks how many samples
+  have been accumulated at each pixel.
+- Track which texture is the "read history" and which is the "write history" for
+  the current frame, alternating each frame.
+- Update `GI::init` to allocate and transition all new textures into appropriate
+  initial layouts.
+- Update `GI::release` to delete all new textures.
+- Update `GI::clear` and `GI::clear(VkCommandBuffer)` to zero-fill all new
+  textures and reset layouts.
+- Extend `GI::InitInfo` with the new textures' needs if any external input is
+  required (currently none expected).
+- Update the descriptor set layout and per-frame `giDescriptorSets` bindings to
+  expose the read-history texture and the sample-count texture as inputs, and
+  the write-history texture and sample-count texture as storage image outputs.
+  Keep binding numbers consistent with the existing layout convention.
 
 Review checklist:
 
-- Record count matches TLAS instance count.
-- `instanceCustomIndex` is a table row, not an unrelated mesh/material id.
-- Multi-scene or reload paths cannot leave stale scene instance data behind.
-- The change does not require texture, vertex, or index lookup yet.
+- Both history textures and the sample count texture are created, transitioned,
+  and destroyed cleanly.
+- Ping-pong index alternates correctly between frames; the read and write targets
+  are never the same texture in the same frame.
+- `clear()` zeroes all three new textures, not just `indirectLighting`.
+- Descriptor set bindings stay aligned between C++ layout and the slot numbers
+  used in the next chunk's shader work.
+- No shader reads the new bindings yet; visual output is unchanged.
 
 Done when:
 
-- RTGI can use `instanceCustomIndex` as a reliable index into a GPU scene
-  instance table.
+- `GI` owns a stable ping-pong pair of history textures and a sample count
+  texture, all properly managed across frames and scene reloads.
 
-## Review Chunk 4: Bind Scene Instance Data To RTGI
 
-Purpose: expose the scene instance table to `rtgi_generate.comp` without using
-it for material shading yet.
+## Review Chunk 3: Naive Same-Pixel Temporal Accumulation
+
+Purpose: prove that the accumulation loop works and that a still camera produces
+a converging indirect signal, before adding any reprojection.
 
 Implementation scope:
 
-- Add the scene instance buffer to the RTGI descriptor set layout.
-- Bind the buffer from the GI component or the owner that already has the TLAS
-  and scene lifetime context.
-- Add the matching GLSL buffer declaration.
-- Use the committed hit's instance custom index to read the scene instance
-  record.
-- Add a debug output path for hit/miss and scene instance row if the current
-  debug plumbing supports it.
+- Change `rtgi_generate.comp` from a pure write-only pass to an
+  accumulation pass:
+  - Add bindings for the read-history texture (sampled), the sample count
+    texture (read/write storage), and the write-history texture (write-only
+    storage image). Keep the existing `IndirectLighting` output binding for the
+    composited result that deferred lighting reads.
+  - Each pixel: read `prevAccumulated` and `prevCount` from the history and
+    sample count textures at the same screen coordinate. Clamp `prevCount` to a
+    configurable maximum (default 64, driven by `config/gi.ini`).
+  - Compute the new accumulated value:
+    `accumulated = (prevAccumulated.rgb * prevCount + newSample) / (prevCount + 1)`
+  - Write the accumulated result to the write-history texture (RGB = accumulated
+    indirect, A = current pixel's linearized view-space depth from the G-buffer).
+  - Write `min(prevCount + 1, maxCount)` to the sample count texture.
+  - Write the accumulated indirect RGB to `IndirectLighting` so the deferred
+    composite is unchanged.
+- Add the maximum sample count as a config key in `config/gi.ini`.
+- Update `GI::render` to insert the barriers needed around the new storage image
+  reads and writes, and to advance the ping-pong index after the pass.
 
 Review checklist:
 
-- Descriptor layout, C++ binding, and GLSL binding stay aligned.
-- The buffer lifetime is at least as long as the RTGI pass that reads it.
-- Invalid/miss cases do not read the scene instance buffer.
-- The normal visual RTGI result can remain unchanged.
+- A still camera causes the indirect buffer to converge visibly over several
+  frames; noise decreases noticeably within a second or two.
+- Moving the camera produces ghosting (expected and acceptable at this stage).
+- The deferred composite output is not broken; `IndirectLighting` still feeds
+  the same binding in the lighting pass.
+- When GI is disabled, `clear()` zeroes the history and sample count textures so
+  re-enabling starts fresh.
+- The max sample count cap is config-driven and hot-reloads correctly.
 
 Done when:
 
-- A committed RTGI hit can read the matching scene instance record on the GPU.
-- A debug view or shader-side assertion strategy can confirm instance rows.
+- Still camera noise visibly decreases over time through accumulated samples.
 
-## Review Chunk 5: Bindless Material Index Debug
 
-Purpose: verify the bridge all the way from ray hit to bindless material index
-before shading uses it.
+## Review Chunk 4: Reprojection Using Depth And Prev View Matrices
+
+Purpose: use the previous-frame view and projection matrices to find where the
+current pixel's surface was in the previous frame, so that camera movement no
+longer leaves persistent ghosts.
 
 Implementation scope:
 
-- Read `bindlessMaterialIndex` from the scene instance record.
-- Add a material-index debug output mode.
-- Keep normal RTGI shading unchanged outside the debug mode.
-- Exercise at least one scene with multiple materials or multiple objects.
+- In `rtgi_generate.comp`, before reading history, compute the reprojected
+  previous-frame UV for the current pixel:
+  - Reconstruct the current pixel's world position from screen UV and G-buffer
+    depth (the same path already used to compute the ray origin).
+  - Project the world position through `PrevViewMatrix * PrevProjectionMatrix`
+    to get the previous-frame clip position.
+  - Convert clip position to a UV in [0, 1]. If the reprojected UV is outside
+    [0, 1] (the surface went offscreen), mark the history as invalid.
+- Replace the same-pixel history lookup from Chunk 3 with a bilinear sample of
+  the read-history texture at the reprojected UV.
+- Preserve the alpha channel depth value when the history is valid; when the
+  history is invalid, write depth with no previous accumulation (count = 0).
+- The sample count texture lookup should also use the nearest-neighbor reprojected
+  UV (or clamp to zero for out-of-bounds). Bilinear blending of integer sample
+  counts is not meaningful; use point sampling or take the minimum of the
+  reprojected neighborhood.
 
 Review checklist:
 
-- Debug colors/values make mismatches easy to spot.
-- Material index reads are guarded by hit validity.
-- The debug path does not depend on albedo texture lookup.
+- Camera rotation and translation no longer leave obvious trails; new
+  geometry appears without blending with stale history from the old view.
+- Reprojected UV is computed only from the current frame's G-buffer depth and
+  `PrevViewMatrix` / `PrevProjectionMatrix`; no new G-buffer attachment is
+  added here.
+- Out-of-bounds reprojection gracefully falls back to the new sample only.
+- Static scenes still converge as before; accumulated sample count grows
+  correctly when the camera is still.
 
 Done when:
 
-- Ray-hit debug output shows stable, expected material indices.
-- Scene reloads do not mismatch TLAS instance rows and material records.
+- Camera movement does not leave persistent ghosting from the old camera
+  position, while a still camera still converges.
 
-## Review Chunk 6: Base Color Factor Hit Shading
 
-Purpose: make hits contribute a simple material-colored diffuse signal using
-only `GpuMaterial.baseColorFactor`.
+## Review Chunk 5: Per-Pixel History Rejection By Depth
+
+Purpose: detect disocclusion and newly visible geometry so that the accumulation
+resets those pixels rather than blending stale history into them.
 
 Implementation scope:
 
-- Bind the shared bindless material descriptor set to the RTGI compute pipeline.
-- Use the hit's scene instance record to fetch the `GpuMaterial`.
-- On ray hit, return `GpuMaterial.baseColorFactor.rgb` as the first approximate
-  bounced diffuse result.
-- Keep textured albedo, emissive, metallic, and roughness out of this chunk.
+- After computing the reprojected UV, compare the stored depth in the history
+  alpha channel against the expected depth of the current surface seen from the
+  previous frame:
+  - From the current world position and `PrevViewMatrix * PrevProjectionMatrix`,
+    derive the linearized view-space depth the current surface would have had
+    last frame.
+  - Read the stored linearized depth from the history texture alpha at the
+    reprojected UV.
+  - If the absolute or relative difference exceeds a configurable threshold,
+    mark the history as invalid for this pixel.
+- When history is invalid (depth mismatch or out-of-bounds reprojection), reset
+  the accumulated value to the new sample only and write sample count 1.
+- Add `HistoryDepthRejectionThreshold` to `config/gi.ini` with a sensible
+  default.
+- Keep normal-based rejection out of this chunk; depth alone is sufficient to
+  catch the main disocclusion cases.
 
 Review checklist:
 
-- The bindless set is bound only once the shader actually reads material data.
-- Hit shading remains deliberately simple and easy to reason about.
-- Miss shading still samples sky/environment.
-- Direct lighting and RT shadows remain separate from this RTGI signal.
+- Moving the camera reveals new surfaces; those pixels reset rather than
+  blending in stale background history.
+- Surfaces that stay visible and correctly reprojected continue to accumulate.
+- The threshold default is tight enough to reject real disocclusions but does
+  not cause flickering on stationary geometry.
+- Config key hot-reloads without crashing.
 
 Done when:
 
-- Simple colored objects affect nearby indirect lighting through the RTGI pass.
-- The implementation proves ray hit to material fetch without UV complexity.
+- Disoccluded pixels reset gracefully instead of ghosting, while correctly
+  reprojected pixels continue to converge.
 
-## Review Chunk 7: Geometry Record Skeleton
 
-Purpose: introduce the geometry lookup layer needed for primitive and UV work,
-without sampling textures yet.
+## Review Chunk 6: Motion Vector G-Buffer Attachment
+
+Purpose: move per-pixel reprojection offsets into a dedicated G-buffer
+attachment so that the logic is computed once, is debuggable, and can grow to
+handle per-object motion vectors later.
 
 Implementation scope:
 
-- Add a GPU geometry record layout referenced by scene instance records.
-- Store enough information to locate index/vertex data for the hit geometry:
-  buffer address or buffer index, index offset, vertex offset, index type, and
-  any needed stride/layout fields.
-- Preserve room for per-primitive material identity if mesh build paths ever
-  batch multiple primitives into one acceleration-structure geometry.
-- Add C++ layout checks for geometry records.
+- Add a motion vector texture to the G-buffer, `RG16F`, storing the
+  per-pixel screen-space UV delta: `current_uv - prev_uv`.
+- Produce motion vectors by reprojecting depth in either a dedicated compute
+  pass or a deferred G-buffer resolve step:
+  - Reconstruct world position from G-buffer depth.
+  - Project through `PrevViewMatrix * PrevProjectionMatrix` to get previous UV.
+  - Output `currentUV - prevUV` as the motion vector.
+  - This covers camera-only motion. Objects with independent transforms would
+    need per-object previous model matrices; leave that for a future milestone.
+- Update `GI::InitInfo` to accept the motion vector texture.
+- Update `GI`'s descriptor set to bind the motion vector texture as an input.
+- In `rtgi_generate.comp`, replace the inline reprojection computation from
+  Chunk 4 with a texture read from the motion vector attachment. History lookup
+  and depth rejection from Chunk 5 continue to use the reprojected UV and
+  stored depth; the only change is how the reprojected UV is computed.
+- Keep the inline reprojection path available behind a shader define or config
+  flag only if the G-buffer motion vector path has a known gap; otherwise remove
+  it cleanly.
 
 Review checklist:
 
-- The geometry record describes source geometry, not material shading policy.
-- 16-bit and 32-bit index handling are either supported or explicitly asserted.
-- This chunk does not require UV interpolation or texture sampling yet.
+- Visual output matches Chunks 4 and 5 exactly when the scene has only camera
+  motion; no new ghosting or rejection artifacts appear.
+- Motion vector texture is transitioned to the correct layout before RTGI reads
+  it.
+- The G-buffer pass that writes motion vectors runs before RTGI; ordering is
+  explicit in the render component, not hidden in barriers inside a helper.
+- The design lets a future change substitute per-object motion vectors by
+  updating the G-buffer pass only, without touching `GI.cpp` or the RTGI
+  shader.
+- The inline reprojection code from Chunk 4 is removed or clearly gated so it
+  does not silently run alongside the new path.
 
 Done when:
 
-- A hit can identify which geometry record should be used for later vertex/index
-  lookup.
+- Motion vectors are produced in the G-buffer and consumed by RTGI, with the
+  same reprojection and rejection quality as before.
 
-## Review Chunk 8: Primitive And Barycentric Debug
 
-Purpose: verify hit geometry identity before reading vertex attributes.
+## Review Chunk 7: Milestone 3 Cleanup And Config
+
+Purpose: finish the milestone by tightening the accumulation contract, removing
+temporary scaffolding, and making it easy to compare raw and accumulated output.
 
 Implementation scope:
 
-- Expose primitive index and barycentric coordinates from the committed hit.
-- Add debug outputs for primitive index and barycentric coordinates.
-- Confirm values are stable across camera movement and scene reload.
+- Add an `accumulation` toggle to `config/gi.ini` that bypasses history reuse
+  and writes the raw one-sample result directly, without modifying any other
+  GI behavior. This makes the noise reduction visible and reversible without a
+  recompile.
+- Audit `GI::clear` and `GI::render` for any lingering assumptions from before
+  ping-pong: no reference to a single `indirectLighting` texture where two
+  history textures now exist.
+- Audit `rtgi_generate.comp` for stale comments or variable names that still
+  describe single-frame direct writes rather than accumulation.
+- Update `.github/path-to-restir.md` to mark Milestone 3 complete.
+- Leave debug views (history age, rejected pixels, sample count heatmap) as
+  optional follow-up work; do not require them to close the milestone.
 
 Review checklist:
 
-- Debug output is isolated from normal RTGI shading.
-- Primitive index values look plausible on simple meshes.
-- Barycentric output changes smoothly across triangles.
+- Toggling `accumulation` off shows the raw noisy one-sample output; toggling
+  it on restores the converged result. Hot-reload works.
+- No stale code remains that assumed a single non-ping-ponged indirect texture.
+- The roadmap still points clearly to Milestone 4 spatial filtering as next.
+- The done conditions from `path-to-restir.md` Milestone 3 are all met:
+  - still camera noise decreases over time
+  - moving the camera does not leave obviously broken trails everywhere
+  - disocclusion behavior resets the affected pixels instead of ghosting
 
 Done when:
 
-- The renderer can visually inspect primitive identity and barycentrics for RTGI
-  ray hits.
+- Milestone 3's done conditions are verifiable, and the accumulation path is
+  clean enough to build spatial filtering on top of in Milestone 4.
 
-## Review Chunk 9: UV Interpolation Debug
-
-Purpose: read hit triangle vertex data and prove UV interpolation before using
-  it for material sampling.
-
-Implementation scope:
-
-- Read the hit triangle's indices from the geometry record.
-- Read vertex UVs using the project's actual vertex layout.
-- Interpolate UVs from barycentric coordinates.
-- Add a UV debug output mode.
-- Handle or assert unsupported index formats explicitly.
-
-Review checklist:
-
-- GLSL vertex/index layout matches the C++ vertex/index layout exactly.
-- UV debug follows mesh unwraps on known textured assets.
-- Degenerate or missing UV cases have a clear fallback or assertion.
-- Base color factor hit shading from Chunk 6 still works.
-
-Done when:
-
-- RTGI hit shaders can reconstruct stable UVs for textured meshes.
-
-## Review Chunk 10: Textured Albedo Hit Shading
-
-Purpose: upgrade hit shading from base color factor only to albedo texture times
-base color factor.
-
-Implementation scope:
-
-- Sample the material albedo texture through the existing bindless texture table.
-- Use explicit LOD 0 for the first implementation.
-- Multiply sampled albedo by `GpuMaterial.baseColorFactor.rgb`.
-- Keep normal mapping, ORM, and specular response out of this chunk.
-
-Review checklist:
-
-- Texture sampling uses the same bindless material conventions as raster glTF
-  shaders where practical.
-- Missing albedo texture resolves through the existing default texture path.
-- Textured indirect color follows mesh UVs.
-- No unrelated material model changes are mixed in.
-
-Done when:
-
-- Textured objects can affect nearby indirect lighting with recognizable albedo
-  color.
-
-## Review Chunk 11: Emissive Identification Or Contribution
-
-Purpose: handle emissive materials only after the material and UV bridge is
-working.
-
-Implementation scope:
-
-- Read `GpuMaterial.emissiveFactorAndClipThreshold.rgb`.
-- If UV lookup is available, sample the emissive texture and multiply by the
-  emissive factor.
-- Choose the smallest useful behavior:
-  - identify emissive hits in a debug mode, or
-  - add emissive radiance as hit contribution.
-- Keep this separate from direct-light sampling or full ReSTIR light selection.
-
-Review checklist:
-
-- Emissive behavior is documented as either debug-only or contributing radiance.
-- Non-emissive materials stay unchanged.
-- The change does not imply full emissive area-light sampling yet.
-
-Done when:
-
-- Emissive objects can be identified by RTGI hits, or can contribute a simple
-  radiance term if enabled.
-
-## Review Chunk 12: Milestone 2 Cleanup And Guardrails
-
-Purpose: finish the milestone by tightening invariants and removing temporary
-scaffolding that is no longer useful.
-
-Implementation scope:
-
-- Audit descriptor bindings, scene instance lifetime, and reload behavior.
-- Remove stale debug modes only if they have been superseded and are not useful
-  for future GI work.
-- Rename temporary structs/functions now that their responsibilities are clear.
-- Add comments only around non-obvious layout, indexing, or ray-query behavior.
-- Update `.github/path-to-restir.md` status if Milestone 2 is complete.
-
-Review checklist:
-
-- No stale temporary names hide the final data flow.
-- Scene reload cannot silently mismatch TLAS instance order, scene instance
-  records, and material data.
-- Future milestones can consume the instance/material/geometry bridge without
-  depending on G-buffer packing.
-
-Done when:
-
-- Milestone 2's done conditions are met:
-  - bounced rays can return approximate diffuse scene color
-  - simple colored objects affect nearby indirect lighting
-  - ray-hit debug views show expected instance and material indices
-  - textured albedo follows mesh UVs once UV lookup is enabled
-  - emissive objects, if present, can contribute or at least be identified
-  - scene reloads cannot silently mismatch TLAS instance order and material data
-
-## Milestone 2.5: Direct-Lit Secondary Hit Shading
-
-Status: complete enough to move on. Milestone 3 temporal accumulation is next.
-
-Purpose: make the one-bounce RTGI sample physically more meaningful before
-temporal accumulation starts hiding raw one-sample behavior. Keep this milestone
-small: shade the secondary hit with emissive plus direct lighting, but do not add
-MIS, reservoir sampling, recursive bounces, primary-surface specular sampling,
-or temporal/spatial reuse.
-
-Working model:
-
-- Primary visible surfaces still sample one cosine-weighted diffuse ray.
-- Misses still return sky/environment radiance.
-- Committed secondary hits reconstruct hit position, normal, UV, and material.
-- Secondary hit contribution returns outgoing radiance toward the primary
-  surface: emissive plus shadowed direct lighting at the hit point.
-- The deferred composite can continue applying the primary surface albedo to the
-  RTGI buffer; do not silently change the RTGI output contract to final
-  BRDF-weighted primary-surface lighting in this milestone.
-
-Implemented:
-
-- secondary-hit world position, vertex normal, UV, and material reconstruction
-- shared point/directional light inputs for RTGI
-- shared direct-light BRDF math used by primary and secondary hit lighting
-- shadow rays from secondary hits through the current TLAS
-- secondary-hit contribution returns emissive plus shadowed direct lighting
-  toward the primary surface
-
-## Review Chunk 13: Reconstruct Secondary Hit Surface Data
-
-Purpose: turn the committed ray hit into the minimum surface data needed for
-direct lighting at the hit point.
-
-Implementation scope:
-
-- Use `rayOrigin + rayDir * hitT` to reconstruct the secondary hit world
-  position.
-- Read hit triangle vertex positions and normals through the existing bindless
-  geometry record path.
-- Interpolate vertex normals using committed barycentric coordinates.
-- Transform the interpolated normal to world space. If the current TLAS/scene
-  instance data does not expose the needed transform cleanly, add the minimum
-  renderer-agnostic transform data to the scene instance record or a companion
-  table.
-- Keep UV reconstruction and albedo/emissive lookup from Milestone 2 intact.
-- Keep tangent-space normal maps out of this chunk; use vertex normals only.
-
-Review checklist:
-
-- World-space hit position matches the same ray origin and direction used for
-  traversal.
-- Normal interpolation follows the same triangle index and barycentric data as
-  UV interpolation.
-- Transform handling is explicit; no hidden dependency on current G-buffer
-  packing or raster draw order.
-- Invalid geometry or generated/AABB intersections fall back clearly instead of
-  reading triangle vertex data.
-
-Done when:
-
-- `rtgi_generate.comp` can build a secondary-hit shading input containing world
-  position, world normal, UV, material, and outgoing direction back toward the
-  primary surface.
-
-## Review Chunk 14: Share Direct-Light Inputs With RTGI
-
-Purpose: expose the same point and directional light buffers used by deferred
-lighting to the RTGI compute pass.
-
-Implementation scope:
-
-- Add RTGI descriptor bindings for the existing point-light and
-  directional-light buffers, or move the declarations into a shared frame-global
-  binding path if that is cleaner.
-- Keep binding numbers and GLSL declarations aligned with the existing
-  `ViewInfo.NumPointLights` and `ViewInfo.NumDirectionalLights` fields.
-- Prefer extracting layout-free lighting helper math from `lighting_common.glsl`
-  over including it directly if its current descriptor declarations conflict
-  with `rtgi_generate.comp`.
-- Do not add new light types, area-light sampling, or MIS.
-
-Review checklist:
-
-- RTGI and deferred read the same CPU-authored light data for the current frame.
-- Descriptor ownership remains in `GI`/deferred renderer code that already owns
-  frame context.
-- No shader include introduces duplicate or mismatched descriptor declarations.
-- Existing deferred lighting output is unchanged.
-
-Done when:
-
-- `rtgi_generate.comp` can iterate current point and directional lights without
-  duplicating CPU light upload logic.
-
-## Review Chunk 15: Shadow Rays From Secondary Hits
-
-Purpose: let direct lighting at the secondary hit respect scene visibility.
-
-Implementation scope:
-
-- Add an RTGI-local `shadowFactor` helper or share a descriptor-free helper with
-  deferred lighting.
-- Trace shadow rays from secondary hit position toward each light.
-- Offset the shadow ray origin along the secondary hit normal using the existing
-  small ray-bias convention.
-- Use `TerminateOnFirstHit`, `SkipClosestHitShader`, and opaque ray flags for
-  shadow visibility.
-- Use point-light distance as `tMax`; use a large directional-light `tMax`.
-
-Review checklist:
-
-- Shadow rays use the same TLAS already bound for RTGI ray queries.
-- Self-shadow acne is controlled by a small normal offset, not by arbitrary
-  large bias.
-- Point-light shadow rays cannot hit geometry behind the light.
-- This chunk does not change the primary indirect-ray sampling distribution.
-
-Done when:
-
-- Direct-light evaluation at secondary hits can be visibly occluded by scene
-  geometry.
-
-## Review Chunk 16: Direct-Lit Hit Contribution
-
-Purpose: replace emissive-only or albedo-only secondary hit return values with a
-simple physically motivated outgoing radiance estimate.
-
-Implementation scope:
-
-- Build a secondary-hit material record from albedo texture times
-  `baseColorFactor`, emissive texture times emissive factor, and ORM values
-  already available through `GpuMaterial`.
-- Evaluate direct lighting at the secondary hit using `-rayDir` as the outgoing
-  direction toward the primary surface.
-- Reuse the existing Cook-Torrance-style direct-light math where practical, but
-  keep the first implementation local and explicit if sharing would require
-  descriptor churn.
-- Return `emission + directLightingAtSecondaryHit`.
-- Preserve sky/environment-on-miss behavior.
-- Keep the primary-surface composite contract unchanged; do not multiply by the
-  primary surface BRDF inside RTGI in this chunk.
-
-Review checklist:
-
-- Non-emissive secondary hits are lit by actual scene lights rather than acting
-  like emission.
-- Emissive secondary hits still contribute even without direct lighting.
-- Metallic and roughness affect the secondary hit's direct-light response, but
-  primary ray directions remain diffuse cosine samples.
-- Energy scale is explainable from light/material inputs, not a debug color or
-  hidden arbitrary multiplier.
-
-Done when:
-
-- One-bounce RTGI produces noisy but recognizable direct-lit bounce color from
-  secondary surfaces.
-
-## Review Chunk 17: Milestone 2.5 Guardrails And Roadmap Update
-
-Purpose: lock the direct-lit secondary hit behavior as the pre-accumulation
-target and keep future work boundaries clear.
-
-Implementation scope:
-
-- Audit the RTGI shader for stale comments implying base color or emissive is
-  the whole hit contribution.
-- Document the current RTGI buffer contract: incoming indirect radiance-like
-  signal for the primary surface, not full primary BRDF-weighted final lighting.
-- Update `.github/path-to-restir.md` if Milestone 2.5 is complete.
-- Leave MIS, explicit light sampling at the primary surface, GGX primary-ray
-  sampling, recursive bounces, and temporal/spatial reuse for later milestones.
-
-Review checklist:
-
-- The code makes it clear which part is secondary-hit shading and which part is
-  primary-surface composition.
-- The roadmap still points to Milestone 3 temporal accumulation next.
-- Debug visualization remains optional and is not required to consider this
-  milestone complete.
-
-Done when:
-
-- The raw one-sample RTGI target is physically meaningful enough to accumulate:
-  miss radiance, emissive hit radiance, and direct-lit secondary hit radiance all
-  work in simple scenes.
 
 ## Suggested PR Grouping
 
 If the chunks feel too small as individual PRs, group them this way:
 
-- PR 1: Chunks 1-3, hit data plus scene instance table construction.
-- PR 2: Chunks 4-6, RTGI binding, material index debug, base color factor hit
-  shading.
-- PR 3: Chunks 7-9, geometry records, primitive/barycentric debug, UV debug.
-- PR 4: Chunks 10-12, textured albedo, emissive handling, cleanup.
-- PR 5: Chunks 13-17, secondary hit surface reconstruction and direct-lit hit
-  shading.
+- PR 1: Chunk 1, previous-frame matrices in ViewInfo.
+- PR 2: Chunk 2, ping-pong history and sample count textures.
+- PR 3: Chunks 3 and 4, naive accumulation then reprojection.
+- PR 4: Chunk 5, depth-based history rejection.
+- PR 5: Chunks 6 and 7, motion vector G-buffer attachment and cleanup.
 
 Avoid grouping across the main risk boundaries:
 
-- scene instance/TLAS ordering
-- descriptor and bindless material binding
-- geometry buffer/index decoding
-- texture and emissive material evaluation
-- secondary-hit direct lighting and shadow visibility
+- descriptor layout changes (ping-pong texture additions)
+- accumulation formula and sample count semantics
+- reprojection correctness (out-of-bounds handling)
+- depth rejection threshold interaction with reprojection
+- motion vector G-buffer ownership and barrier ordering

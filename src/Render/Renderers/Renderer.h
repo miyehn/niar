@@ -13,6 +13,7 @@ protected:
 	[[nodiscard]] glm::ViewInfo getCameraViewInfo() const;
 
 	Renderer() = default;
+
 public:
 
 	virtual ~Renderer() = default;
