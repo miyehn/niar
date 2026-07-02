@@ -23,6 +23,7 @@ struct GI
         const VmaBuffer* directionalLightBuffers[MAX_FRAMES_IN_FLIGHT] = {};
         VkAccelerationStructureKHR tlas = VK_NULL_HANDLE;
         const Texture2D* environmentMap = nullptr;
+        const Texture2D* GMotion = nullptr;
     };
 
     void init(const InitInfo& info);

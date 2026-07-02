@@ -9,7 +9,9 @@ layout (set = 0, binding = 7) uniform sampler2D EnvironmentMap;
 
 layout(location=0) in vec4 vf_position;
 layout(location=1) in vec2 vf_uv;
-layout(location=2) in mat3 TANGENT_TO_WORLD_ROT;
+layout(location=2) in vec4 vf_currentClipPos;
+layout(location=3) in vec4 vf_prevClipPos;
+layout(location=4) in mat3 TANGENT_TO_WORLD_ROT;
 
 layout(location=0) out vec4 outColor;
 

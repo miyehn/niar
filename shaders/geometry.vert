@@ -13,16 +13,22 @@ layout (location = 3) in vec2 in_uv;
 
 layout (location = 0) out vec4 vf_position;
 layout (location = 1) out vec2 vf_uv;
-layout (location = 2) out mat3 TANGENT_TO_WORLD_ROT;
+layout (location = 2) out vec4 vf_currentClipPos;
+layout (location = 3) out vec4 vf_prevClipPos;
+layout (location = 4) out mat3 TANGENT_TO_WORLD_ROT;
 
 void main()
 {
   ViewInfo viewInfo = GetViewInfo();
 
-  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * pc.ModelMatrix * vec4(in_position, 1.0);
-  vf_position = pc.ModelMatrix * vec4(in_position, 1.0) - vec4(viewInfo.CameraPosition, 0);
+  vec4 worldPos4 = pc.ModelMatrix * vec4(in_position, 1.0);
+  gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * worldPos4;
+  vf_position = worldPos4 - vec4(viewInfo.CameraPosition, 0);
 
   vf_uv = in_uv;
+
+  vf_currentClipPos = gl_Position;
+  vf_prevClipPos = viewInfo.PrevProjectionMatrix * viewInfo.PrevViewMatrix * worldPos4;
 
   mat3 OBJECT_TO_WORLD_ROT = mat3(pc.ModelMatrix);
 

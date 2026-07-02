@@ -31,6 +31,7 @@ constexpr uint32_t Slot_DirectionalLights = 8;
 constexpr uint32_t Slot_ReadHistory = 9;
 constexpr uint32_t Slot_WriteHistory = 10;
 constexpr uint32_t Slot_SampleCount = 11;
+constexpr uint32_t Slot_MotionVectors = 12;
 
 // currently made local to this file
 ConfigAsset* get_gi_config()
@@ -96,6 +97,7 @@ void GI::init(const InitInfo& info)
 	ASSERT(info.GNormal != nullptr)
 	ASSERT(info.tlas != VK_NULL_HANDLE)
 	ASSERT(info.environmentMap != nullptr)
+	ASSERT(info.GMotion != nullptr)
 
 	ImageCreator indirectLightingCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -171,6 +173,7 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(Slot_ReadHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(Slot_WriteHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(Slot_SampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	giSetLayout.addBinding(Slot_MotionVectors, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -201,6 +204,7 @@ void GI::init(const InitInfo& info)
 			giDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
 			giDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
 			giDescriptorSet.pointToRWImageView(sampleCount->imageView, Slot_SampleCount);
+			giDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &samplerInfo);
 		}
 	}
 }

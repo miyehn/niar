@@ -163,7 +163,7 @@ public:
 			b.compatibleSubpass = DEFERRED_SUBPASS_GEOMETRY;
 
 			auto singleBlend = b.pipelineState.colorBlendAttachmentInfo;
-			b.pipelineState.colorBlendAttachments = {singleBlend, singleBlend, singleBlend};
+			b.pipelineState.colorBlendAttachments = {singleBlend, singleBlend, singleBlend, singleBlend};
 		}
 		else {
 			b.fragDef = "shaders/translucency_lit.frag";
@@ -235,6 +235,13 @@ DeferredRenderer::DeferredRenderer()
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			"GORM");
 
+		ImageCreator GMotionCreator(
+			VK_FORMAT_R16G16_SFLOAT,
+			{renderExtent.width, renderExtent.height, 1},
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"GMotion");
+
 		ImageCreator sceneColorCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{renderExtent.width, renderExtent.height, 1},
@@ -259,6 +266,7 @@ DeferredRenderer::DeferredRenderer()
 		GNormal = new Texture2D(GNormalCreator);
 		GColor = new Texture2D(GColorCreator);
 		GORM = new Texture2D(GORMCreator);
+		GMotion = new Texture2D(GMotionCreator);
 		sceneColor = new Texture2D(sceneColorCreator);
 		sceneDepth = new Texture2D(sceneDepthCreator);
 		postProcessed = new Texture2D(postProcessedCreator);
@@ -303,6 +311,18 @@ DeferredRenderer::DeferredRenderer()
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			});
+		// GMotion
+		passBuilder.colorAttachments.push_back(
+			{
+				.format = VK_FORMAT_R16G16_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			});
 		passBuilder.useDepthAttachment = true;
 		passBuilder.depthAttachment = {
 			.format = VK_FORMAT_D32_SFLOAT,
@@ -319,9 +339,10 @@ DeferredRenderer::DeferredRenderer()
 		std::vector<VkAttachmentReference> basePassColorAttachmentRefs = {
 			{GNORMAL_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{GCOLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+			{GORM_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+			{GMOTION_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		};
-		constexpr uint32_t basePassDepthAttachment = 3;
+		constexpr uint32_t basePassDepthAttachment = 4;
 		VkAttachmentReference depthAttachmentReference = {
 			basePassDepthAttachment,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
@@ -582,12 +603,13 @@ DeferredRenderer::DeferredRenderer()
 			GNormal->imageView,
 			GColor->imageView,
 			GORM->imageView,
+			GMotion->imageView,
 			sceneDepth->imageView
 		};
 		VkFramebufferCreateInfo framebufferInfo = {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = basePass,
-			.attachmentCount = 4,
+			.attachmentCount = 5,
 			.pAttachments = attachments,
 			.width = renderExtent.width,
 			.height = renderExtent.height,
@@ -726,6 +748,7 @@ DeferredRenderer::DeferredRenderer()
 			GI::InitInfo giInitInfo{};
 			giInitInfo.sceneDepth = sceneDepth;
 			giInitInfo.GNormal = GNormal;
+			giInitInfo.GMotion = GMotion;
 			for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 				giInitInfo.viewInfoUbos[i] = &gpuFrameData[i].viewInfoUbo;
 				giInitInfo.sceneInstanceRecordBuffers[i] = &sceneTlas.getSceneInstanceRecordBuffer(i);
@@ -819,7 +842,7 @@ DeferredRenderer::~DeferredRenderer()
 	DeferredGltfPipelineCache::release();
 
 	std::vector<Texture2D*> images = {
-		GNormal, GColor, GORM, sceneColor, sceneDepth, postProcessed
+		GNormal, GColor, GORM, GMotion, sceneColor, sceneDepth, postProcessed
 	};
 	for (auto image : images) delete image;
 }
@@ -983,14 +1006,14 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	VkClearValue clearColor = {0, 0, 0, 0};
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.f;
-	VkClearValue baseClearValues[] = { clearColor, clearColor, clearColor, clearDepth };
+	VkClearValue baseClearValues[] = { clearColor, clearColor, clearColor, clearColor, clearDepth };
 	VkRect2D renderArea = { .offset = {0, 0}, .extent = renderExtent };
 	VkRenderPassBeginInfo basePassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = basePass,
 		.framebuffer = baseFramebuffer,
 		.renderArea = renderArea,
-		.clearValueCount = 4,
+		.clearValueCount = 5,
 		.pClearValues = baseClearValues
 	};
 	vkCmdBeginRenderPass(cmdbuf, &basePassInfo, VK_SUBPASS_CONTENTS_INLINE);

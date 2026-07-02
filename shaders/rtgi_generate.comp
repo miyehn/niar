@@ -26,6 +26,7 @@ layout(set = 0, binding = 8) uniform RtgiDirectionalLightsInfo {
 layout(set = 0, binding = 9) uniform sampler2D RtgiReadHistory;
 layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D RtgiWriteHistory;
 layout(set = 0, binding = 11, r32ui) uniform uimage2D RtgiSampleCount;
+layout(set = 0, binding = 12) uniform sampler2D MotionVectors;
 
 #include "lighting_common.glsl"
 
@@ -406,14 +407,12 @@ void main()
     RayHitResult hitResult = traceRay(rayOrigin, rayDir);
     vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
 
-    // reproject worldPos into previous frame's clip space to find the history UV
-    vec4 prevViewPos = viewInfo.PrevViewMatrix * vec4(worldPos, 1.0);
-    vec4 prevClip = viewInfo.PrevProjectionMatrix * prevViewPos;
-    vec2 prevUv = (prevClip.xy / prevClip.w) * 0.5 + 0.5;
-    float expectedPrevDepth = -prevViewPos.z; // linear depth
-    float storedPrevDepth = texture(RtgiReadHistory, prevUv).a; // linear depth
-    bool validReprojection = prevClip.w > 0.0
-        && all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0))) // prevUv is not out of range
+    // read per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass
+    vec2 motionVector = texture(MotionVectors, screenUv).rg;
+    vec2 prevUv = screenUv - motionVector;
+    float expectedPrevDepth = -(viewInfo.PrevViewMatrix * vec4(worldPos, 1.0)).z;
+    float storedPrevDepth = texture(RtgiReadHistory, prevUv).a;
+    bool validReprojection = all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)))
         && abs(storedPrevDepth - expectedPrevDepth) < Push.HistoryDepthRejectionThreshold;
 
     // temporal accumulation: running average capped at MaxSampleCount

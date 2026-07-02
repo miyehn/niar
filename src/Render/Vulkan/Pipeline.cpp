@@ -243,7 +243,8 @@ void GraphicsPipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &o
 	pipelineInfo.renderPass = compatibleRenderPass;
 	pipelineInfo.subpass = compatibleSubpass;
 
-	EXPECT(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS)
+	EXPECT_M(vkCreateGraphicsPipelines(Vulkan::Instance->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline), VK_SUCCESS,
+		"Failed to create graphics pipeline with vertex '%s' and fragment '%s'", vertDef.shader_module_key().c_str(), fragDef.shader_module_key().c_str());
 
 	NAME_OBJECT(VK_OBJECT_TYPE_PIPELINE_LAYOUT, outPipelineLayout, debugName + " layout")
 	NAME_OBJECT(VK_OBJECT_TYPE_PIPELINE, outPipeline, debugName)
