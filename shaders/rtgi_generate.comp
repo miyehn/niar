@@ -405,9 +405,15 @@ void main()
     RayHitResult hitResult = traceRay(rayOrigin, rayDir);
     vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
 
+    // reproject worldPos into previous frame's clip space to find the history UV
+    vec4 prevClip = viewInfo.PrevProjectionMatrix * viewInfo.PrevViewMatrix * vec4(worldPos, 1.0);
+    vec2 prevUv = (prevClip.xy / prevClip.w) * 0.5 + 0.5;
+    bool validReprojection = prevClip.w > 0.0 && all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)));
+
     // temporal accumulation: running average capped at MaxSampleCount
-    uint prevCount = imageLoad(RtgiSampleCount, pixel).r;
-    vec3 prevAccumulated = texelFetch(RtgiReadHistory, pixel, 0).rgb;
+    ivec2 prevPixel = ivec2(prevUv * vec2(dims));
+    uint prevCount = validReprojection ? imageLoad(RtgiSampleCount, prevPixel).r : 0u;
+    vec3 prevAccumulated = validReprojection ? texture(RtgiReadHistory, prevUv).rgb : vec3(0.0);
     vec3 accumulated = (prevAccumulated * float(prevCount) + newSample) / float(prevCount + 1u);
 
     imageStore(RtgiWriteHistory, pixel, vec4(accumulated, linearDepth));
