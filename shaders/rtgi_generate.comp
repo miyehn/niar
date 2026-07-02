@@ -31,6 +31,7 @@ layout(set = 0, binding = 11, r32ui) uniform uimage2D RtgiSampleCount;
 
 layout(push_constant) uniform RtgiPushConstants {
     uint MaxSampleCount;
+    float HistoryDepthRejectionThreshold;
 } Push;
 
 // (set 1, binding 0) sky parameters
@@ -406,9 +407,14 @@ void main()
     vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
 
     // reproject worldPos into previous frame's clip space to find the history UV
-    vec4 prevClip = viewInfo.PrevProjectionMatrix * viewInfo.PrevViewMatrix * vec4(worldPos, 1.0);
+    vec4 prevViewPos = viewInfo.PrevViewMatrix * vec4(worldPos, 1.0);
+    vec4 prevClip = viewInfo.PrevProjectionMatrix * prevViewPos;
     vec2 prevUv = (prevClip.xy / prevClip.w) * 0.5 + 0.5;
-    bool validReprojection = prevClip.w > 0.0 && all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)));
+    float expectedPrevDepth = -prevViewPos.z; // linear depth
+    float storedPrevDepth = texture(RtgiReadHistory, prevUv).a; // linear depth
+    bool validReprojection = prevClip.w > 0.0
+        && all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0))) // prevUv is not out of range
+        && abs(storedPrevDepth - expectedPrevDepth) < Push.HistoryDepthRejectionThreshold;
 
     // temporal accumulation: running average capped at MaxSampleCount
     ivec2 prevPixel = ivec2(prevUv * vec2(dims));

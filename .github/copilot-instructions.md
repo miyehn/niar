@@ -118,6 +118,9 @@ Use the macros from `Utils/myn/Log.h` (color-coded terminal output) rather than 
 - Namespaces: lowercase (`myn`, `myn::sky`)
 - Shader files: `.vert`, `.frag`, `.comp`, `.rgen`, `.rchit`, `.rmiss`
 
+### Line Length
+Only wrap lines when they significantly exceed 120 characters. Do not introduce artificial line breaks for short expressions, conditional chains, or function call arguments that read clearly on one line.
+
 ### Config Files
 `config/global.ini` is loaded once at startup. `config/pathtracer.ini`, `config/skyAtmosphere.ini` and others are hot-reload during execution. Use the `Config->lookup<T>("Key.Subkey")` pattern to read values.
 
