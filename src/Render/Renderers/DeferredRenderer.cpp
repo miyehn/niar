@@ -956,10 +956,16 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "rebuild deferred scene TLAS")
+
+		// collect all meshes to build tlas from
+		std::vector<MeshObject*> allMeshes(opaqueMeshes.size() + translucentMeshes.size());
+		memcpy(&allMeshes[0], opaqueMeshes.data(), opaqueMeshes.size() * sizeof(MeshObject*));
+		memcpy(&allMeshes[opaqueMeshes.size()], translucentMeshes.data(), translucentMeshes.size() * sizeof(MeshObject*));
+
 		sceneTlas.build_from_meshes(
 			cmdbuf,
 			Vulkan::Instance->getCurrentFrameIndex(),
-			opaqueMeshes,
+			allMeshes,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	}
 

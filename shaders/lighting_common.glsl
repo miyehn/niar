@@ -1,4 +1,5 @@
 #include "cshared/lights.h"
+#include "rt_common.glsl"
 
 vec3 fresnelSchlick(float VdotH, vec3 F0)
 {
@@ -35,20 +36,15 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
+// todo [myn]: refactor, because shadow rays can keep
+// gl_RayFlagsTerminateOnFirstHitEXT and maybe gl_RayFlagsSkipClosestHitShaderEXT
 float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
 {
-    rayQueryEXT rq;
-    rayQueryInitializeEXT(
-        rq,
-        tlas,
-        gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsOpaqueEXT,
-        0xFF,
-        worldPos + normal * EPSILON,
-        0.0,
-        dirToLight,
-        tMax);
-    rayQueryProceedEXT(rq);
-    return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+    const vec3 rayOrigin = worldPos + normal * EPSILON;
+    const vec3 rayDir = dirToLight;
+    RayHitResult hitResult = traceRay(tlas, rayOrigin, rayDir, 0, tMax);
+
+    return hitResult.committed ? 0.0 : 1.0;
 }
 
 vec3 evaluateLight(

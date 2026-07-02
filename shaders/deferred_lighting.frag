@@ -1,5 +1,7 @@
 #version 460 core
 #extension GL_EXT_ray_query : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference_uvec2 : require
 
 layout(location = 0) in vec2 vf_uv;
 layout(location = 0) out vec4 FragColor;

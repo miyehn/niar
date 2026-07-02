@@ -68,4 +68,21 @@ vec3 reflectRay(vec3 normal, vec3 rayDir)
     return rayDir - 2.0f * dot(rayDir, n) * n;
 }
 
+vec3 buildTangent(vec3 normal)
+{
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+    return normalize(cross(up, normal));
+}
+
+vec3 sampleCosineWeightedHemisphere(vec3 normal, vec2 random)
+{
+    float r = sqrt(random.x);
+    float phi = TWO_PI * random.y;
+    vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - random.x)));
+
+    vec3 tangent = buildTangent(normal);
+    vec3 bitangent = cross(normal, tangent);
+    return normalize(localDir.x * tangent + localDir.y * bitangent + localDir.z * normal);
+}
+
 #endif

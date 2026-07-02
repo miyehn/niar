@@ -361,7 +361,7 @@ void load_mesh_buffers(
 }
 
 #if GRAPHICS_DISPLAY
-static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAccessor& gpu_data, BLASInfo& out_info)
+static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAccessor& gpu_data, bool opaque, BLASInfo& out_info)
 {
 	VkDeviceAddress vbAddr = gpu_data.vertexBuffer->getDeviceAddress();
 	VkDeviceAddress ibAddr = gpu_data.indexBuffer->getDeviceAddress();
@@ -379,8 +379,11 @@ static void build_blas(const Mesh::CpuDataAccessor& cpu_data, Mesh::GpuDataAcces
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 		.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
 		.geometry = {.triangles = triangles},
-		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+		.flags = 0
 	};
+	if (opaque) {
+		geom.flags |= VK_GEOMETRY_OPAQUE_BIT_KHR;
+	}
 	VkAccelerationStructureBuildRangeInfoKHR range = {
 		.primitiveCount = cpu_data.num_indices / 3,
 		.primitiveOffset = 0,
@@ -511,7 +514,7 @@ std::vector<Mesh> load_gltf_meshes(
 		{
 			// only create new blas and build if hasn't been built yet
 			blas_collection.push_back({});
-			build_blas(m.cpu_data, m.gpu_data, blas_collection.back());
+			build_blas(m.cpu_data, m.gpu_data, m.surface.isOpaque(), blas_collection.back());
 		}
 #endif
 	}
@@ -1002,7 +1005,7 @@ MeshAsset::MeshAsset(const std::string &relative_path, const std::string &alias)
 			if (mesh.gpu_data.blasHandle == VK_NULL_HANDLE)
 			{
 				blas_collection.push_back({});
-				build_blas(mesh.cpu_data, mesh.gpu_data, blas_collection.back());
+				build_blas(mesh.cpu_data, mesh.gpu_data, true, blas_collection.back());
 			}
 #endif
 			LOG("loading shared mesh asset '%s'", in_mesh.name.c_str())
