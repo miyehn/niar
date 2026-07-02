@@ -308,7 +308,6 @@ void GI::clear(VkCommandBuffer cmdbuf)
 		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL);
-	historyWriteIndex = 0;
 }
 
 void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
@@ -328,6 +327,7 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 	const uint32_t groupCountX = (indirectLighting->getWidth() + RTGI_GROUPSIZE_X - 1) / RTGI_GROUPSIZE_X;
 	const uint32_t groupCountY = (indirectLighting->getHeight() + RTGI_GROUPSIZE_Y - 1) / RTGI_GROUPSIZE_Y;
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+	const uint32_t historyWriteIndex = frameIndex % 2;
 	auto& giDescriptorSet = giDescriptorSets[frameIndex][historyWriteIndex];
 	Texture2D* writeHistory = history[historyWriteIndex];
 
@@ -395,5 +395,4 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	historyWriteIndex = 1 - historyWriteIndex;
 }

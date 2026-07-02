@@ -40,7 +40,6 @@ private:
     Texture2D* indirectLighting = nullptr;
     Texture2D* history[2] = {};
     Texture2D* sampleCount = nullptr;
-    uint32_t historyWriteIndex = 0;
     DescriptorSet giDescriptorSets[MAX_FRAMES_IN_FLIGHT][2];
 
 };
