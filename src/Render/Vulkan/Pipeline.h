@@ -86,6 +86,7 @@ struct ComputePipelineBuilder
 	ComputePipelineBuilder() = default;
 
 	void useDescriptorSetLayout(uint32_t setIndex, const DescriptorSetLayout &setLayout);
+	void usePushConstantRange(const VkPushConstantRange& range);
 
 	void build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName);
 
@@ -93,6 +94,7 @@ struct ComputePipelineBuilder
 
 private:
 	std::vector<DescriptorSetLayout> descriptorSetLayouts;
+	std::vector<VkPushConstantRange> pushConstantRanges;
 };
 
 // usage (for now): construct, set descriptor set, add shader paths, add groups, build

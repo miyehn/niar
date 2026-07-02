@@ -12,7 +12,7 @@
 layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
 layout(set = 0, binding = 2) uniform sampler2D GNormal;
 layout(set = 0, binding = 3) uniform accelerationStructureEXT SceneTLAS;
-layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D IndirectLighting;
+layout(set = 0, binding = 4, rgba16f) uniform image2D IndirectLighting;
 layout(set = 0, binding = 5) uniform sampler2D EnvironmentMap;
 layout(set = 0, binding = 6, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
@@ -28,6 +28,10 @@ layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D RtgiWriteHistor
 layout(set = 0, binding = 11, r32ui) uniform uimage2D RtgiSampleCount;
 
 #include "lighting_common.glsl"
+
+layout(push_constant) uniform RtgiPushConstants {
+    uint MaxSampleCount;
+} Push;
 
 // (set 1, binding 0) sky parameters
 // (set 1, binding 8) transmittance
@@ -376,21 +380,37 @@ void main()
     float deviceDepth = texelFetch(SceneDepth, pixel, 0).r;
     vec3 normal = texelFetch(GNormal, pixel, 0).xyz;
     if (deviceDepth >= 1.0f) {
-        // this texel is empty; doesn't contain hit surface that needs GI
+        // sky pixel: no surface; clear history so it doesn't bleed when geometry moves in
         imageStore(IndirectLighting, pixel, vec4(0.0, 0.0, 0.0, 1.0));
+        imageStore(RtgiWriteHistory, pixel, vec4(0.0));
+        imageStore(RtgiSampleCount, pixel, uvec4(0u));
         return;
     }
 
     normal = normalize(normal);
     ViewInfo viewInfo = GetViewInfo();
+    vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
+    vec3 worldPos = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo);
+
+    // linearized view-space depth, stored in history alpha for future rejection in chunk 5
+    vec4 viewSpacePos = viewInfo.ViewMatrix * vec4(worldPos, 1.0);
+    float linearDepth = -viewSpacePos.z;
+
     vec2 random = vec2(
         white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x),
         white_noise01(uvec3(uvec2(pixel.yx), viewInfo.FrameIndex), viewInfo.FrameRandom.y));
     vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
-    vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
-    vec3 rayOrigin = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo) + normal * EPSILON;
+    vec3 rayOrigin = worldPos + normal * EPSILON;
 
     RayHitResult hitResult = traceRay(rayOrigin, rayDir);
-    vec3 indirect = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
-    imageStore(IndirectLighting, pixel, vec4(indirect, 1.0));
+    vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
+
+    // temporal accumulation: running average capped at MaxSampleCount
+    uint prevCount = imageLoad(RtgiSampleCount, pixel).r;
+    vec3 prevAccumulated = texelFetch(RtgiReadHistory, pixel, 0).rgb;
+    vec3 accumulated = (prevAccumulated * float(prevCount) + newSample) / float(prevCount + 1u);
+
+    imageStore(RtgiWriteHistory, pixel, vec4(accumulated, linearDepth));
+    imageStore(RtgiSampleCount, pixel, uvec4(min(prevCount + 1u, Push.MaxSampleCount)));
+    imageStore(IndirectLighting, pixel, vec4(accumulated, 1.0));
 }

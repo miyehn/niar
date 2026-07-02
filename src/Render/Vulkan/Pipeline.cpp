@@ -266,6 +266,11 @@ void ComputePipelineBuilder::useDescriptorSetLayout(uint32_t setIndex, const Des
 	descriptorSetLayouts[setIndex] = setLayout;
 }
 
+void ComputePipelineBuilder::usePushConstantRange(const VkPushConstantRange& range)
+{
+	pushConstantRanges.push_back(range);
+}
+
 void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &outPipelineLayout, const std::string& debugName)
 {
 	// shader stage
@@ -287,8 +292,8 @@ void ComputePipelineBuilder::build(VkPipeline &outPipeline, VkPipelineLayout &ou
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
 		.pSetLayouts = setLayouts.data(),
-		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = nullptr
+		.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
+		.pPushConstantRanges = pushConstantRanges.empty() ? nullptr : pushConstantRanges.data()
 	};
 	EXPECT(vkCreatePipelineLayout(Vulkan::Instance->device, &pipelineLayoutInfo, nullptr, &outPipelineLayout), VK_SUCCESS)
 	// pipeline

@@ -51,6 +51,7 @@ public:
 	const DescriptorSet* giDescriptorSetPtr = nullptr;
 	const DescriptorSet* skyDescriptorSetPtr = nullptr;
 	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
+	uint32_t maxSampleCount = 64;
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
@@ -61,6 +62,7 @@ public:
 
 		auto& pipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+		vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &maxSampleCount);
 		giDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipeline.layout);
 		skyDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
 		bindlessDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_BINDLESS, pipeline.layout);
@@ -77,6 +79,7 @@ protected:
 		builder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, giDescriptorSetPtr->getLayout());
 		builder.useDescriptorSetLayout(DSET_INDEPENDENT, skyDescriptorSetPtr->getLayout());
 		builder.useDescriptorSetLayout(DSET_BINDLESS, bindlessDescriptorSetPtr->getLayout());
+		builder.usePushConstantRange({VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t)});
 	}
 };
 
@@ -344,6 +347,7 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 
 		auto* generateCS = ComputeShader::getInstance<RtgiGenerateCS>();
 		ASSERT(BindlessResources::Instance != nullptr)
+		generateCS->maxSampleCount = static_cast<uint32_t>(get_gi_config()->lookup<int>("maxSampleCount"));
 		generateCS->giDescriptorSetPtr = &giDescriptorSet;
 		generateCS->skyDescriptorSetPtr = &skyDescriptorSet;
 		generateCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();
