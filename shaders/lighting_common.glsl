@@ -36,13 +36,29 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
-// todo [myn]: refactor, because shadow rays can keep
-// gl_RayFlagsTerminateOnFirstHitEXT and maybe gl_RayFlagsSkipClosestHitShaderEXT
-float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax)
+float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float noise)
 {
     const vec3 rayOrigin = worldPos + normal * EPSILON;
     const vec3 rayDir = dirToLight;
-    RayHitResult hitResult = traceRay(tlas, rayOrigin, rayDir, 0, tMax);
+
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(
+        rq,
+        tlas,
+        // ray flags:
+        0
+        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
+        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
+        | gl_RayFlagsOpaqueEXT,
+        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
+              // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
+        rayOrigin,
+        0,
+        rayDir,
+        tMax);
+    rayQueryProceedEXT(rq);
+
+    RayHitResult hitResult = interpretRayQuery(rq);
 
     return hitResult.committed ? 0.0 : 1.0;
 }
@@ -95,6 +111,7 @@ vec3 accumulateLighting(
     vec3 normal,
     vec3 albedo,
     vec3 orm,
+    float noise,
     vec3 outgoingDirection)
 {
     float metallic = orm.b;
@@ -116,7 +133,7 @@ vec3 accumulateLighting(
         vec3 dirToLight = toLight / dist;
         float atten = 1.0 / dot(toLight, toLight);
         vec3 radiance = PointLights.Data[i].color * atten;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON);
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, noise);
 
         result += evaluateLight(
             albedo,
@@ -135,7 +152,7 @@ vec3 accumulateLighting(
         vec3 lightDir = DirectionalLights.Data[i].direction;
         vec3 dirToLight = normalize(-lightDir);
         vec3 radiance = DirectionalLights.Data[i].color;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0);
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, noise);
 
         result += evaluateLight(
             albedo,

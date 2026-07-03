@@ -57,6 +57,7 @@ void main() {
         normal,
         baseColor.rgb,
         orm,
+        viewInfo.FrameRandom.x,
         normalize(viewInfo.CameraPosition - worldPos)
     );
     /*

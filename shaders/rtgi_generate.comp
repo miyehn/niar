@@ -59,7 +59,7 @@ vec3 shadeInvalid()
 }
 
 
-vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir)
+vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float noise)
 {
     if (hitResult.instanceCustomIndex == ~0u) {
         return shadeInvalid();
@@ -90,6 +90,7 @@ vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir)
         surface.worldNormal,
         albedo,
         orm,
+        noise,
         surface.outgoingDirection);
 }
 
@@ -126,8 +127,26 @@ void main()
     vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
     vec3 rayOrigin = worldPos + normal * EPSILON;
 
-    RayHitResult hitResult = traceRay(SceneTLAS, rayOrigin, rayDir, 0.001, 10000.0);
-    vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir) : sampleBackground(viewInfo, rayDir);
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(
+        rq,
+        SceneTLAS,
+        // ray flags:
+        0
+        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
+        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
+        // | gl_RayFlagsOpaqueEXT,
+        ,
+        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
+              // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
+        rayOrigin,
+        0.001,
+        rayDir,
+        10000.0);
+    rayQueryProceedEXT(rq);
+    RayHitResult hitResult = interpretRayQuery(rq);
+
+    vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir, viewInfo.FrameRandom.x) : sampleBackground(viewInfo, rayDir);
 
     // read per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass
     vec2 motionVector = texture(MotionVectors, screenUv).rg;
