@@ -514,7 +514,8 @@ std::vector<Mesh> load_gltf_meshes(
 		{
 			// only create new blas and build if hasn't been built yet
 			blas_collection.push_back({});
-			build_blas(m.cpu_data, m.gpu_data, m.surface.isOpaque(), blas_collection.back());
+			// todo [myn]: alpha clip materials should pass in false for build_blas to get correct foliage shadows
+			build_blas(m.cpu_data, m.gpu_data, m.surface.blendMode == BM_OpaqueOrClip, blas_collection.back());
 		}
 #endif
 	}

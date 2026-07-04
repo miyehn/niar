@@ -27,8 +27,6 @@ struct MeshSurface {
 	uint32_t bindlessMaterialIndex = INVALID_BINDLESS_INDEX;
 	BlendMode blendMode = BM_OpaqueOrClip;
 	bool doubleSided = false;
-
-	bool isOpaque() const { return blendMode == BM_OpaqueOrClip; }
 #endif
 };
 

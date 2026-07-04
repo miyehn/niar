@@ -122,7 +122,7 @@ struct DeferredGltfPipelineKey {
 	bool doubleSided = false;
 
 	explicit DeferredGltfPipelineKey(const MeshSurface& surface)
-		: pass(surface.isOpaque() ? DeferredGltfPass::OpaqueGBuffer : DeferredGltfPass::TranslucentLighting)
+		: pass(surface.blendMode==BM_OpaqueOrClip ? DeferredGltfPass::OpaqueGBuffer : DeferredGltfPass::TranslucentLighting)
 		, doubleSided(surface.doubleSided)
 	{}
 
@@ -917,7 +917,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawable->foreach_descendent_bfs([&](SceneObject* child) {
 			// meshes
 			if (auto mo = dynamic_cast<MeshObject*>(child)) {
-				if (mo->mesh.surface.isOpaque()) {
+				if (mo->mesh.surface.blendMode == BM_OpaqueOrClip) {
 					opaqueMeshes.push_back(mo);
 				} else {
 					translucentMeshes.push_back(mo);
