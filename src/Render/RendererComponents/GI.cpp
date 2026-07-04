@@ -7,6 +7,7 @@
 #include "Render/BindlessResources.h"
 #include "Render/Texture.h"
 #include "Render/Materials/ComputeShader.h"
+#include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Vulkan/SamplerCache.h"
 #include "Render/Vulkan/VulkanUtils.h"
@@ -32,19 +33,6 @@ constexpr uint32_t Slot_ReadHistory = 9;
 constexpr uint32_t Slot_WriteHistory = 10;
 constexpr uint32_t Slot_SampleCount = 11;
 constexpr uint32_t Slot_MotionVectors = 12;
-
-// currently made local to this file
-ConfigAsset* get_gi_config()
-{
-	static ConfigAsset* config = nullptr;
-	if (!config) {
-		config = new ConfigAsset("config/gi.ini", true, [](const ConfigAsset* cfg)
-		{
-			LOG("GI enabled: %i", cfg->lookup<int>("enabled"));
-		});
-	}
-	return config;
-}
 
 struct RtgiPushData {
 	uint32_t maxSampleCount;
@@ -312,7 +300,7 @@ void GI::clear(VkCommandBuffer cmdbuf)
 
 void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
 {
-	const bool enabled = get_gi_config()->lookup<int>("enabled") != 0;
+	const bool enabled = get_deferred_config()->lookup<int>("gi.enabled") != 0;
 	if (!enabled) {
 		if (enabledLastFrame) {
 			SCOPED_DRAW_EVENT(cmdbuf, "RTGI Clear")
@@ -356,8 +344,8 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 
 		auto* generateCS = ComputeShader::getInstance<RtgiGenerateCS>();
 		ASSERT(BindlessResources::Instance != nullptr)
-		generateCS->pushData.maxSampleCount = static_cast<uint32_t>(get_gi_config()->lookup<int>("maxSampleCount"));
-		generateCS->pushData.historyDepthRejectionThreshold = get_gi_config()->lookup<float>("historyDepthRejectionThreshold");
+		generateCS->pushData.maxSampleCount = static_cast<uint32_t>(get_deferred_config()->lookup<int>("gi.maxSampleCount"));
+		generateCS->pushData.historyDepthRejectionThreshold = get_deferred_config()->lookup<float>("gi.historyDepthRejectionThreshold");
 		generateCS->giDescriptorSetPtr = &giDescriptorSet;
 		generateCS->skyDescriptorSetPtr = &skyDescriptorSet;
 		generateCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();

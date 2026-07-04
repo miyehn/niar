@@ -18,6 +18,18 @@
 #include <memory>
 #include <unordered_map>
 
+ConfigAsset* get_deferred_config()
+{
+	static ConfigAsset* config = nullptr;
+	if (!config) {
+		config = new ConfigAsset("config/deferred.ini", true, [](const ConfigAsset* cfg)
+		{
+			LOG("GI enabled: %i, TAA enabled: %i", cfg->lookup<int>("gi.enabled"), cfg->lookup<int>("taa.enabled"));
+		});
+	}
+	return config;
+}
+
 class PostProcessing
 {
 public:

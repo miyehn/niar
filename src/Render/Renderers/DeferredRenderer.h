@@ -15,6 +15,10 @@ class DebugPoints;
 class DebugLines;
 class DeferredLighting;
 class PostProcessing;
+class ConfigAsset;
+
+// shared config for the deferred renderer's "gi" and "taa" sub-sections, loaded from config/deferred.ini
+ConfigAsset* get_deferred_config();
 
 #define GNORMAL_ATTACHMENT 0
 #define GCOLOR_ATTACHMENT 1
