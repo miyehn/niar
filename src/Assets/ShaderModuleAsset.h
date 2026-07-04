@@ -57,12 +57,6 @@ public:
 	// Pool-only lookups - all shaders must be pre-compiled via compile_all().
 	static ShaderModuleAsset* get(const std::string& virtual_path);
 	static ShaderModuleAsset* get(const ShaderModuleDef& def);
-	/*
-	static ShaderModuleAsset* get(
-		const std::string& entry_file,
-		const std::string& entry_function,
-		const std::vector<std::string>& defines);
-	*/
 
 	VkShaderModule module = VK_NULL_HANDLE;
 

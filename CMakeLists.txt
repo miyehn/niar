@@ -96,7 +96,9 @@ set(ELLYN_SRC
     src/Render/Materials/ComputeShader.cpp
     src/Render/Renderers/Renderer.cpp
     src/Render/RendererComponents/GI.cpp
-    src/Render/RendererComponents/GI.h)
+    src/Render/RendererComponents/GI.h
+    src/Render/RendererComponents/TAA.cpp
+    src/Render/RendererComponents/TAA.h)
 
 set(ASZELEA_SRC
     src/Aszelea.cpp)

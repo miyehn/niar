@@ -24,7 +24,7 @@ ConfigAsset* get_deferred_config()
 	if (!config) {
 		config = new ConfigAsset("config/deferred.ini", true, [](const ConfigAsset* cfg)
 		{
-			LOG("GI enabled: %i, TAA enabled: %i", cfg->lookup<int>("gi.enabled"), cfg->lookup<int>("taa.enabled"));
+			LOG("GI enabled: %i", cfg->lookup<int>("gi.enabled"));
 		});
 	}
 	return config;
@@ -59,7 +59,7 @@ public:
 
 private:
 
-	explicit PostProcessing(DeferredRenderer* renderer, Texture2D* sceneColor, Texture2D* sceneDepth)
+	explicit PostProcessing(DeferredRenderer* renderer, const Texture2D* taaResolved, Texture2D* sceneDepth)
 	{
 		this->renderer = renderer;
 		postProcessPass = renderer->postProcessPass;
@@ -71,8 +71,8 @@ private:
 		postProcessSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		postProcessSet = DescriptorSet(postProcessSetLayout);
 
-		// assign values
-		postProcessSet.pointToImageView(sceneColor->imageView, 0);
+		// always reads TAA's resolved output
+		postProcessSet.pointToImageView(taaResolved->imageView, 0);
 		postProcessSet.pointToImageView(sceneDepth->imageView, 1);
 	}
 
@@ -797,8 +797,14 @@ DeferredRenderer::DeferredRenderer()
 	cfgExposure = 3.0f;
 	cfgToneMappingOption = 1;
 
+	{// TAA
+		TAA::InitInfo taaInitInfo{};
+		taaInitInfo.sceneColor = sceneColor;
+		taa.init(taaInitInfo);
+	}
+
 	deferredLighting = new DeferredLighting(this);
-	postProcessing = new PostProcessing(this, sceneColor, sceneDepth);
+	postProcessing = new PostProcessing(this, taa.getResolved(), sceneDepth);
 
 	{// debug draw stuff (per-frame ring buffer)
 		auto layout = getFrameGlobalLayout();
@@ -840,6 +846,7 @@ DeferredRenderer::~DeferredRenderer()
 	vkDestroyFramebuffer(vk->device, postProcessFramebuffer, nullptr);
 	vkDestroyFramebuffer(vk->device, debugDrawFramebuffer, nullptr);
 	gi.release();
+	taa.release();
 	skyAtmosphereRender.release();
 	sceneTlas.release();
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -1100,6 +1107,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		}
 		vkCmdEndRenderPass(cmdbuf);
 	}
+
+	taa.render(cmdbuf, Vulkan::Instance->getGlobalFrameIndex());
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "Post Processing")

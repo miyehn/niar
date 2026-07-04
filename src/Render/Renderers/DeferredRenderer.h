@@ -9,6 +9,7 @@
 #include <vulkan/vulkan.h>
 
 #include "Render/RendererComponents/GI.h"
+#include "Render/RendererComponents/TAA.h"
 
 class Texture2D;
 class DebugPoints;
@@ -119,6 +120,7 @@ private:
 	} directionalLights;
 
 	GI gi;
+	TAA taa;
 	SkyAtmosphereRender skyAtmosphereRender;
 	// Shared TLAS for RTX shadows and GI.
 	SceneTlas sceneTlas;

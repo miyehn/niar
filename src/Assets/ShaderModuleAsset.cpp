@@ -30,6 +30,7 @@ ShaderModuleDef ShaderModuleAsset::_shaderModuleDefs[] = {
 	{ "shaders/sky_transmittance_lut.comp", "main", SS_Compute },
 	{ "shaders/sky_view_lut.comp",          "main", SS_Compute },
 	{ "shaders/rtgi_generate.comp",         "main", SS_Compute },
+	{ "shaders/taa_resolve.comp",           "main", SS_Compute },
 #if TMP_BINDLESS_DEBUG
 	{ "shaders/bindless_self_test.comp",    "main", SS_Compute },
 #endif

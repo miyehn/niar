@@ -1,0 +1,21 @@
+#version 450
+
+layout(set = 1, binding = 0) uniform sampler2D SceneColor;
+layout(set = 1, binding = 1) uniform sampler2D TaaReadHistory;
+layout(set = 1, binding = 2, rgba16f) uniform writeonly image2D TaaResolved;
+layout(set = 1, binding = 3, rgba16f) uniform writeonly image2D TaaWriteHistory;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 dims = imageSize(TaaResolved);
+    if (pixel.x >= dims.x || pixel.y >= dims.y) {
+        return;
+    }
+
+    // pass-through for now: proves the ping-pong wiring end to end before blending is added
+    vec4 currentColor = texelFetch(SceneColor, pixel, 0);
+    imageStore(TaaResolved, pixel, currentColor);
+    imageStore(TaaWriteHistory, pixel, currentColor);
+}
