@@ -1,313 +1,258 @@
-# Milestone 3 Review Plan: Temporal Accumulation
+# TAA Review Plan: Temporal Anti-Aliasing
 
-Source roadmap: `.github/path-to-restir.md`, Milestone 3.
+Side quest, not tracked in `.github/path-to-restir.md`.
 
-Goal: convert the noisy one-ray RTGI result into a temporally accumulated
-indirect signal. The signal is already physically meaningful: sky/environment
-misses, emissive secondary hits, and shadowed direct-lit bounce color all work.
-The missing piece is convergence. Each chunk keeps one concern isolated so each
-is reviewable and testable on its own.
+Goal: add temporal anti-aliasing to the deferred renderer, resolved before
+tonemapping. TAA reuses two things Milestone 3 of the RTGI roadmap already
+built: `PrevViewMatrix`/`PrevProjectionMatrix` in `ViewInfo`, and the `GMotion`
+G-buffer attachment (`RG16F`, `currentUV - prevUV`) produced in
+`geometry.vert`/`geometry.frag`. No separate "add motion vectors" chunk is
+needed because of this. Each chunk below still keeps one concern isolated so
+each is reviewable and testable on its own, following the same shape as the
+Milestone 3 review chunks.
 
-## Review Chunk 1: Previous-Frame View Matrices In ViewInfo
+## Review Chunk 1: Sub-Pixel Camera Jitter (Infrastructure Only)
 
-Purpose: give the GPU both the current and previous frame's view and projection
-matrices so that any shader can reproject a screen-space position to its
-previous-frame screen-space location.
+Purpose: introduce a per-frame low-discrepancy subpixel jitter offset that TAA
+needs to gather more than one sample position per pixel over time, without yet
+touching how anything is rendered.
 
 Implementation scope:
 
-- Add `PrevViewMatrix` and `PrevProjectionMatrix` fields to the `ViewInfo`
-  struct in `shaders/cshared/cshared_common.h`.
-- Ensure the layout stays 16-byte aligned. Add `static_assert`s for the new
-  fields.
-- On the CPU side, copy the current frame's view and projection matrices into
-  the previous-frame fields at the end of each frame, before uploading the next
-  frame's `ViewInfo` UBO.
-- No shader reads the new fields yet; this chunk is purely infrastructure.
+- Add a jitter sequence (e.g. Halton(2,3), 8-16 sample period) computed from
+  the frame counter, producing a per-frame offset in the range [-0.5, 0.5]
+  pixels.
+- Add a `JitterOffset` field (`vec2`) to `ViewInfo` in
+  `shaders/cshared/cshared_common.h` with a `static_assert` confirming its
+  offset stays 16-byte aligned.
+- Compute the jitter offset on the CPU alongside the other per-frame
+  `ViewInfo` fields (`src/Render/Renderers/Renderer.cpp`).
+- Add `config/taa.ini` with `enabled: 0` as the default. While disabled, the
+  uploaded `JitterOffset` stays `(0, 0)` regardless of frame index.
+- Do not yet apply the jitter to `Camera::camera_to_clip()`'s output used for
+  rendering; this chunk only computes and uploads the value.
 
 Review checklist:
 
-- `ViewInfo` layout is alignment-safe and the `static_assert`s confirm offsets
-  for the new fields.
-- The CPU upload path writes `PrevViewMatrix` and `PrevProjectionMatrix` from
-  the just-submitted frame, not from two frames ago.
-- No other ViewInfo consumers are broken by the struct growth.
-- No rendering changes; visual output is identical.
+- `ViewInfo` layout stays alignment-safe; the `static_assert` confirms the new
+  field's offset.
+- With `taa.ini`'s `enabled: 0` (default), `JitterOffset` is always `(0, 0)`
+  and rendering is pixel-identical to before this chunk.
+- With `enabled: 1`, the uploaded jitter value changes frame-to-frame (verify
+  via a debug read), but nothing consumes it yet, so pixels still don't move.
+- The jitter sequence is deterministic and repeats cleanly after its period.
 
 Done when:
 
-- Every frame's `ViewInfo` UBO contains valid previous-frame matrices ready to
-  use for reprojection.
+- Every frame's `ViewInfo` carries a valid per-frame jitter offset in pixel
+  space, computed but unused by any shader or the rasterizer.
 
 
-## Review Chunk 2: Ping-Pong History Textures In GI
+## Review Chunk 2: TAA Render Component Skeleton + Ping-Pong Color History
 
-Purpose: give the GI component the persistent per-frame state needed for
-temporal accumulation: two history textures that alternate roles each frame, and
-a per-pixel sample count texture.
+Purpose: give TAA the same kind of persistent per-frame state `GI` has: a
+component that owns ping-pong history color textures and is wired into the
+frame without changing the visible image yet.
 
 Implementation scope:
 
-- Add two history textures to `GI` in the same `R16G16B16A16_SFLOAT` format as
-  `indirectLighting`. The RGB channels will hold the accumulated indirect
-  radiance. The alpha channel will hold the linearized depth of the primary
-  surface at that pixel, so the accumulation pass can detect disocclusion
-  without keeping a separate previous-depth buffer.
-- Add a per-pixel sample count texture (`R32_UINT`) that tracks how many samples
-  have been accumulated at each pixel.
-- Track which texture is the "read history" and which is the "write history" for
-  the current frame, alternating each frame.
-- Update `GI::init` to allocate and transition all new textures into appropriate
-  initial layouts.
-- Update `GI::release` to delete all new textures.
-- Update `GI::clear` and `GI::clear(VkCommandBuffer)` to zero-fill all new
-  textures and reset layouts.
-- Extend `GI::InitInfo` with the new textures' needs if any external input is
-  required (currently none expected).
-- Update the descriptor set layout and per-frame `giDescriptorSets` bindings to
-  expose the read-history texture and the sample-count texture as inputs, and
-  the write-history texture and sample-count texture as storage image outputs.
-  Keep binding numbers consistent with the existing layout convention.
+- Add a new `TAA` render component (`src/Render/RendererComponents/TAA.h`/
+  `.cpp`), modeled directly on `GI`: an `InitInfo`, and
+  `init`/`release`/`clear`/`clear(VkCommandBuffer)`/`render` methods.
+- Add two ping-pong history color textures in `R16G16B16A16_SFLOAT` (matching
+  `sceneColor`'s format), alternating read/write roles via `frameIndex % 2`,
+  following `GI::history[2]`'s pattern.
+- Add a resolved-output texture that post-processing will read instead of raw
+  `sceneColor`.
+- `InitInfo` takes `sceneColor` and `GMotion` as external inputs (both already
+  exist; no new G-buffer attachment).
+- Add a `TaaResolveCS` compute shader wrapper (modeled on `RtgiGenerateCS`)
+  that, for this chunk only, does a pass-through copy: reads `sceneColor`,
+  writes it unchanged to both the resolved output and the write-history
+  texture. No blending yet.
+- Wire `TAA taa;` into `DeferredRenderer`, dispatched between the lighting
+  pass and post-processing. Update post-processing to read TAA's resolved
+  output instead of `sceneColor` directly when TAA is enabled, and
+  `sceneColor` directly when it's disabled via `taa.ini`.
 
 Review checklist:
 
-- Both history textures and the sample count texture are created, transitioned,
-  and destroyed cleanly.
-- Ping-pong index alternates correctly between frames; the read and write targets
-  are never the same texture in the same frame.
-- `clear()` zeroes all three new textures, not just `indirectLighting`.
-- Descriptor set bindings stay aligned between C++ layout and the slot numbers
-  used in the next chunk's shader work.
-- No shader reads the new bindings yet; visual output is unchanged.
+- Both history textures and the resolved-output texture are created,
+  transitioned, and destroyed cleanly; `clear()` zeroes all of them.
+- With TAA enabled and only a pass-through copy in the shader, visual output
+  is pixel-identical to before this chunk (jitter still isn't applied yet).
+- With TAA disabled via config, post-processing reads `sceneColor` directly
+  and no TAA resources are touched that frame.
+- Descriptor bindings for `sceneColor`, `GMotion`, read-history (sampled),
+  and write-history + resolved output (storage) follow the existing
+  binding-number convention.
 
 Done when:
 
-- `GI` owns a stable ping-pong pair of history textures and a sample count
-  texture, all properly managed across frames and scene reloads.
+- `TAA` owns a stable ping-pong pair of history textures and a resolved
+  output, wired into the frame between lighting and post-processing, with no
+  visual change yet.
 
 
-## Review Chunk 3: Naive Same-Pixel Temporal Accumulation
+## Review Chunk 3: Apply Jitter + Naive Same-Pixel Exponential Blend
 
-Purpose: prove that the accumulation loop works and that a still camera produces
-a converging indirect signal, before adding any reprojection.
+Purpose: prove the temporal loop works by actually jittering the rendered
+image and blending it with same-pixel history, before adding reprojection.
 
 Implementation scope:
 
-- Change `rtgi_generate.comp` from a pure write-only pass to an
-  accumulation pass:
-  - Add bindings for the read-history texture (sampled), the sample count
-    texture (read/write storage), and the write-history texture (write-only
-    storage image). Keep the existing `IndirectLighting` output binding for the
-    composited result that deferred lighting reads.
-  - Each pixel: read `prevAccumulated` and `prevCount` from the history and
-    sample count textures at the same screen coordinate. Clamp `prevCount` to a
-    configurable maximum (default 64, driven by `config/gi.ini`).
-  - Compute the new accumulated value:
-    `accumulated = (prevAccumulated.rgb * prevCount + newSample) / (prevCount + 1)`
-  - Write the accumulated result to the write-history texture (RGB = accumulated
-    indirect, A = current pixel's linearized view-space depth from the G-buffer).
-  - Write `min(prevCount + 1, maxCount)` to the sample count texture.
-  - Write the accumulated indirect RGB to `IndirectLighting` so the deferred
-    composite is unchanged.
-- Add the maximum sample count as a config key in `config/gi.ini`.
-- Update `GI::render` to insert the barriers needed around the new storage image
-  reads and writes, and to advance the ping-pong index after the pass.
+- Apply `JitterOffset` to the projection matrix used for rendering the base
+  pass, as a clip-space offset (`clipPos.xy += JitterOffset.xy * clipPos.w`)
+  in `geometry.vert`. Keep the unjittered matrices for reprojection: motion
+  vectors must stay computed from unjittered current/previous clip positions,
+  or they'll carry jitter noise.
+- Change `TaaResolveCS` from pass-through to a real blend:
+  `resolved = mix(currentColor, sameePixelHistory, historyWeight)`, with a
+  configurable `historyWeight` (default e.g. 0.9) in `taa.ini`.
+- Write `resolved` to both the resolved output and the write-history texture.
 
 Review checklist:
 
-- A still camera causes the indirect buffer to converge visibly over several
-  frames; noise decreases noticeably within a second or two.
-- Moving the camera produces ghosting (expected and acceptable at this stage).
-- The deferred composite output is not broken; `IndirectLighting` still feeds
-  the same binding in the lighting pass.
-- When GI is disabled, `clear()` zeroes the history and sample count textures so
-  re-enabling starts fresh.
-- The max sample count cap is config-driven and hot-reloads correctly.
+- A still camera shows the jittered image visibly softening/converging over a
+  few frames; a moving camera shows trailing/ghosting (expected and
+  acceptable at this stage, same as GI Milestone 3 Chunk 3).
+- `GMotion` output is unaffected by jitter — compare `GMotion` with jitter on
+  vs off on a static-camera frame; values should match.
+- Disabling TAA via config returns to the unjittered, unblended raw image.
+- `historyWeight` is config-driven and hot-reloads.
 
 Done when:
 
-- Still camera noise visibly decreases over time through accumulated samples.
+- Still camera visibly converges toward a smoother anti-aliased image; camera
+  motion produces expected ghosting to be fixed by reprojection.
 
 
-## Review Chunk 4: Reprojection Using Depth And Prev View Matrices
+## Review Chunk 4: Reprojection Using Motion Vectors
 
-Purpose: use the previous-frame view and projection matrices to find where the
-current pixel's surface was in the previous frame, so that camera movement no
-longer leaves persistent ghosts.
+Purpose: use the existing `GMotion` G-buffer attachment to sample history from
+where the current pixel's surface was last frame, removing camera-motion
+ghosting.
 
 Implementation scope:
 
-- In `rtgi_generate.comp`, before reading history, compute the reprojected
-  previous-frame UV for the current pixel:
-  - Reconstruct the current pixel's world position from screen UV and G-buffer
-    depth (the same path already used to compute the ray origin).
-  - Project the world position through `PrevViewMatrix * PrevProjectionMatrix`
-    to get the previous-frame clip position.
-  - Convert clip position to a UV in [0, 1]. If the reprojected UV is outside
-    [0, 1] (the surface went offscreen), mark the history as invalid.
+- In `TaaResolveCS`, read the per-pixel motion vector from `GMotion` and
+  compute `prevUv = currentUv - motionVector` (same convention already used by
+  `rtgi_generate.comp`).
 - Replace the same-pixel history lookup from Chunk 3 with a bilinear sample of
-  the read-history texture at the reprojected UV.
-- Preserve the alpha channel depth value when the history is valid; when the
-  history is invalid, write depth with no previous accumulation (count = 0).
-- The sample count texture lookup should also use the nearest-neighbor reprojected
-  UV (or clamp to zero for out-of-bounds). Bilinear blending of integer sample
-  counts is not meaningful; use point sampling or take the minimum of the
-  reprojected neighborhood.
+  the read-history texture at `prevUv`.
+- If `prevUv` falls outside `[0, 1]`, mark history invalid for this pixel and
+  fall back to the current color only (no blend).
+- No neighborhood clamping yet; this chunk isolates reprojection correctness
+  only, matching GI's Chunk 4 scope.
 
 Review checklist:
 
-- Camera rotation and translation no longer leave obvious trails; new
-  geometry appears without blending with stale history from the old view.
-- Reprojected UV is computed only from the current frame's G-buffer depth and
-  `PrevViewMatrix` / `PrevProjectionMatrix`; no new G-buffer attachment is
-  added here.
-- Out-of-bounds reprojection gracefully falls back to the new sample only.
-- Static scenes still converge as before; accumulated sample count grows
-  correctly when the camera is still.
+- Camera rotation/translation no longer leaves the same persistent smear as
+  Chunk 3; newly revealed geometry shows only the current frame's color, not
+  stale history.
+- Out-of-bounds reprojection gracefully falls back to current-only.
+- Static-camera convergence still behaves as in Chunk 3.
+- Reuses the existing `GMotion` texture read-only; no new G-buffer attachment
+  added.
 
 Done when:
 
-- Camera movement does not leave persistent ghosting from the old camera
-  position, while a still camera still converges.
+- Camera movement no longer leaves persistent ghosting from stale screen
+  positions, while a still camera still converges.
 
 
-## Review Chunk 5: Per-Pixel History Rejection By Depth
+## Review Chunk 5: Neighborhood Color Clamping (Anti-Ghosting)
 
-Purpose: detect disocclusion and newly visible geometry so that the accumulation
-resets those pixels rather than blending stale history into them.
+Purpose: reject stale or incompatible history contributions that reprojection
+alone can't catch (disocclusion, newly revealed geometry, fast-moving thin
+objects), using the standard TAA neighborhood-clamp technique rather than
+GI's depth-threshold approach.
 
 Implementation scope:
 
-- After computing the reprojected UV, compare the stored depth in the history
-  alpha channel against the expected depth of the current surface seen from the
-  previous frame:
-  - From the current world position and `PrevViewMatrix * PrevProjectionMatrix`,
-    derive the linearized view-space depth the current surface would have had
-    last frame.
-  - Read the stored linearized depth from the history texture alpha at the
-    reprojected UV.
-  - If the absolute or relative difference exceeds a configurable threshold,
-    mark the history as invalid for this pixel.
-- When history is invalid (depth mismatch or out-of-bounds reprojection), reset
-  the accumulated value to the new sample only and write sample count 1.
-- Add `HistoryDepthRejectionThreshold` to `config/gi.ini` with a sensible
-  default.
-- Keep normal-based rejection out of this chunk; depth alone is sufficient to
-  catch the main disocclusion cases.
+- Sample a small neighborhood (3x3 minimum) of the current frame's
+  `sceneColor` around the current pixel; compute a per-channel min/max (or
+  variance clipping if min/max proves too aggressive) to build a local color
+  AABB.
+- Clamp the reprojected history sample into that AABB before blending, so
+  history that no longer matches the local neighborhood gets pulled toward
+  the current frame's plausible range instead of causing visible ghosting.
+- Optionally combine with a lightweight depth-based disocclusion check (reuse
+  `SceneDepth`/`PrevViewMatrix`, same derivation `rtgi_generate.comp` already
+  uses) as a secondary signal, if clamping alone leaves visible artifacts.
+- Add any new clamp-related tuning values (e.g. AABB expansion factor) to
+  `taa.ini`.
 
 Review checklist:
 
-- Moving the camera reveals new surfaces; those pixels reset rather than
-  blending in stale background history.
-- Surfaces that stay visible and correctly reprojected continue to accumulate.
-- The threshold default is tight enough to reject real disocclusions but does
-  not cause flickering on stationary geometry.
-- Config key hot-reloads without crashing.
+- Disocclusion (camera reveals new geometry) no longer smears old background
+  color onto new surfaces.
+- Fast-moving foreground objects don't leave obvious color trails.
+- Clamping doesn't visibly reduce convergence quality on a still camera
+  (compare against Chunk 4 still-camera output).
+- New config values hot-reload without crashing.
 
 Done when:
 
-- Disoccluded pixels reset gracefully instead of ghosting, while correctly
-  reprojected pixels continue to converge.
+- Disocclusion and fast motion no longer produce visible ghosting, while a
+  still camera continues to converge to an anti-aliased result.
 
 
-## Review Chunk 6: Motion Vector G-Buffer Attachment
+## Review Chunk 6: Pipeline Integration Cleanup And Config
 
-Purpose: move per-pixel reprojection offsets into a dedicated G-buffer
-attachment so that the logic is computed once, is debuggable, and can grow to
-handle per-object motion vectors later.
+Purpose: finish the feature by confirming the pipeline wiring is clean,
+tonemapping consumes the resolved TAA output (not raw `sceneColor`), and the
+feature is easy to compare on/off.
 
 Implementation scope:
 
-- Add a motion vector texture to the G-buffer, `RG16F`, storing the
-  per-pixel screen-space UV delta: `current_uv - prev_uv`.
-- Produce motion vectors by reprojecting depth in either a dedicated compute
-  pass or a deferred G-buffer resolve step:
-  - Reconstruct world position from G-buffer depth.
-  - Project through `PrevViewMatrix * PrevProjectionMatrix` to get previous UV.
-  - Output `currentUV - prevUV` as the motion vector.
-  - This covers camera-only motion. Objects with independent transforms would
-    need per-object previous model matrices; leave that for a future milestone.
-- Update `GI::InitInfo` to accept the motion vector texture.
-- Update `GI`'s descriptor set to bind the motion vector texture as an input.
-- In `rtgi_generate.comp`, replace the inline reprojection computation from
-  Chunk 4 with a texture read from the motion vector attachment. History lookup
-  and depth rejection from Chunk 5 continue to use the reprojected UV and
-  stored depth; the only change is how the reprojected UV is computed.
-- Keep the inline reprojection path available behind a shader define or config
-  flag only if the G-buffer motion vector path has a known gap; otherwise remove
-  it cleanly.
+- Confirm post-processing's tonemap pass reads TAA's resolved output when TAA
+  is enabled, and `sceneColor` directly when disabled (wired in Chunk 2;
+  re-audit after Chunks 3-5 changed the resolve shader).
+- Audit `TAA::clear`/`TAA::render` for barrier correctness and remove any
+  scaffolding from earlier chunks (e.g. the Chunk 2 pass-through code path, if
+  still reachable).
+- Confirm `taa.ini`'s `enabled` toggle fully bypasses jitter application,
+  resolve dispatch, and history bookkeeping when off. Unlike GI's Milestone 3
+  cleanup — where `maxSampleCount: 0` alone could disable accumulation without
+  a dedicated toggle — TAA genuinely needs this toggle, because disabling TAA
+  also means skipping jitter applied to the rendering projection matrix, which
+  has no equivalent "set to zero" shortcut.
+- Leave debug views (jittered-vs-resolved comparison, clamp AABB
+  visualization) as optional follow-up; not required to close this out.
 
 Review checklist:
 
-- Visual output matches Chunks 4 and 5 exactly when the scene has only camera
-  motion; no new ghosting or rejection artifacts appear.
-- Motion vector texture is transitioned to the correct layout before RTGI reads
-  it.
-- The G-buffer pass that writes motion vectors runs before RTGI; ordering is
-  explicit in the render component, not hidden in barriers inside a helper.
-- The design lets a future change substitute per-object motion vectors by
-  updating the G-buffer pass only, without touching `GI.cpp` or the RTGI
-  shader.
-- The inline reprojection code from Chunk 4 is removed or clearly gated so it
-  does not silently run alongside the new path.
+- Toggling `enabled` off in `taa.ini` shows the raw, unjittered, unblended
+  image; toggling on restores jitter + resolved anti-aliased output.
+  Hot-reload works.
+- No stale pass-through code path remains reachable.
+- Tonemapping never reads stale/uninitialized TAA output right after TAA is
+  re-enabled (history should be treated as invalid on the enabling frame).
 
 Done when:
 
-- Motion vectors are produced in the G-buffer and consumed by RTGI, with the
-  same reprojection and rejection quality as before.
-
-
-## Review Chunk 7: Milestone 3 Cleanup And Config
-
-Purpose: finish the milestone by tightening the accumulation contract, removing
-temporary scaffolding, and making it easy to compare raw and accumulated output.
-
-Implementation scope:
-
-- Add an `accumulation` toggle to `config/gi.ini` that bypasses history reuse
-  and writes the raw one-sample result directly, without modifying any other
-  GI behavior. This makes the noise reduction visible and reversible without a
-  recompile.
-- Audit `GI::clear` and `GI::render` for any lingering assumptions from before
-  ping-pong: no reference to a single `indirectLighting` texture where two
-  history textures now exist.
-- Audit `rtgi_generate.comp` for stale comments or variable names that still
-  describe single-frame direct writes rather than accumulation.
-- Update `.github/path-to-restir.md` to mark Milestone 3 complete.
-- Leave debug views (history age, rejected pixels, sample count heatmap) as
-  optional follow-up work; do not require them to close the milestone.
-
-Review checklist:
-
-- Toggling `accumulation` off shows the raw noisy one-sample output; toggling
-  it on restores the converged result. Hot-reload works.
-- No stale code remains that assumed a single non-ping-ponged indirect texture.
-- The roadmap still points clearly to Milestone 4 spatial filtering as next.
-- The done conditions from `path-to-restir.md` Milestone 3 are all met:
-  - still camera noise decreases over time
-  - moving the camera does not leave obviously broken trails everywhere
-  - disocclusion behavior resets the affected pixels instead of ghosting
-
-Done when:
-
-- Milestone 3's done conditions are verifiable, and the accumulation path is
-  clean enough to build spatial filtering on top of in Milestone 4.
+- TAA can be toggled on/off cleanly via config, tonemapping always reads the
+  correct upstream texture, and the feature is clean enough to leave alone.
 
 
 ## Suggested PR Grouping
 
 If the chunks feel too small as individual PRs, group them this way:
 
-- PR 1: Chunk 1, previous-frame matrices in ViewInfo.
-- PR 2: Chunk 2, ping-pong history and sample count textures.
-- PR 3: Chunks 3 and 4, naive accumulation then reprojection.
-- PR 4: Chunk 5, depth-based history rejection.
-- PR 5: Chunks 6 and 7, motion vector G-buffer attachment and cleanup.
+- PR 1: Chunk 1, jitter infrastructure.
+- PR 2: Chunk 2, TAA component skeleton and ping-pong color history.
+- PR 3: Chunk 3, apply jitter and naive same-pixel blend.
+- PR 4: Chunk 4, motion-vector reprojection.
+- PR 5: Chunk 5, neighborhood color clamping.
+- PR 6: Chunk 6, pipeline integration cleanup and config.
 
 Avoid grouping across the main risk boundaries:
 
+- jitter application correctness (clip-space offset math, keeping motion
+  vectors unjittered)
 - descriptor layout changes (ping-pong texture additions)
-- accumulation formula and sample count semantics
+- resolve blend formula and history validity semantics
 - reprojection correctness (out-of-bounds handling)
-- depth rejection threshold interaction with reprojection
-- motion vector G-buffer ownership and barrier ordering
+- neighborhood clamping tuning (AABB expansion, clamp gamma)
+- read/write ordering between lighting, TAA, and post-processing

@@ -226,32 +226,36 @@ Guardrails:
 
 ## Milestone 3: Temporal Accumulation
 
-Estimated time: 3-5 weeks.
+Status: complete enough to move on.
 
 Goal: convert the noisy one-ray result into a temporally accumulated indirect
 signal.
 
-Tasks:
+Implemented:
 
-- Add ping-pong history textures for indirect radiance.
-- Add a history validity mask or accumulated sample count.
-- Start with simple history reuse.
-- Add camera/depth/normal/material rejection.
-- Add motion-vector reprojection later if necessary.
-- Add debug views for history age, rejected history, and accumulated sample
-  count.
+- ping-pong history textures for indirect radiance, plus a per-pixel
+  accumulated sample count texture
+- same-pixel running-average accumulation, capped at a configurable
+  `maxSampleCount` (`config/gi.ini`)
+- reprojection via a dedicated motion vector G-buffer attachment
+  (`current_uv - prev_uv`, produced from `PrevViewMatrix`/`PrevProjectionMatrix`)
+- depth-based history rejection: linearized view-space depth is stored in the
+  history alpha channel and compared against the expected reprojected depth,
+  with a configurable `historyDepthRejectionThreshold`
+- raw vs. converged output can be compared by setting `maxSampleCount: 0` in
+  `config/gi.ini` (hot-reloadable): the accumulation formula collapses to the
+  one-sample result every frame without any dedicated toggle
+
+Deferred:
+
+- dedicated debug views for history age, rejected pixels, and sample count
+  heatmap; optional follow-up work, not required to close the milestone
 
 Done when:
 
 - still camera noise decreases over time
 - moving the camera does not leave obviously broken trails everywhere
 - disocclusion behavior is visible and debuggable
-
-Guardrails:
-
-- Do not make motion vectors a prerequisite for the first accumulation pass.
-- If motion vectors become necessary, consider whether they should be produced as
-  shared view data rather than as a deferred-only attachment.
 
 ## Milestone 4: Spatial Filtering
 
