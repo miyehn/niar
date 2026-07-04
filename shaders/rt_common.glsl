@@ -37,7 +37,7 @@ RayHitResult makeMissHitResult()
     return RayHitResult(false, gl_RayQueryCommittedIntersectionNoneEXT, ~0u, ~0u, vec2(-1.0), -1.0, mat4x3(0.0));
 }
 
-RayHitResult interpretRayQuery(rayQueryEXT rq)
+RayHitResult interpretFinalRayQuery(rayQueryEXT rq)
 {
     // the second boolean arg being true: want the final committed intersection
     // hit opaque triangle (forced by gl_RayFlagsOpaqueEXT, or VK_GEOMETRY_OPAQUE_BIT_KHR when building BLAS) -> internally confirmed
@@ -46,13 +46,9 @@ RayHitResult interpretRayQuery(rayQueryEXT rq)
     uint intersectionType = rayQueryGetIntersectionTypeEXT(rq, true);
 
     RayHitResult result = makeMissHitResult();
-    if (intersectionType == gl_RayQueryCommittedIntersectionNoneEXT) {
-        // it's a miss
-        return result;
-    }
 
     // it's a hit
-    result.committed = true;
+    result.committed = intersectionType != gl_RayQueryCommittedIntersectionNoneEXT;
 
     // intersection types can be: None (miss), Triangle (triangle geometry), or Generated (AABB geometry), which is used for shader-defined procedural geometry
     result.intersectionType = intersectionType;
@@ -67,26 +63,23 @@ RayHitResult interpretRayQuery(rayQueryEXT rq)
     return result;
 }
 
-RayHitResult traceRay(accelerationStructureEXT tlas, vec3 origin, vec3 direction, float tmin, float tmax)
+RayHitResult interpretCandidateRayQuery(rayQueryEXT rq)
 {
-    rayQueryEXT rq;
-    rayQueryInitializeEXT(
-        rq,
-        tlas,
-    // ray flags:
-        0
-        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
-        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
-        | gl_RayFlagsOpaqueEXT,
-        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
-    // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
-        origin,
-        tmin,
-        direction,
-        tmax);
-    rayQueryProceedEXT(rq);
+    RayHitResult result = makeMissHitResult();
 
-    return interpretRayQuery(rq);
+    // it's a hit
+    result.committed = false;
+
+    // intersection types can be: None (miss), Triangle (triangle geometry), or Generated (AABB geometry), which is used for shader-defined procedural geometry
+    result.intersectionType = rayQueryGetIntersectionTypeEXT(rq, false);
+    result.instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
+    result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, false);
+    result.hitT = rayQueryGetIntersectionTEXT(rq, false);
+    result.worldToObject = rayQueryGetIntersectionWorldToObjectEXT(rq, false);
+    if (result.intersectionType == gl_RayQueryCommittedIntersectionTriangleEXT) {
+        result.barycentrics = rayQueryGetIntersectionBarycentricsEXT(rq, false);
+    }
+    return result;
 }
 
 // read vertexIndex from index buffer. the result will be used to read into vertex buffer

@@ -23,6 +23,9 @@ layout(set = 0, binding = 6) uniform DirectionalLightsInfo {
 layout(set = 0, binding = 7) uniform sampler2D EnvironmentMap;
 layout(set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
 layout(set = 0, binding = 9) uniform sampler2D IndirectLighting;
+layout(set = 0, binding = 10, std430) readonly buffer SceneInstanceRecordTable {
+    GpuSceneInstanceRecord SceneInstanceRecords[];
+};
 
 #include "lighting_common.glsl" // pbr lighting functions
 #include "sky_common.glsl" // set 1, bindings 0-2; 8-9
@@ -42,6 +45,7 @@ void main() {
 	float visibility = sceneDepth < 1.0f ? 1.0f : 0.0f;
 	if (visibility > 0.5f) {
 		vec3 worldPos = reconstructWorldPositionFromDepth(vf_uv, sceneDepth, viewInfo);
+		float noise = white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
 		// emission
 		FragColor.rgb += vec3(GColor.a, GNormal.a, GORM.a);
 		// the rest of lighting
@@ -51,7 +55,7 @@ void main() {
 			GNormal.xyz,
 			GColor.rgb,
 			GORM.rgb,
-			viewInfo.FrameRandom.x,
+			noise,
 			normalize(viewInfo.CameraPosition - worldPos)
 		);
 		vec3 indirectDiffuse = texture(IndirectLighting, vf_uv).rgb * GColor.rgb;

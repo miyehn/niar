@@ -191,6 +191,11 @@ static bool compile_shader(
 			options.AddMacroDefinition(name);
 	}
 
+#if 0
+	options.SetGenerateDebugInfo();
+	options.SetOptimizationLevel(shaderc_optimization_level_zero);
+#endif
+
 	auto result = compiler.CompileGlslToSpv(
 		source, to_shaderc_stage(moduleDef.stage), abs_entry.c_str(), moduleDef.entry_function.c_str(), options);
 

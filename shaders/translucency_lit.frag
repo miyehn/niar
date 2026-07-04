@@ -18,6 +18,9 @@ layout(set = 0, binding = 6) uniform DirectionalLightsInfo {
 layout(set = 0, binding = 7) uniform sampler2D EnvironmentMap;
 layout(set = 0, binding = 8) uniform accelerationStructureEXT SceneTLAS;
 layout(set = 0, binding = 9) uniform sampler2D IndirectLighting;
+layout(set = 0, binding = 10, std430) readonly buffer SceneInstanceRecordTable {
+    GpuSceneInstanceRecord SceneInstanceRecords[];
+};
 
 #include "lighting_common.glsl"
 
@@ -50,6 +53,7 @@ void main() {
         sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_EMISSIVE, uv).rgb;
     ViewInfo viewInfo = GetViewInfo();
     vec3 worldPos = vf_position.xyz + viewInfo.CameraPosition;
+    float noise = white_noise01(uvec3(uvec2(gl_FragCoord.xy), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
 
     vec3 litResult = emission + accumulateLighting(
         SceneTLAS,
@@ -57,15 +61,9 @@ void main() {
         normal,
         baseColor.rgb,
         orm,
-        viewInfo.FrameRandom.x,
+        noise,
         normalize(viewInfo.CameraPosition - worldPos)
     );
-    /*
-    todo [myn]: indirect for translucent surfaces
-    vec2 screenUv = gl_FragCoord.xy / GetViewInfo().RenderSize;
-    vec3 indirectDiffuse = texture(IndirectLighting, screenUv).rgb * baseColor.rgb;
-    litResult += indirectDiffuse;
-    */
 
     outColor = vec4(litResult, baseColor.a);
 }

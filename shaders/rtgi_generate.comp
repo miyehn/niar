@@ -59,7 +59,7 @@ vec3 shadeInvalid()
 }
 
 
-vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float noise)
+vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoise)
 {
     if (hitResult.instanceCustomIndex == ~0u) {
         return shadeInvalid();
@@ -90,7 +90,7 @@ vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, floa
         surface.worldNormal,
         albedo,
         orm,
-        noise,
+        whiteNoise,
         surface.outgoingDirection);
 }
 
@@ -144,9 +144,9 @@ void main()
         rayDir,
         10000.0);
     rayQueryProceedEXT(rq);
-    RayHitResult hitResult = interpretRayQuery(rq);
+    RayHitResult hitResult = interpretFinalRayQuery(rq);
 
-    vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir, viewInfo.FrameRandom.x) : sampleBackground(viewInfo, rayDir);
+    vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x) : sampleBackground(viewInfo, rayDir);
 
     // read per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass
     vec2 motionVector = texture(MotionVectors, screenUv).rg;

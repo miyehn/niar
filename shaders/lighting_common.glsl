@@ -1,5 +1,6 @@
 #include "cshared/lights.h"
 #include "rt_common.glsl"
+#include "gltf_bindless_material.glsl"
 
 vec3 fresnelSchlick(float VdotH, vec3 F0)
 {
@@ -36,31 +37,47 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
-float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float noise)
+float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise)
 {
     const vec3 rayOrigin = worldPos + normal * EPSILON;
-    const vec3 rayDir = dirToLight;
 
     rayQueryEXT rq;
     rayQueryInitializeEXT(
         rq,
         tlas,
-        // ray flags:
-        0
-        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
-        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
-        | gl_RayFlagsOpaqueEXT,
-        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
-              // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
+        gl_RayFlagsTerminateOnFirstHitEXT,
+        0xFF, // cull mask
         rayOrigin,
-        0,
-        rayDir,
+        0, // tmin
+        dirToLight,
         tMax);
-    rayQueryProceedEXT(rq);
 
-    RayHitResult hitResult = interpretRayQuery(rq);
+    // opaque BLASes auto-commit; only non-opaque geometry generates candidates
+    while (rayQueryProceedEXT(rq)) {
+        // Must use false to query the candidate intersection (not committed)
+        uint instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
+        uint primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, false);
 
-    return hitResult.committed ? 0.0 : 1.0;
+        RayHitResult candidate = interpretCandidateRayQuery(rq);
+
+        // which geometry, which material
+        GpuSceneInstanceRecord instanceRecord = SceneInstanceRecords[instanceCustomIndex];
+        GpuGeometryRecord geometry = BindlessGeometryRecords[instanceRecord.geometryRecordIndex];
+        GpuMaterial material = BindlessMaterials[instanceRecord.bindlessMaterialIndex];
+
+        vec2 uv;
+        reconstructHitUv(candidate, geometry, uv);
+
+        const vec4 albedoSample = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_ALBEDO, uv);
+        const vec4 baseColor = albedoSample * material.baseColorFactor;
+
+        float alpha = baseColor.a;
+        if (whiteNoise < alpha) {
+            rayQueryConfirmIntersectionEXT(rq);
+        }
+    }
+
+    return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
 }
 
 vec3 evaluateLight(
@@ -111,7 +128,7 @@ vec3 accumulateLighting(
     vec3 normal,
     vec3 albedo,
     vec3 orm,
-    float noise,
+    float whiteNoise,
     vec3 outgoingDirection)
 {
     float metallic = orm.b;
@@ -133,7 +150,7 @@ vec3 accumulateLighting(
         vec3 dirToLight = toLight / dist;
         float atten = 1.0 / dot(toLight, toLight);
         vec3 radiance = PointLights.Data[i].color * atten;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, noise);
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, whiteNoise);
 
         result += evaluateLight(
             albedo,
@@ -152,7 +169,7 @@ vec3 accumulateLighting(
         vec3 lightDir = DirectionalLights.Data[i].direction;
         vec3 dirToLight = normalize(-lightDir);
         vec3 radiance = DirectionalLights.Data[i].color;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, noise);
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, whiteNoise);
 
         result += evaluateLight(
             albedo,

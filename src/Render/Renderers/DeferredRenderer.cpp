@@ -92,6 +92,7 @@ public:
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
 			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
+			b.useDescriptorSetLayout(DSET_BINDLESS, BindlessResources::Instance->layout());
 			b.useDescriptorSetLayout(DSET_INDEPENDENT, renderer->getSkyDescriptorSet().getLayout());
 
 			graphicsPipeline.build("Deferred Lighting");
@@ -709,6 +710,7 @@ DeferredRenderer::DeferredRenderer()
 		frameGlobalSetLayout.addBinding(7, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		frameGlobalSetLayout.addBinding(8, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 		frameGlobalSetLayout.addBinding(9, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		frameGlobalSetLayout.addBinding(10, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		bool loadedEnvironmentMap = Config->lookup<int>("LoadEnvironmentMap");
 		const Texture2D* envmap = loadedEnvironmentMap
@@ -773,6 +775,7 @@ DeferredRenderer::DeferredRenderer()
 			fd.frameGlobalDescriptorSet.pointToImageView(envmap->imageView, 7);
 			fd.frameGlobalDescriptorSet.pointToAccelerationStructure(sceneTlas.get(), 8);
 			fd.frameGlobalDescriptorSet.pointToImageView(gi.getIndirectLighting()->imageView, 9, &gbufferSamplerInfo);
+			fd.frameGlobalDescriptorSet.pointToBuffer(sceneTlas.getSceneInstanceRecordBuffer(i), 10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		}
 	}
 
@@ -1047,6 +1050,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		auto& deferredLightingPipeline = deferredLighting->getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredLightingPipeline.pipeline);
 		bindFrameGlobal(deferredLightingPipeline.layout);
+		BindlessResources::Instance->descriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_BINDLESS, deferredLightingPipeline.layout);
 		getSkyDescriptorSet().bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, deferredLightingPipeline.layout);
 		vk::drawFullscreenTriangle(cmdbuf);
 	}

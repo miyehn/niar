@@ -711,6 +711,14 @@ SceneAsset::SceneAsset(
 			for (const auto& gpuMaterial : gpuMaterials) {
 				asset_material_indices.push_back(BindlessResources::Instance->addMaterial(gpuMaterial));
 			}
+
+#if 0
+			for (int i = 0; i < gpuMaterials.size(); i++)
+			{
+				LOG("[mat] %i: '%s'", asset_material_indices[i], model.materials[i].name.c_str())
+			}
+#endif
+
 #if TMP_BINDLESS_DEBUG
 			ASSERT(asset_material_indices.size() == model.materials.size())
 #endif
