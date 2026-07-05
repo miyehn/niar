@@ -982,8 +982,12 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
 		// collect all meshes to build tlas from
 		std::vector<MeshObject*> allMeshes(opaqueMeshes.size() + translucentMeshes.size());
-		memcpy(&allMeshes[0], opaqueMeshes.data(), opaqueMeshes.size() * sizeof(MeshObject*));
-		memcpy(&allMeshes[opaqueMeshes.size()], translucentMeshes.data(), translucentMeshes.size() * sizeof(MeshObject*));
+		if (!opaqueMeshes.empty()) {
+			memcpy(&allMeshes[0], opaqueMeshes.data(), opaqueMeshes.size() * sizeof(MeshObject*));
+		}
+		if (!translucentMeshes.empty()) {
+			memcpy(&allMeshes[opaqueMeshes.size()], translucentMeshes.data(), translucentMeshes.size() * sizeof(MeshObject*));
+		}
 
 		sceneTlas.build_from_meshes(
 			cmdbuf,
