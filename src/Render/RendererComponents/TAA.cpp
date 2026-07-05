@@ -23,13 +23,14 @@ constexpr uint32_t Slot_MotionVectors = 4;
 
 struct TaaPushData {
 	float historyWeight;
+	float clampExpansion;
 };
 
 class TaaResolveCS : public ComputeShader
 {
 public:
 	const DescriptorSet* taaDescriptorSetPtr = nullptr;
-	TaaPushData pushData = {0.9f};
+	TaaPushData pushData = {0.9f, 0.25f};
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
@@ -240,6 +241,7 @@ void TAA::render(VkCommandBuffer cmdbuf, uint32_t globalFrameIndex)
 
 		auto* resolveCS = ComputeShader::getInstance<TaaResolveCS>();
 		resolveCS->pushData.historyWeight = get_deferred_config()->lookup<float>("taa.historyWeight");
+		resolveCS->pushData.clampExpansion = get_deferred_config()->lookup<float>("taa.clampExpansion");
 		resolveCS->taaDescriptorSetPtr = &taaDescriptorSet;
 		resolveCS->dispatch(cmdbuf, groupCountX, groupCountY, 1);
 

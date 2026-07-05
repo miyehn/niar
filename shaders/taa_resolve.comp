@@ -8,6 +8,7 @@ layout(set = 1, binding = 4) uniform sampler2D MotionVectors;
 
 layout(push_constant) uniform TaaPushConstants {
     float HistoryWeight;
+    float ClampExpansion;
 } Push;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -21,6 +22,29 @@ void main()
 
     vec3 currentColor = texelFetch(SceneColor, pixel, 0).rgb;
 
+    // build a local color AABB from the current frame's 3x3 neighborhood, so stale history
+    // that no longer matches what's actually here now gets pulled back into a plausible range
+    // instead of visibly ghosting
+    vec3 neighborMin = currentColor;
+    vec3 neighborMax = currentColor;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            ivec2 neighborPixel = clamp(pixel + ivec2(dx, dy), ivec2(0), dims - 1);
+            vec3 neighborColor = texelFetch(SceneColor, neighborPixel, 0).rgb;
+            neighborMin = min(neighborMin, neighborColor);
+            neighborMax = max(neighborMax, neighborColor);
+        }
+    }
+    // widen the box so clamping doesn't over-tighten on thin/high-frequency detail (e.g. lattice
+    // screens, mullions) where the raw min/max box would otherwise be nearly a point
+    vec3 boxCenter = (neighborMin + neighborMax) * 0.5;
+    vec3 boxExtent = (neighborMax - neighborMin) * 0.5 * (1.0 + Push.ClampExpansion);
+    neighborMin = boxCenter - boxExtent;
+    neighborMax = boxCenter + boxExtent;
+
     // reproject to where this pixel's surface was last frame, using the G-buffer motion
     // vector (currentUV - prevUV), same convention as rtgi_generate.comp
     vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
@@ -32,7 +56,8 @@ void main()
     if (validReprojection) {
         // bilinear: prevUv is a reprojected fractional position, not a texel center
         vec3 historyColor = texture(TaaReadHistory, prevUv).rgb;
-        resolved = mix(currentColor, historyColor, Push.HistoryWeight);
+        vec3 clampedHistory = clamp(historyColor, neighborMin, neighborMax);
+        resolved = mix(currentColor, clampedHistory, Push.HistoryWeight);
     } else {
         // surface wasn't visible last frame (offscreen or newly revealed): no history to blend
         resolved = currentColor;
