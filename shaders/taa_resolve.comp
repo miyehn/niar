@@ -4,6 +4,11 @@ layout(set = 1, binding = 0) uniform sampler2D SceneColor;
 layout(set = 1, binding = 1) uniform sampler2D TaaReadHistory;
 layout(set = 1, binding = 2, rgba16f) uniform writeonly image2D TaaResolved;
 layout(set = 1, binding = 3, rgba16f) uniform writeonly image2D TaaWriteHistory;
+layout(set = 1, binding = 4) uniform sampler2D MotionVectors;
+
+layout(push_constant) uniform TaaPushConstants {
+    float HistoryWeight;
+} Push;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
@@ -14,8 +19,25 @@ void main()
         return;
     }
 
-    // pass-through for now: proves the ping-pong wiring end to end before blending is added
-    vec4 currentColor = texelFetch(SceneColor, pixel, 0);
-    imageStore(TaaResolved, pixel, currentColor);
-    imageStore(TaaWriteHistory, pixel, currentColor);
+    vec3 currentColor = texelFetch(SceneColor, pixel, 0).rgb;
+
+    // reproject to where this pixel's surface was last frame, using the G-buffer motion
+    // vector (currentUV - prevUV), same convention as rtgi_generate.comp
+    vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
+    vec2 motionVector = texture(MotionVectors, screenUv).rg;
+    vec2 prevUv = screenUv - motionVector;
+    bool validReprojection = all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)));
+
+    vec3 resolved;
+    if (validReprojection) {
+        // bilinear: prevUv is a reprojected fractional position, not a texel center
+        vec3 historyColor = texture(TaaReadHistory, prevUv).rgb;
+        resolved = mix(currentColor, historyColor, Push.HistoryWeight);
+    } else {
+        // surface wasn't visible last frame (offscreen or newly revealed): no history to blend
+        resolved = currentColor;
+    }
+
+    imageStore(TaaResolved, pixel, vec4(resolved, 1.0));
+    imageStore(TaaWriteHistory, pixel, vec4(resolved, 1.0));
 }

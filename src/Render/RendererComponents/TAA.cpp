@@ -1,5 +1,6 @@
 #include "TAA.h"
-#include "cshared_common.h"
+#include "Assets/ConfigAsset.hpp"
+#include "Render/Renderers/DeferredRenderer.h"
 #include "Render/Texture.h"
 #include "Render/Materials/ComputeShader.h"
 #include "Render/Vulkan/ImageCreator.h"
@@ -18,11 +19,17 @@ constexpr uint32_t Slot_SceneColor = 0;
 constexpr uint32_t Slot_ReadHistory = 1;
 constexpr uint32_t Slot_Resolved = 2;
 constexpr uint32_t Slot_WriteHistory = 3;
+constexpr uint32_t Slot_MotionVectors = 4;
+
+struct TaaPushData {
+	float historyWeight;
+};
 
 class TaaResolveCS : public ComputeShader
 {
 public:
 	const DescriptorSet* taaDescriptorSetPtr = nullptr;
+	TaaPushData pushData = {0.9f};
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
@@ -31,6 +38,7 @@ public:
 
 		auto& pipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+		vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaPushData), &pushData);
 		taaDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
 		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 	}
@@ -41,6 +49,7 @@ protected:
 		ASSERT(taaDescriptorSetPtr != nullptr)
 		builder.shaderDef = ShaderModuleDef("shaders/taa_resolve.comp", "main", SS_Compute);
 		builder.useDescriptorSetLayout(DSET_INDEPENDENT, taaDescriptorSetPtr->getLayout());
+		builder.usePushConstantRange({VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaPushData)});
 	}
 };
 
@@ -49,6 +58,7 @@ protected:
 void TAA::init(const InitInfo& info)
 {
 	ASSERT(info.sceneColor != nullptr)
+	ASSERT(info.GMotion != nullptr)
 
 	ImageCreator resolvedCreator(
 		VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -99,23 +109,32 @@ void TAA::init(const InitInfo& info)
 	taaSetLayout.addBinding(Slot_ReadHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	taaSetLayout.addBinding(Slot_Resolved, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	taaSetLayout.addBinding(Slot_WriteHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	taaSetLayout.addBinding(Slot_MotionVectors, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-	auto samplerInfo = SamplerCache::defaultInfo();
-	samplerInfo.magFilter = VK_FILTER_NEAREST;
-	samplerInfo.minFilter = VK_FILTER_NEAREST;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	// exact per-pixel reads: current color is texelFetch'd, motion vectors need no interpolation
+	auto pointSamplerInfo = SamplerCache::defaultInfo();
+	pointSamplerInfo.magFilter = VK_FILTER_NEAREST;
+	pointSamplerInfo.minFilter = VK_FILTER_NEAREST;
+	pointSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	pointSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	pointSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	pointSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+	// history is reprojected to a fractional UV, so it needs bilinear filtering
+	auto linearSamplerInfo = SamplerCache::defaultInfo();
+	linearSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	linearSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	linearSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
 	for (uint32_t historyWriteSlot = 0; historyWriteSlot < 2; historyWriteSlot++) {
 		const uint32_t readHistoryIndex = 1 - historyWriteSlot;
 		DescriptorSet& taaDescriptorSet = taaDescriptorSets[historyWriteSlot];
 		taaDescriptorSet = DescriptorSet(taaSetLayout);
-		taaDescriptorSet.pointToImageView(info.sceneColor->imageView, Slot_SceneColor, &samplerInfo);
-		taaDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
+		taaDescriptorSet.pointToImageView(info.sceneColor->imageView, Slot_SceneColor, &pointSamplerInfo);
+		taaDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &linearSamplerInfo);
 		taaDescriptorSet.pointToRWImageView(resolved->imageView, Slot_Resolved);
 		taaDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
+		taaDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &pointSamplerInfo);
 	}
 }
 
@@ -220,6 +239,7 @@ void TAA::render(VkCommandBuffer cmdbuf, uint32_t globalFrameIndex)
 			VK_IMAGE_LAYOUT_GENERAL);
 
 		auto* resolveCS = ComputeShader::getInstance<TaaResolveCS>();
+		resolveCS->pushData.historyWeight = get_deferred_config()->lookup<float>("taa.historyWeight");
 		resolveCS->taaDescriptorSetPtr = &taaDescriptorSet;
 		resolveCS->dispatch(cmdbuf, groupCountX, groupCountY, 1);
 

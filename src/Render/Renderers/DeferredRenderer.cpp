@@ -800,6 +800,7 @@ DeferredRenderer::DeferredRenderer()
 	{// TAA
 		TAA::InitInfo taaInitInfo{};
 		taaInitInfo.sceneColor = sceneColor;
+		taaInitInfo.GMotion = GMotion;
 		taa.init(taaInitInfo);
 	}
 

@@ -1,5 +1,4 @@
 #pragma once
-#include "Render/Vulkan/Vulkan.hpp"
 #include "Render/Vulkan/DescriptorSet.h"
 
 class Texture2D;
@@ -12,6 +11,7 @@ struct TAA
 
     struct InitInfo {
         const Texture2D* sceneColor = nullptr;
+        const Texture2D* GMotion = nullptr;
     };
 
     void init(const InitInfo& info);

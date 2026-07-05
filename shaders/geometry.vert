@@ -30,6 +30,12 @@ void main()
   vf_currentClipPos = gl_Position;
   vf_prevClipPos = viewInfo.PrevProjectionMatrix * viewInfo.PrevViewMatrix * worldPos4;
 
+  // subpixel jitter for TAA, applied after capturing the unjittered clip positions above so
+  // motion vectors (derived from vf_currentClipPos/vf_prevClipPos in geometry.frag) stay jitter-free
+  vec2 jitterClipSpace = (viewInfo.JitterOffset / viewInfo.RenderSize) * 2.0f;
+  // gl_Position.xy is to be divided by w to become NDC, so multiply by w here to cancel out
+  gl_Position.xy += jitterClipSpace * gl_Position.w;
+
   mat3 OBJECT_TO_WORLD_ROT = mat3(pc.ModelMatrix);
 
   vec3 N = normalize(OBJECT_TO_WORLD_ROT * in_normal);

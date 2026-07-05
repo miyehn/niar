@@ -39,7 +39,7 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
 
 float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise)
 {
-    const vec3 rayOrigin = worldPos + normal * EPSILON;
+    const vec3 rayOrigin = worldPos + normal * 0.005;
 
     rayQueryEXT rq;
     rayQueryInitializeEXT(
