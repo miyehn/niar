@@ -230,6 +230,8 @@ void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
 	// prepare frameglobals
 	glm::ViewInfo viewInfo = getCameraViewInfo();
+	viewInfo.RenderSize = glm::vec2(renderExtent.width, renderExtent.height);
+	viewInfo.JitterOffset = {}; // no TAA for SimpleRenderer.
 	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
 	std::vector<SceneObject*> drawables;

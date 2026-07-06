@@ -24,7 +24,7 @@ ConfigAsset* get_deferred_config()
 	if (!config) {
 		config = new ConfigAsset("config/deferred.ini", true, [](const ConfigAsset* cfg)
 		{
-			LOG("GI enabled: %i", cfg->lookup<int>("gi.enabled"));
+			LOG("GI enabled: %i, TAA enabled: %i", cfg->lookup<int>("gi.enabled"), cfg->lookup<int>("taa.enabled"));
 		});
 	}
 	return config;
@@ -874,6 +874,9 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
 	glm::ViewInfo viewInfo = getCameraViewInfo();
 	viewInfo.RenderSize = glm::vec2(renderExtent.width, renderExtent.height);
+	if (!get_deferred_config()->lookup<int>("taa.enabled")) {
+		viewInfo.JitterOffset = glm::vec2(0.0f);
+	}
 	{
         int numPointLights = 0;
         int numDirectionalLights = 0;
