@@ -11,7 +11,9 @@ void main()
 {
     ViewInfo viewInfo = GetViewInfo();
 
-    gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * vec4(in_position.xyz, 1.0);
+    // debug draw happens after TAA resolves and isn't itself temporally accumulated, so use the
+    // unjittered projection here to avoid a visible per-frame shimmer on debug overlays
+    gl_Position = viewInfo.UnjitteredProjectionMatrix * viewInfo.ViewMatrix * vec4(in_position.xyz, 1.0);
     gl_PointSize = 1 + 20 * (1.0f / gl_Position.z);
     vf_color = in_color;
 }

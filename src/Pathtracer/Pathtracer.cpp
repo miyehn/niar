@@ -450,7 +450,7 @@ void Pathtracer::on_selected() {
 	viewInfo.ProjectionMatrix = camera->camera_to_clip();
 	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
 	viewInfo.PrevViewMatrix = camera->previous_view_matrix();
-	viewInfo.PrevProjectionMatrix = camera->previous_projection_matrix();
+	viewInfo.PrevUnjitteredProjectionMatrix = camera->previous_projection_matrix();
 
 	viewInfo.CameraPosition = camera->world_position();
 	viewInfo.ViewDir = camera->forward();

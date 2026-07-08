@@ -872,11 +872,8 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 {
-	glm::ViewInfo viewInfo = getCameraViewInfo();
-	viewInfo.RenderSize = glm::vec2(renderExtent.width, renderExtent.height);
-	if (!get_deferred_config()->lookup<int>("taa.enabled")) {
-		viewInfo.JitterOffset = glm::vec2(0.0f);
-	}
+	const bool taaEnabled = get_deferred_config()->lookup<int>("taa.enabled") != 0;
+	glm::ViewInfo viewInfo = getCameraViewInfo(glm::vec2(renderExtent.width, renderExtent.height), taaEnabled);
 	{
         int numPointLights = 0;
         int numDirectionalLights = 0;

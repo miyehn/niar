@@ -4,7 +4,7 @@ Side quest, not tracked in `.github/path-to-restir.md`.
 
 Goal: add temporal anti-aliasing to the deferred renderer, resolved before
 tonemapping. TAA reuses two things Milestone 3 of the RTGI roadmap already
-built: `PrevViewMatrix`/`PrevProjectionMatrix` in `ViewInfo`, and the `GMotion`
+built: `PrevViewMatrix`/`PrevUnjitteredProjectionMatrix` in `ViewInfo`, and the `GMotion`
 G-buffer attachment (`RG16F`, `currentUV - prevUV`) produced in
 `geometry.vert`/`geometry.frag`. No separate "add motion vectors" chunk is
 needed because of this. Each chunk below still keeps one concern isolated so

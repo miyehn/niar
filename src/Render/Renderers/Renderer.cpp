@@ -28,18 +28,36 @@ glm::vec2 haltonJitterOffset(uint32_t frameIndex)
 	return glm::vec2(haltonSequence(i, 2) - 0.5f, haltonSequence(i, 3) - 0.5f);
 }
 
+// Bakes a subpixel jitter (in pixels) into a projection matrix as a clip-space offset, so that
+// every consumer of the resulting matrix (rasterization, and later screen-space reconstruction
+// for lighting/shadows) sees a consistently jittered camera. This is equivalent to patching
+// clipPos.xy += jitterClipSpace * clipPos.w post-multiply, folded into the matrix itself:
+// row 0/1 get jitter.x/y times row 3 added, since clipPos.w = row3 . viewPos.
+glm::mat4 applyPixelJitter(const glm::mat4& projectionMatrix, glm::vec2 jitterOffsetPixels, glm::vec2 renderSize)
+{
+	if (renderSize.x <= 0.0f || renderSize.y <= 0.0f || jitterOffsetPixels == glm::vec2(0.0f)) {
+		return projectionMatrix;
+	}
+	const glm::vec2 jitterClipSpace = (jitterOffsetPixels / renderSize) * 2.0f;
+	glm::mat4 jittered = projectionMatrix;
+	for (int col = 0; col < 4; col++) {
+		jittered[col][0] += jitterClipSpace.x * projectionMatrix[col][3];
+		jittered[col][1] += jitterClipSpace.y * projectionMatrix[col][3];
+	}
+	return jittered;
+}
+
 } // namespace
 
-glm::ViewInfo Renderer::getCameraViewInfo() const
+glm::ViewInfo Renderer::getCameraViewInfo(glm::vec2 renderSize, bool applyJitter) const
 {
     glm::ViewInfo viewInfo = {};
 
 	// update whatever's needed
 	viewInfo.ViewMatrix = camera->world_to_object();
-	viewInfo.ProjectionMatrix = camera->camera_to_clip();
-	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
+	viewInfo.UnjitteredProjectionMatrix = camera->camera_to_clip();
 	viewInfo.PrevViewMatrix = camera->previous_view_matrix();
-	viewInfo.PrevProjectionMatrix = camera->previous_projection_matrix();
+	viewInfo.PrevUnjitteredProjectionMatrix = camera->previous_projection_matrix();
 
 	viewInfo.CameraPosition = camera->world_position();
 	viewInfo.ViewDir = camera->forward();
@@ -60,9 +78,11 @@ glm::ViewInfo Renderer::getCameraViewInfo() const
 		myn::sample::rand01()
 		);
 
-	viewInfo.RenderSize = glm::vec2(); // specific renderer should fill this out if want to use it
+	viewInfo.RenderSize = renderSize;
 
-	viewInfo.JitterOffset = haltonJitterOffset(viewInfo.FrameIndex);
+	viewInfo.JitterOffset = applyJitter ? haltonJitterOffset(viewInfo.FrameIndex) : glm::vec2(0.0f);
+	viewInfo.ProjectionMatrix = applyPixelJitter(viewInfo.UnjitteredProjectionMatrix, viewInfo.JitterOffset, renderSize);
+	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
 
     return viewInfo;
 }

@@ -6,7 +6,7 @@ layout(push_constant) uniform GltfFragmentPushConstants {
     layout(offset = GLTF_MATERIAL_INDEX_PUSH_OFFSET) uint MaterialIndex;
 } pc;
 
-layout(location=0) in vec4 vf_position;
+layout(location=0) in vec4 vf_relWorldPos;
 layout(location=1) in vec2 vf_uv;
 layout(location=2) in vec4 vf_currentClipPos;
 layout(location=3) in vec4 vf_prevClipPos;

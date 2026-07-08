@@ -28,7 +28,7 @@ layout(push_constant) uniform GltfFragmentPushConstants {
     layout(offset = GLTF_MATERIAL_INDEX_PUSH_OFFSET) uint MaterialIndex;
 } pc;
 
-layout(location=0) in vec4 vf_position;
+layout(location=0) in vec4 vf_relWorldPos;
 layout(location=1) in vec2 vf_uv;
 layout(location=2) in vec4 vf_currentClipPos;
 layout(location=3) in vec4 vf_prevClipPos;
@@ -52,7 +52,7 @@ void main() {
     vec3 emission = material.emissiveFactorAndClipThreshold.rgb *
         sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_EMISSIVE, uv).rgb;
     ViewInfo viewInfo = GetViewInfo();
-    vec3 worldPos = vf_position.xyz + viewInfo.CameraPosition;
+    vec3 worldPos = vf_relWorldPos.xyz + viewInfo.CameraPosition;
     float noise = white_noise01(uvec3(uvec2(gl_FragCoord.xy), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
 
     vec3 litResult = emission + accumulateLighting(

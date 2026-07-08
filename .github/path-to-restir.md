@@ -238,7 +238,7 @@ Implemented:
 - same-pixel running-average accumulation, capped at a configurable
   `maxSampleCount` (`config/gi.ini`)
 - reprojection via a dedicated motion vector G-buffer attachment
-  (`current_uv - prev_uv`, produced from `PrevViewMatrix`/`PrevProjectionMatrix`)
+  (`current_uv - prev_uv`, produced from `PrevViewMatrix`/`PrevUnjitteredProjectionMatrix`)
 - depth-based history rejection: linearized view-space depth is stored in the
   history alpha channel and compared against the expected reprojected depth,
   with a configurable `historyDepthRejectionThreshold`

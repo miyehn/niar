@@ -11,7 +11,7 @@ layout (location = 1) in vec3 in_normal;
 layout (location = 2) in vec4 in_tangent;
 layout (location = 3) in vec2 in_uv;
 
-layout (location = 0) out vec4 vf_position;
+layout (location = 0) out vec4 vf_relWorldPos;
 layout (location = 1) out vec2 vf_uv;
 layout (location = 2) out vec4 vf_currentClipPos;
 layout (location = 3) out vec4 vf_prevClipPos;
@@ -22,21 +22,17 @@ void main()
   ViewInfo viewInfo = GetViewInfo();
 
   vec4 worldPos4 = pc.ModelMatrix * vec4(in_position, 1.0);
+  // ProjectionMatrix already carries the TAA jitter baked in on the CPU side (see
+  // Renderer::getCameraViewInfo), so rasterization here and screen-space reconstruction in the
+  // lighting pass both see the same jittered camera.
   gl_Position = viewInfo.ProjectionMatrix * viewInfo.ViewMatrix * worldPos4;
-  vf_position = worldPos4 - vec4(viewInfo.CameraPosition, 0);
+  vf_relWorldPos = worldPos4 - vec4(viewInfo.CameraPosition, 0);
 
   vf_uv = in_uv;
 
-  vf_currentClipPos = gl_Position;
-  vf_prevClipPos = viewInfo.PrevProjectionMatrix * viewInfo.PrevViewMatrix * worldPos4;
-
-  // subpixel jitter for TAA, applied after capturing the unjittered clip positions above so
-  // motion vectors (derived from vf_currentClipPos/vf_prevClipPos in geometry.frag) stay jitter-free.
-  // Remember to check against RenderSize being unset (0,0): dividing by it would send every vertex to
-  // infinite clip-space and make nothing rasterize.
-  vec2 jitterClipSpace = (viewInfo.JitterOffset / viewInfo.RenderSize) * 2.0f;
-  // gl_Position.xy is to be divided by w to become NDC, so multiply by w here to cancel out
-  gl_Position.xy += jitterClipSpace * gl_Position.w;
+  // motion vectors must stay jitter-free, so use the unjittered projection here instead of gl_Position
+  vf_currentClipPos = viewInfo.UnjitteredProjectionMatrix * viewInfo.ViewMatrix * worldPos4;
+  vf_prevClipPos = viewInfo.PrevUnjitteredProjectionMatrix * viewInfo.PrevViewMatrix * worldPos4;
 
   mat3 OBJECT_TO_WORLD_ROT = mat3(pc.ModelMatrix);
 

@@ -229,9 +229,8 @@ DescriptorSetLayout SimpleRenderer::getFrameGlobalLayout()
 void SimpleRenderer::render(VkCommandBuffer cmdbuf)
 {
 	// prepare frameglobals
-	glm::ViewInfo viewInfo = getCameraViewInfo();
-	viewInfo.RenderSize = glm::vec2(renderExtent.width, renderExtent.height);
-	viewInfo.JitterOffset = {}; // no TAA for SimpleRenderer.
+	// applyJitter defaults to false: SimpleRenderer has no TAA pass to resolve it
+	glm::ViewInfo viewInfo = getCameraViewInfo(glm::vec2(renderExtent.width, renderExtent.height));
 	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
 	std::vector<SceneObject*> drawables;

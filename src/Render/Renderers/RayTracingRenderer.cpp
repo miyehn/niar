@@ -100,7 +100,8 @@ void RayTracingRenderer::render(VkCommandBuffer cmdbuf)
 			meshObjects.size(), MAX_RTX_INSTANCES)
 	}
 
-	glm::ViewInfo viewInfo = getCameraViewInfo();
+	const auto& swapchainExtent = Vulkan::Instance->swapChainExtent;
+	glm::ViewInfo viewInfo = getCameraViewInfo(glm::vec2(swapchainExtent.width, swapchainExtent.height));
 	gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()].viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
 
 	{// rebuild TLAS in the command buffer

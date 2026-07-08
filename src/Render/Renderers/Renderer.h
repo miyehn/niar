@@ -10,7 +10,9 @@ class Renderer
 {
 protected:
 
-	[[nodiscard]] glm::ViewInfo getCameraViewInfo() const;
+	// applyJitter should only be requested by a renderer that actually resolves the jitter
+	// with a temporal filter (i.e. TAA); otherwise it just adds unresolved aliasing noise.
+	[[nodiscard]] glm::ViewInfo getCameraViewInfo(glm::vec2 renderSize, bool applyJitter = false) const;
 
 	Renderer() = default;
 
