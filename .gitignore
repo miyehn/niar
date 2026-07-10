@@ -1,6 +1,6 @@
 .idea/
 .ccls-cache/
-.github/task.md
+docs/task.md
 build/
 cmake-build-debug/
 vcpkg_installed/
@@ -14,5 +14,5 @@ nsight/
 **blend1
 **__pycache__/
 *.swp
-.github/task.md
+docs/task.md
 **spirv/
