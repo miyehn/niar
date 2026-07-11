@@ -1,258 +1,183 @@
-# TAA Review Plan: Temporal Anti-Aliasing
+# Milestone 4 — Reservoir Data Model and Sample Buffer (work breakdown)
 
-Side quest, not tracked in `.github/path-to-restir.md`.
+Companion to [path-to-restir.md](path-to-restir.md) §"Milestone 4". This file
+slices M4 into chunks that can each be **built, reviewed, and verified in
+isolation**. Implement one chunk per prompt; the author code-reviews and
+runtime-tests each before the next.
 
-Goal: add temporal anti-aliasing to the deferred renderer, resolved before
-tonemapping. TAA reuses two things Milestone 3 of the RTGI roadmap already
-built: `PrevViewMatrix`/`PrevUnjitteredProjectionMatrix` in `ViewInfo`, and the `GMotion`
-G-buffer attachment (`RG16F`, `currentUV - prevUV`) produced in
-`geometry.vert`/`geometry.frag`. No separate "add motion vectors" chunk is
-needed because of this. Each chunk below still keeps one concern isolated so
-each is reviewable and testable on its own, following the same shape as the
-Milestone 3 review chunks.
+Goal of M4 (unchanged): convert the per-pixel GI signal from radiance-average
+accumulation into a single-candidate **reservoir** carrying a reusable
+**sample**, **without changing the visible image**. This is the enabling refactor
+for M5 (temporal reuse) and M6 (spatial reuse). No reuse logic lands in M4.
 
-## Review Chunk 1: Sub-Pixel Camera Jitter (Infrastructure Only)
+## Invariants that hold across every chunk
 
-Purpose: introduce a per-frame low-discrepancy subpixel jitter offset that TAA
-needs to gather more than one sample position per pixel over time, without yet
-touching how anything is rendered.
+Review each diff against these:
 
-Implementation scope:
+- **The non-debug image must not change.** `IndirectLighting`
+  (`VK_FORMAT_R16G16B16A16_SFLOAT`) is the composite input consumed by
+  `shaders/deferred_lighting.frag:61` (`indirectDiffuse = IndirectLighting * GColor`)
+  and `shaders/translucency_lit.frag`. The reservoir path must resolve into that
+  same texture. Any visible change before Chunk 3's A/B gate is a bug.
+- **`gi.maxSampleCount: 0` is the naive-1-spp reference.** It collapses the
+  running-average path (`shaders/rtgi_generate.comp:159-167`) to the raw single
+  sample. Chunk 3's correctness gate is: reservoir resolve == this reference,
+  pixel-for-pixel.
+- **16-byte ABI discipline.** New shared structs follow the existing pattern in
+  `shaders/cshared/cshared_common.h`: `namespace glm` wrap on the C++ side,
+  `CSHARED_ALIGNAS_16`, and `static_assert`s on `sizeof`/`alignof`/`offsetof`.
+  Update the C++ asserts and the GLSL declaration in the same commit.
+- **Reservoirs are resampled, never interpolated.** All reservoir/sample storage
+  reads are point-sampled at integer pixels (`imageLoad` / buffer index), never
+  bilinear `texture()`. (The running-average history reads *are* bilinear; do not
+  copy that pattern for reservoir buffers.)
+- Keep the running-average path intact and selectable until M5 removes it. M4
+  adds the reservoir path beside it behind a config toggle.
 
-- Add a jitter sequence (e.g. Halton(2,3), 8-16 sample period) computed from
-  the frame counter, producing a per-frame offset in the range [-0.5, 0.5]
-  pixels.
-- Add a `JitterOffset` field (`vec2`) to `ViewInfo` in
-  `shaders/cshared/cshared_common.h` with a `static_assert` confirming its
-  offset stays 16-byte aligned.
-- Compute the jitter offset on the CPU alongside the other per-frame
-  `ViewInfo` fields (`src/Render/Renderers/Renderer.cpp`).
-- Add `config/taa.ini` with `enabled: 0` as the default. While disabled, the
-  uploaded `JitterOffset` stays `(0, 0)` regardless of frame index.
-- Do not yet apply the jitter to `Camera::camera_to_clip()`'s output used for
-  rendering; this chunk only computes and uploads the value.
+## Files in scope
 
-Review checklist:
+- `shaders/cshared/` — new `reservoir.h` (shared ABI).
+- `shaders/rtgi_generate.comp` — sample emit, RIS, resolve, debug writes.
+- `src/Render/RendererComponents/GI.h` / `GI.cpp` — storage, descriptors,
+  barriers, clear/release, push data.
+- `config/deferred.ini` — `gi.useReservoir`, `gi.debugView` toggles.
+- Possibly a small GLSL include for reservoir ops (`reservoir_common.glsl`).
 
-- `ViewInfo` layout stays alignment-safe; the `static_assert` confirms the new
-  field's offset.
-- With `taa.ini`'s `enabled: 0` (default), `JitterOffset` is always `(0, 0)`
-  and rendering is pixel-identical to before this chunk.
-- With `enabled: 1`, the uploaded jitter value changes frame-to-frame (verify
-  via a debug read), but nothing consumes it yet, so pixels still don't move.
-- The jitter sequence is deterministic and repeats cleanly after its period.
+---
 
-Done when:
+## Chunk 1 — Reservoir ABI structs (compile-only)
 
-- Every frame's `ViewInfo` carries a valid per-frame jitter offset in pixel
-  space, computed but unused by any shader or the rasterizer.
+**Scope.** Define the shared data model; nothing reads or writes it yet.
 
+- Add `shaders/cshared/reservoir.h` with `GiSample` and `GiReservoir`:
+  - `GiSample`: sample point position (`vec3`), sample normal (`vec3`), outgoing
+    radiance `L_o` toward the visible point (`vec3`) — the current per-ray result
+    (emissive + direct-lit, or background on miss). Keep fields explicit
+    `vec3`/`float` for now; note octahedral-normal / packing as an M8 size
+    optimization, not now.
+  - `GiReservoir`: the selected `GiSample`, plus reservoir state `w_sum` (float),
+    `M` (uint), `W` (float, unbiased contribution weight), and a `valid`/flags
+    `uint`. Visible point `x_v` stays implicit from the G-buffer (roadmap).
+  - Lay out for `std430` storage-buffer use (this is the storage decided in
+    Chunk 2). Pad to 16-byte alignment explicitly.
+  - C++ side: wrap in `namespace glm`, add `static_assert`s on
+    `sizeof`/`alignof`/`offsetof` mirroring `cshared_common.h`.
+- `#include` the header from `rtgi_generate.comp` (and the C++ TU that will use
+  it) so both sides actually compile the declaration.
 
-## Review Chunk 2: TAA Render Component Skeleton + Ping-Pong Color History
+**Review focus.** Field layout, padding, and that the asserts pin every offset.
+This is the one place silent GPU corruption starts.
 
-Purpose: give TAA the same kind of persistent per-frame state `GI` has: a
-component that owns ping-pong history color textures and is wired into the
-frame without changing the visible image yet.
+**Verify.** `--target ellyn` builds (C++ static_asserts are the ABI test) and the
+shader compiles at runtime (hot reload / launch). App runs visually unchanged —
+the struct is declared but unused. Note: a declared-but-unused struct is
+intentional staging here; Chunk 2 consumes it immediately.
 
-Implementation scope:
+---
 
-- Add a new `TAA` render component (`src/Render/RendererComponents/TAA.h`/
-  `.cpp`), modeled directly on `GI`: an `InitInfo`, and
-  `init`/`release`/`clear`/`clear(VkCommandBuffer)`/`render` methods.
-- Add two ping-pong history color textures in `R16G16B16A16_SFLOAT` (matching
-  `sceneColor`'s format), alternating read/write roles via `frameIndex % 2`,
-  following `GI::history[2]`'s pattern.
-- Add a resolved-output texture that post-processing will read instead of raw
-  `sceneColor`.
-- `InitInfo` takes `sceneColor` and `GMotion` as external inputs (both already
-  exist; no new G-buffer attachment).
-- Add a `TaaResolveCS` compute shader wrapper (modeled on `RtgiGenerateCS`)
-  that, for this chunk only, does a pass-through copy: reads `sceneColor`,
-  writes it unchanged to both the resolved output and the write-history
-  texture. No blending yet.
-- Wire `TAA taa;` into `DeferredRenderer`, dispatched between the lighting
-  pass and post-processing. Update post-processing to read TAA's resolved
-  output instead of `sceneColor` directly when TAA is enabled, and
-  `sceneColor` directly when it's disabled via `taa.ini`.
+## Chunk 2 — Reservoir GPU storage + descriptor plumbing (no visible change)
 
-Review checklist:
+**Scope.** Allocate the per-pixel reservoir storage and wire it through
+descriptors and barriers, but keep the visible output on the running-average
+path.
 
-- Both history textures and the resolved-output texture are created,
-  transitioned, and destroyed cleanly; `clear()` zeroes all of them.
-- With TAA enabled and only a pass-through copy in the shader, visual output
-  is pixel-identical to before this chunk (jitter still isn't applied yet).
-- With TAA disabled via config, post-processing reads `sceneColor` directly
-  and no TAA resources are touched that frame.
-- Descriptor bindings for `sceneColor`, `GMotion`, read-history (sampled),
-  and write-history + resolved output (storage) follow the existing
-  binding-number convention.
+- Add a **ping-pong pair** of device-local storage buffers
+  `reservoirBuffers[2]`, each `width * height * sizeof(GiReservoir)`, in
+  `GI.cpp` (`init`/`release`, plus `clear`). Ping-pong now so M5 gets the history
+  slot for free; in M4 only the current buffer is written.
+- Add descriptor bindings (read-prev + write-current) to `giSetLayout`, following
+  the existing `Slot_*` convention and the `historyWriteSlot`/`readHistoryIndex`
+  wiring already used for `history[]` in `GI::init`. Add barriers/layout handling
+  consistent with the existing history buffers in `GI::render` and `GI::clear`.
+- Add `gi.useReservoir` to `config/deferred.ini`, default `0`. Plumb it into
+  `RtgiPushData` (like `maxSampleCount`).
+- In `rtgi_generate.comp`, under `useReservoir`, write a **zero-initialized**
+  `GiReservoir` to the current buffer. Do **not** resolve from it — visible
+  output still comes from the running-average path regardless of the toggle.
 
-Done when:
+**Review focus.** Buffer sizing/stride vs. `sizeof(GiReservoir)`, ping-pong index
+math matches the existing `frameIndex % 2` history scheme, barrier
+producer/consumer correctness, clear-on-alloc so frame 0 is defined.
 
-- `TAA` owns a stable ping-pong pair of history textures and a resolved
-  output, wired into the frame between lighting and post-processing, with no
-  visual change yet.
+**Verify.** Builds; image unchanged with `useReservoir` both 0 and 1. In
+RenderDoc, confirm the reservoir buffers exist, are cleared, and receive writes
+when `useReservoir:1`. (Behavioral no-op by design — this chunk is pure infra.)
 
+---
 
-## Review Chunk 3: Apply Jitter + Naive Same-Pixel Exponential Blend
+## Chunk 3 — RIS emit + reservoir resolve (the equivalence gate)
 
-Purpose: prove the temporal loop works by actually jittering the rendered
-image and blending it with same-pixel history, before adding reprojection.
+**Scope.** The core representation change, behind `gi.useReservoir`.
 
-Implementation scope:
+- Factor a small `reservoir_common.glsl` (or inline) with `updateReservoir` /
+  `finalizeReservoir` helpers.
+- In `rtgi_generate.comp`, when `useReservoir`:
+  1. Build the `GiSample` from the existing ray result: hit → `shadeCommittedHit`
+     result as `L_o` plus the reconstructed secondary-hit position/normal; miss →
+     background `L_o` (sample point at infinity along `rayDir`, flagged).
+  2. Insert into a fresh **1-candidate** reservoir via RIS. Target function
+     `p_hat` = luminance of the sample's contribution at the visible point.
+     Source pdf = the cosine-hemisphere pdf actually used to draw `rayDir`.
+  3. Compute `W = w_sum / (M * p_hat)` (with `M == 1` here); guard `p_hat == 0`.
+  4. Store the finalized reservoir to the current buffer.
+  5. Resolve: `IndirectLighting = contribution(x_v, sample) * W`, i.e. the same
+     shading the running-average path writes, weighted by `W`.
+- Leave the running-average path as the `useReservoir:0` branch.
 
-- Apply `JitterOffset` to the projection matrix used for rendering the base
-  pass, as a clip-space offset (`clipPos.xy += JitterOffset.xy * clipPos.w`)
-  in `geometry.vert`. Keep the unjittered matrices for reprojection: motion
-  vectors must stay computed from unjittered current/previous clip positions,
-  or they'll carry jitter noise.
-- Change `TaaResolveCS` from pass-through to a real blend:
-  `resolved = mix(currentColor, sameePixelHistory, historyWeight)`, with a
-  configurable `historyWeight` (default e.g. 0.9) in `taa.ini`.
-- Write `resolved` to both the resolved output and the write-history texture.
+**Review focus.** `p_hat`/`W` consistency so the 1-candidate case is unbiased —
+this is the roadmap's #1 pain point. Confirm the resolve reconstructs the *same*
+`contribution` the naive path uses (so `W` is the only difference and it cancels
+to 1 in expectation for one candidate). Division-by-zero and miss-sample guards.
 
-Review checklist:
+**Verify (primary M4 correctness gate).** With `gi.useReservoir: 1` vs.
+`gi.useReservoir: 0` + `gi.maxSampleCount: 0` (naive 1-spp), the images must
+match. Expect bit-identical to within float reassociation; a large systematic
+brightness delta means `W`/`p_hat` are inconsistent. Toggle live via hot reload
+for direct A/B.
 
-- A still camera shows the jittered image visibly softening/converging over a
-  few frames; a moving camera shows trailing/ghosting (expected and
-  acceptable at this stage, same as GI Milestone 3 Chunk 3).
-- `GMotion` output is unaffected by jitter — compare `GMotion` with jitter on
-  vs off on a static-camera frame; values should match.
-- Disabling TAA via config returns to the unjittered, unblended raw image.
-- `historyWeight` is config-driven and hot-reloads.
+---
 
-Done when:
+## Chunk 4 — History round-trip + debug views + toggle state
 
-- Still camera visibly converges toward a smoother anti-aliased image; camera
-  motion produces expected ghosting to be fixed by reprojection.
+**Scope.** Prove the sample buffer survives write→read across frames (M4's second
+"done when"), and add inspection tooling. Still no reuse.
 
+- Write the finalized reservoir into the **write** buffer and, next frame, read
+  the **prev** buffer at the reprojected integer pixel (via existing motion
+  vectors) — for *validation/debug only*, not combined into the estimate (that is
+  M5).
+- Add `gi.debugView` (int, default 0) to `config/deferred.ini` and `RtgiPushData`.
+  Modes write directly into `IndirectLighting` (matches the ad-hoc debug style;
+  there is no generic texture viewer):
+  1. sample position (remapped), 2. sample radiance `L_o`, 3. `W` (heatmap),
+  4. reservoir validity / miss flag, 5. **prev-frame reservoir readback** at the
+  reprojected pixel (this is the round-trip proof).
+- Confirm `debugView: 0` leaves the resolved image untouched.
+- Finalize the toggle story: keep `useReservoir` + running-average path both
+  present (M5 removes the average). Document the two config keys with comments in
+  `deferred.ini` like the existing `gi:`/`taa:` entries.
 
-## Review Chunk 4: Reprojection Using Motion Vectors
+**Review focus.** Debug writes are strictly gated (no cost/no effect when
+`debugView:0`), reprojected reads are point-sampled at integer pixels, round-trip
+read uses the correct prev/ping-pong buffer.
 
-Purpose: use the existing `GMotion` G-buffer attachment to sample history from
-where the current pixel's surface was last frame, removing camera-motion
-ghosting.
+**Verify.** Each `debugView` mode shows the expected content; mode 5 reprojects
+last frame's sample radiance stably under slow camera motion (round-trip ABI
+intact). With `debugView:0` the Chunk 3 equivalence still holds.
 
-Implementation scope:
+---
 
-- In `TaaResolveCS`, read the per-pixel motion vector from `GMotion` and
-  compute `prevUv = currentUv - motionVector` (same convention already used by
-  `rtgi_generate.comp`).
-- Replace the same-pixel history lookup from Chunk 3 with a bilinear sample of
-  the read-history texture at `prevUv`.
-- If `prevUv` falls outside `[0, 1]`, mark history invalid for this pixel and
-  fall back to the current color only (no blend).
-- No neighborhood clamping yet; this chunk isolates reprojection correctness
-  only, matching GI's Chunk 4 scope.
+## Exit criteria for M4 (from the roadmap, mapped to chunks)
 
-Review checklist:
+- [ ] 1-candidate reservoir + correct RIS weights reproduces the naive 1-spp
+      signal — **Chunk 3**.
+- [ ] Sample buffer round-trips through history with the ABI intact — **Chunks 1
+      + 4**.
+- [ ] Running-average path still selectable for A/B through the transition —
+      **Chunks 2–4** (removed in M5).
 
-- Camera rotation/translation no longer leaves the same persistent smear as
-  Chunk 3; newly revealed geometry shows only the current frame's color, not
-  stale history.
-- Out-of-bounds reprojection gracefully falls back to current-only.
-- Static-camera convergence still behaves as in Chunk 3.
-- Reuses the existing `GMotion` texture read-only; no new G-buffer attachment
-  added.
+## Deliberately deferred to M5+ (do not creep into M4)
 
-Done when:
-
-- Camera movement no longer leaves persistent ghosting from stale screen
-  positions, while a still camera still converges.
-
-
-## Review Chunk 5: Neighborhood Color Clamping (Anti-Ghosting)
-
-Purpose: reject stale or incompatible history contributions that reprojection
-alone can't catch (disocclusion, newly revealed geometry, fast-moving thin
-objects), using the standard TAA neighborhood-clamp technique rather than
-GI's depth-threshold approach.
-
-Implementation scope:
-
-- Sample a small neighborhood (3x3 minimum) of the current frame's
-  `sceneColor` around the current pixel; compute a per-channel min/max (or
-  variance clipping if min/max proves too aggressive) to build a local color
-  AABB.
-- Clamp the reprojected history sample into that AABB before blending, so
-  history that no longer matches the local neighborhood gets pulled toward
-  the current frame's plausible range instead of causing visible ghosting.
-- Optionally combine with a lightweight depth-based disocclusion check (reuse
-  `SceneDepth`/`PrevViewMatrix`, same derivation `rtgi_generate.comp` already
-  uses) as a secondary signal, if clamping alone leaves visible artifacts.
-- Add any new clamp-related tuning values (e.g. AABB expansion factor) to
-  `taa.ini`.
-
-Review checklist:
-
-- Disocclusion (camera reveals new geometry) no longer smears old background
-  color onto new surfaces.
-- Fast-moving foreground objects don't leave obvious color trails.
-- Clamping doesn't visibly reduce convergence quality on a still camera
-  (compare against Chunk 4 still-camera output).
-- New config values hot-reload without crashing.
-
-Done when:
-
-- Disocclusion and fast motion no longer produce visible ghosting, while a
-  still camera continues to converge to an anti-aliased result.
-
-
-## Review Chunk 6: Pipeline Integration Cleanup And Config
-
-Purpose: finish the feature by confirming the pipeline wiring is clean,
-tonemapping consumes the resolved TAA output (not raw `sceneColor`), and the
-feature is easy to compare on/off.
-
-Implementation scope:
-
-- Confirm post-processing's tonemap pass reads TAA's resolved output when TAA
-  is enabled, and `sceneColor` directly when disabled (wired in Chunk 2;
-  re-audit after Chunks 3-5 changed the resolve shader).
-- Audit `TAA::clear`/`TAA::render` for barrier correctness and remove any
-  scaffolding from earlier chunks (e.g. the Chunk 2 pass-through code path, if
-  still reachable).
-- Confirm `taa.ini`'s `enabled` toggle fully bypasses jitter application,
-  resolve dispatch, and history bookkeeping when off. Unlike GI's Milestone 3
-  cleanup — where `maxSampleCount: 0` alone could disable accumulation without
-  a dedicated toggle — TAA genuinely needs this toggle, because disabling TAA
-  also means skipping jitter applied to the rendering projection matrix, which
-  has no equivalent "set to zero" shortcut.
-- Leave debug views (jittered-vs-resolved comparison, clamp AABB
-  visualization) as optional follow-up; not required to close this out.
-
-Review checklist:
-
-- Toggling `enabled` off in `taa.ini` shows the raw, unjittered, unblended
-  image; toggling on restores jitter + resolved anti-aliased output.
-  Hot-reload works.
-- No stale pass-through code path remains reachable.
-- Tonemapping never reads stale/uninitialized TAA output right after TAA is
-  re-enabled (history should be treated as invalid on the enabling frame).
-
-Done when:
-
-- TAA can be toggled on/off cleanly via config, tonemapping always reads the
-  correct upstream texture, and the feature is clean enough to leave alone.
-
-
-## Suggested PR Grouping
-
-If the chunks feel too small as individual PRs, group them this way:
-
-- PR 1: Chunk 1, jitter infrastructure.
-- PR 2: Chunk 2, TAA component skeleton and ping-pong color history.
-- PR 3: Chunk 3, apply jitter and naive same-pixel blend.
-- PR 4: Chunk 4, motion-vector reprojection.
-- PR 5: Chunk 5, neighborhood color clamping.
-- PR 6: Chunk 6, pipeline integration cleanup and config.
-
-Avoid grouping across the main risk boundaries:
-
-- jitter application correctness (clip-space offset math, keeping motion
-  vectors unjittered)
-- descriptor layout changes (ping-pong texture additions)
-- resolve blend formula and history validity semantics
-- reprojection correctness (out-of-bounds handling)
-- neighborhood clamping tuning (AABB expansion, clamp gamma)
-- read/write ordering between lighting, TAA, and post-processing
+Temporal/spatial reservoir **reuse**, `M` capping, normal/material/roughness
+rejection, blue-noise sampling, and the spatial Jacobian. M4 only establishes the
+representation and proves equivalence.
