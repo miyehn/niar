@@ -26,8 +26,9 @@ layout(set = 0, binding = 8) uniform RtgiDirectionalLightsInfo {
 } DirectionalLights;
 layout(set = 0, binding = 9) uniform sampler2D RtgiReadHistory;
 layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D RtgiWriteHistory;
-layout(set = 0, binding = 11, r32ui) uniform uimage2D RtgiSampleCount;
+layout(set = 0, binding = 11, r32ui) uniform writeonly uimage2D RtgiWriteSampleCount;
 layout(set = 0, binding = 12) uniform sampler2D MotionVectors;
+layout(set = 0, binding = 13, r32ui) uniform readonly uimage2D RtgiReadSampleCount;
 
 #include "lighting_common.glsl"
 
@@ -94,6 +95,20 @@ vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, floa
         surface.outgoingDirection);
 }
 
+// last frame's world-space surface point at a history texel, rebuilt from the linear depth stored in history alpha
+// myn: whatever leave it for another time... or get rid of TAA some day to remove this mess :/
+vec3 reconstructPrevWorldPosition(ivec2 prevPixel, float prevLinearDepth, ViewInfo viewInfo, vec2 dims)
+{
+    // the texel center, minus the jitter that was baked into last frame's projection
+    vec2 ndc = (vec2(prevPixel) + 0.5 - viewInfo.PrevJitterOffset) / dims * 2.0 - 1.0;
+    vec3 prevViewPos = vec3(
+        ndc.x / viewInfo.PrevUnjitteredProjectionMatrix[0][0],
+        ndc.y / viewInfo.PrevUnjitteredProjectionMatrix[1][1],
+        -1.0) * prevLinearDepth;
+    mat3 prevCameraToWorldRot = transpose(mat3(viewInfo.PrevViewMatrix));
+    return prevCameraToWorldRot * (prevViewPos - viewInfo.PrevViewMatrix[3].xyz);
+}
+
 void main()
 {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -108,18 +123,18 @@ void main()
         // sky pixel: no surface; clear history so it doesn't bleed when geometry moves in
         imageStore(IndirectLighting, pixel, vec4(0.0, 0.0, 0.0, 1.0));
         imageStore(RtgiWriteHistory, pixel, vec4(0.0));
-        imageStore(RtgiSampleCount, pixel, uvec4(0u));
+        imageStore(RtgiWriteSampleCount, pixel, uvec4(0u));
         return;
     }
 
     normal = normalize(normal);
     ViewInfo viewInfo = GetViewInfo();
     vec2 screenUv = (vec2(pixel) + 0.5f) / vec2(dims);
-    vec3 worldPos = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo);
+    vec3 worldPos = reconstructWorldPositionFromDepth(screenUv, deviceDepth, viewInfo); // affected by current frame jitter
 
     // linearized view-space depth, stored in history alpha for future rejection in chunk 5
     vec4 viewSpacePos = viewInfo.ViewMatrix * vec4(worldPos, 1.0);
-    float linearDepth = -viewSpacePos.z;
+    float linearDepth = -viewSpacePos.z; // affected by current frame jitter
 
     vec2 random = vec2(
         white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x),
@@ -148,21 +163,48 @@ void main()
 
     vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x) : sampleBackground(viewInfo, rayDir);
 
-    // read per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass
+    // per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass, independent of jitter
     vec2 motionVector = texture(MotionVectors, screenUv).rg;
-    vec2 prevUv = screenUv - motionVector;
-    float expectedPrevDepth = -(viewInfo.PrevViewMatrix * vec4(worldPos, 1.0)).z;
-    float storedPrevDepth = texture(RtgiReadHistory, prevUv).a;
-    bool validReprojection = all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)))
-        && abs(storedPrevDepth - expectedPrevDepth) < Push.HistoryDepthRejectionThreshold;
+    vec2 prevUv = screenUv - motionVector; // where to read history data from, to compensate for camera motion.
+    ivec2 prevPixel = ivec2(prevUv * vec2(dims));
+    bool prevUvInBounds = all(greaterThanEqual(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)));
+
+    // Validate history by plane distance .Rebuild last frame's surface point from the stored depth along that texel's
+    // (jittered) ray and measure its distance to this pixel's tangent plane, which is ~0 for the same static surface.
+    float storedPrevDepth = prevUvInBounds ? texelFetch(RtgiReadHistory, prevPixel, 0).a : 0.0; // last frame's linearDepth
+    float planeDistance = 0.0;
+    if (storedPrevDepth > 0.0) {
+        vec3 prevWorldPos = reconstructPrevWorldPosition(prevPixel, storedPrevDepth, viewInfo, vec2(dims));
+        planeDistance = abs(dot(normal, prevWorldPos - worldPos));
+    }
+
+    // RtgiRead/WriteSampleCount texels: sample count in the low 16 bits, reason history was rejected this frame in the high bits
+#define SAMPLE_COUNT_MASK 0xFFFFu
+#define REJECT_NONE 0u
+#define REJECT_OUT_OF_BOUNDS 1u
+#define REJECT_EMPTY_HISTORY 2u // stored depth is 0: sky or cleared history
+#define REJECT_DEPTH_MISMATCH 3u
+
+    bool depthMatches = planeDistance < Push.HistoryDepthRejectionThreshold;
+
+    // why history was rejected, for the debug view (see post_processing.frag)
+    uint rejectReason = REJECT_NONE;
+    if (!prevUvInBounds) {
+        rejectReason = REJECT_OUT_OF_BOUNDS;
+    } else if (storedPrevDepth == 0.0) {
+        rejectReason = REJECT_EMPTY_HISTORY;
+    } else if (!depthMatches) {
+        rejectReason = REJECT_DEPTH_MISMATCH;
+    }
+
+    bool validReprojection = rejectReason == REJECT_NONE;
 
     // temporal accumulation: running average capped at MaxSampleCount
-    ivec2 prevPixel = ivec2(prevUv * vec2(dims));
-    uint prevCount = validReprojection ? imageLoad(RtgiSampleCount, prevPixel).r : 0u;
-    vec3 prevAccumulated = validReprojection ? texture(RtgiReadHistory, prevUv).rgb : vec3(0.0);
+    uint prevCount = validReprojection ? (imageLoad(RtgiReadSampleCount, prevPixel).r & SAMPLE_COUNT_MASK) : 0u;
+    vec3 prevAccumulated = validReprojection ? texelFetch(RtgiReadHistory, prevPixel, 0).rgb : vec3(0.0);
     vec3 accumulated = (prevAccumulated * float(prevCount) + newSample) / float(prevCount + 1u);
 
     imageStore(RtgiWriteHistory, pixel, vec4(accumulated, linearDepth));
-    imageStore(RtgiSampleCount, pixel, uvec4(min(prevCount + 1u, Push.MaxSampleCount)));
+    imageStore(RtgiWriteSampleCount, pixel, uvec4(min(prevCount + 1u, Push.MaxSampleCount) | (rejectReason << 16)));
     imageStore(IndirectLighting, pixel, vec4(accumulated, 1.0));
 }

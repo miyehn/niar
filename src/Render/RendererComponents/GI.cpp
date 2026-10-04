@@ -31,8 +31,9 @@ constexpr uint32_t Slot_PointLights = 7;
 constexpr uint32_t Slot_DirectionalLights = 8;
 constexpr uint32_t Slot_ReadHistory = 9;
 constexpr uint32_t Slot_WriteHistory = 10;
-constexpr uint32_t Slot_SampleCount = 11;
+constexpr uint32_t Slot_WriteSampleCount = 11;
 constexpr uint32_t Slot_MotionVectors = 12;
+constexpr uint32_t Slot_ReadSampleCount = 13;
 
 struct RtgiPushData {
 	uint32_t maxSampleCount;
@@ -103,13 +104,15 @@ void GI::init(const InitInfo& info)
 			"rtgiHistory" + std::to_string(i));
 		history[i] = new Texture2D(historyCreator);
 	}
-	ImageCreator sampleCountCreator(
-		VK_FORMAT_R32_UINT,
-		{info.sceneDepth->getWidth(), info.sceneDepth->getHeight(), 1},
-		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		"rtgiSampleCount");
-	sampleCount = new Texture2D(sampleCountCreator);
+	for (uint32_t i = 0; i < 2; i++) {
+		ImageCreator sampleCountCreator(
+			VK_FORMAT_R32_UINT,
+			{info.sceneDepth->getWidth(), info.sceneDepth->getHeight(), 1},
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			"rtgiSampleCount[" + std::to_string(i) + "]");
+		sampleCount[i] = new Texture2D(sampleCountCreator);
+	}
 	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
 	{
 		const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
@@ -135,16 +138,18 @@ void GI::init(const InitInfo& info)
 				VK_IMAGE_LAYOUT_UNDEFINED,
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
-		vk::insertImageBarrier(
-			cmdbuf,
-			sampleCount->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0,
-			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_GENERAL);
+		for (const auto& sampleCountTexture : sampleCount) {
+			vk::insertImageBarrier(
+				cmdbuf,
+				sampleCountTexture->resource.image,
+				colorRange,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0,
+				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_GENERAL);
+		}
 	});
 	clear();
 
@@ -160,8 +165,9 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(Slot_DirectionalLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	giSetLayout.addBinding(Slot_ReadHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(Slot_WriteHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-	giSetLayout.addBinding(Slot_SampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	giSetLayout.addBinding(Slot_WriteSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(Slot_MotionVectors, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	giSetLayout.addBinding(Slot_ReadSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -191,8 +197,9 @@ void GI::init(const InitInfo& info)
 			giDescriptorSet.pointToBuffer(*info.directionalLightBuffers[i], Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			giDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
 			giDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
-			giDescriptorSet.pointToRWImageView(sampleCount->imageView, Slot_SampleCount);
+			giDescriptorSet.pointToRWImageView(sampleCount[historyWriteSlot]->imageView, Slot_WriteSampleCount);
 			giDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &samplerInfo);
+			giDescriptorSet.pointToRWImageView(sampleCount[readHistoryIndex]->imageView, Slot_ReadSampleCount);
 		}
 	}
 }
@@ -207,9 +214,11 @@ void GI::release()
 		delete historyTexture;
 		historyTexture = nullptr;
 	}
-	ASSERT(sampleCount != nullptr)
-	delete sampleCount;
-	sampleCount = nullptr;
+	for (auto& sampleCountTexture : sampleCount) {
+		ASSERT(sampleCountTexture != nullptr)
+		delete sampleCountTexture;
+		sampleCountTexture = nullptr;
+	}
 }
 
 void GI::clear()
@@ -228,7 +237,8 @@ void GI::clear(VkCommandBuffer cmdbuf)
 	ASSERT(indirectLighting != nullptr)
 	ASSERT(history[0] != nullptr)
 	ASSERT(history[1] != nullptr)
-	ASSERT(sampleCount != nullptr)
+	ASSERT(sampleCount[0] != nullptr)
+	ASSERT(sampleCount[1] != nullptr)
 
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 	const VkClearColorValue clearColor = {};
@@ -268,37 +278,39 @@ void GI::clear(VkCommandBuffer cmdbuf)
 	clearShaderReadTexture(history[0], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	clearShaderReadTexture(history[1], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-	vk::insertImageBarrier(
-		cmdbuf,
-		sampleCount->resource.image,
-		colorRange,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	vkCmdClearColorImage(
-		cmdbuf,
-		sampleCount->resource.image,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		&clearColor,
-		1,
-		&colorRange);
-
-	vk::insertImageBarrier(
-		cmdbuf,
-		sampleCount->resource.image,
-		colorRange,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_GENERAL);
+	// storage images stay in GENERAL; they are read by compute (generate pass) and fragment (post-processing debug view)
+	for (const auto& sampleCountTexture : sampleCount) {
+		vk::insertImageBarrier(
+			cmdbuf,
+			sampleCountTexture->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		vkCmdClearColorImage(
+			cmdbuf,
+			sampleCountTexture->resource.image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			&clearColor,
+			1,
+			&colorRange);
+		vk::insertImageBarrier(
+			cmdbuf,
+			sampleCountTexture->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_GENERAL);
+	}
 }
 
-void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet)
+void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, uint32_t globalFrameIndex, const DescriptorSet& skyDescriptorSet)
 {
 	const bool enabled = get_deferred_config()->lookup<int>("gi.enabled") != 0;
 	if (!enabled) {
@@ -315,12 +327,25 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 	const uint32_t groupCountX = (indirectLighting->getWidth() + RTGI_GROUPSIZE_X - 1) / RTGI_GROUPSIZE_X;
 	const uint32_t groupCountY = (indirectLighting->getHeight() + RTGI_GROUPSIZE_Y - 1) / RTGI_GROUPSIZE_Y;
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-	const uint32_t historyWriteIndex = frameIndex % 2;
+	const uint32_t historyWriteIndex = globalFrameIndex % 2;
 	auto& giDescriptorSet = giDescriptorSets[frameIndex][historyWriteIndex];
 	Texture2D* writeHistory = history[historyWriteIndex];
+	Texture2D* writeSampleCount = sampleCount[historyWriteIndex];
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "RTGI Generate")
+		// this slot's counts were last read by the compute pass one frame ago and by the post-processing debug view
+		// two frames ago, both of which must finish before this frame's generate pass overwrites them
+		vk::insertImageBarrier(
+			cmdbuf,
+			writeSampleCount->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_GENERAL);
 		vk::insertImageBarrier(
 			cmdbuf,
 			indirectLighting->resource.image,
@@ -371,6 +396,17 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_IMAGE_LAYOUT_GENERAL,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		// sample counts are read by the next frame's generate pass and the post-processing debug view
+		vk::insertImageBarrier(
+			cmdbuf,
+			writeSampleCount->resource.image,
+			colorRange,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_GENERAL);
 	}
 
 	vk::insertImageBarrier(

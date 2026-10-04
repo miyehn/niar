@@ -5,6 +5,11 @@
 
 layout(set = DSET_INDEPENDENT, binding = 0) uniform sampler2D SceneColor;
 layout(set = DSET_INDEPENDENT, binding = 1) uniform sampler2D SceneDepth;
+layout(set = DSET_INDEPENDENT, binding = 2, r32ui) uniform readonly uimage2D GiSampleCount;
+
+layout(push_constant) uniform PostProcessPushConstants {
+    PostProcessPushData Data;
+} Push;
 
 layout(location = 0) in vec2 vf_uv;
 layout(location = 0) out vec4 FragColor;
@@ -61,10 +66,39 @@ vec3 ACES_vec3(vec3 src)
     );
 }
 
+// GiSampleCount texels: sample count in the low 16 bits, reason history was rejected in the high bits (see rtgi_generate.comp)
+
+// red = history just reset (count 1), green = history saturated at the max count
+vec3 giSampleCountColor(uint count)
+{
+    float t = float(max(count, 1u) - 1u) / float(max(Push.Data.GiMaxSampleCount, 2u) - 1u);
+    return mix(vec3(1, 0, 0), vec3(0, 1, 0), clamp(t, 0.0, 1.0));
+}
+
+// gray = history accepted, blue = reprojected out of bounds, yellow = empty history (sky or cleared), red = depth mismatch
+vec3 giRejectReasonColor(uint reason)
+{
+    if (reason == 1u) return vec3(0, 0, 1);
+    if (reason == 2u) return vec3(1, 1, 0);
+    if (reason == 3u) return vec3(1, 0, 0);
+    return vec3(0.1);
+}
+
 void main()
 {
     FragColor = vec4(0, 0, 0, 1);
     ViewInfo viewInfo = GetViewInfo();
+
+    if (Push.Data.GiDebugMode != 0u) {
+        // sky pixels have no GI history; leave them black
+        if (texture(SceneDepth, vf_uv).r < 1.0) {
+            uint texel = imageLoad(GiSampleCount, ivec2(gl_FragCoord.xy)).r;
+            FragColor.rgb = Push.Data.GiDebugMode == 1u
+                ? giSampleCountColor(texel & 0xFFFFu)
+                : giRejectReasonColor(texel >> 16);
+        }
+        return;
+    }
 
     // linear color
     vec3 linear = texture(SceneColor, vf_uv).rgb;

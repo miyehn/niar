@@ -47,9 +47,10 @@ public:
 			b.compatibleSubpass = DEFERRED_SUBPASS_POSTPROCESSING;
 
 			DescriptorSetLayout frameGlobalSetLayout = renderer->getFrameGlobalLayout();
-			DescriptorSetLayout postProcessSetLayout = postProcessSet.getLayout();
+			DescriptorSetLayout postProcessSetLayout = postProcessSets[0].getLayout();
 			b.useDescriptorSetLayout(DSET_FRAMEGLOBAL, frameGlobalSetLayout);
 			b.useDescriptorSetLayout(DSET_INDEPENDENT, postProcessSetLayout);
+			b.usePushConstantRange({VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::PostProcessPushData)});
 
 			graphicsPipeline.build("Post Processing");
 
@@ -59,7 +60,10 @@ public:
 
 private:
 
-	explicit PostProcessing(DeferredRenderer* renderer, const Texture2D* taaResolved, Texture2D* sceneDepth)
+	// giSampleCounts is indexed by GI's history write slot
+	explicit PostProcessing(
+		DeferredRenderer* renderer, const Texture2D* taaResolved, Texture2D* sceneDepth,
+		const Texture2D* const (&giSampleCounts)[2])
 	{
 		this->renderer = renderer;
 		postProcessPass = renderer->postProcessPass;
@@ -69,15 +73,22 @@ private:
 		DescriptorSetLayout postProcessSetLayout{};
 		postProcessSetLayout.addBinding(0, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		postProcessSetLayout.addBinding(1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		postProcessSet = DescriptorSet(postProcessSetLayout);
+		postProcessSetLayout.addBinding(2, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-		// always reads TAA's resolved output
-		postProcessSet.pointToImageView(taaResolved->imageView, 0);
-		postProcessSet.pointToImageView(sceneDepth->imageView, 1);
+		// indexed by GI's history write slot, so the debug view reads the sample counts written this frame
+		for (uint32_t historyWriteSlot = 0; historyWriteSlot < 2; historyWriteSlot++) {
+			DescriptorSet& postProcessSet = postProcessSets[historyWriteSlot];
+			postProcessSet = DescriptorSet(postProcessSetLayout);
+
+			// always reads TAA's resolved output
+			postProcessSet.pointToImageView(taaResolved->imageView, 0);
+			postProcessSet.pointToImageView(sceneDepth->imageView, 1);
+			postProcessSet.pointToRWImageView(giSampleCounts[historyWriteSlot]->imageView, 2); // only read by the GI debug view
+		}
 	}
 
 	VkRenderPass postProcessPass;
-	DescriptorSet postProcessSet;
+	DescriptorSet postProcessSets[2];
 	GraphicsPipeline graphicsPipeline;
 
 	DeferredRenderer* renderer;
@@ -805,7 +816,8 @@ DeferredRenderer::DeferredRenderer()
 	}
 
 	deferredLighting = new DeferredLighting(this);
-	postProcessing = new PostProcessing(this, taa.getResolved(), sceneDepth);
+	const Texture2D* giSampleCounts[2] = {gi.getSampleCount(0), gi.getSampleCount(1)};
+	postProcessing = new PostProcessing(this, taa.getResolved(), sceneDepth, giSampleCounts);
 
 	{// debug draw stuff (per-frame ring buffer)
 		auto layout = getFrameGlobalLayout();
@@ -1057,7 +1069,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	}
 	vkCmdEndRenderPass(cmdbuf);
 
-	gi.render(cmdbuf, Vulkan::Instance->getCurrentFrameIndex(), getSkyDescriptorSet());
+	gi.render(cmdbuf, Vulkan::Instance->getCurrentFrameIndex(), Vulkan::Instance->getGlobalFrameIndex(), getSkyDescriptorSet());
 
 	VkClearValue lightingClearValues[] = { clearColor, clearDepth };
 	VkRenderPassBeginInfo lightingPassInfo = {
@@ -1129,7 +1141,13 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		{
 			auto& postProcessPipeline = postProcessing->getPipeline();
 			bindFrameGlobal(postProcessPipeline.layout); // 0
-			postProcessing->postProcessSet.bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, postProcessPipeline.layout);
+			const uint32_t giHistoryWriteSlot = Vulkan::Instance->getGlobalFrameIndex() % 2; // same toggle as GI::render
+			postProcessing->postProcessSets[giHistoryWriteSlot].bind(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, DSET_INDEPENDENT, postProcessPipeline.layout);
+			const glm::PostProcessPushData postProcessPushData = {
+				static_cast<uint32_t>(get_deferred_config()->lookup<int>("gi.debugHistory")),
+				static_cast<uint32_t>(get_deferred_config()->lookup<int>("gi.maxSampleCount"))};
+			vkCmdPushConstants(cmdbuf, postProcessPipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+							   sizeof(glm::PostProcessPushData), &postProcessPushData);
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, postProcessPipeline.pipeline);
 			vk::drawFullscreenTriangle(cmdbuf);
 		}

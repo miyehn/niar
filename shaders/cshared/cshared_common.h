@@ -57,7 +57,15 @@ struct CSHARED_ALIGNAS_16 ViewInfo
 	uint FrameIndex;
 	vec2 RenderSize;
 	vec4 FrameRandom;
-	vec2 JitterOffset;
+	vec2 JitterOffset; // in pixels
+	vec2 PrevJitterOffset; // in pixels, the jitter applied to the previous frame's ProjectionMatrix
+};
+
+// push constants of post_processing.frag
+struct PostProcessPushData
+{
+	uint GiDebugMode; // 0 = off, 1 = sample count, 2 = history rejection reason
+	uint GiMaxSampleCount;
 };
 
 struct CSHARED_ALIGNAS_16 GpuMaterial
@@ -106,6 +114,11 @@ static_assert(offsetof(glm::ViewInfo, ViewMatrix) == 0);
 static_assert(offsetof(glm::ViewInfo, ProjectionMatrix) == 64);
 static_assert(offsetof(glm::ViewInfo, InverseProjectionMatrix) == 128);
 static_assert(offsetof(glm::ViewInfo, PrevViewMatrix) == 192);
+static_assert(offsetof(glm::ViewInfo, JitterOffset) == 464);
+static_assert(offsetof(glm::ViewInfo, PrevJitterOffset) == 472);
+static_assert(sizeof(glm::PostProcessPushData) == 8);
+static_assert(offsetof(glm::PostProcessPushData, GiDebugMode) == 0);
+static_assert(offsetof(glm::PostProcessPushData, GiMaxSampleCount) == 4);
 static_assert(sizeof(glm::GpuMaterial) == 64);
 static_assert(alignof(glm::GpuMaterial) == 16);
 static_assert(offsetof(glm::GpuMaterial, baseColorFactor) == 0);

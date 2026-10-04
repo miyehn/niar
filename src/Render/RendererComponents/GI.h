@@ -29,17 +29,21 @@ struct GI
     void init(const InitInfo& info);
     void release();
 
-    void render(VkCommandBuffer cmdbuf, uint32_t frameIndex, const DescriptorSet& skyDescriptorSet);
+    // frameIndex is the frame-in-flight ring index (selects per-frame descriptor sets). globalFrameIndex must be a
+    // counter that increments once per rendered frame, so the history ping-pong toggle stays correct regardless of
+    // MAX_FRAMES_IN_FLIGHT's parity.
+    void render(VkCommandBuffer cmdbuf, uint32_t frameIndex, uint32_t globalFrameIndex, const DescriptorSet& skyDescriptorSet);
     void clear();
     void clear(VkCommandBuffer cmdbuf);
 
     const Texture2D* getIndirectLighting() const { return indirectLighting; }
+    const Texture2D* getSampleCount(uint32_t historyWriteSlot) const { return sampleCount[historyWriteSlot]; }
 
 private:
     bool enabledLastFrame = false;
     Texture2D* indirectLighting = nullptr;
     Texture2D* history[2] = {};
-    Texture2D* sampleCount = nullptr;
+    Texture2D* sampleCount[2] = {};
     DescriptorSet giDescriptorSets[MAX_FRAMES_IN_FLIGHT][2];
 
 };

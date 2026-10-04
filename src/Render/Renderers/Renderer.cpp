@@ -81,6 +81,7 @@ glm::ViewInfo Renderer::getCameraViewInfo(glm::vec2 renderSize, bool applyJitter
 	viewInfo.RenderSize = renderSize;
 
 	viewInfo.JitterOffset = applyJitter ? haltonJitterOffset(viewInfo.FrameIndex) : glm::vec2(0.0f);
+	viewInfo.PrevJitterOffset = applyJitter ? haltonJitterOffset(viewInfo.FrameIndex - 1) : glm::vec2(0.0f);
 	viewInfo.ProjectionMatrix = applyPixelJitter(viewInfo.UnjitteredProjectionMatrix, viewInfo.JitterOffset, renderSize);
 	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
 
