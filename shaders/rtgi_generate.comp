@@ -12,23 +12,23 @@
 // (set 0, binding 0) is view info from scene_common.glsl
 layout(set = 0, binding = 1) uniform sampler2D SceneDepth;
 layout(set = 0, binding = 2) uniform sampler2D GNormal;
-layout(set = 0, binding = 3) uniform accelerationStructureEXT SceneTLAS;
-layout(set = 0, binding = 4, rgba16f) uniform image2D IndirectLighting;
-layout(set = 0, binding = 5) uniform sampler2D EnvironmentMap;
-layout(set = 0, binding = 6, std430) readonly buffer SceneInstanceRecordTable {
+layout(set = 0, binding = 3) uniform sampler2D MotionVectors;
+layout(set = 0, binding = 4) uniform accelerationStructureEXT SceneTLAS;
+layout(set = 0, binding = 5, rgba16f) uniform image2D IndirectLighting;
+layout(set = 0, binding = 6) uniform sampler2D EnvironmentMap;
+layout(set = 0, binding = 7, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
 };
-layout(set = 0, binding = 7) uniform RtgiPointLightsInfo {
+layout(set = 0, binding = 8) uniform RtgiPointLightsInfo {
     PointLightInfo Data[MAX_LIGHTS_PER_PASS];
 } PointLights;
-layout(set = 0, binding = 8) uniform RtgiDirectionalLightsInfo {
+layout(set = 0, binding = 9) uniform RtgiDirectionalLightsInfo {
     DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 } DirectionalLights;
-layout(set = 0, binding = 9) uniform sampler2D RtgiReadHistory;
-layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D RtgiWriteHistory;
-layout(set = 0, binding = 11, r32ui) uniform writeonly uimage2D RtgiWriteSampleCount;
-layout(set = 0, binding = 12) uniform sampler2D MotionVectors;
-layout(set = 0, binding = 13, r32ui) uniform readonly uimage2D RtgiReadSampleCount;
+layout(set = 0, binding = 10) uniform sampler2D RtgiReadHistory;
+layout(set = 0, binding = 11, rgba16f) uniform writeonly image2D RtgiWriteHistory;
+layout(set = 0, binding = 12, r32ui) uniform readonly uimage2D RtgiReadSampleCount;
+layout(set = 0, binding = 13, r32ui) uniform writeonly uimage2D RtgiWriteSampleCount;
 
 #include "lighting_common.glsl"
 

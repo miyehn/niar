@@ -23,17 +23,17 @@ namespace
 constexpr uint32_t Slot_ViewInfo = 0;
 constexpr uint32_t Slot_SceneDepth = 1;
 constexpr uint32_t Slot_GNormal = 2;
-constexpr uint32_t Slot_Tlas = 3;
-constexpr uint32_t Slot_IndirectLighting = 4;
-constexpr uint32_t Slot_EnvironmentMap = 5;
-constexpr uint32_t Slot_SceneInstanceRecords = 6;
-constexpr uint32_t Slot_PointLights = 7;
-constexpr uint32_t Slot_DirectionalLights = 8;
-constexpr uint32_t Slot_ReadHistory = 9;
-constexpr uint32_t Slot_WriteHistory = 10;
-constexpr uint32_t Slot_WriteSampleCount = 11;
-constexpr uint32_t Slot_MotionVectors = 12;
-constexpr uint32_t Slot_ReadSampleCount = 13;
+constexpr uint32_t Slot_MotionVectors = 3;
+constexpr uint32_t Slot_Tlas = 4;
+constexpr uint32_t Slot_IndirectLighting = 5;
+constexpr uint32_t Slot_EnvironmentMap = 6;
+constexpr uint32_t Slot_SceneInstanceRecords = 7;
+constexpr uint32_t Slot_PointLights = 8;
+constexpr uint32_t Slot_DirectionalLights = 9;
+constexpr uint32_t Slot_ReadHistory = 10;
+constexpr uint32_t Slot_WriteHistory = 11;
+constexpr uint32_t Slot_ReadSampleCount = 12;
+constexpr uint32_t Slot_WriteSampleCount = 13;
 
 struct RtgiPushData {
 	uint32_t maxSampleCount;
@@ -157,6 +157,7 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(Slot_ViewInfo, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	giSetLayout.addBinding(Slot_SceneDepth, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(Slot_GNormal, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	giSetLayout.addBinding(Slot_MotionVectors, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(Slot_Tlas, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 	giSetLayout.addBinding(Slot_IndirectLighting, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(Slot_EnvironmentMap, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -165,9 +166,8 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(Slot_DirectionalLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	giSetLayout.addBinding(Slot_ReadHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(Slot_WriteHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-	giSetLayout.addBinding(Slot_WriteSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-	giSetLayout.addBinding(Slot_MotionVectors, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	giSetLayout.addBinding(Slot_ReadSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	giSetLayout.addBinding(Slot_WriteSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	auto samplerInfo = SamplerCache::defaultInfo();
 	samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -189,6 +189,7 @@ void GI::init(const InitInfo& info)
 			giDescriptorSet.pointToBuffer(*info.viewInfoUbos[i], Slot_ViewInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			giDescriptorSet.pointToImageView(info.sceneDepth->imageView, Slot_SceneDepth, &samplerInfo);
 			giDescriptorSet.pointToImageView(info.GNormal->imageView, Slot_GNormal, &samplerInfo);
+			giDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &samplerInfo);
 			giDescriptorSet.pointToAccelerationStructure(info.tlas, Slot_Tlas);
 			giDescriptorSet.pointToRWImageView(indirectLighting->imageView, Slot_IndirectLighting);
 			giDescriptorSet.pointToImageView(info.environmentMap->imageView, Slot_EnvironmentMap);
@@ -197,9 +198,8 @@ void GI::init(const InitInfo& info)
 			giDescriptorSet.pointToBuffer(*info.directionalLightBuffers[i], Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			giDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
 			giDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
-			giDescriptorSet.pointToRWImageView(sampleCount[historyWriteSlot]->imageView, Slot_WriteSampleCount);
-			giDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &samplerInfo);
 			giDescriptorSet.pointToRWImageView(sampleCount[readHistoryIndex]->imageView, Slot_ReadSampleCount);
+			giDescriptorSet.pointToRWImageView(sampleCount[historyWriteSlot]->imageView, Slot_WriteSampleCount);
 		}
 	}
 }
