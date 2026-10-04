@@ -191,15 +191,15 @@ void GI::init(const InitInfo& info)
 			giDescriptorSet.pointToImageView(info.GNormal->imageView, Slot_GNormal, &samplerInfo);
 			giDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &samplerInfo);
 			giDescriptorSet.pointToAccelerationStructure(info.tlas, Slot_Tlas);
-			giDescriptorSet.pointToRWImageView(indirectLighting->imageView, Slot_IndirectLighting);
+			giDescriptorSet.pointToStorageImageView(indirectLighting->imageView, Slot_IndirectLighting);
 			giDescriptorSet.pointToImageView(info.environmentMap->imageView, Slot_EnvironmentMap);
 			giDescriptorSet.pointToBuffer(*info.sceneInstanceRecordBuffers[i], Slot_SceneInstanceRecords, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 			giDescriptorSet.pointToBuffer(*info.pointLightBuffers[i], Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			giDescriptorSet.pointToBuffer(*info.directionalLightBuffers[i], Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			giDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
-			giDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
-			giDescriptorSet.pointToRWImageView(sampleCount[readHistoryIndex]->imageView, Slot_ReadSampleCount);
-			giDescriptorSet.pointToRWImageView(sampleCount[historyWriteSlot]->imageView, Slot_WriteSampleCount);
+			giDescriptorSet.pointToStorageImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
+			giDescriptorSet.pointToStorageImageView(sampleCount[readHistoryIndex]->imageView, Slot_ReadSampleCount);
+			giDescriptorSet.pointToStorageImageView(sampleCount[historyWriteSlot]->imageView, Slot_WriteSampleCount);
 		}
 	}
 }

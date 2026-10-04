@@ -130,8 +130,8 @@ void SkyAtmosphereRender::init()
 
 		fd.descriptorSet = DescriptorSet(skySetLayout);
 		fd.descriptorSet.pointToBuffer(fd.parametersBuffer, SkyAtmosphere::Slot_Parameters, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		fd.descriptorSet.pointToRWImageView(transmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutRW);
-		fd.descriptorSet.pointToRWImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutRW);
+		fd.descriptorSet.pointToStorageImageView(transmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutRW);
+		fd.descriptorSet.pointToStorageImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutRW);
 		fd.descriptorSet.pointToImageView(transmittanceLut->imageView, SkyAtmosphere::Slot_TransmittanceLutR, &samplerInfo);
 		fd.descriptorSet.pointToImageView(skyViewLut->imageView, SkyAtmosphere::Slot_SkyViewLutR);
 

@@ -43,7 +43,7 @@ public:
 		VkDescriptorType descriptorType,
 		std::span<const VkDescriptorImageInfo> imageInfos);
 
-	void pointToRWImageView(VkImageView imageView, uint32_t binding);
+	void pointToStorageImageView(VkImageView imageView, uint32_t binding);
 
 	void pointToAccelerationStructure(VkAccelerationStructureKHR accelerationStructure, uint32_t binding);
 

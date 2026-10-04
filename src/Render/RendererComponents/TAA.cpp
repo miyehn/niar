@@ -134,8 +134,8 @@ void TAA::init(const InitInfo& info)
 		taaDescriptorSet = DescriptorSet(taaSetLayout);
 		taaDescriptorSet.pointToImageView(info.sceneColor->imageView, Slot_SceneColor, &pointSamplerInfo);
 		taaDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &linearSamplerInfo);
-		taaDescriptorSet.pointToRWImageView(resolved->imageView, Slot_Resolved);
-		taaDescriptorSet.pointToRWImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
+		taaDescriptorSet.pointToStorageImageView(resolved->imageView, Slot_Resolved);
+		taaDescriptorSet.pointToStorageImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
 		taaDescriptorSet.pointToImageView(info.GMotion->imageView, Slot_MotionVectors, &pointSamplerInfo);
 	}
 }

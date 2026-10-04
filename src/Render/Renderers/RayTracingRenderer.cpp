@@ -51,7 +51,7 @@ RayTracingRenderer::RayTracingRenderer()
 		fd.descriptorSet = DescriptorSet(layout);
 		fd.descriptorSet.pointToBuffer(fd.viewInfoUbo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToAccelerationStructure(sceneTlas.get(), 1);
-		fd.descriptorSet.pointToRWImageView(outImage->imageView, 2);
+		fd.descriptorSet.pointToStorageImageView(outImage->imageView, 2);
 	}
 
 	// pipeline

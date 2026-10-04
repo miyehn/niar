@@ -83,7 +83,7 @@ private:
 			// always reads TAA's resolved output
 			postProcessSet.pointToImageView(taaResolved->imageView, 0);
 			postProcessSet.pointToImageView(sceneDepth->imageView, 1);
-			postProcessSet.pointToRWImageView(giSampleCounts[historyWriteSlot]->imageView, 2); // only read by the GI debug view
+			postProcessSet.pointToStorageImageView(giSampleCounts[historyWriteSlot]->imageView, 2); // only read by the GI debug view
 		}
 	}
 

@@ -245,7 +245,7 @@ void DescriptorSet::pointToImageViews(
 	vkUpdateDescriptorSets(Vulkan::Instance->device, 1, &descriptorWrite, 0, nullptr);
 }
 
-void DescriptorSet::pointToRWImageView(VkImageView imageView, uint32_t binding)
+void DescriptorSet::pointToStorageImageView(VkImageView imageView, uint32_t binding)
 {
 	const VkDescriptorImageInfo imageInfo = {
 		.sampler = VK_NULL_HANDLE,
