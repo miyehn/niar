@@ -37,14 +37,16 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
+// The ray that is not a shadow ray (camera ray, GI ray). Shadow rays use 1 + the index of the light they go to.
+const uint NON_SHADOW_RAY_ID = 0u;
+
+// whether the current candidate hit of rq counts as a surface hit.
 // Opaque geometry is opaque in the BLASes, so rays commit its hits by themselves and terminates the while loop.
 // Only alpha clipped and translucent geometry produces candidate hits enter body of the while loop and get here.
-
 // alpha-clipped materials cut out hard at their threshold as geometry.frag does when rasterizing, and translucent ones
 // stop the ray with probability alpha.
-
-// whether the current candidate hit of rq counts as a surface hit. whiteNoise is a per-ray random number in [0, 1)
-bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise)
+// whiteNoise is a per-frame per-pixel random number in [0, 1), shared by all rays shot from that pixel, and rayId tells those rays apart.
+bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise, uint rayId)
 {
     RayHitResult candidate = interpretCandidateRayQuery(rq);
 
@@ -64,12 +66,16 @@ bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise)
         return albedoAlpha >= clipThreshold;
     }
 
-    // each candidate gets its own random number, so that layered translucent surfaces are decided independently
+    // whiteNoise is shared by every candidate along the ray (and by the pixel's other rays), so it can't be compared
+    // against alpha directly: layered translucent surfaces would all see the same number and be perfectly correlated
+    // (two layers of alpha 0.5 would give a combined opacity of 0.5 instead of 0.75). Re-hashing with the candidate's
+    // identity and the ray's id gives each (ray, candidate) pair its own independent random number, while a candidate
+    // reported twice by the same ray still gets the same decision.
     float alpha = albedoAlpha * material.baseColorFactor.a;
-    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, 0u), whiteNoise) < alpha;
+    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, rayId), whiteNoise) < alpha;
 }
 
-float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise)
+float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise, uint lightIndex)
 {
     const vec3 rayOrigin = worldPos + normal * 0.005;
 
@@ -86,7 +92,7 @@ float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, ve
 
     // opaque geometry auto-commits; only alpha clipped and translucent geometry generates candidates
     while (rayQueryProceedEXT(rq)) {
-        if (candidateHitPassesAlpha(rq, whiteNoise)) {
+        if (candidateHitPassesAlpha(rq, whiteNoise, 1u + lightIndex)) {
             rayQueryConfirmIntersectionEXT(rq);
         }
     }
@@ -164,7 +170,7 @@ vec3 accumulateLighting(
         vec3 dirToLight = toLight / dist;
         float atten = 1.0 / dot(toLight, toLight);
         vec3 radiance = PointLights.Data[i].color * atten;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, whiteNoise);
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, whiteNoise, uint(i));
 
         result += evaluateLight(
             albedo,
@@ -183,7 +189,7 @@ vec3 accumulateLighting(
         vec3 lightDir = DirectionalLights.Data[i].direction;
         vec3 dirToLight = normalize(-lightDir);
         vec3 radiance = DirectionalLights.Data[i].color;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, whiteNoise);
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, whiteNoise, uint(viewInfo.NumPointLights + i));
 
         result += evaluateLight(
             albedo,

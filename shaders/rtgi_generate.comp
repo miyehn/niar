@@ -139,9 +139,8 @@ void main()
         0.001,
         rayDir,
         10000.0);
-    float alphaNoise = white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.z);
     while (rayQueryProceedEXT(rq)) {
-        if (candidateHitPassesAlpha(rq, alphaNoise)) {
+        if (candidateHitPassesAlpha(rq, random.x, NON_SHADOW_RAY_ID)) {
             rayQueryConfirmIntersectionEXT(rq);
         }
     }
