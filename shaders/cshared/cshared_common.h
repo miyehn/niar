@@ -13,6 +13,8 @@
 #define GPU_GEOMETRY_INDEX_TYPE_UINT32 1u
 #define GPU_GEOMETRY_INDEX_TYPE_INVALID 0xffffffffu
 
+#define GPU_SCENE_INSTANCE_FLAG_TRANSLUCENT 1u // the instance's material is alpha blended, not opaque or alpha clipped
+
 #define GLTF_MODEL_MATRIX_PUSH_OFFSET 0
 #define GLTF_MODEL_MATRIX_PUSH_SIZE 64
 #define GLTF_MATERIAL_INDEX_PUSH_OFFSET 64
@@ -22,7 +24,6 @@
 #ifdef __cplusplus
 
 #include <cstddef>
-#include <cstdint>
 #include <glm/glm.hpp>
 #define CSHARED_ALIGNAS_16 alignas(16)
 namespace glm {
@@ -80,7 +81,8 @@ struct CSHARED_ALIGNAS_16 GpuSceneInstanceRecord
 {
 	uint bindlessMaterialIndex;
 	uint geometryRecordIndex;
-	uvec2 reserved; // reserved for scene lookup metadata without changing stride
+	uint flags; // GPU_SCENE_INSTANCE_FLAG_*
+	uint reserved; // reserved for scene lookup metadata without changing stride
 };
 
 struct CSHARED_ALIGNAS_16 GpuGeometryRecord
@@ -129,7 +131,8 @@ static_assert(sizeof(glm::GpuSceneInstanceRecord) == 16);
 static_assert(alignof(glm::GpuSceneInstanceRecord) == 16);
 static_assert(offsetof(glm::GpuSceneInstanceRecord, bindlessMaterialIndex) == 0);
 static_assert(offsetof(glm::GpuSceneInstanceRecord, geometryRecordIndex) == 4);
-static_assert(offsetof(glm::GpuSceneInstanceRecord, reserved) == 8);
+static_assert(offsetof(glm::GpuSceneInstanceRecord, flags) == 8);
+static_assert(offsetof(glm::GpuSceneInstanceRecord, reserved) == 12);
 static_assert(sizeof(glm::GpuGeometryRecord) == 64);
 static_assert(alignof(glm::GpuGeometryRecord) == 16);
 static_assert(offsetof(glm::GpuGeometryRecord, vertexBufferAddress) == 0);

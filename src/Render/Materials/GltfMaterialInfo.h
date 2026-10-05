@@ -12,7 +12,8 @@ enum MaterialType {
 };
 
 enum BlendMode {
-	BM_OpaqueOrClip,
+	BM_Opaque,
+	BM_AlphaClip,
 	BM_AlphaBlend
 };
 

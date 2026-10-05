@@ -134,7 +134,8 @@ void SceneTlas::build_from_meshes(
 	sceneInstanceTable.fill({
 		.bindlessMaterialIndex = INVALID_BINDLESS_INDEX,
 		.geometryRecordIndex = INVALID_SCENE_GEOMETRY_INDEX,
-		.reserved = {0u, 0u},
+		.flags = 0u,
+		.reserved = 0u,
 	});
 
 	for (const MeshObject* mo : meshObjects)
@@ -176,7 +177,8 @@ void SceneTlas::build_from_meshes(
 		sceneInstanceTable[sceneInstanceIndex] = {
 			.bindlessMaterialIndex = bindlessMaterialIndex,
 			.geometryRecordIndex = geometryRecordIndex,
-			.reserved = {0u, 0u},
+			.flags = mo->mesh.surface.blendMode == BM_AlphaBlend ? GPU_SCENE_INSTANCE_FLAG_TRANSLUCENT : 0u,
+			.reserved = 0u,
 		};
 	}
 	fd.sceneInstanceRecordCount = static_cast<uint32_t>(instances.size());

@@ -3,10 +3,14 @@
 
 #include "bindless_resources.glsl"
 
+// what a ray query hit, for both committed and candidate intersections (their Vulkan enums differ)
+#define RAY_HIT_NONE 0u
+#define RAY_HIT_TRIANGLE 1u
+#define RAY_HIT_AABB 2u
+
 struct RayHitResult
 {
-    bool committed;
-    uint intersectionType;
+    uint intersectionType; // RAY_HIT_*
     uint instanceCustomIndex;
     uint primitiveIndex;
     vec2 barycentrics;
@@ -34,8 +38,10 @@ layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Uin
 
 RayHitResult makeMissHitResult()
 {
-    return RayHitResult(false, gl_RayQueryCommittedIntersectionNoneEXT, ~0u, ~0u, vec2(-1.0), -1.0, mat4x3(0.0));
+    return RayHitResult(RAY_HIT_NONE, ~0u, ~0u, vec2(-1.0), -1.0, mat4x3(0.0));
 }
+
+// doc for a lot of the flags: https://github.com/KhronosGroup/GLSL/blob/0099bf83b0288469917fc2e2972cb0a2b74d6711/extensions/ext/GLSL_EXT_ray_query.txt#L217
 
 RayHitResult interpretFinalRayQuery(rayQueryEXT rq)
 {
@@ -43,40 +49,38 @@ RayHitResult interpretFinalRayQuery(rayQueryEXT rq)
     // hit opaque triangle (forced by gl_RayFlagsOpaqueEXT, or VK_GEOMETRY_OPAQUE_BIT_KHR when building BLAS) -> internally confirmed
     // hit non-opaque triangle -> shader must confirm the hit
     // hit AABB (need BLAS to be built as procedural geometry not triangle geometry) -> shader must generate an intersection
-    uint intersectionType = rayQueryGetIntersectionTypeEXT(rq, true);
+    uint committedType = rayQueryGetIntersectionTypeEXT(rq, true);
 
     RayHitResult result = makeMissHitResult();
+    if (committedType == gl_RayQueryCommittedIntersectionNoneEXT) {
+        return result;
+    }
 
-    // it's a hit
-    result.committed = intersectionType != gl_RayQueryCommittedIntersectionNoneEXT;
-
-    // intersection types can be: None (miss), Triangle (triangle geometry), or Generated (AABB geometry), which is used for shader-defined procedural geometry
-    result.intersectionType = intersectionType;
-
+    // committed types can be: None (miss), Triangle (triangle geometry), or Generated (AABB geometry), which is used for shader-defined procedural geometry
+    result.intersectionType = committedType == gl_RayQueryCommittedIntersectionTriangleEXT ? RAY_HIT_TRIANGLE : RAY_HIT_AABB;
     result.instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
     result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, true);
     result.hitT = rayQueryGetIntersectionTEXT(rq, true);
     result.worldToObject = rayQueryGetIntersectionWorldToObjectEXT(rq, true);
-    if (intersectionType == gl_RayQueryCommittedIntersectionTriangleEXT) {
+    if (result.intersectionType == RAY_HIT_TRIANGLE) {
         result.barycentrics = rayQueryGetIntersectionBarycentricsEXT(rq, true);
     }
     return result;
 }
 
+// the candidate intersection that rayQueryProceedEXT just stopped at, only valid inside the proceed loop
 RayHitResult interpretCandidateRayQuery(rayQueryEXT rq)
 {
     RayHitResult result = makeMissHitResult();
 
-    // it's a hit
-    result.committed = false;
-
-    // intersection types can be: None (miss), Triangle (triangle geometry), or Generated (AABB geometry), which is used for shader-defined procedural geometry
-    result.intersectionType = rayQueryGetIntersectionTypeEXT(rq, false);
+    // candidate types are only Triangle or AABB (a different enum than the committed ones)
+    bool isTriangle = rayQueryGetIntersectionTypeEXT(rq, false) == gl_RayQueryCandidateIntersectionTriangleEXT;
+    result.intersectionType = isTriangle ? RAY_HIT_TRIANGLE : RAY_HIT_AABB;
     result.instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
     result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, false);
     result.hitT = rayQueryGetIntersectionTEXT(rq, false);
     result.worldToObject = rayQueryGetIntersectionWorldToObjectEXT(rq, false);
-    if (result.intersectionType == gl_RayQueryCommittedIntersectionTriangleEXT) {
+    if (isTriangle) {
         result.barycentrics = rayQueryGetIntersectionBarycentricsEXT(rq, false);
     }
     return result;
@@ -115,7 +119,7 @@ bool readGeometryIndex(GpuGeometryRecord geometry, uint elementIndex, out uint i
 bool readTriangleVertexIndices(RayHitResult hitResult, GpuGeometryRecord geometry, out uvec3 indices)
 {
     indices = uvec3(~0u);
-    if (hitResult.intersectionType != gl_RayQueryCommittedIntersectionTriangleEXT) {
+    if (hitResult.intersectionType != RAY_HIT_TRIANGLE) {
         return false;
     }
     if (geometry.indexCount < 3u || hitResult.primitiveIndex >= geometry.indexCount / 3u) {

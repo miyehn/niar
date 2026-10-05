@@ -3,6 +3,7 @@
 //
 
 #include "Renderer.h"
+#include "Scene/Light.hpp"
 #include "Utils/myn/Sample.h"
 
 namespace
@@ -86,4 +87,40 @@ glm::ViewInfo Renderer::getCameraViewInfo(glm::vec2 renderSize, bool applyJitter
 	viewInfo.InverseProjectionMatrix = glm::inverse(viewInfo.ProjectionMatrix);
 
     return viewInfo;
+}
+
+void Renderer::gatherLights(
+	SceneObject* root,
+	glm::PointLightInfo* pointLights,
+	glm::DirectionalLightInfo* directionalLights,
+	glm::ViewInfo& viewInfo)
+{
+	int numPointLights = 0;
+	int numDirectionalLights = 0;
+	root->foreach_descendent_bfs([&](SceneObject* child){
+		// convert whatever unit (cd, lx, nt) to watt:
+		// from blender, PBR_WATTS_TO_LUMENS = 683 // so lumen to watt is 1.0f/683
+		// the last div by 2*PI is converting irradiance to radiance (???)
+		// todo: rename the "getMultipliedColor" interface altogether
+		if (child->enabled()) {
+			if (auto L = dynamic_cast<PointLight*>(child))
+			{
+				if (numPointLights < MAX_LIGHTS_PER_PASS) {
+					pointLights[numPointLights].position = L->world_position();
+					pointLights[numPointLights].color = L->getLuminousIntensityCd();
+					numPointLights++;
+				}
+			}
+			else if (auto L = dynamic_cast<DirectionalLight*>(child))
+			{
+				if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
+					directionalLights[numDirectionalLights].direction = L->getLightDirection();
+					directionalLights[numDirectionalLights].color = L->getIrradianceLx();
+					numDirectionalLights++;
+				}
+			}
+		}
+	});
+	viewInfo.NumPointLights = numPointLights;
+	viewInfo.NumDirectionalLights = numDirectionalLights;
 }

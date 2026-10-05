@@ -37,6 +37,38 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
+// Opaque geometry is opaque in the BLASes, so rays commit its hits by themselves and terminates the while loop.
+// Only alpha clipped and translucent geometry produces candidate hits enter body of the while loop and get here.
+
+// alpha-clipped materials cut out hard at their threshold as geometry.frag does when rasterizing, and translucent ones
+// stop the ray with probability alpha.
+
+// whether the current candidate hit of rq counts as a surface hit. whiteNoise is a per-ray random number in [0, 1)
+bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise)
+{
+    RayHitResult candidate = interpretCandidateRayQuery(rq);
+
+    // which geometry, which material
+    GpuSceneInstanceRecord instanceRecord = SceneInstanceRecords[candidate.instanceCustomIndex];
+    GpuGeometryRecord geometry = BindlessGeometryRecords[instanceRecord.geometryRecordIndex];
+    GpuMaterial material = BindlessMaterials[instanceRecord.bindlessMaterialIndex];
+
+    bool translucent = (instanceRecord.flags & GPU_SCENE_INSTANCE_FLAG_TRANSLUCENT) != 0u;
+    float clipThreshold = material.emissiveFactorAndClipThreshold.a;
+
+    vec2 uv;
+    reconstructHitUv(candidate, geometry, uv);
+
+    float albedoAlpha = sampleBindlessTexture2DLod(material.textureIndices[GLTF_MATERIAL_TEXTURE_ALBEDO], uv, 0.0).a;
+    if (!translucent) {
+        return albedoAlpha > clipThreshold;
+    }
+
+    // each candidate gets its own random number, so that layered translucent surfaces are decided independently
+    float alpha = albedoAlpha * material.baseColorFactor.a;
+    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, 0u), whiteNoise) < alpha;
+}
+
 float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise)
 {
     const vec3 rayOrigin = worldPos + normal * 0.005;
@@ -52,27 +84,9 @@ float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, ve
         dirToLight,
         tMax);
 
-    // opaque BLASes auto-commit; only non-opaque geometry generates candidates
+    // opaque geometry auto-commits; only alpha clipped and translucent geometry generates candidates
     while (rayQueryProceedEXT(rq)) {
-        // Must use false to query the candidate intersection (not committed)
-        uint instanceCustomIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
-        uint primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rq, false);
-
-        RayHitResult candidate = interpretCandidateRayQuery(rq);
-
-        // which geometry, which material
-        GpuSceneInstanceRecord instanceRecord = SceneInstanceRecords[instanceCustomIndex];
-        GpuGeometryRecord geometry = BindlessGeometryRecords[instanceRecord.geometryRecordIndex];
-        GpuMaterial material = BindlessMaterials[instanceRecord.bindlessMaterialIndex];
-
-        vec2 uv;
-        reconstructHitUv(candidate, geometry, uv);
-
-        const vec4 albedoSample = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_ALBEDO, uv);
-        const vec4 baseColor = albedoSample * material.baseColorFactor;
-
-        float alpha = baseColor.a;
-        if (whiteNoise < alpha) {
+        if (candidateHitPassesAlpha(rq, whiteNoise)) {
             rayQueryConfirmIntersectionEXT(rq);
         }
     }
@@ -183,4 +197,29 @@ vec3 accumulateLighting(
     }
 
     return result;
+}
+
+// radiance leaving a hit surface toward surface.outgoingDirection: emission + direct lighting
+vec3 shadeSurface(accelerationStructureEXT tlas, HitSurface surface, float whiteNoise)
+{
+    vec3 albedo =
+        sampleBindlessTexture2DLod(surface.material.textureIndices.x, surface.uv, 0.0).rgb *
+        surface.material.baseColorFactor.rgb;
+    vec3 emission =
+        sampleBindlessTexture2DLod(surface.material.textureIndices.w, surface.uv, 0.0).rgb *
+        surface.material.emissiveFactorAndClipThreshold.rgb;
+    vec3 orm =
+        sampleBindlessTexture2DLod(surface.material.textureIndices.z, surface.uv, 0.0).rgb *
+        surface.material.ormAndNormalStrength.rgb;
+    orm.g = clamp(orm.g, 0.04, 1.0); // roughness
+    orm.b = clamp(orm.b, 0.0, 1.0); // metallic
+
+    return emission + accumulateLighting(
+        tlas,
+        surface.worldPosition,
+        surface.worldNormal,
+        albedo,
+        orm,
+        whiteNoise,
+        surface.outgoingDirection);
 }

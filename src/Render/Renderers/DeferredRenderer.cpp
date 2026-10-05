@@ -145,7 +145,7 @@ struct DeferredGltfPipelineKey {
 	bool doubleSided = false;
 
 	explicit DeferredGltfPipelineKey(const MeshSurface& surface)
-		: pass(surface.blendMode==BM_OpaqueOrClip ? DeferredGltfPass::OpaqueGBuffer : DeferredGltfPass::TranslucentLighting)
+		: pass(surface.blendMode != BM_AlphaBlend ? DeferredGltfPass::OpaqueGBuffer : DeferredGltfPass::TranslucentLighting)
 		, doubleSided(surface.doubleSided)
 	{}
 
@@ -887,34 +887,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 	const bool taaEnabled = get_deferred_config()->lookup<int>("taa.enabled") != 0;
 	glm::ViewInfo viewInfo = getCameraViewInfo(glm::vec2(renderExtent.width, renderExtent.height), taaEnabled);
 	{
-        int numPointLights = 0;
-        int numDirectionalLights = 0;
-        drawable->foreach_descendent_bfs([this, &numPointLights, &numDirectionalLights](SceneObject* child){
-            // convert whatever unit (cd, lx, nt) to watt:
-            // from blender, PBR_WATTS_TO_LUMENS = 683 // so lumen to watt is 1.0f/683
-            // the last div by 2*PI is converting irradiance to radiance (???)
-            // todo: rename the "getMultipliedColor" interface altogether
-            if (child->enabled()) {
-                if (auto L = dynamic_cast<PointLight*>(child))
-                {
-                    if (numPointLights < MAX_LIGHTS_PER_PASS) {
-                        pointLights.Data[numPointLights].position = L->world_position();
-                        pointLights.Data[numPointLights].color = L->getLuminousIntensityCd();
-                        numPointLights++;
-                    }
-                }
-                else if (auto L = dynamic_cast<DirectionalLight*>(child))
-                {
-                    if (numDirectionalLights < MAX_LIGHTS_PER_PASS) {
-                        directionalLights.Data[numDirectionalLights].direction = L->getLightDirection();
-                        directionalLights.Data[numDirectionalLights].color = L->getIrradianceLx();
-                        numDirectionalLights++;
-                    }
-                }
-            }
-        });
-        viewInfo.NumPointLights = numPointLights;
-        viewInfo.NumDirectionalLights = numDirectionalLights;
+        gatherLights(drawable, pointLights.Data, directionalLights.Data, viewInfo);
 
         viewInfo.Exposure = cfgExposure;
         viewInfo.ToneMappingOption = cfgToneMappingOption;
@@ -930,8 +903,8 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 
         auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
         fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
-        fd.pointLightsBuffer.writeData(&pointLights, numPointLights * sizeof(glm::PointLightInfo));
-        fd.directionalLightsBuffer.writeData(&directionalLights, numDirectionalLights * sizeof(glm::DirectionalLightInfo));
+        fd.pointLightsBuffer.writeData(&pointLights, viewInfo.NumPointLights * sizeof(glm::PointLightInfo));
+        fd.directionalLightsBuffer.writeData(&directionalLights, viewInfo.NumDirectionalLights * sizeof(glm::DirectionalLightInfo));
 	}
 
 	auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
@@ -949,7 +922,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
 		drawable->foreach_descendent_bfs([&](SceneObject* child) {
 			// meshes
 			if (auto mo = dynamic_cast<MeshObject*>(child)) {
-				if (mo->mesh.surface.blendMode == BM_OpaqueOrClip) {
+				if (mo->mesh.surface.blendMode != BM_AlphaBlend) {
 					opaqueMeshes.push_back(mo);
 				} else {
 					translucentMeshes.push_back(mo);

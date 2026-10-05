@@ -108,8 +108,7 @@ are also defined here (`DSET_FRAMEGLOBAL/INDEPENDENT/BINDLESS`, `GLTF_MODEL_MATR
 `SimpleRenderer`, `DeferredRenderer`, `RTPipelineRenderer`, `GpuPathTracer`, and
 `CpuPathTracer` — are polymorphic and switchable at runtime through ImGui. They are
 instantiated in `Ellyn.cpp`. `DeferredRenderer` is the primary path and the host for GI/TAA
-work. `GpuPathTracer` is a standalone playground (one compute shader, ray queries, opaque
-geometry only) for experimenting with MIS/RIS-style sampling without the deferred setup;
+work. `GpuPathTracer` is a standalone playground (one compute shader, ray queries) for experimenting with MIS/RIS-style sampling without the deferred setup;
 `RTPipelineRenderer` is kept as a reference for the RT pipeline + SBT setup.
 
 ### Renderer Components (`src/Render/RendererComponents/`)

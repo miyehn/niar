@@ -1,9 +1,12 @@
 #include "GpuPathTracer.h"
+#include "Render/BindlessResources.h"
 #include "Render/Materials/ComputeShader.h"
 #include "Render/Texture.h"
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Scene/MeshObject.h"
+
+#include <imgui.h>
 
 #define GPT_GROUPSIZE_X 8
 #define GPT_GROUPSIZE_Y 8
@@ -14,20 +17,26 @@ namespace
 constexpr uint32_t Slot_ViewInfo = 0;
 constexpr uint32_t Slot_Tlas = 1;
 constexpr uint32_t Slot_OutputImage = 2;
+constexpr uint32_t Slot_SceneInstanceRecords = 3;
+constexpr uint32_t Slot_PointLights = 4;
+constexpr uint32_t Slot_DirectionalLights = 5;
 
 class GpuPathTracerCS : public ComputeShader
 {
 public:
 	const DescriptorSet* descriptorSetPtr = nullptr;
+	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
 		ASSERT(cmdbuf != VK_NULL_HANDLE)
 		ASSERT(descriptorSetPtr != nullptr)
+		ASSERT(bindlessDescriptorSetPtr != nullptr)
 
 		auto& pipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
 		descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipeline.layout);
+		bindlessDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_BINDLESS, pipeline.layout);
 		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 	}
 
@@ -35,8 +44,10 @@ protected:
 	void configurePipeline(ComputePipelineBuilder& builder) override
 	{
 		ASSERT(descriptorSetPtr != nullptr)
+		ASSERT(bindlessDescriptorSetPtr != nullptr)
 		builder.shaderDef = ShaderModuleDef("shaders/gpu_path_tracer.comp", "main", SS_Compute);
 		builder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, descriptorSetPtr->getLayout());
+		builder.useDescriptorSetLayout(DSET_BINDLESS, bindlessDescriptorSetPtr->getLayout());
 	}
 };
 
@@ -72,18 +83,37 @@ GpuPathTracer::GpuPathTracer()
 	layout.addBinding(Slot_ViewInfo, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout.addBinding(Slot_Tlas, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
 	layout.addBinding(Slot_OutputImage, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	layout.addBinding(Slot_SceneInstanceRecords, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	layout.addBinding(Slot_PointLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	layout.addBinding(Slot_DirectionalLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-	for (auto& fd : gpuFrameData) {
+	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		auto& fd = gpuFrameData[i];
 		fd.viewInfoUbo = VmaBuffer({
 			&Vulkan::Instance->memoryAllocator,
 			sizeof(glm::ViewInfo),
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
 			"GpuPathTracer view info UBO"});
+		fd.pointLightsUbo = VmaBuffer({
+			&Vulkan::Instance->memoryAllocator,
+			sizeof(pointLights),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VMA_MEMORY_USAGE_CPU_TO_GPU,
+			"GpuPathTracer point lights UBO"});
+		fd.directionalLightsUbo = VmaBuffer({
+			&Vulkan::Instance->memoryAllocator,
+			sizeof(directionalLights),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VMA_MEMORY_USAGE_CPU_TO_GPU,
+			"GpuPathTracer directional lights UBO"});
 		fd.descriptorSet = DescriptorSet(layout);
 		fd.descriptorSet.pointToBuffer(fd.viewInfoUbo, Slot_ViewInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToAccelerationStructure(sceneTlas.get(), Slot_Tlas);
 		fd.descriptorSet.pointToStorageImageView(outImage->imageView, Slot_OutputImage);
+		fd.descriptorSet.pointToBuffer(sceneTlas.getSceneInstanceRecordBuffer(i), Slot_SceneInstanceRecords, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		fd.descriptorSet.pointToBuffer(fd.pointLightsUbo, Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		fd.descriptorSet.pointToBuffer(fd.directionalLightsUbo, Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	}
 }
 
@@ -92,6 +122,8 @@ GpuPathTracer::~GpuPathTracer()
 	sceneTlas.release();
 	for (auto& fd : gpuFrameData) {
 		fd.viewInfoUbo.release();
+		fd.pointLightsUbo.release();
+		fd.directionalLightsUbo.release();
 	}
 	delete outImage;
 }
@@ -103,28 +135,33 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 	const uint32_t frameIndex = Vulkan::Instance->getCurrentFrameIndex();
 	auto& fd = gpuFrameData[frameIndex];
 
-	// only opaque meshes go into the TLAS. Alpha-clipped ones count as opaque too (clip is ignored)
-	std::vector<MeshObject*> opaqueMeshes;
-	drawable->foreach_descendent_bfs([&opaqueMeshes](SceneObject* obj) {
-		if (auto* mo = dynamic_cast<MeshObject*>(obj)) {
-			if (mo->mesh.surface.blendMode == BM_OpaqueOrClip) opaqueMeshes.push_back(mo);
-		}
+	std::vector<MeshObject*> meshes;
+	drawable->foreach_descendent_bfs([&meshes](SceneObject* obj) {
+		if (auto* mo = dynamic_cast<MeshObject*>(obj)) meshes.push_back(mo);
 	}, [](SceneObject* obj) { return obj->enabled(); });
 
 	const auto& renderExtent = Vulkan::Instance->swapChainExtent;
 	glm::ViewInfo viewInfo = getCameraViewInfo(glm::vec2(renderExtent.width, renderExtent.height));
+	viewInfo.Exposure = cfgExposure;
+
+	gatherLights(drawable, pointLights, directionalLights, viewInfo);
+
 	fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
+	fd.pointLightsUbo.writeData(pointLights, viewInfo.NumPointLights * sizeof(glm::PointLightInfo));
+	fd.directionalLightsUbo.writeData(directionalLights, viewInfo.NumDirectionalLights * sizeof(glm::DirectionalLightInfo));
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "GpuPathTracer rebuild TLAS")
-		sceneTlas.build_from_meshes(cmdbuf, frameIndex, opaqueMeshes, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+		sceneTlas.build_from_meshes(cmdbuf, frameIndex, meshes, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	}
 
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "GpuPathTracer trace")
+		ASSERT(BindlessResources::Instance != nullptr)
 		auto* pathTracerCS = ComputeShader::getInstance<GpuPathTracerCS>();
 		pathTracerCS->descriptorSetPtr = &fd.descriptorSet;
+		pathTracerCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();
 		pathTracerCS->dispatch(
 			cmdbuf,
 			(renderExtent.width + GPT_GROUPSIZE_X - 1) / GPT_GROUPSIZE_X,
@@ -154,6 +191,11 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 						   VK_ACCESS_SHADER_WRITE_BIT,
 						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 						   VK_IMAGE_LAYOUT_GENERAL);
+}
+
+void GpuPathTracer::draw_config_ui()
+{
+	ImGui::SliderFloat("##exposure", &cfgExposure, -25, 25, "exposure comp: %.3f");
 }
 
 GpuPathTracer* GpuPathTracer::get()

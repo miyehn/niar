@@ -25,7 +25,7 @@ struct MeshSurface {
 
 #if GRAPHICS_DISPLAY
 	uint32_t bindlessMaterialIndex = INVALID_BINDLESS_INDEX;
-	BlendMode blendMode = BM_OpaqueOrClip;
+	BlendMode blendMode = BM_Opaque;
 	bool doubleSided = false;
 #endif
 };

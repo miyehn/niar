@@ -514,8 +514,7 @@ std::vector<Mesh> load_gltf_meshes(
 		{
 			// only create new blas and build if hasn't been built yet
 			blas_collection.push_back({});
-			// todo [myn]: alpha clip materials should pass in false for build_blas to get correct foliage shadows
-			build_blas(m.cpu_data, m.gpu_data, m.surface.blendMode == BM_OpaqueOrClip, blas_collection.back());
+			build_blas(m.cpu_data, m.gpu_data, m.surface.blendMode == BM_Opaque, blas_collection.back());
 		}
 #endif
 	}
@@ -645,8 +644,12 @@ SceneAsset::SceneAsset(
 				glm::vec3 emissiveFactor = glm::vec3(em[0], em[1], em[2]);
 
 				// blend mode
-				BlendMode blendMode = BM_OpaqueOrClip;
-				if (mat.alphaMode == "BLEND") blendMode = BM_AlphaBlend;
+				BlendMode blendMode = BM_Opaque;
+				if (mat.alphaMode == "MASK") {
+					blendMode = BM_AlphaClip;
+				} else if (mat.alphaMode == "BLEND") {
+					blendMode = Config->lookup<int>("Debug.TreatTranslucentAsAlphaClip") ? BM_AlphaClip : BM_AlphaBlend;
+				}
 
 				// clip threshold
 				float clipThreshold = mat.alphaMode == "OPAQUE" ? -1.0f : (float)mat.alphaCutoff;

@@ -73,26 +73,7 @@ vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, floa
         return shadeInvalid();
     }
 
-    vec3 albedo =
-        sampleBindlessTexture2DLod(surface.material.textureIndices.x, surface.uv, 0.0).rgb *
-        surface.material.baseColorFactor.rgb;
-    vec3 emission =
-        sampleBindlessTexture2DLod(surface.material.textureIndices.w, surface.uv, 0.0).rgb *
-        surface.material.emissiveFactorAndClipThreshold.rgb;
-    vec3 orm =
-        sampleBindlessTexture2DLod(surface.material.textureIndices.z, surface.uv, 0.0).rgb *
-        surface.material.ormAndNormalStrength.rgb;
-    orm.g = clamp(orm.g, 0.04, 1.0); // roughness
-    orm.b = clamp(orm.b, 0.0, 1.0); // metallic
-
-    return emission + accumulateLighting(
-        SceneTLAS,
-        surface.worldPosition,
-        surface.worldNormal,
-        albedo,
-        orm,
-        whiteNoise,
-        surface.outgoingDirection);
+    return shadeSurface(SceneTLAS, surface, whiteNoise);
 }
 
 // last frame's world-space surface point at a history texel, rebuilt from the linear depth stored in history alpha
@@ -158,10 +139,15 @@ void main()
         0.001,
         rayDir,
         10000.0);
-    rayQueryProceedEXT(rq);
+    float alphaNoise = white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.z);
+    while (rayQueryProceedEXT(rq)) {
+        if (candidateHitPassesAlpha(rq, alphaNoise)) {
+            rayQueryConfirmIntersectionEXT(rq);
+        }
+    }
     RayHitResult hitResult = interpretFinalRayQuery(rq);
 
-    vec3 newSample = hitResult.committed ? shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x) : sampleBackground(viewInfo, rayDir);
+    vec3 newSample = hitResult.intersectionType != RAY_HIT_NONE ? shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x) : sampleBackground(viewInfo, rayDir);
 
     // per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass, independent of jitter
     vec2 motionVector = texture(MotionVectors, screenUv).rg;

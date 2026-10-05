@@ -1,5 +1,6 @@
 #pragma once
 #include "cshared_common.h"
+#include "lights.h"
 #include "Scene/Camera.hpp"
 #include "Scene/Scene.hpp"
 #if GRAPHICS_DISPLAY
@@ -13,6 +14,14 @@ protected:
 	// applyJitter should only be requested by a renderer that actually resolves the jitter
 	// with a temporal filter (i.e. TAA); otherwise it just adds unresolved aliasing noise.
 	[[nodiscard]] glm::ViewInfo getCameraViewInfo(glm::vec2 renderSize, bool applyJitter = false) const;
+
+	// collects the enabled lights under root into the arrays (MAX_LIGHTS_PER_PASS capacity each),
+	// and sets viewInfo.NumPointLights / NumDirectionalLights accordingly
+	static void gatherLights(
+		SceneObject* root,
+		glm::PointLightInfo* pointLights,
+		glm::DirectionalLightInfo* directionalLights,
+		glm::ViewInfo& viewInfo);
 
 	Renderer() = default;
 
