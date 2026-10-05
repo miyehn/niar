@@ -1,11 +1,12 @@
 #include "Scene/Scene.hpp"
 #include "Scene/Camera.hpp"
 #include "Scene/PathtracerController.h"
-#include "Pathtracer/Pathtracer.hpp"
+#include "CpuPathTracer/CpuPathTracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
 #include "Assets/ShaderModuleAsset.h"
-#include "Render/Renderers/RayTracingRenderer.h"
+#include "Render/Renderers/RTPipelineRenderer.h"
+#include "Render/Renderers/GpuPathTracer.h"
 #include "Render/Renderers/SimpleRenderer.h"
 #include "Render/BindlessResources.h"
 #include "Render/Texture.h"
@@ -59,9 +60,10 @@ namespace
 	enum e_renderer {
 		simple = 0,
 		deferred = 1,
-		pathtracer = 2,
-		rtx = 3
-	} renderer_index = e_renderer::deferred;
+		gpuPathTracer = 2,
+		cpuPathTracer = 3,
+		rtPipeline = 4
+	} renderer_index = e_renderer::gpuPathTracer;
 
 	std::vector<Renderer*> renderers{};
 	BindlessResources bindlessResources;
@@ -157,13 +159,14 @@ static void init()
 	{// renderers
 		renderers.push_back(SimpleRenderer::get());
 		renderers.push_back(DeferredRenderer::get());
-		renderers.push_back(Pathtracer::get(width, height));
-		renderers.push_back(RayTracingRenderer::get());
+		renderers.push_back(GpuPathTracer::get());
+		renderers.push_back(CpuPathTracer::get(width, height));
+		renderers.push_back(RTPipelineRenderer::get());
 
 		auto rendererIndexRef = (int*)&renderer_index;
 		ui::elem([rendererIndexRef]()
 		{
-			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Pathtracer\0RTX\0\0");
+			ImGui::Combo("renderer", rendererIndexRef, "Simple\0Deferred\0Path Tracer (GPU)\0Path Tracer (CPU)\0RTPipeline\0\0");
 			ImGui::Separator();
 
 			renderers[renderer_index]->draw_config_ui();

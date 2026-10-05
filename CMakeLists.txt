@@ -44,11 +44,11 @@ set(SHARED_SRC
     src/Assets/Asset.cpp
     src/Assets/SceneAsset.cpp
     src/Assets/ConfigAsset.cpp
-    src/Pathtracer/Primitive.cpp
-    src/Pathtracer/BSDF.cpp
-    src/Pathtracer/PathtracerLight.cpp
-    src/Pathtracer/BVH.cpp
-    src/Pathtracer/Pathtracer.cpp
+    src/CpuPathTracer/Primitive.cpp
+    src/CpuPathTracer/BSDF.cpp
+    src/CpuPathTracer/PathtracerLight.cpp
+    src/CpuPathTracer/BVH.cpp
+    src/CpuPathTracer/CpuPathTracer.cpp
     src/Utils/myn/Misc.cpp
     src/Utils/TinyGLTFImpl.cpp
     src/Utils/StbImageImpl.cpp
@@ -92,7 +92,8 @@ set(ELLYN_SRC
     external/imgui/imgui_impl_sdl2.cpp
     src/Render/Vulkan/ShaderBindingTable.cpp
     src/Scene/RtxTriangle.cpp
-    src/Render/Renderers/RayTracingRenderer.cpp
+    src/Render/Renderers/RTPipelineRenderer.cpp
+    src/Render/Renderers/GpuPathTracer.cpp
     src/Render/Materials/ComputeShader.cpp
     src/Render/Renderers/Renderer.cpp
     src/Render/RendererComponents/GI.cpp

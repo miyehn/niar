@@ -105,9 +105,12 @@ are also defined here (`DSET_FRAMEGLOBAL/INDEPENDENT/BINDLESS`, `GLTF_MODEL_MATR
 ### Renderer Strategy Pattern
 
 `src/Render/Renderers/Renderer.h` is the abstract base. Concrete renderers —
-`SimpleRenderer`, `DeferredRenderer`, `RayTracingRenderer`, and `Pathtracer` — are
-polymorphic and switchable at runtime through ImGui. They are instantiated in
-`Ellyn.cpp`. `DeferredRenderer` is the primary path and the host for GI/TAA work.
+`SimpleRenderer`, `DeferredRenderer`, `RTPipelineRenderer`, `GpuPathTracer`, and
+`CpuPathTracer` — are polymorphic and switchable at runtime through ImGui. They are
+instantiated in `Ellyn.cpp`. `DeferredRenderer` is the primary path and the host for GI/TAA
+work. `GpuPathTracer` is a standalone playground (one compute shader, ray queries, opaque
+geometry only) for experimenting with MIS/RIS-style sampling without the deferred setup;
+`RTPipelineRenderer` is kept as a reference for the RT pipeline + SBT setup.
 
 ### Renderer Components (`src/Render/RendererComponents/`)
 
@@ -155,10 +158,10 @@ Low-level wrappers: `Vulkan` (instance/device/swapchain), `Buffer` (`VmaBuffer` 
 RenderDoc integration via `src/Utils/myn/RenderDoc.h` (`Debug.RenderDoc`; incompatible
 with the validation layer and ray tracing — use NSight for RTX).
 
-### Pathtracer (`src/Pathtracer/`)
+### CpuPathTracer (`src/CpuPathTracer/`)
 
 Tile-based multi-threaded CPU path tracer with a BVH (`BVH.hpp`) and BSDFs (`BSDF.hpp`). 
-Config-driven via `config/pathtracer.ini` (hot
+Config-driven via `config/cpuPathTracer.ini` (hot
 reloaded). `.inl` files (`PathtracerCore.inl`, `PathtracerBufferOperations.inl`) hold
 inline implementations.
 
@@ -171,7 +174,7 @@ inline implementations.
   `taa:` sub-sections (`enabled`, `maxSampleCount`, `historyDepthRejectionThreshold`,
   `historyWeight`, `clampExpansion`). (The roadmap still calls this `config/gi.ini`; the
   actual file is `deferred.ini`.)
-- **`pathtracer.ini`**, **`skyAtmosphere.ini`** — hot-reloadable tuning.
+- **`cpuPathTracer.ini`**, **`skyAtmosphere.ini`** — hot-reloadable tuning.
 
 Read values with `Config->lookup<T>("Key.Subkey")`. Add a config option only for choices
 genuinely supported at runtime; when the project direction makes one path mandatory,

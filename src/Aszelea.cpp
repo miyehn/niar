@@ -3,7 +3,7 @@
 //
 #include "Utils/myn/Log.h"
 #include "Scene/SceneObject.hpp"
-#include "Pathtracer/Pathtracer.hpp"
+#include "CpuPathTracer/CpuPathTracer.hpp"
 #include "Assets/ConfigAsset.hpp"
 #include "Assets/SceneAsset.h"
 #include "Scene/SkyAtmosphere.h"
@@ -19,7 +19,7 @@ int main(int argc, const char * argv[])
 		("h,height", "window height", cxxopts::value<int>())
 		("o,output", "output relative_path", cxxopts::value<std::string>())
 		("scene", "path to scene file (overrides SceneSource in global.ini)", cxxopts::value<std::string>())
-		("spp", "samples per pixel (overrides MinRaysPerPixel in pathtracer.ini)", cxxopts::value<int>())
+		("spp", "samples per pixel (overrides MinRaysPerPixel in cpuPathTracer.ini)", cxxopts::value<int>())
 		("popup", "automatically open the result image when render finishes");
 
 	auto optargs = options.parse(argc, argv);
@@ -70,15 +70,15 @@ int main(int argc, const char * argv[])
 	scene_asset->get_root()->add_child(sky);
 	sky->find_sun();
 
-	auto pathtracer = Pathtracer::get(width, height);
-	auto pathtracerConfig = pathtracer->get_config_ref();
+	auto cpuPathTracer = CpuPathTracer::get(width, height);
+	auto cpuPathTracerConfig = cpuPathTracer->get_config_ref();
 	if (optargs.count("spp"))
-		pathtracerConfig.MinRaysPerPixel = optargs["spp"].as<int>();
-	pathtracer->drawable = scene_asset->get_root();
-	pathtracer->camera = camera;
+		cpuPathTracerConfig.MinRaysPerPixel = optargs["spp"].as<int>();
+	cpuPathTracer->drawable = scene_asset->get_root();
+	cpuPathTracer->camera = camera;
 
 	LOG("rendering pathtracer scene to file: %s", output_path.c_str());
-	pathtracer->render_to_file(output_path);
+	cpuPathTracer->render_to_file(output_path);
 
 	if (optargs.count("popup"))
 		ShellExecute(0, "open", output_path.c_str(), 0, 0, SW_SHOW);

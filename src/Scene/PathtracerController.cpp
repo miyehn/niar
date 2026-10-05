@@ -3,31 +3,31 @@
 //
 
 #include "PathtracerController.h"
-#include "Pathtracer/Pathtracer.hpp"
+#include "CpuPathTracer/CpuPathTracer.hpp"
 
 #include <imgui.h>
 
 PathtracerController::PathtracerController() {
-	name = "Pathtracer controller";
+	name = "CpuPathTracer controller";
 	ui_show_transform = false;
 }
 
 bool PathtracerController::handle_event(SDL_Event event) {
 
-	auto pathtracer = Pathtracer::get();
-	if (!pathtracer || !pathtracer->is_enabled()) return false;
+	auto cpuPathTracer = CpuPathTracer::get();
+	if (!cpuPathTracer || !cpuPathTracer->is_enabled()) return false;
 
-	return pathtracer->handle_event(event) | SceneObject::handle_event(event);
+	return cpuPathTracer->handle_event(event) | SceneObject::handle_event(event);
 }
 
 void PathtracerController::drawConfigUI() {
 	ImGui::Text("This is just a proxy object that forwards \nKB+M control to the pathtracer.");
 	if (enabled()) {
 
-		auto pathtracer = Pathtracer::get();
-		if (!pathtracer || !pathtracer->is_enabled()) {
+		auto cpuPathTracer = CpuPathTracer::get();
+		if (!cpuPathTracer || !cpuPathTracer->is_enabled()) {
 			auto yellow = ImVec4(1.0f, 0.7f, 0.1f, 1.0f);
-			ImGui::TextColored(yellow, "Pathtracer renderer is not selected.");
+			ImGui::TextColored(yellow, "CpuPathTracer renderer is not selected.");
 		} else {
 			auto green = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);
 			ImGui::TextColored(green, "Controller enabled.");

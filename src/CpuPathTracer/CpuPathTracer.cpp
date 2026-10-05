@@ -1,4 +1,4 @@
-#include "Pathtracer.hpp"
+#include "CpuPathTracer.hpp"
 #include "Render/Mesh.h"
 #include "Scene/MeshObject.h"
 #include "BSDF.hpp"
@@ -49,7 +49,7 @@ struct RaytraceThread {
 
 };
 
-Pathtracer::Pathtracer(uint32_t _width, uint32_t _height) {
+CpuPathTracer::CpuPathTracer(uint32_t _width, uint32_t _height) {
 
 	width = _width;
 	height = _height;
@@ -60,7 +60,7 @@ Pathtracer::Pathtracer(uint32_t _width, uint32_t _height) {
 #endif
 }
 
-Pathtracer::~Pathtracer() {
+CpuPathTracer::~CpuPathTracer() {
 
 #if GRAPHICS_DISPLAY
 	if (!initialized) return;
@@ -98,7 +98,7 @@ Pathtracer::~Pathtracer() {
 	TRACE("deleted pathtracer");
 }
 
-void Pathtracer::initialize() {
+void CpuPathTracer::initialize() {
 	TRACE("initializing pathtracer");
 
 #if GRAPHICS_DISPLAY
@@ -156,7 +156,7 @@ void Pathtracer::initialize() {
 		{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
 		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT,
-		"Pathtracer window surface image");
+		"CpuPathTracer window surface image");
 	window_surface = new Texture2D(windowSurfaceCreator);
 
 	DescriptorSetLayout layout{};
@@ -179,7 +179,7 @@ void Pathtracer::initialize() {
 
 	//-------- load config --------
 
-	config = new ConfigAsset("config/pathtracer.ini", true, [this](const ConfigAsset* cfg) {
+	config = new ConfigAsset("config/cpuPathTracer.ini", true, [this](const ConfigAsset* cfg) {
 
 		uint32_t old_num_threads = cached_config.NumThreads;
 
@@ -238,7 +238,7 @@ void Pathtracer::initialize() {
 #endif
 }
 
-BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
+BSDF *CpuPathTracer::get_or_create_mesh_bsdf(const std::string &materialName)
 {
 	auto iter = BSDFs.find(materialName);
 	GltfMaterialInfo* info = GltfMaterialInfo::get(materialName);
@@ -275,7 +275,7 @@ BSDF *Pathtracer::get_or_create_mesh_bsdf(const std::string &materialName)
 	return bsdf;
 }
 
-void Pathtracer::reload_scene(SceneObject *scene) {
+void CpuPathTracer::reload_scene(SceneObject *scene) {
 
 	primitives.clear();
 	lights.clear();
@@ -375,7 +375,7 @@ void Pathtracer::reload_scene(SceneObject *scene) {
 		  meshes_count, primitives.size(), lights.size());
 }
 
-void Pathtracer::reset() {
+void CpuPathTracer::reset() {
 	TRACE("reset pathtracer");
 
 	//-------- threading stuff --------
@@ -406,7 +406,7 @@ void Pathtracer::reset() {
 }
 
 #if GRAPHICS_DISPLAY
-bool Pathtracer::handle_event(SDL_Event event) {
+bool CpuPathTracer::handle_event(SDL_Event event) {
 	if (event.type==SDL_KEYUP && event.key.keysym.sym==SDLK_SPACE && !finished) {
 		if (paused) continue_trace();
 		else {
@@ -438,7 +438,7 @@ bool Pathtracer::handle_event(SDL_Event event) {
 	return false;
 }
 
-void Pathtracer::on_selected() {
+void CpuPathTracer::on_selected() {
 	if (!initialized) initialize();
 	enabled = true;
 	TRACE("pathtracer enabled");
@@ -463,13 +463,13 @@ void Pathtracer::on_selected() {
 	}
 }
 
-void Pathtracer::on_unselected() {
+void CpuPathTracer::on_unselected() {
 	enabled = false;
 	TRACE("pathtracer disabled");
 	camera->unlock();
 }
 
-void Pathtracer::pause_trace() {
+void CpuPathTracer::pause_trace() {
 	myn::TimePoint end_time = std::chrono::high_resolution_clock::now();
 	cumulative_render_time += std::chrono::duration<float>(end_time - last_begin_time).count();
 	TRACE("rendered %f seconds so far.", cumulative_render_time);
@@ -477,13 +477,13 @@ void Pathtracer::pause_trace() {
 	paused = true;
 }
 
-void Pathtracer::continue_trace() {
+void CpuPathTracer::continue_trace() {
 	TRACE("continue trace");
 	last_begin_time = std::chrono::high_resolution_clock::now();
 	paused = false;
 }
 
-void Pathtracer::clear_tasks_and_threads_begin() {
+void CpuPathTracer::clear_tasks_and_threads_begin() {
 	if (cached_config.Multithreaded) {
 		raytrace_tasks.clear();
 		for (auto & thread : threads) {
@@ -493,7 +493,7 @@ void Pathtracer::clear_tasks_and_threads_begin() {
 	}
 }
 
-void Pathtracer::clear_tasks_and_threads_wait() {
+void CpuPathTracer::clear_tasks_and_threads_wait() {
 	if (cached_config.Multithreaded) {
 		for (auto & thread : threads) {
 			if (thread->thread.joinable()) thread->thread.join();
@@ -502,7 +502,7 @@ void Pathtracer::clear_tasks_and_threads_wait() {
 	}
 }
 
-void Pathtracer::render(VkCommandBuffer cmdbuf)
+void CpuPathTracer::render(VkCommandBuffer cmdbuf)
 {
 	if (!initialized) initialize();
 
@@ -608,7 +608,7 @@ void Pathtracer::render(VkCommandBuffer cmdbuf)
 	}
 }
 
-void Pathtracer::draw_config_ui()
+void CpuPathTracer::draw_config_ui()
 {
 	// reset
 	if (ImGui::Button("clear buffer")) {
@@ -626,9 +626,9 @@ void Pathtracer::draw_config_ui()
 /*
  * singleton pattern, but makes sure will get one with specified stats
  */
-Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h)
+CpuPathTracer *CpuPathTracer::get(uint32_t _w, uint32_t _h)
 {
-	static Pathtracer* renderer = nullptr;
+	static CpuPathTracer* renderer = nullptr;
 	static uint32_t w, h;
 
 	if (_w == 0 || _h == 0) {
@@ -640,12 +640,12 @@ Pathtracer *Pathtracer::get(uint32_t _w, uint32_t _h)
 		delete renderer;
 
 		w = _w; h = _h;
-		renderer = new Pathtracer(w, h);
+		renderer = new CpuPathTracer(w, h);
 	}
 	return renderer;
 }
 
-Asset* Pathtracer::get_scene_asset() {
+Asset* CpuPathTracer::get_scene_asset() {
 	auto scene_source = Config->lookup<std::string>("SceneSource");
 	auto scene_asset = Asset::find<SceneAsset>(scene_source);
 	ASSERT(!(scene_asset==nullptr))

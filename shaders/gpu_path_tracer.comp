@@ -1,0 +1,42 @@
+#version 460 core
+#extension GL_EXT_ray_query : require
+
+#include "scene_common.glsl"
+
+// (set 0, binding 0) is view info from scene_common.glsl
+layout(set = DSET_FRAMEGLOBAL, binding = 1) uniform accelerationStructureEXT SceneTLAS;
+layout(set = DSET_FRAMEGLOBAL, binding = 2, rgba8) uniform writeonly image2D OutputImage;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 dims = imageSize(OutputImage);
+    if (any(greaterThanEqual(pixel, dims))) {
+        return;
+    }
+
+    ViewInfo viewInfo = GetViewInfo();
+
+    // primary ray through the pixel center, in the same convention as ray_gen.rgen
+    vec2 ndc = (vec2(pixel) + 0.5) / vec2(dims) * 2.0 - 1.0;
+    float halfFovY = tan(viewInfo.HalfVFovRadians);
+    vec3 rayDirView = vec3(ndc.x * halfFovY * viewInfo.AspectRatio, -ndc.y * halfFovY, -1.0);
+    vec3 rayDir = normalize(transpose(mat3(viewInfo.ViewMatrix)) * rayDirView);
+
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(
+        rq,
+        SceneTLAS,
+        gl_RayFlagsOpaqueEXT, // only opaque geometry is traced, so treat every hit as final (alpha clip is ignored)
+        0xFF,
+        viewInfo.CameraPosition,
+        0.001,
+        rayDir,
+        10000.0);
+    rayQueryProceedEXT(rq);
+    bool hit = rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+
+    imageStore(OutputImage, pixel, vec4(vec3(hit ? 1.0 : 0.0), 1.0));
+}

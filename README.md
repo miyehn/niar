@@ -89,7 +89,7 @@ Something like:
 
 See `config/global.ini` for properties that get loaded on program start. It gets loaded once and stays effective for the duration of the program.
 
-There's also `config/pathtracer.ini` that gets loaded when the path tracer initializes. It automatically hot reloads, so I use it for tweaking path tracer settings.
+There's also `config/cpuPathTracer.ini` that gets loaded when the path tracer initializes. It automatically hot reloads, so I use it for tweaking path tracer settings.
 
 ### By the way, I named the CMake targets after my OCs (original characters)
 
