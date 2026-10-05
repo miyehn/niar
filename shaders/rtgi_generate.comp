@@ -25,7 +25,7 @@ layout(set = 0, binding = 8) uniform RtgiPointLightsInfo {
 layout(set = 0, binding = 9) uniform RtgiDirectionalLightsInfo {
     DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 } DirectionalLights;
-layout(set = 0, binding = 10) uniform sampler2D RtgiReadHistory;
+layout(set = 0, binding = 10, rgba16f) uniform readonly image2D RtgiReadHistory;
 layout(set = 0, binding = 11, rgba16f) uniform writeonly image2D RtgiWriteHistory;
 layout(set = 0, binding = 12, r32ui) uniform readonly uimage2D RtgiReadSampleCount;
 layout(set = 0, binding = 13, r32ui) uniform writeonly uimage2D RtgiWriteSampleCount;
@@ -171,7 +171,7 @@ void main()
 
     // Validate history by plane distance .Rebuild last frame's surface point from the stored depth along that texel's
     // (jittered) ray and measure its distance to this pixel's tangent plane, which is ~0 for the same static surface.
-    float storedPrevDepth = prevUvInBounds ? texelFetch(RtgiReadHistory, prevPixel, 0).a : 0.0; // last frame's linearDepth
+    float storedPrevDepth = prevUvInBounds ? imageLoad(RtgiReadHistory, prevPixel).a : 0.0; // last frame's linearDepth
     float planeDistance = 0.0;
     if (storedPrevDepth > 0.0) {
         vec3 prevWorldPos = reconstructPrevWorldPosition(prevPixel, storedPrevDepth, viewInfo, vec2(dims));
@@ -201,7 +201,7 @@ void main()
 
     // temporal accumulation: running average capped at MaxSampleCount
     uint prevCount = validReprojection ? (imageLoad(RtgiReadSampleCount, prevPixel).r & SAMPLE_COUNT_MASK) : 0u;
-    vec3 prevAccumulated = validReprojection ? texelFetch(RtgiReadHistory, prevPixel, 0).rgb : vec3(0.0);
+    vec3 prevAccumulated = validReprojection ? imageLoad(RtgiReadHistory, prevPixel).rgb : vec3(0.0);
     vec3 accumulated = (prevAccumulated * float(prevCount) + newSample) / float(prevCount + 1u);
 
     imageStore(RtgiWriteHistory, pixel, vec4(accumulated, linearDepth));

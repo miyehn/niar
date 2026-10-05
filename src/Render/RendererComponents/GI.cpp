@@ -99,12 +99,11 @@ void GI::init(const InitInfo& info)
 		ImageCreator historyCreator(
 			VK_FORMAT_R16G16B16A16_SFLOAT,
 			{info.sceneDepth->getWidth(), info.sceneDepth->getHeight(), 1},
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			"rtgiHistory" + std::to_string(i));
+			"rtgiHistory[" + std::to_string(i) + "]");
 		history[i] = new Texture2D(historyCreator);
-	}
-	for (uint32_t i = 0; i < 2; i++) {
+
 		ImageCreator sampleCountCreator(
 			VK_FORMAT_R32_UINT,
 			{info.sceneDepth->getWidth(), info.sceneDepth->getHeight(), 1},
@@ -126,22 +125,11 @@ void GI::init(const InitInfo& info)
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		for (const auto& historyTexture : history) {
+		// history and sample counts are storage images that stay in GENERAL for their whole lifetime
+		for (Texture2D* storageTexture : {history[0], history[1], sampleCount[0], sampleCount[1]}) {
 			vk::insertImageBarrier(
 				cmdbuf,
-				historyTexture->resource.image,
-				colorRange,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				0,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		}
-		for (const auto& sampleCountTexture : sampleCount) {
-			vk::insertImageBarrier(
-				cmdbuf,
-				sampleCountTexture->resource.image,
+				storageTexture->resource.image,
 				colorRange,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -164,7 +152,7 @@ void GI::init(const InitInfo& info)
 	giSetLayout.addBinding(Slot_SceneInstanceRecords, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 	giSetLayout.addBinding(Slot_PointLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	giSetLayout.addBinding(Slot_DirectionalLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	giSetLayout.addBinding(Slot_ReadHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	giSetLayout.addBinding(Slot_ReadHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(Slot_WriteHistory, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(Slot_ReadSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 	giSetLayout.addBinding(Slot_WriteSampleCount, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
@@ -196,7 +184,7 @@ void GI::init(const InitInfo& info)
 			giDescriptorSet.pointToBuffer(*info.sceneInstanceRecordBuffers[i], Slot_SceneInstanceRecords, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 			giDescriptorSet.pointToBuffer(*info.pointLightBuffers[i], Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 			giDescriptorSet.pointToBuffer(*info.directionalLightBuffers[i], Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-			giDescriptorSet.pointToImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory, &samplerInfo);
+			giDescriptorSet.pointToStorageImageView(history[readHistoryIndex]->imageView, Slot_ReadHistory);
 			giDescriptorSet.pointToStorageImageView(history[historyWriteSlot]->imageView, Slot_WriteHistory);
 			giDescriptorSet.pointToStorageImageView(sampleCount[readHistoryIndex]->imageView, Slot_ReadSampleCount);
 			giDescriptorSet.pointToStorageImageView(sampleCount[historyWriteSlot]->imageView, Slot_WriteSampleCount);
@@ -242,47 +230,42 @@ void GI::clear(VkCommandBuffer cmdbuf)
 
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 	const VkClearColorValue clearColor = {};
-	auto clearShaderReadTexture = [&](Texture2D* texture, VkPipelineStageFlags shaderStage)
-	{
+
+	// indirectLighting is sampled by fragment shaders, so it rests in SHADER_READ_ONLY
+	vk::insertImageBarrier(
+		cmdbuf,
+		indirectLighting->resource.image,
+		colorRange,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	vkCmdClearColorImage(
+		cmdbuf,
+		indirectLighting->resource.image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		&clearColor,
+		1,
+		&colorRange);
+	vk::insertImageBarrier(
+		cmdbuf,
+		indirectLighting->resource.image,
+		colorRange,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	// history and sample counts stay in GENERAL; compute (generate pass) reads and writes them, and fragment
+	// (post-processing debug view) reads the sample counts
+	for (Texture2D* storageTexture : {history[0], history[1], sampleCount[0], sampleCount[1]}) {
 		vk::insertImageBarrier(
 			cmdbuf,
-			texture->resource.image,
-			colorRange,
-			shaderStage,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-		vkCmdClearColorImage(
-			cmdbuf,
-			texture->resource.image,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			&clearColor,
-			1,
-			&colorRange);
-
-		vk::insertImageBarrier(
-			cmdbuf,
-			texture->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			shaderStage,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	};
-	clearShaderReadTexture(indirectLighting, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	clearShaderReadTexture(history[0], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	clearShaderReadTexture(history[1], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-	// storage images stay in GENERAL; they are read by compute (generate pass) and fragment (post-processing debug view)
-	for (const auto& sampleCountTexture : sampleCount) {
-		vk::insertImageBarrier(
-			cmdbuf,
-			sampleCountTexture->resource.image,
+			storageTexture->resource.image,
 			colorRange,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -292,14 +275,14 @@ void GI::clear(VkCommandBuffer cmdbuf)
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		vkCmdClearColorImage(
 			cmdbuf,
-			sampleCountTexture->resource.image,
+			storageTexture->resource.image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			&clearColor,
 			1,
 			&colorRange);
 		vk::insertImageBarrier(
 			cmdbuf,
-			sampleCountTexture->resource.image,
+			storageTexture->resource.image,
 			colorRange,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -334,33 +317,26 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, uint32_t globalFram
 
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "RTGI Generate")
-		// this slot's counts were last read by the compute pass one frame ago and by the post-processing debug view
-		// two frames ago, both of which must finish before this frame's generate pass overwrites them
-		vk::insertImageBarrier(
-			cmdbuf,
-			writeSampleCount->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_GENERAL);
+		// this slot was last read by the compute pass one frame ago (history and counts) and by the post-processing
+		// debug view two frames ago (counts only), both of which must finish before this frame's generate pass
+		// overwrites it. Reads only need the execution dependency; the write access orders the previous write.
+		for (Texture2D* writeTexture : {writeHistory, writeSampleCount}) {
+			vk::insertImageBarrier(
+				cmdbuf,
+				writeTexture->resource.image,
+				colorRange,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_LAYOUT_GENERAL);
+		}
 		vk::insertImageBarrier(
 			cmdbuf,
 			indirectLighting->resource.image,
 			colorRange,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_IMAGE_LAYOUT_GENERAL);
-		vk::insertImageBarrier(
-			cmdbuf,
-			writeHistory->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT,
@@ -386,27 +362,19 @@ void GI::render(VkCommandBuffer cmdbuf, uint32_t frameIndex, uint32_t globalFram
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_IMAGE_LAYOUT_GENERAL,
 			VK_IMAGE_LAYOUT_GENERAL);
-		vk::insertImageBarrier(
-			cmdbuf,
-			writeHistory->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		// sample counts are read by the next frame's generate pass and the post-processing debug view
-		vk::insertImageBarrier(
-			cmdbuf,
-			writeSampleCount->resource.image,
-			colorRange,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_GENERAL);
+		// both are read by the next frame's generate pass; the counts are also read by the post-processing debug view
+		for (Texture2D* writeTexture : {writeHistory, writeSampleCount}) {
+			vk::insertImageBarrier(
+				cmdbuf,
+				writeTexture->resource.image,
+				colorRange,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				VK_ACCESS_SHADER_READ_BIT,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_LAYOUT_GENERAL);
+		}
 	}
 
 	vk::insertImageBarrier(
