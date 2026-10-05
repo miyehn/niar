@@ -43,17 +43,6 @@ layout(push_constant) uniform RtgiPushConstants {
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-vec3 sampleBackground(ViewInfo viewInfo, vec3 rayDir)
-{
-    if (viewInfo.BackgroundOption == 1) {
-        return sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
-    }
-    if (viewInfo.BackgroundOption == 2) {
-        return sampleSkyAtmosphere(rayDir);
-    }
-    return vec3(0.0);
-}
-
 vec3 shadeInvalid()
 {
     return vec3(1, 0, 1) * 0.05;
@@ -146,7 +135,14 @@ void main()
     }
     RayHitResult hitResult = interpretFinalRayQuery(rq);
 
-    vec3 newSample = hitResult.intersectionType != RAY_HIT_NONE ? shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x) : sampleBackground(viewInfo, rayDir);
+    vec3 newSample = vec3(0.0);
+    if (hitResult.intersectionType != RAY_HIT_NONE) {
+        newSample = shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x);
+    } else if (viewInfo.BackgroundOption == 1) {
+        newSample = sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
+    } else if (viewInfo.BackgroundOption == 2) {
+        newSample = sampleSkyAtmosphere(rayDir);
+    }
 
     // per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass, independent of jitter
     vec2 motionVector = texture(MotionVectors, screenUv).rg;

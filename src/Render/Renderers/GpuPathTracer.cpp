@@ -1,10 +1,13 @@
 #include "GpuPathTracer.h"
+#include "Assets/ConfigAsset.hpp"
+#include "Assets/EnvironmentMapAsset.h"
 #include "Render/BindlessResources.h"
 #include "Render/Materials/ComputeShader.h"
 #include "Render/Texture.h"
 #include "Render/Vulkan/ImageCreator.h"
 #include "Render/Vulkan/VulkanUtils.h"
 #include "Scene/MeshObject.h"
+#include "Scene/SkyAtmosphere.h"
 
 #include <imgui.h>
 
@@ -20,22 +23,26 @@ constexpr uint32_t Slot_OutputImage = 2;
 constexpr uint32_t Slot_SceneInstanceRecords = 3;
 constexpr uint32_t Slot_PointLights = 4;
 constexpr uint32_t Slot_DirectionalLights = 5;
+constexpr uint32_t Slot_EnvironmentMap = 6;
 
 class GpuPathTracerCS : public ComputeShader
 {
 public:
 	const DescriptorSet* descriptorSetPtr = nullptr;
+	const DescriptorSet* skyDescriptorSetPtr = nullptr;
 	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
 		ASSERT(cmdbuf != VK_NULL_HANDLE)
 		ASSERT(descriptorSetPtr != nullptr)
+		ASSERT(skyDescriptorSetPtr != nullptr)
 		ASSERT(bindlessDescriptorSetPtr != nullptr)
 
 		auto& pipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
 		descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipeline.layout);
+		skyDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
 		bindlessDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_BINDLESS, pipeline.layout);
 		vkCmdDispatch(cmdbuf, groupCountX, groupCountY, groupCountZ);
 	}
@@ -44,9 +51,11 @@ protected:
 	void configurePipeline(ComputePipelineBuilder& builder) override
 	{
 		ASSERT(descriptorSetPtr != nullptr)
+		ASSERT(skyDescriptorSetPtr != nullptr)
 		ASSERT(bindlessDescriptorSetPtr != nullptr)
 		builder.shaderDef = ShaderModuleDef("shaders/gpu_path_tracer.comp", "main", SS_Compute);
 		builder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, descriptorSetPtr->getLayout());
+		builder.useDescriptorSetLayout(DSET_INDEPENDENT, skyDescriptorSetPtr->getLayout());
 		builder.useDescriptorSetLayout(DSET_BINDLESS, bindlessDescriptorSetPtr->getLayout());
 	}
 };
@@ -78,6 +87,11 @@ GpuPathTracer::GpuPathTracer()
 	});
 
 	sceneTlas.init("GpuPathTracer");
+	skyAtmosphereRender.init();
+
+	const Texture2D* envmap = Config->lookup<int>("LoadEnvironmentMap")
+		? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D
+		: Texture2D::black();
 
 	DescriptorSetLayout layout{};
 	layout.addBinding(Slot_ViewInfo, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
@@ -86,6 +100,7 @@ GpuPathTracer::GpuPathTracer()
 	layout.addBinding(Slot_SceneInstanceRecords, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 	layout.addBinding(Slot_PointLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout.addBinding(Slot_DirectionalLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	layout.addBinding(Slot_EnvironmentMap, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		auto& fd = gpuFrameData[i];
@@ -114,12 +129,14 @@ GpuPathTracer::GpuPathTracer()
 		fd.descriptorSet.pointToBuffer(sceneTlas.getSceneInstanceRecordBuffer(i), Slot_SceneInstanceRecords, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		fd.descriptorSet.pointToBuffer(fd.pointLightsUbo, Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToBuffer(fd.directionalLightsUbo, Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		fd.descriptorSet.pointToImageView(envmap->imageView, Slot_EnvironmentMap);
 	}
 }
 
 GpuPathTracer::~GpuPathTracer()
 {
 	sceneTlas.release();
+	skyAtmosphereRender.release();
 	for (auto& fd : gpuFrameData) {
 		fd.viewInfoUbo.release();
 		fd.pointLightsUbo.release();
@@ -140,9 +157,12 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 		if (auto* mo = dynamic_cast<MeshObject*>(obj)) meshes.push_back(mo);
 	}, [](SceneObject* obj) { return obj->enabled(); });
 
+	SkyAtmosphere* sky = SkyAtmosphere::getInstance();
+
 	const auto& renderExtent = Vulkan::Instance->swapChainExtent;
 	glm::ViewInfo viewInfo = getCameraViewInfo(glm::vec2(renderExtent.width, renderExtent.height));
 	viewInfo.Exposure = cfgExposure;
+	viewInfo.BackgroundOption = getBackgroundOption(sky);
 
 	gatherLights(drawable, pointLights, directionalLights, viewInfo);
 
@@ -155,12 +175,15 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 		sceneTlas.build_from_meshes(cmdbuf, frameIndex, meshes, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	}
 
+	skyAtmosphereRender.update_luts(cmdbuf, sky);
+
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 	{
 		SCOPED_DRAW_EVENT(cmdbuf, "GpuPathTracer trace")
 		ASSERT(BindlessResources::Instance != nullptr)
 		auto* pathTracerCS = ComputeShader::getInstance<GpuPathTracerCS>();
 		pathTracerCS->descriptorSetPtr = &fd.descriptorSet;
+		pathTracerCS->skyDescriptorSetPtr = &skyAtmosphereRender.get_descriptor_set(sky);
 		pathTracerCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();
 		pathTracerCS->dispatch(
 			cmdbuf,

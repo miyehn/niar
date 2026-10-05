@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Render/RendererComponents/SceneTlas.h"
+#include "Render/RendererComponents/SkyAtmosphereRender.h"
 #include "Render/Vulkan/DescriptorSet.h"
 #include "Render/Vulkan/Buffer.h"
 #include "Renderer.h"
@@ -27,6 +28,7 @@ private:
 
 	Texture2D* outImage = nullptr;
 	SceneTlas sceneTlas;
+	SkyAtmosphereRender skyAtmosphereRender;
 
 	glm::PointLightInfo pointLights[MAX_LIGHTS_PER_PASS];
 	glm::DirectionalLightInfo directionalLights[MAX_LIGHTS_PER_PASS];

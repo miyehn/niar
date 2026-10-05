@@ -7,6 +7,18 @@
 #include "Render/Vulkan/Vulkan.hpp"
 #endif
 
+class SkyAtmosphere;
+
+enum BackgroundOption {
+	BG_None,
+	BG_EnvironmentMap,
+	BG_SkyAtmosphere
+};
+
+// what to show where rays escape the scene: the sky atmosphere if there is an enabled one, else the environment map
+// if one is loaded, else nothing
+BackgroundOption getBackgroundOption(const SkyAtmosphere* sky);
+
 class Renderer
 {
 protected:

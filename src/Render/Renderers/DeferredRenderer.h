@@ -35,12 +35,6 @@ ConfigAsset* get_deferred_config();
 // post process
 #define DEFERRED_SUBPASS_POSTPROCESSING 0
 
-enum BackgroundOption {
-	BG_None,
-	BG_EnvironmentMap,
-	BG_SkyAtmosphere
-};
-
 class DeferredRenderer : public Renderer
 {
 public:

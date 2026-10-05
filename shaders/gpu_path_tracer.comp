@@ -5,6 +5,7 @@
 
 #include "rt_common.glsl"
 #include "scene_common.glsl"
+#include "sky_common.glsl"
 #include "utils.glsl"
 #include "cshared/lights.h"
 
@@ -20,6 +21,11 @@ layout(set = DSET_FRAMEGLOBAL, binding = 4) uniform PointLightsInfo {
 layout(set = DSET_FRAMEGLOBAL, binding = 5) uniform DirectionalLightsInfo {
     DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 } DirectionalLights;
+layout(set = DSET_FRAMEGLOBAL, binding = 6) uniform sampler2D EnvironmentMap;
+
+// (set 1, binding 0) sky parameters
+// (set 1, binding 8) transmittance
+// (set 1, binding 9) skyview
 
 #include "lighting_common.glsl"
 
@@ -68,7 +74,7 @@ void main()
     }
     RayHitResult hitResult = interpretFinalRayQuery(rq);
 
-    vec3 radiance = vec3(0.0); // black background
+    vec3 radiance = vec3(0.0);
     if (hitResult.intersectionType != RAY_HIT_NONE) {
         GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
         HitSurface surface;
@@ -77,6 +83,10 @@ void main()
         } else {
             radiance = vec3(1.0, 0.0, 1.0); // invalid hit
         }
+    } else if (viewInfo.BackgroundOption == 1) {
+        radiance = sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
+    } else if (viewInfo.BackgroundOption == 2) {
+        radiance = sampleSkyAtmosphere(rayDir);
     }
 
     // exposure and tone mapping, as in post_processing.frag

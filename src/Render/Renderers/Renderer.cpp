@@ -3,7 +3,9 @@
 //
 
 #include "Renderer.h"
+#include "Assets/ConfigAsset.hpp"
 #include "Scene/Light.hpp"
+#include "Scene/SkyAtmosphere.h"
 #include "Utils/myn/Sample.h"
 
 namespace
@@ -123,4 +125,11 @@ void Renderer::gatherLights(
 	});
 	viewInfo.NumPointLights = numPointLights;
 	viewInfo.NumDirectionalLights = numDirectionalLights;
+}
+
+BackgroundOption getBackgroundOption(const SkyAtmosphere* sky)
+{
+	if (sky && sky->enabled()) return BG_SkyAtmosphere;
+	if (Config->lookup<int>("LoadEnvironmentMap")) return BG_EnvironmentMap;
+	return BG_None;
 }

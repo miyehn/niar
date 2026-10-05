@@ -893,13 +893,7 @@ void DeferredRenderer::render(VkCommandBuffer cmdbuf)
         viewInfo.ToneMappingOption = cfgToneMappingOption;
 
         // background option
-        if (SkyAtmosphere::getInstance()->enabled()) {
-            viewInfo.BackgroundOption = BG_SkyAtmosphere;
-        } else if (Config->lookup<int>("LoadEnvironmentMap")) {
-            viewInfo.BackgroundOption = BG_EnvironmentMap;
-        } else {
-            viewInfo.BackgroundOption = BG_None;
-        }
+        viewInfo.BackgroundOption = getBackgroundOption(SkyAtmosphere::getInstance());
 
         auto& fd = gpuFrameData[Vulkan::Instance->getCurrentFrameIndex()];
         fd.viewInfoUbo.writeData(&viewInfo, sizeof(viewInfo));
