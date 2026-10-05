@@ -61,7 +61,7 @@ bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise)
 
     float albedoAlpha = sampleBindlessTexture2DLod(material.textureIndices[GLTF_MATERIAL_TEXTURE_ALBEDO], uv, 0.0).a;
     if (!translucent) {
-        return albedoAlpha > clipThreshold;
+        return albedoAlpha >= clipThreshold;
     }
 
     // each candidate gets its own random number, so that layered translucent surfaces are decided independently

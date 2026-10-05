@@ -19,7 +19,7 @@ void main() {
     GpuMaterial material = getGltfMaterial(pc.MaterialIndex);
 
     vec4 albedoSample = sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_ALBEDO, uv);
-    if (albedoSample.a <= material.emissiveFactorAndClipThreshold.a) discard;
+    if (albedoSample.a < material.emissiveFactorAndClipThreshold.a) discard;
 
     vec3 color = albedoSample.rgb * material.baseColorFactor.rgb;
 
