@@ -1,7 +1,13 @@
 #include "cshared/lights.h"
-// includers declare SceneInstanceRecords and define SCENE_INSTANCE_RECORDS_AVAILABLE 1 before this (see rt_common.glsl)
 #include "rt_common.glsl"
 #include "gltf_bindless_material.glsl"
+
+// A shader that declares sampler2D EnvironmentMap and includes sky_common.glsl before this file should define
+// BACKGROUND_AVAILABLE as 1 first, so that rays escaping the scene see the sky atmosphere or the environment map
+// (per ViewInfo.BackgroundOption). Without it they see black.
+#ifndef BACKGROUND_AVAILABLE
+#define BACKGROUND_AVAILABLE 0
+#endif
 
 vec3 fresnelSchlick(float VdotH, vec3 F0)
 {
@@ -168,9 +174,23 @@ vec3 accumulateLighting(
     return result;
 }
 
-// radiance leaving a hit surface toward surface.outgoingDirection: emission + direct lighting
-vec3 shadeSurface(accelerationStructureEXT tlas, HitSurface surface, float whiteNoise)
+// radiance leaving a committed hit toward the ray's origin: emission + direct lighting. A hit that can't be
+// reconstructed shows as magenta (kept dim, since GI accumulates these)
+vec3 shadeCommittedHit(accelerationStructureEXT tlas, RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoise)
 {
+    const vec3 invalidColor = vec3(1, 0, 1) * 0.05;
+
+    if (hitResult.instanceCustomIndex == ~0u) {
+        return invalidColor;
+    }
+
+    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
+
+    HitSurface surface;
+    if (!reconstructHitSurface(hitResult, sceneInstance, rayOrigin, rayDir, surface)) {
+        return invalidColor;
+    }
+
     vec3 albedo =
         sampleBindlessTexture2DLod(surface.material.textureIndices.x, surface.uv, 0.0).rgb *
         surface.material.baseColorFactor.rgb;
@@ -193,22 +213,23 @@ vec3 shadeSurface(accelerationStructureEXT tlas, HitSurface surface, float white
         surface.outgoingDirection);
 }
 
-// radiance leaving a committed hit toward the ray's origin. A hit that can't be reconstructed shows as magenta
-// (kept dim, since GI accumulates these)
-vec3 shadeCommittedHit(accelerationStructureEXT tlas, RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoise)
+// radiance arriving along a ray that is not a shadow ray (camera ray, GI ray): the shaded surface it hits, or the
+// background where it escapes the scene
+vec3 traceRadiance(accelerationStructureEXT tlas, vec3 origin, vec3 dir, float whiteNoise)
 {
-    const vec3 invalidColor = vec3(1, 0, 1) * 0.05;
-
-    if (hitResult.instanceCustomIndex == ~0u) {
-        return invalidColor;
+    RayHitResult hitResult = traceClosestHit(tlas, origin, dir, whiteNoise);
+    if (hitResult.intersectionType != RAY_HIT_NONE) {
+        return shadeCommittedHit(tlas, hitResult, origin, dir, whiteNoise);
     }
 
-    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
-
-    HitSurface surface;
-    if (!reconstructHitSurface(hitResult, sceneInstance, rayOrigin, rayDir, surface)) {
-        return invalidColor;
+#if BACKGROUND_AVAILABLE
+    ViewInfo viewInfo = GetViewInfo();
+    if (viewInfo.BackgroundOption == 1) {
+        return sampleLongLatMap(EnvironmentMap, dir, 0.0);
     }
-
-    return shadeSurface(tlas, surface, whiteNoise);
+    if (viewInfo.BackgroundOption == 2) {
+        return sampleSkyAtmosphere(dir);
+    }
+#endif
+    return vec3(0.0);
 }

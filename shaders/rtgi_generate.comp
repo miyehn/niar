@@ -15,6 +15,7 @@ layout(set = 0, binding = 3) uniform sampler2D MotionVectors;
 layout(set = 0, binding = 4) uniform accelerationStructureEXT SceneTLAS;
 layout(set = 0, binding = 5, rgba16f) uniform image2D IndirectLighting;
 layout(set = 0, binding = 6) uniform sampler2D EnvironmentMap;
+#define BACKGROUND_AVAILABLE 1 // see lighting_common.glsl
 layout(set = 0, binding = 7, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
 };
@@ -90,16 +91,7 @@ void main()
     vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
     vec3 rayOrigin = worldPos + normal * EPSILON;
 
-    RayHitResult hitResult = traceClosestHit(SceneTLAS, rayOrigin, rayDir, random.x);
-
-    vec3 newSample = vec3(0.0);
-    if (hitResult.intersectionType != RAY_HIT_NONE) {
-        newSample = shadeCommittedHit(SceneTLAS, hitResult, rayOrigin, rayDir, random.x);
-    } else if (viewInfo.BackgroundOption == 1) {
-        newSample = sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
-    } else if (viewInfo.BackgroundOption == 2) {
-        newSample = sampleSkyAtmosphere(rayDir);
-    }
+    vec3 newSample = traceRadiance(SceneTLAS, rayOrigin, rayDir, random.x);
 
     // per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass, independent of jitter
     vec2 motionVector = texture(MotionVectors, screenUv).rg;

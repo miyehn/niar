@@ -22,6 +22,7 @@ layout(set = DSET_FRAMEGLOBAL, binding = 5) uniform DirectionalLightsInfo {
     DirectionalLightInfo Data[MAX_LIGHTS_PER_PASS];
 } DirectionalLights;
 layout(set = DSET_FRAMEGLOBAL, binding = 6) uniform sampler2D EnvironmentMap;
+#define BACKGROUND_AVAILABLE 1 // see lighting_common.glsl
 
 // (set 1, binding 0) sky parameters
 // (set 1, binding 8) transmittance
@@ -57,16 +58,7 @@ void main()
     // shared by the primary ray and the shadow rays, which tell themselves apart by ray id
     float noise = white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
 
-    RayHitResult hitResult = traceClosestHit(SceneTLAS, viewInfo.CameraPosition, rayDir, noise);
-
-    vec3 radiance = vec3(0.0);
-    if (hitResult.intersectionType != RAY_HIT_NONE) {
-        radiance = shadeCommittedHit(SceneTLAS, hitResult, viewInfo.CameraPosition, rayDir, noise);
-    } else if (viewInfo.BackgroundOption == 1) {
-        radiance = sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
-    } else if (viewInfo.BackgroundOption == 2) {
-        radiance = sampleSkyAtmosphere(rayDir);
-    }
+    vec3 radiance = traceRadiance(SceneTLAS, viewInfo.CameraPosition, rayDir, noise);
 
     // exposure and tone mapping, as in post_processing.frag
     vec3 exposed = radiance * pow(2.0, viewInfo.Exposure);
