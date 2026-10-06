@@ -61,13 +61,7 @@ void main()
 
     vec3 radiance = vec3(0.0);
     if (hitResult.intersectionType != RAY_HIT_NONE) {
-        GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
-        HitSurface surface;
-        if (reconstructHitSurface(hitResult, sceneInstance, viewInfo.CameraPosition, rayDir, surface)) {
-            radiance = shadeSurface(SceneTLAS, surface, noise);
-        } else {
-            radiance = vec3(1.0, 0.0, 1.0); // invalid hit
-        }
+        radiance = shadeCommittedHit(SceneTLAS, hitResult, viewInfo.CameraPosition, rayDir, noise);
     } else if (viewInfo.BackgroundOption == 1) {
         radiance = sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
     } else if (viewInfo.BackgroundOption == 2) {

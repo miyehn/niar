@@ -43,28 +43,6 @@ layout(push_constant) uniform RtgiPushConstants {
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-vec3 shadeInvalid()
-{
-    return vec3(1, 0, 1) * 0.05;
-}
-
-
-vec3 shadeCommittedHit(RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoise)
-{
-    if (hitResult.instanceCustomIndex == ~0u) {
-        return shadeInvalid();
-    }
-
-    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
-
-    HitSurface surface;
-    if (!reconstructHitSurface(hitResult, sceneInstance, rayOrigin, rayDir, surface)) {
-        return shadeInvalid();
-    }
-
-    return shadeSurface(SceneTLAS, surface, whiteNoise);
-}
-
 // last frame's world-space surface point at a history texel, rebuilt from the linear depth stored in history alpha
 // myn: whatever leave it for another time... or get rid of TAA some day to remove this mess :/
 vec3 reconstructPrevWorldPosition(ivec2 prevPixel, float prevLinearDepth, ViewInfo viewInfo, vec2 dims)
@@ -116,7 +94,7 @@ void main()
 
     vec3 newSample = vec3(0.0);
     if (hitResult.intersectionType != RAY_HIT_NONE) {
-        newSample = shadeCommittedHit(hitResult, rayOrigin, rayDir, random.x);
+        newSample = shadeCommittedHit(SceneTLAS, hitResult, rayOrigin, rayDir, random.x);
     } else if (viewInfo.BackgroundOption == 1) {
         newSample = sampleLongLatMap(EnvironmentMap, rayDir, 0.0);
     } else if (viewInfo.BackgroundOption == 2) {

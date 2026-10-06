@@ -193,3 +193,22 @@ vec3 shadeSurface(accelerationStructureEXT tlas, HitSurface surface, float white
         surface.outgoingDirection);
 }
 
+// radiance leaving a committed hit toward the ray's origin. A hit that can't be reconstructed shows as magenta
+// (kept dim, since GI accumulates these)
+vec3 shadeCommittedHit(accelerationStructureEXT tlas, RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoise)
+{
+    const vec3 invalidColor = vec3(1, 0, 1) * 0.05;
+
+    if (hitResult.instanceCustomIndex == ~0u) {
+        return invalidColor;
+    }
+
+    GpuSceneInstanceRecord sceneInstance = SceneInstanceRecords[hitResult.instanceCustomIndex];
+
+    HitSurface surface;
+    if (!reconstructHitSurface(hitResult, sceneInstance, rayOrigin, rayDir, surface)) {
+        return invalidColor;
+    }
+
+    return shadeSurface(tlas, surface, whiteNoise);
+}
