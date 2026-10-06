@@ -1,7 +1,16 @@
 #ifndef _SHADER_INCLUDE_RT_COMMON
 #define _SHADER_INCLUDE_RT_COMMON
 
-#include "bindless_resources.glsl"
+// A shader that declares SceneInstanceRecords (a buffer of GpuSceneInstanceRecord, indexed by the instance custom index
+// of a hit) before including this file should define SCENE_INSTANCE_RECORDS_AVAILABLE as 1 first. Without it,
+// candidateHitPassesAlpha() can't read the alpha of what a candidate hit, so it confirms every candidate (all geometry
+// is treated as opaque).
+#ifndef SCENE_INSTANCE_RECORDS_AVAILABLE
+#define SCENE_INSTANCE_RECORDS_AVAILABLE 0
+#endif
+
+#include "gltf_bindless_material.glsl"
+#include "utils.glsl"
 
 // what a ray query hit, for both committed and candidate intersections (their Vulkan enums differ)
 #define RAY_HIT_NONE 0u
@@ -266,6 +275,78 @@ out HitSurface surface)
     }
     surface.material = material;
     return true;
+}
+
+// The ray that is not a shadow ray (camera ray, GI ray). Shadow rays use 1 + the index of the light they go to.
+const uint NON_SHADOW_RAY_ID = 0u;
+
+// whether the current candidate hit of rq counts as a surface hit.
+// Opaque geometry is opaque in the BLASes, so rays commit its hits by themselves and terminates the while loop.
+// Only alpha clipped and translucent geometry produces candidate hits enter body of the while loop and get here.
+// alpha-clipped materials cut out hard at their threshold as geometry.frag does when rasterizing, and translucent ones
+// stop the ray with probability alpha.
+// whiteNoise is a per-frame per-pixel random number in [0, 1), shared by all rays shot from that pixel, and rayId tells those rays apart.
+// Without SCENE_INSTANCE_RECORDS_AVAILABLE (see the top of this file) there is no alpha to read, so every candidate passes.
+bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise, uint rayId)
+{
+#if SCENE_INSTANCE_RECORDS_AVAILABLE
+    RayHitResult candidate = interpretCandidateRayQuery(rq);
+
+    // which geometry, which material
+    GpuSceneInstanceRecord instanceRecord = SceneInstanceRecords[candidate.instanceCustomIndex];
+    GpuGeometryRecord geometry = BindlessGeometryRecords[instanceRecord.geometryRecordIndex];
+    GpuMaterial material = BindlessMaterials[instanceRecord.bindlessMaterialIndex];
+
+    bool translucent = (instanceRecord.flags & GPU_SCENE_INSTANCE_FLAG_TRANSLUCENT) != 0u;
+    float clipThreshold = material.emissiveFactorAndClipThreshold.a;
+
+    vec2 uv;
+    reconstructHitUv(candidate, geometry, uv);
+
+    float albedoAlpha = sampleBindlessTexture2DLod(material.textureIndices[GLTF_MATERIAL_TEXTURE_ALBEDO], uv, 0.0).a;
+    if (!translucent) {
+        return albedoAlpha >= clipThreshold;
+    }
+
+    // whiteNoise is shared by every candidate along the ray (and by the pixel's other rays), so it can't be compared
+    // against alpha directly: layered translucent surfaces would all see the same number and be perfectly correlated
+    // (two layers of alpha 0.5 would give a combined opacity of 0.5 instead of 0.75). Re-hashing with the candidate's
+    // identity and the ray's id gives each (ray, candidate) pair its own independent random number, while a candidate
+    // reported twice by the same ray still gets the same decision.
+    float alpha = albedoAlpha * material.baseColorFactor.a;
+    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, rayId), whiteNoise) < alpha;
+#else
+    // can't read the alpha of what the candidate hit, so assume it's opaque
+    return true;
+#endif
+}
+
+// closest hit along the ray, for rays that are not shadow rays (camera ray, GI ray).
+// Alpha-clipped and translucent surfaces are only hit where candidateHitPassesAlpha() says so.
+RayHitResult traceClosestHit(accelerationStructureEXT tlas, vec3 origin, vec3 dir, float whiteNoise)
+{
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(
+        rq,
+        tlas,
+        // ray flags:
+        0
+        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
+        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
+        // | gl_RayFlagsOpaqueEXT, // not passing this: let the flag from the blas decide if it should test against material alpha
+        ,
+        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
+              // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
+        origin,
+        0.001,
+        dir,
+        10000.0);
+    while (rayQueryProceedEXT(rq)) {
+        if (candidateHitPassesAlpha(rq, whiteNoise, NON_SHADOW_RAY_ID)) {
+            rayQueryConfirmIntersectionEXT(rq);
+        }
+    }
+    return interpretFinalRayQuery(rq);
 }
 
 #endif

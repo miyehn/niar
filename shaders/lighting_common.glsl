@@ -1,4 +1,5 @@
 #include "cshared/lights.h"
+// includers declare SceneInstanceRecords and define SCENE_INSTANCE_RECORDS_AVAILABLE 1 before this (see rt_common.glsl)
 #include "rt_common.glsl"
 #include "gltf_bindless_material.glsl"
 
@@ -35,44 +36,6 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     float g1 = geometrySub(NdotV, roughness);
     float g2 = geometrySub(NdotL, roughness);
     return g1 * g2;
-}
-
-// The ray that is not a shadow ray (camera ray, GI ray). Shadow rays use 1 + the index of the light they go to.
-const uint NON_SHADOW_RAY_ID = 0u;
-
-// whether the current candidate hit of rq counts as a surface hit.
-// Opaque geometry is opaque in the BLASes, so rays commit its hits by themselves and terminates the while loop.
-// Only alpha clipped and translucent geometry produces candidate hits enter body of the while loop and get here.
-// alpha-clipped materials cut out hard at their threshold as geometry.frag does when rasterizing, and translucent ones
-// stop the ray with probability alpha.
-// whiteNoise is a per-frame per-pixel random number in [0, 1), shared by all rays shot from that pixel, and rayId tells those rays apart.
-bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise, uint rayId)
-{
-    RayHitResult candidate = interpretCandidateRayQuery(rq);
-
-    // which geometry, which material
-    GpuSceneInstanceRecord instanceRecord = SceneInstanceRecords[candidate.instanceCustomIndex];
-    GpuGeometryRecord geometry = BindlessGeometryRecords[instanceRecord.geometryRecordIndex];
-    GpuMaterial material = BindlessMaterials[instanceRecord.bindlessMaterialIndex];
-
-    bool translucent = (instanceRecord.flags & GPU_SCENE_INSTANCE_FLAG_TRANSLUCENT) != 0u;
-    float clipThreshold = material.emissiveFactorAndClipThreshold.a;
-
-    vec2 uv;
-    reconstructHitUv(candidate, geometry, uv);
-
-    float albedoAlpha = sampleBindlessTexture2DLod(material.textureIndices[GLTF_MATERIAL_TEXTURE_ALBEDO], uv, 0.0).a;
-    if (!translucent) {
-        return albedoAlpha >= clipThreshold;
-    }
-
-    // whiteNoise is shared by every candidate along the ray (and by the pixel's other rays), so it can't be compared
-    // against alpha directly: layered translucent surfaces would all see the same number and be perfectly correlated
-    // (two layers of alpha 0.5 would give a combined opacity of 0.5 instead of 0.75). Re-hashing with the candidate's
-    // identity and the ray's id gives each (ray, candidate) pair its own independent random number, while a candidate
-    // reported twice by the same ray still gets the same decision.
-    float alpha = albedoAlpha * material.baseColorFactor.a;
-    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, rayId), whiteNoise) < alpha;
 }
 
 float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise, uint lightIndex)
@@ -229,3 +192,4 @@ vec3 shadeSurface(accelerationStructureEXT tlas, HitSurface surface, float white
         whiteNoise,
         surface.outgoingDirection);
 }
+

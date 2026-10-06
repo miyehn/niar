@@ -3,7 +3,6 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_buffer_reference_uvec2 : require
 
-#include "rt_common.glsl"
 #include "scene_common.glsl"
 #include "sky_common.glsl"
 #include "utils.glsl"
@@ -15,6 +14,7 @@ layout(set = DSET_FRAMEGLOBAL, binding = 2, rgba8) uniform writeonly image2D Out
 layout(set = DSET_FRAMEGLOBAL, binding = 3, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
 };
+#define SCENE_INSTANCE_RECORDS_AVAILABLE 1 // see rt_common.glsl
 layout(set = DSET_FRAMEGLOBAL, binding = 4) uniform PointLightsInfo {
     PointLightInfo Data[MAX_LIGHTS_PER_PASS];
 } PointLights;
@@ -57,22 +57,7 @@ void main()
     // shared by the primary ray and the shadow rays, which tell themselves apart by ray id
     float noise = white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
 
-    rayQueryEXT rq;
-    rayQueryInitializeEXT(
-        rq,
-        SceneTLAS,
-        0, // not passing gl_RayFlagsOpaqueEXT here. Let flag from blas decide if it should test against material alpha
-        0xFF,
-        viewInfo.CameraPosition,
-        0.001,
-        rayDir,
-        10000.0);
-    while (rayQueryProceedEXT(rq)) {
-        if (candidateHitPassesAlpha(rq, noise, NON_SHADOW_RAY_ID)) {
-            rayQueryConfirmIntersectionEXT(rq);
-        }
-    }
-    RayHitResult hitResult = interpretFinalRayQuery(rq);
+    RayHitResult hitResult = traceClosestHit(SceneTLAS, viewInfo.CameraPosition, rayDir, noise);
 
     vec3 radiance = vec3(0.0);
     if (hitResult.intersectionType != RAY_HIT_NONE) {

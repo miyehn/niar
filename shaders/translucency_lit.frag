@@ -21,6 +21,7 @@ layout(set = 0, binding = 9) uniform sampler2D IndirectLighting;
 layout(set = 0, binding = 10, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
 };
+#define SCENE_INSTANCE_RECORDS_AVAILABLE 1 // see rt_common.glsl
 
 #include "lighting_common.glsl"
 

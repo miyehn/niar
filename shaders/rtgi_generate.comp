@@ -3,7 +3,6 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_buffer_reference_uvec2 : require
 
-#include "rt_common.glsl"
 #include "scene_common.glsl"
 #include "sky_common.glsl"
 #include "bindless_resources.glsl"
@@ -19,6 +18,7 @@ layout(set = 0, binding = 6) uniform sampler2D EnvironmentMap;
 layout(set = 0, binding = 7, std430) readonly buffer SceneInstanceRecordTable {
     GpuSceneInstanceRecord SceneInstanceRecords[];
 };
+#define SCENE_INSTANCE_RECORDS_AVAILABLE 1 // see rt_common.glsl
 layout(set = 0, binding = 8) uniform RtgiPointLightsInfo {
     PointLightInfo Data[MAX_LIGHTS_PER_PASS];
 } PointLights;
@@ -112,28 +112,7 @@ void main()
     vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
     vec3 rayOrigin = worldPos + normal * EPSILON;
 
-    rayQueryEXT rq;
-    rayQueryInitializeEXT(
-        rq,
-        SceneTLAS,
-        // ray flags:
-        0
-        // | gl_RayFlagsTerminateOnFirstHitEXT // with this flag present, may terminate at ANY hit, not necessarily closest
-        // | gl_RayFlagsSkipClosestHitShaderEXT // only relevant when in ray tracing pipeline
-        // | gl_RayFlagsOpaqueEXT,
-        ,
-        0xFF, // cull mask, see: https://github.com/KhronosGroup/GLSL/blob/d2470a0a124bbb8c90a3576aca94694bd2f789e0/extensions/ext/GLSL_EXT_ray_query.txt#L286
-              // basically, the 8 bits will be combined with the mask field in VkAccelerationStructureInstanceKHR. Visible if result is non-zero.
-        rayOrigin,
-        0.001,
-        rayDir,
-        10000.0);
-    while (rayQueryProceedEXT(rq)) {
-        if (candidateHitPassesAlpha(rq, random.x, NON_SHADOW_RAY_ID)) {
-            rayQueryConfirmIntersectionEXT(rq);
-        }
-    }
-    RayHitResult hitResult = interpretFinalRayQuery(rq);
+    RayHitResult hitResult = traceClosestHit(SceneTLAS, rayOrigin, rayDir, random.x);
 
     vec3 newSample = vec3(0.0);
     if (hitResult.intersectionType != RAY_HIT_NONE) {
