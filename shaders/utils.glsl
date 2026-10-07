@@ -22,12 +22,32 @@ uint hash_combine(uint a, uint b)
     return pcg_hash(a ^ pcg_hash(b + 0x9E3779B9u));
 }
 
-float white_noise01(uvec3 xyz, float noise)
+// Naming of white noise values: "whiteNoise" followed by what the value is unique to (every component of a vector
+// value is unique to all of these, and independent of the others):
+//   XY: the texel (pixel)
+//   F:  the frame (WhiteNoiseF, which the CPU makes anew for every frame, is what makes noise unique per frame)
+//   R:  the ray
+//   B:  the bounce (a vertex of a path; shared by the bounce ray and the shadow rays shot from that vertex)
+// e.g. whiteNoiseXYF is unique per texel per frame, but shared by all the rays shot from that texel in that frame.
+// Parameters that need a particular kind of noise say so in their names. Neither the salt of white_noise01() nor the
+// sample of sampleCosineWeightedHemisphere() carries such a suffix: they take whatever kind the caller has.
+float white_noise01(uvec4 xyzw)
 {
-    uint h = hash_combine(xyz.x, floatBitsToUint(noise));
-    h = hash_combine(h, xyz.y);
-    h = hash_combine(h, xyz.z);
+    uint h = hash_combine(xyzw.x, xyzw.w);
+    h = hash_combine(h, xyzw.y);
+    h = hash_combine(h, xyzw.z);
     return float(h >> 8u) * (1.0f / 16777216.0f);
+}
+
+// the result is unique to xyz and to the salt, which is any noise value the result should also be unique to
+float white_noise01(uvec3 xyz, float salt)
+{
+    return white_noise01(uvec4(xyz, floatBitsToUint(salt)));
+}
+
+float white_noise01(uvec2 xy, float salt)
+{
+    return white_noise01(uvec3(xy, 0u), salt);
 }
 
 vec3 sampleLongLatMap(sampler2D map, vec3 dir, float mipLevel)
@@ -74,11 +94,12 @@ vec3 buildTangent(vec3 normal)
     return normalize(cross(up, normal));
 }
 
-vec3 sampleCosineWeightedHemisphere(vec3 normal, vec2 random)
+// u: a uniformly distributed random point in [0, 1)^2
+vec3 sampleCosineWeightedHemisphere(vec3 normal, vec2 u)
 {
-    float r = sqrt(random.x);
-    float phi = TWO_PI * random.y;
-    vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - random.x)));
+    float r = sqrt(u.x);
+    float phi = TWO_PI * u.y;
+    vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - u.x)));
 
     vec3 tangent = buildTangent(normal);
     vec3 bitangent = cross(normal, tangent);

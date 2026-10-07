@@ -44,7 +44,7 @@ float geometrySmith(float NdotL, float NdotV, float roughness)
     return g1 * g2;
 }
 
-float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoise, uint lightIndex)
+float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, vec3 dirToLight, float tMax, float whiteNoiseXYF, uint lightIndex)
 {
     const vec3 rayOrigin = worldPos + normal * 0.005;
 
@@ -59,9 +59,11 @@ float shadowFactor(accelerationStructureEXT tlas, vec3 worldPos, vec3 normal, ve
         dirToLight,
         tMax);
 
+    // unique per light only: once a pixel shades more than one vertex of a path, this needs noise that is unique per bounce
+    float whiteNoiseXYFR = makeWhiteNoiseXYFR(whiteNoiseXYF, NOISE_KIND_SHADOW_RAY, lightIndex);
     // opaque geometry auto-commits; only alpha clipped and translucent geometry generates candidates
     while (rayQueryProceedEXT(rq)) {
-        if (candidateHitPassesAlpha(rq, whiteNoise, 1u + lightIndex)) {
+        if (candidateHitPassesAlpha(rq, whiteNoiseXYFR)) {
             rayQueryConfirmIntersectionEXT(rq);
         }
     }
@@ -117,7 +119,7 @@ vec3 accumulateLighting(
     vec3 normal,
     vec3 albedo,
     vec3 orm,
-    float whiteNoise,
+    float whiteNoiseXYF,
     vec3 outgoingDirection)
 {
     float metallic = orm.b;
@@ -139,7 +141,7 @@ vec3 accumulateLighting(
         vec3 dirToLight = toLight / dist;
         float atten = 1.0 / dot(toLight, toLight);
         vec3 radiance = PointLights.Data[i].color * atten;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, whiteNoise, uint(i));
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, dist - EPSILON, whiteNoiseXYF, uint(i));
 
         result += evaluateLight(
             albedo,
@@ -158,7 +160,7 @@ vec3 accumulateLighting(
         vec3 lightDir = DirectionalLights.Data[i].direction;
         vec3 dirToLight = normalize(-lightDir);
         vec3 radiance = DirectionalLights.Data[i].color;
-        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, whiteNoise, uint(viewInfo.NumPointLights + i));
+        float shadow = shadowFactor(tlas, worldPos, normal, dirToLight, 10000.0, whiteNoiseXYF, uint(viewInfo.NumPointLights + i));
 
         result += evaluateLight(
             albedo,
@@ -176,7 +178,7 @@ vec3 accumulateLighting(
 
 // radiance leaving a committed hit toward the ray's origin: emission + direct lighting. A hit that can't be
 // reconstructed shows as magenta (kept dim, since GI accumulates these)
-vec3 shadeCommittedHit(accelerationStructureEXT tlas, RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoise)
+vec3 shadeCommittedHit(accelerationStructureEXT tlas, RayHitResult hitResult, vec3 rayOrigin, vec3 rayDir, float whiteNoiseXYF)
 {
     const vec3 invalidColor = vec3(1, 0, 1) * 0.05;
 
@@ -191,35 +193,26 @@ vec3 shadeCommittedHit(accelerationStructureEXT tlas, RayHitResult hitResult, ve
         return invalidColor;
     }
 
-    vec3 albedo =
-        sampleBindlessTexture2DLod(surface.material.textureIndices.x, surface.uv, 0.0).rgb *
-        surface.material.baseColorFactor.rgb;
-    vec3 emission =
-        sampleBindlessTexture2DLod(surface.material.textureIndices.w, surface.uv, 0.0).rgb *
-        surface.material.emissiveFactorAndClipThreshold.rgb;
-    vec3 orm =
-        sampleBindlessTexture2DLod(surface.material.textureIndices.z, surface.uv, 0.0).rgb *
-        surface.material.ormAndNormalStrength.rgb;
-    orm.g = clamp(orm.g, 0.04, 1.0); // roughness
-    orm.b = clamp(orm.b, 0.0, 1.0); // metallic
+    SurfaceMaterial material = fetchSurfaceMaterial(surface);
 
-    return emission + accumulateLighting(
+    return material.emission + accumulateLighting(
         tlas,
         surface.worldPosition,
         surface.worldNormal,
-        albedo,
-        orm,
-        whiteNoise,
+        material.albedo,
+        material.orm,
+        whiteNoiseXYF,
         surface.outgoingDirection);
 }
 
 // radiance arriving along a ray that is not a shadow ray (camera ray, GI ray): the shaded surface it hits, or the
 // background where it escapes the scene
-vec3 traceRadiance(accelerationStructureEXT tlas, vec3 origin, vec3 dir, float whiteNoise)
+vec3 traceRadiance(accelerationStructureEXT tlas, vec3 origin, vec3 dir, float whiteNoiseXYF)
 {
-    RayHitResult hitResult = traceClosestHit(tlas, origin, dir, whiteNoise);
+    float whiteNoiseXYFR = makeWhiteNoiseXYFR(whiteNoiseXYF, NOISE_KIND_PATH_RAY, 0u);
+    RayHitResult hitResult = traceClosestHit(tlas, origin, dir, whiteNoiseXYFR);
     if (hitResult.intersectionType != RAY_HIT_NONE) {
-        return shadeCommittedHit(tlas, hitResult, origin, dir, whiteNoise);
+        return shadeCommittedHit(tlas, hitResult, origin, dir, whiteNoiseXYF);
     }
 
 #if BACKGROUND_AVAILABLE

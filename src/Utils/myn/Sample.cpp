@@ -1,12 +1,35 @@
 #include "Sample.h"
 #include "Misc.h"
+#include <cstdint>
+#include <atomic>
 
 namespace myn {
 
 using namespace glm;
 
+namespace {
+
+// 32-bit integer hash (the PCG output function; the shaders use the same one)
+uint32_t pcgHash(uint32_t value)
+{
+	uint32_t state = value * 747796405u + 2891336453u;
+	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
+}
+
+std::atomic<uint32_t> rand01Seed{0};
+std::atomic<uint32_t> nextThreadIndex{0};
+
+}
+
+void sample::seed_rand01(uint32_t seed) {
+	rand01Seed = seed;
+}
+
 float sample::rand01() {
-	return float(rand()) / float(RAND_MAX);
+	thread_local uint32_t counter = pcgHash(rand01Seed.load() + pcgHash(nextThreadIndex++));
+	// the top 24 bits fill a float's mantissa exactly, so the result is never 1
+	return float(pcgHash(counter++) >> 8) * (1.0f / 16777216.0f);
 }
 
 vec2 sample::unit_square_uniform() {

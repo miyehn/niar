@@ -74,7 +74,7 @@ glm::ViewInfo Renderer::getCameraViewInfo(glm::vec2 renderSize, bool applyJitter
 	viewInfo.FrameIndex = 0;
 #endif
 
-	viewInfo.FrameRandom = glm::vec4(
+	viewInfo.WhiteNoiseF = glm::vec4(
 		myn::sample::rand01(),
 		myn::sample::rand01(),
 		myn::sample::rand01(),

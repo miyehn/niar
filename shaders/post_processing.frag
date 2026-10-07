@@ -119,7 +119,7 @@ void main()
     }
 
 //    FragColor = vec4(0, 0, 0, 1);
-//    FragColor.r = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.FrameRandom.r);
-//    FragColor.g = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.FrameRandom.g);
-//    FragColor.b = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.FrameRandom.b);
+//    FragColor.r = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.WhiteNoiseF.r);
+//    FragColor.g = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.WhiteNoiseF.g);
+//    FragColor.b = white_noise01(uvec3(uint(gl_FragCoord.y), uint(gl_FragCoord.x), viewInfo.FrameIndex), viewInfo.WhiteNoiseF.b);
 }

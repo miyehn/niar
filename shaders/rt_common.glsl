@@ -277,17 +277,48 @@ out HitSurface surface)
     return true;
 }
 
-// The ray that is not a shadow ray (camera ray, GI ray). Shadow rays use 1 + the index of the light they go to.
-const uint NON_SHADOW_RAY_ID = 0u;
+struct SurfaceMaterial
+{
+    vec3 albedo;
+    vec3 emission;
+    vec3 orm;
+};
+
+SurfaceMaterial fetchSurfaceMaterial(HitSurface surface)
+{
+    SurfaceMaterial material;
+    material.albedo =
+        sampleBindlessTexture2DLod(surface.material.textureIndices[GLTF_MATERIAL_TEXTURE_ALBEDO], surface.uv, 0.0).rgb *
+        surface.material.baseColorFactor.rgb;
+    material.emission =
+        sampleBindlessTexture2DLod(surface.material.textureIndices[GLTF_MATERIAL_TEXTURE_EMISSIVE], surface.uv, 0.0).rgb *
+        surface.material.emissiveFactorAndClipThreshold.rgb;
+    material.orm =
+        sampleBindlessTexture2DLod(surface.material.textureIndices[GLTF_MATERIAL_TEXTURE_ORM], surface.uv, 0.0).rgb *
+        surface.material.ormAndNormalStrength.rgb;
+    material.orm.g = clamp(material.orm.g, 0.04, 1.0); // roughness
+    material.orm.b = clamp(material.orm.b, 0.0, 1.0); // metallic
+    return material;
+}
+
+// What a noise value it is for:
+const uint NOISE_KIND_PATH_RAY = 0u;       // rayIndex: the depth of the ray in its path (the camera ray is 0)
+const uint NOISE_KIND_SHADOW_RAY = 1u;     // rayIndex: the index of the light the shadow ray goes to
+const uint NOISE_KIND_NEXT_DIRECTION = 2u; // rayIndex: the depth of the path vertex that picks the direction (two values)
+// noise unique to one ray of a pixel. Whoever shoots a ray derives this once and hands it to the functions that trace it.
+float makeWhiteNoiseXYFR(float whiteNoiseXYF, uint rayKind, uint rayIndex)
+{
+    return white_noise01(uvec3(rayIndex, rayKind, 0u), whiteNoiseXYF);
+}
 
 // whether the current candidate hit of rq counts as a surface hit.
 // Opaque geometry is opaque in the BLASes, so rays commit its hits by themselves and terminates the while loop.
 // Only alpha clipped and translucent geometry produces candidate hits enter body of the while loop and get here.
 // alpha-clipped materials cut out hard at their threshold as geometry.frag does when rasterizing, and translucent ones
 // stop the ray with probability alpha.
-// whiteNoise is a per-frame per-pixel random number in [0, 1), shared by all rays shot from that pixel, and rayId tells those rays apart.
+// whiteNoiseXYFR is the noise of the ray that rq was shot for, see makeWhiteNoiseXYFR().
 // Without SCENE_INSTANCE_RECORDS_AVAILABLE (see the top of this file) there is no alpha to read, so every candidate passes.
-bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise, uint rayId)
+bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoiseXYFR)
 {
 #if SCENE_INSTANCE_RECORDS_AVAILABLE
     RayHitResult candidate = interpretCandidateRayQuery(rq);
@@ -308,22 +339,23 @@ bool candidateHitPassesAlpha(rayQueryEXT rq, float whiteNoise, uint rayId)
         return albedoAlpha >= clipThreshold;
     }
 
-    // whiteNoise is shared by every candidate along the ray (and by the pixel's other rays), so it can't be compared
-    // against alpha directly: layered translucent surfaces would all see the same number and be perfectly correlated
-    // (two layers of alpha 0.5 would give a combined opacity of 0.5 instead of 0.75). Re-hashing with the candidate's
-    // identity and the ray's id gives each (ray, candidate) pair its own independent random number, while a candidate
-    // reported twice by the same ray still gets the same decision.
+    // whiteNoiseXYFR is shared by every candidate along the ray, so it can't be compared against alpha directly:
+    // layered translucent surfaces would all see the same number and be perfectly correlated (two layers of alpha 0.5
+    // would give a combined opacity of 0.5 instead of 0.75). Re-hashing with the candidate's identity gives each
+    // (ray, candidate) pair its own independent random number, while a candidate reported twice by the same ray still
+    // gets the same decision.
     float alpha = albedoAlpha * material.baseColorFactor.a;
-    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, rayId), whiteNoise) < alpha;
+    return white_noise01(uvec3(candidate.instanceCustomIndex, candidate.primitiveIndex, 0u), whiteNoiseXYFR) < alpha;
 #else
     // can't read the alpha of what the candidate hit, so assume it's opaque
     return true;
 #endif
 }
 
-// closest hit along the ray, for rays that are not shadow rays (camera ray, GI ray).
+// closest hit along the ray, for rays that are not shadow rays (camera ray, path bounces, GI ray).
 // Alpha-clipped and translucent surfaces are only hit where candidateHitPassesAlpha() says so.
-RayHitResult traceClosestHit(accelerationStructureEXT tlas, vec3 origin, vec3 dir, float whiteNoise)
+// whiteNoiseXYFR is the noise of this ray, see makeWhiteNoiseXYFR(). It decides the alpha tests along the ray.
+RayHitResult traceClosestHit(accelerationStructureEXT tlas, vec3 origin, vec3 dir, float whiteNoiseXYFR)
 {
     rayQueryEXT rq;
     rayQueryInitializeEXT(
@@ -342,7 +374,7 @@ RayHitResult traceClosestHit(accelerationStructureEXT tlas, vec3 origin, vec3 di
         dir,
         10000.0);
     while (rayQueryProceedEXT(rq)) {
-        if (candidateHitPassesAlpha(rq, whiteNoise, NON_SHADOW_RAY_ID)) {
+        if (candidateHitPassesAlpha(rq, whiteNoiseXYFR)) {
             rayQueryConfirmIntersectionEXT(rq);
         }
     }

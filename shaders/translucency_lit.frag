@@ -54,7 +54,7 @@ void main() {
         sampleGltfMaterialTexture(material, GLTF_MATERIAL_TEXTURE_EMISSIVE, uv).rgb;
     ViewInfo viewInfo = GetViewInfo();
     vec3 worldPos = vf_relWorldPos.xyz + viewInfo.CameraPosition;
-    float noise = white_noise01(uvec3(uvec2(gl_FragCoord.xy), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
+    float whiteNoiseXYF = white_noise01(uvec2(gl_FragCoord.xy), viewInfo.WhiteNoiseF.x);
 
     vec3 litResult = emission + accumulateLighting(
         SceneTLAS,
@@ -62,7 +62,7 @@ void main() {
         normal,
         baseColor.rgb,
         orm,
-        noise,
+        whiteNoiseXYF,
         normalize(viewInfo.CameraPosition - worldPos)
     );
 

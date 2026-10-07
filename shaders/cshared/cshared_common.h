@@ -57,7 +57,7 @@ struct CSHARED_ALIGNAS_16 ViewInfo
 	int BackgroundOption;
 	uint FrameIndex;
 	vec2 RenderSize;
-	vec4 FrameRandom;
+	vec4 WhiteNoiseF; // four independent white noise values, unique per frame
 	vec2 JitterOffset; // in pixels
 	vec2 PrevJitterOffset; // in pixels, the jitter applied to the previous frame's ProjectionMatrix
 };

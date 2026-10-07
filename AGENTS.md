@@ -173,7 +173,8 @@ inline implementations.
   `taa:` sub-sections (`enabled`, `maxSampleCount`, `historyDepthRejectionThreshold`,
   `historyWeight`, `clampExpansion`). (The roadmap still calls this `config/gi.ini`; the
   actual file is `deferred.ini`.)
-- **`cpuPathTracer.ini`**, **`skyAtmosphere.ini`** — hot-reloadable tuning.
+- **`cpuPathTracer.ini`**, **`gpuPathTracer.ini`** (`MaxRayDepth`: rays per path, camera ray included),
+  **`skyAtmosphere.ini`** — hot-reloadable tuning.
 
 Read values with `Config->lookup<T>("Key.Subkey")`. Add a config option only for choices
 genuinely supported at runtime; when the project direction makes one path mandatory,
@@ -282,7 +283,9 @@ default behavior is intentional.
 - **Logging**: use the color-coded macros in `Utils/myn/Log.h`, not raw
   `printf`/`std::cout`.
 - **Naming**: types/classes `PascalCase`; namespaces lowercase (`myn`, `myn::sky`);
-  functions/methods follow nearby code.
+  functions/methods follow nearby code. Shader white noise values are named `whiteNoise` plus what each
+  is unique per (`XY` texel, `F` frame, `R` ray, `B` bounce), e.g. `whiteNoiseXYF`; see the legend above
+  `white_noise01` in `shaders/utils.glsl`.
 - **Line length**: wrap only when a line significantly exceeds ~120 chars. Don't add
   artificial breaks to short expressions or call arguments that read clearly on one line.
 

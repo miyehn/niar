@@ -16,6 +16,7 @@
 #include "Utils/FpsMeter.h"
 
 #include "Utils/myn/RenderDoc.h"
+#include "Utils/myn/Sample.h"
 
 #include <SDL2/SDL.h>
 #include <imgui.h>
@@ -326,7 +327,7 @@ static void cleanup()
 
 int main(int argc, const char * argv[])
 {
-	std::srand(time(nullptr));
+	myn::sample::seed_rand01(static_cast<uint32_t>(time(nullptr)));
 
 	Config = new ConfigAsset("config/global.ini", false);
 

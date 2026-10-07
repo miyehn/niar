@@ -46,7 +46,7 @@ void main() {
 	float visibility = sceneDepth < 1.0f ? 1.0f : 0.0f;
 	if (visibility > 0.5f) {
 		vec3 worldPos = reconstructWorldPositionFromDepth(vf_uv, sceneDepth, viewInfo);
-		float noise = white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x);
+		float whiteNoiseXYF = white_noise01(uvec2(pixel), viewInfo.WhiteNoiseF.x);
 		// emission
 		FragColor.rgb += vec3(GColor.a, GNormal.a, GORM.a);
 		// the rest of lighting
@@ -56,7 +56,7 @@ void main() {
 			GNormal.xyz,
 			GColor.rgb,
 			GORM.rgb,
-			noise,
+			whiteNoiseXYF,
 			normalize(viewInfo.CameraPosition - worldPos)
 		);
 		vec3 indirectDiffuse = texture(IndirectLighting, vf_uv).rgb * GColor.rgb;

@@ -9,6 +9,7 @@
 #include "Scene/MeshObject.h"
 #include "Scene/SkyAtmosphere.h"
 
+#include <algorithm>
 #include <imgui.h>
 
 #define GPT_GROUPSIZE_X 8
@@ -25,12 +26,23 @@ constexpr uint32_t Slot_PointLights = 4;
 constexpr uint32_t Slot_DirectionalLights = 5;
 constexpr uint32_t Slot_EnvironmentMap = 6;
 
+struct PushData {
+	uint32_t maxRayDepth;
+};
+
+const ConfigAsset* getGpuPathTracerConfig()
+{
+	static ConfigAsset* config = new ConfigAsset("config/gpuPathTracer.ini", true);
+	return config;
+}
+
 class GpuPathTracerCS : public ComputeShader
 {
 public:
 	const DescriptorSet* descriptorSetPtr = nullptr;
 	const DescriptorSet* skyDescriptorSetPtr = nullptr;
 	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
+	PushData pushData = {1};
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
@@ -41,6 +53,7 @@ public:
 
 		auto& pipeline = getPipeline();
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+		vkCmdPushConstants(cmdbuf, pipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushData), &pushData);
 		descriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_FRAMEGLOBAL, pipeline.layout);
 		skyDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_INDEPENDENT, pipeline.layout);
 		bindlessDescriptorSetPtr->bind(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, DSET_BINDLESS, pipeline.layout);
@@ -57,6 +70,7 @@ protected:
 		builder.useDescriptorSetLayout(DSET_FRAMEGLOBAL, descriptorSetPtr->getLayout());
 		builder.useDescriptorSetLayout(DSET_INDEPENDENT, skyDescriptorSetPtr->getLayout());
 		builder.useDescriptorSetLayout(DSET_BINDLESS, bindlessDescriptorSetPtr->getLayout());
+		builder.usePushConstantRange({VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushData)});
 	}
 };
 
@@ -185,6 +199,7 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 		pathTracerCS->descriptorSetPtr = &fd.descriptorSet;
 		pathTracerCS->skyDescriptorSetPtr = &skyAtmosphereRender.get_descriptor_set(sky);
 		pathTracerCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();
+		pathTracerCS->pushData.maxRayDepth = static_cast<uint32_t>(std::max(1, getGpuPathTracerConfig()->lookup<int>("MaxRayDepth")));
 		pathTracerCS->dispatch(
 			cmdbuf,
 			(renderExtent.width + GPT_GROUPSIZE_X - 1) / GPT_GROUPSIZE_X,

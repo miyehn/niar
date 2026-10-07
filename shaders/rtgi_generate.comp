@@ -85,13 +85,13 @@ void main()
     vec4 viewSpacePos = viewInfo.ViewMatrix * vec4(worldPos, 1.0);
     float linearDepth = -viewSpacePos.z; // affected by current frame jitter
 
-    vec2 random = vec2(
-        white_noise01(uvec3(uvec2(pixel), viewInfo.FrameIndex), viewInfo.FrameRandom.x),
-        white_noise01(uvec3(uvec2(pixel.yx), viewInfo.FrameIndex), viewInfo.FrameRandom.y));
-    vec3 rayDir = sampleCosineWeightedHemisphere(normal, random);
+    vec2 whiteNoiseXYF = vec2(
+        white_noise01(uvec2(pixel), viewInfo.WhiteNoiseF.x),
+        white_noise01(uvec2(pixel.yx), viewInfo.WhiteNoiseF.y));
+    vec3 rayDir = sampleCosineWeightedHemisphere(normal, whiteNoiseXYF);
     vec3 rayOrigin = worldPos + normal * EPSILON;
 
-    vec3 newSample = traceRadiance(SceneTLAS, rayOrigin, rayDir, random.x);
+    vec3 newSample = traceRadiance(SceneTLAS, rayOrigin, rayDir, whiteNoiseXYF.x);
 
     // per-pixel motion vector (currentUV - prevUV) produced by the motion vector pass, independent of jitter
     vec2 motionVector = texture(MotionVectors, screenUv).rg;
