@@ -27,12 +27,6 @@ constexpr uint32_t Slot_DirectionalLights = 5;
 constexpr uint32_t Slot_EnvironmentMap = 6;
 constexpr uint32_t Slot_AccumulationImage = 7;
 
-struct PushData {
-	uint32_t maxRayDepth;
-	uint32_t sampleCount; // samples per pixel accumulated before this dispatch
-	uint32_t maxSpp;      // once sampleCount reaches this, nothing is traced anymore
-};
-
 // FNV-1a over the raw bytes of whatever is added (only types without padding), to tell if what is rendered has changed
 class StateHash
 {
@@ -54,6 +48,12 @@ private:
 class GpuPathTracerCS : public ComputeShader
 {
 public:
+	struct PushData {
+		uint32_t maxRayDepth;
+		uint32_t sampleCount; // samples per pixel accumulated before this dispatch
+		uint32_t maxSpp;      // once sampleCount reaches this, nothing is traced anymore
+	};
+
 	const DescriptorSet* descriptorSetPtr = nullptr;
 	const DescriptorSet* skyDescriptorSetPtr = nullptr;
 	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
@@ -317,7 +317,10 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 void GpuPathTracer::draw_config_ui()
 {
 	ImGui::SliderFloat("##exposure", &cfgExposure, -25, 25, "exposure comp: %.3f");
-	ImGui::Text("samples per pixel: %u / %d", sampleCount, std::max(1, config->lookup<int>("MaxSpp")));
+	const uint32_t maxSpp = static_cast<uint32_t>(std::max(1, config->lookup<int>("MaxSpp")));
+	auto yellow = ImVec4(1.0f, 0.7f, 0.1f, 1.0f);
+	auto green = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);
+	ImGui::TextColored(sampleCount < maxSpp ? yellow : green, "samples per pixel: %u / %u", sampleCount, maxSpp);
 }
 
 GpuPathTracer* GpuPathTracer::get()
