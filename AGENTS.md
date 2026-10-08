@@ -173,7 +173,8 @@ inline implementations.
   `taa:` sub-sections (`enabled`, `maxSampleCount`, `historyDepthRejectionThreshold`,
   `historyWeight`, `clampExpansion`). (The roadmap still calls this `config/gi.ini`; the
   actual file is `deferred.ini`.)
-- **`cpuPathTracer.ini`**, **`gpuPathTracer.ini`** (`MaxRayDepth`: rays per path, camera ray included),
+- **`cpuPathTracer.ini`**, **`gpuPathTracer.ini`** (`MaxRayDepth`: rays per path, camera ray included; `MaxSpp`: samples per
+  pixel to accumulate),
   **`skyAtmosphere.ini`** — hot-reloadable tuning.
 
 Read values with `Config->lookup<T>("Key.Subkey")`. Add a config option only for choices

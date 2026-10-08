@@ -25,16 +25,31 @@ constexpr uint32_t Slot_SceneInstanceRecords = 3;
 constexpr uint32_t Slot_PointLights = 4;
 constexpr uint32_t Slot_DirectionalLights = 5;
 constexpr uint32_t Slot_EnvironmentMap = 6;
+constexpr uint32_t Slot_AccumulationImage = 7;
 
 struct PushData {
 	uint32_t maxRayDepth;
+	uint32_t sampleCount; // samples per pixel accumulated before this dispatch
+	uint32_t maxSpp;      // once sampleCount reaches this, nothing is traced anymore
 };
 
-const ConfigAsset* getGpuPathTracerConfig()
+// FNV-1a over the raw bytes of whatever is added (only types without padding), to tell if what is rendered has changed
+class StateHash
 {
-	static ConfigAsset* config = new ConfigAsset("config/gpuPathTracer.ini", true);
-	return config;
-}
+public:
+	template<typename T>
+	void add(const T& value)
+	{
+		const auto* bytes = reinterpret_cast<const unsigned char*>(&value);
+		for (size_t i = 0; i < sizeof(T); i++) {
+			hash = (hash ^ bytes[i]) * 1099511628211ull;
+		}
+	}
+	uint64_t get() const { return hash; }
+
+private:
+	uint64_t hash = 14695981039346656037ull;
+};
 
 class GpuPathTracerCS : public ComputeShader
 {
@@ -42,7 +57,7 @@ public:
 	const DescriptorSet* descriptorSetPtr = nullptr;
 	const DescriptorSet* skyDescriptorSetPtr = nullptr;
 	const DescriptorSet* bindlessDescriptorSetPtr = nullptr;
-	PushData pushData = {1};
+	PushData pushData = {1, 0, 1};
 
 	void dispatch(VkCommandBuffer cmdbuf, int groupCountX, int groupCountY, int groupCountZ) override
 	{
@@ -87,21 +102,37 @@ GpuPathTracer::GpuPathTracer()
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		"gpuPathTracerOutput");
 	outImage = new Texture2D(imageCreator);
-	// the output stays in GENERAL while the compute pass writes it; it's only moved to TRANSFER_SRC for the blit
+
+	// full float precision, so the running average doesn't stall after many samples
+	ImageCreator accumulationImageCreator(
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		{renderExtent.width, renderExtent.height, 1},
+		VK_IMAGE_USAGE_STORAGE_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		"gpuPathTracerAccumulation");
+	accumulationImage = new Texture2D(accumulationImageCreator);
+
+	// both stay in GENERAL while the compute pass reads and writes them; the output is only moved to TRANSFER_SRC for the blit
 	Vulkan::Instance->immediateSubmit([this](VkCommandBuffer cmdbuf)
 	{
-		vk::insertImageBarrier(cmdbuf, outImage->resource.image,
-							   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-							   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-							   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-							   0,
-							   VK_ACCESS_SHADER_WRITE_BIT,
-							   VK_IMAGE_LAYOUT_UNDEFINED,
-							   VK_IMAGE_LAYOUT_GENERAL);
+		for (Texture2D* image : {outImage, accumulationImage}) {
+			vk::insertImageBarrier(cmdbuf, image->resource.image,
+								   {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+								   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+								   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+								   0,
+								   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+								   VK_IMAGE_LAYOUT_UNDEFINED,
+								   VK_IMAGE_LAYOUT_GENERAL);
+		}
 	});
 
 	sceneTlas.init("GpuPathTracer");
 	skyAtmosphereRender.init();
+
+	config = new ConfigAsset("config/gpuPathTracer.ini", true, [this](const ConfigAsset*) {
+		sampleCount = 0; // any setting may change the image
+	});
 
 	const Texture2D* envmap = Config->lookup<int>("LoadEnvironmentMap")
 		? Asset::find<EnvironmentMapAsset>(Config->lookup<std::string>("EnvironmentMap"))->texture2D
@@ -115,6 +146,7 @@ GpuPathTracer::GpuPathTracer()
 	layout.addBinding(Slot_PointLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout.addBinding(Slot_DirectionalLights, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	layout.addBinding(Slot_EnvironmentMap, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	layout.addBinding(Slot_AccumulationImage, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		auto& fd = gpuFrameData[i];
@@ -144,6 +176,7 @@ GpuPathTracer::GpuPathTracer()
 		fd.descriptorSet.pointToBuffer(fd.pointLightsUbo, Slot_PointLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToBuffer(fd.directionalLightsUbo, Slot_DirectionalLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		fd.descriptorSet.pointToImageView(envmap->imageView, Slot_EnvironmentMap);
+		fd.descriptorSet.pointToStorageImageView(accumulationImage->imageView, Slot_AccumulationImage);
 	}
 }
 
@@ -157,6 +190,7 @@ GpuPathTracer::~GpuPathTracer()
 		fd.directionalLightsUbo.release();
 	}
 	delete outImage;
+	delete accumulationImage;
 }
 
 void GpuPathTracer::render(VkCommandBuffer cmdbuf)
@@ -185,11 +219,45 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 	fd.directionalLightsUbo.writeData(directionalLights, viewInfo.NumDirectionalLights * sizeof(glm::DirectionalLightInfo));
 
 	{
-		SCOPED_DRAW_EVENT(cmdbuf, "GpuPathTracer rebuild TLAS")
-		sceneTlas.build_from_meshes(cmdbuf, frameIndex, meshes, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+		// Everything the accumulated samples depend on. When any of it changes they are stale, and accumulation starts over.
+		StateHash stateHash;
+		stateHash.add(viewInfo.ViewMatrix);
+		stateHash.add(viewInfo.ProjectionMatrix);
+		stateHash.add(viewInfo.BackgroundOption);
+		stateHash.add(viewInfo.NumPointLights);
+		for (int i = 0; i < viewInfo.NumPointLights; i++) {
+			stateHash.add(pointLights[i].position);
+			stateHash.add(pointLights[i].color);
+		}
+		stateHash.add(viewInfo.NumDirectionalLights);
+		for (int i = 0; i < viewInfo.NumDirectionalLights; i++) {
+			stateHash.add(directionalLights[i].direction);
+			stateHash.add(directionalLights[i].color);
+		}
+		stateHash.add(sky->enabled());
+		if (sky->enabled()) stateHash.add(sky->getParameters());
+		stateHash.add(meshes.size());
+		for (const MeshObject* mo : meshes) {
+			stateHash.add(mo->object_to_world());
+			stateHash.add(mo->mesh.surface.bindlessMaterialIndex);
+			stateHash.add(mo->mesh.gpu_data.geometryRecordIndex);
+		}
+		if (stateHash.get() != sceneStateHash) {
+			sceneStateHash = stateHash.get();
+			sampleCount = 0;
+		}
 	}
 
-	skyAtmosphereRender.update_luts(cmdbuf, sky);
+	const uint32_t maxSpp = static_cast<uint32_t>(std::max(1, config->lookup<int>("MaxSpp")));
+
+	// once every pixel has all its samples, nothing is traced anymore; the average is only redisplayed
+	if (sampleCount < maxSpp) {
+		{
+			SCOPED_DRAW_EVENT(cmdbuf, "GpuPathTracer rebuild TLAS")
+			sceneTlas.build_from_meshes(cmdbuf, frameIndex, meshes, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+		}
+		skyAtmosphereRender.update_luts(cmdbuf, sky);
+	}
 
 	const VkImageSubresourceRange colorRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 	{
@@ -199,12 +267,27 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 		pathTracerCS->descriptorSetPtr = &fd.descriptorSet;
 		pathTracerCS->skyDescriptorSetPtr = &skyAtmosphereRender.get_descriptor_set(sky);
 		pathTracerCS->bindlessDescriptorSetPtr = &BindlessResources::Instance->descriptorSet();
-		pathTracerCS->pushData.maxRayDepth = static_cast<uint32_t>(std::max(1, getGpuPathTracerConfig()->lookup<int>("MaxRayDepth")));
+		pathTracerCS->pushData = {
+			static_cast<uint32_t>(std::max(1, config->lookup<int>("MaxRayDepth"))),
+			sampleCount,
+			maxSpp};
 		pathTracerCS->dispatch(
 			cmdbuf,
 			(renderExtent.width + GPT_GROUPSIZE_X - 1) / GPT_GROUPSIZE_X,
 			(renderExtent.height + GPT_GROUPSIZE_Y - 1) / GPT_GROUPSIZE_Y,
 			1);
+	}
+
+	if (sampleCount < maxSpp) {
+		// next frame's dispatch reads and adds to what this one wrote
+		vk::insertImageBarrier(cmdbuf, accumulationImage->resource.image, colorRange,
+							   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+							   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+							   VK_ACCESS_SHADER_WRITE_BIT,
+							   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+							   VK_IMAGE_LAYOUT_GENERAL,
+							   VK_IMAGE_LAYOUT_GENERAL);
+		sampleCount++;
 	}
 
 	vk::insertImageBarrier(cmdbuf, outImage->resource.image, colorRange,
@@ -234,6 +317,7 @@ void GpuPathTracer::render(VkCommandBuffer cmdbuf)
 void GpuPathTracer::draw_config_ui()
 {
 	ImGui::SliderFloat("##exposure", &cfgExposure, -25, 25, "exposure comp: %.3f");
+	ImGui::Text("samples per pixel: %u / %d", sampleCount, std::max(1, config->lookup<int>("MaxSpp")));
 }
 
 GpuPathTracer* GpuPathTracer::get()

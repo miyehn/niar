@@ -7,6 +7,7 @@
 #include "Renderer.h"
 
 class Texture2D;
+class ConfigAsset;
 
 // Playground for path tracing experiments (MIS, RIS, ...) that runs entirely in one compute shader
 // with ray queries, independent from the deferred renderer.
@@ -25,6 +26,13 @@ private:
 	GpuPathTracer();
 
 	float cfgExposure = 3.0f;
+	const ConfigAsset* config = nullptr;
+
+	// Progressive accumulation: accumulationImage holds the average of the first sampleCount samples of every pixel.
+	// It starts over whenever what it shows changes (the config reloads, or sceneStateHash changes).
+	Texture2D* accumulationImage = nullptr;
+	uint32_t sampleCount = 0;
+	uint64_t sceneStateHash = 0;
 
 	Texture2D* outImage = nullptr;
 	SceneTlas sceneTlas;
