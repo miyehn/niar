@@ -305,6 +305,7 @@ SurfaceMaterial fetchSurfaceMaterial(HitSurface surface)
 const uint NOISE_KIND_PATH_RAY = 0u;       // rayIndex: the depth of the ray in its path (the camera ray is 0)
 const uint NOISE_KIND_SHADOW_RAY = 1u;     // rayIndex: the index of the light the shadow ray goes to
 const uint NOISE_KIND_NEXT_DIRECTION = 2u; // rayIndex: the depth of the path vertex that picks the direction (two values)
+const uint NOISE_KIND_PIXEL_JITTER = 3u;   // rayIndex: unused, 0 (two values)
 // noise unique to one ray of a pixel. Whoever shoots a ray derives this once and hands it to the functions that trace it.
 float makeWhiteNoiseXYFR(float whiteNoiseXYF, uint rayKind, uint rayIndex)
 {
